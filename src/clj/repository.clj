@@ -17,7 +17,7 @@
           (tap> [:resources :down])
           nil))
 
-(defn list-resources [_arg]
+(defn list-resources [q]
   #_(prn db-config/config)
   #_{:clj-kondo/ignore [:unresolved-var]}
-  (map #(dissoc % :searchable) (search/search-issues db-config/config ""))) ;; edit
+  (map #(dissoc % :searchable) (search/search-issues db-config/config q)))

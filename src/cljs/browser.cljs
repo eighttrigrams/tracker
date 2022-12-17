@@ -25,7 +25,7 @@
   (let [keys-pressed 
         (r/atom {:code          nil
                  :ctrl-pressed? false})]
-    (fn [] [ui-component keys-pressed])))
+    [ui-component keys-pressed]))
 
 (defn init
   []

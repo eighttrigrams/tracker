@@ -8,7 +8,7 @@
   "Returns a sequence of items
    ([\"some-id\" {:title \"title\" :desc \"desc\"}])"
   [ds q]
-  #_(prn "ds" q)
+  (prn "ds" q)
   (let [result (map un-namespace-keys
                     (if (= "" q)
                       (jdbc/execute! ds
