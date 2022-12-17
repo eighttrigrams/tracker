@@ -2,15 +2,19 @@
   (:require [ajax.core :refer [POST]]
             [reagent.core :as r]
             ["react-dom/client" :refer [createRoot]]
-            [goog.dom :as gdom]))
+            [goog.dom :as gdom]
+            [cljs.core.async :refer [go]]
+            api
+            [cljs.core.async.interop :refer-macros [<p!]]))
 
 (defonce root (createRoot (gdom/getElement "app")))
 
 (defn fetch []
-  (POST "/api" {:body (.stringify js/JSON (clj->js {:msg "hi"}))
-                :headers {"Content-Type" "application/json"}
-                :handler (fn [resp] (prn "Response from backend:" resp))
-                :error-handler (fn [resp] (prn "Error response:" resp))}))
+  (go (->> ""
+            #_{:clj-kondo/ignore [:unresolved-var]}
+            api/list-resources 
+            <p! 
+            prn)))
 
 (defn simple-component []
   [:div

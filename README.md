@@ -1,9 +1,11 @@
-# reagent-react18-mount
+# Tracker
+
+An issue tracking system.
 
 ## Getting started
 
 ```bash
-$1 clj -M -m server
+$1 clj -M:dev -m server
 $2 npx shadow-cljs watch app
 ```
 

@@ -1,8 +1,9 @@
 {:paths ["resources" "src/clj" "env/prod"]
- :deps  {ring/ring-jetty-adapter {:mvn/version "1.9.5"}
-         compojure/compojure     {:mvn/version "1.7.0"}
-         ring/ring-json          {:mvn/version "0.5.1"}
-         ring/ring-devel         {:mvn/version "1.9.5"}
-         uberdeps/uberdeps       {:mvn/version "1.1.4"}
-         mount/mount             {:mvn/version "0.1.16"}}
+ :deps  {ring/ring-jetty-adapter          {:mvn/version "1.9.5"}
+         compojure/compojure              {:mvn/version "1.7.0"}
+         ring/ring-json                   {:mvn/version "0.5.1"}
+         ring/ring-devel                  {:mvn/version "1.9.5"}
+         uberdeps/uberdeps                {:mvn/version "1.1.4"}
+         mount/mount                      {:mvn/version "0.1.16"}
+         net.eighttrigrams/defn-over-http {:mvn/version "0.1.15"}}
 :aliases {:dev {:extra-paths ["env/dev" "test"]}}}

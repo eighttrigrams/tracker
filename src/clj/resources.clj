@@ -3,7 +3,7 @@
 
 (mount/defstate resources
   :start (do
-           (tap> [:resources :up])
+           (tap> [:resources :up 2])
            [{:id   1
              :name "one"}
             {:id   2
@@ -15,4 +15,5 @@
           (tap> [:resources :down])
           nil))
 
-(defn get-resources [] 1) ;; edit
+(defn list-resources [_arg]
+  [1 2 3]) ;; edit
