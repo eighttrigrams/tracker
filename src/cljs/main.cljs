@@ -1,8 +1,8 @@
-(ns ui
+(ns main
   (:require [reagent.core :as r]
             [cljs.core.async :refer [go]]
             api
-            [ui.sides :as sides]
+            [main.sides :as sides]
             [cljs.core.async.interop :refer-macros [<p!]]))
 
 (def original-state {:issues []})
@@ -17,8 +17,10 @@
            <p!
            (swap-state state))))
 
-(defn component []
+(defn component [_keys-pressed]
   (let [state (r/atom original-state)]
-    (fetch! state)
-    (fn []
-      [:div#sides-component [sides/component state]])))
+    (fn [keys-pressed]
+      (prn "keys-pressed" @keys-pressed)
+      (fetch! state)
+      [:div#sides-component
+       [sides/component state]])))

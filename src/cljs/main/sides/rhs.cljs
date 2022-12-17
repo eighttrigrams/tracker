@@ -1,4 +1,4 @@
-(ns ui.sides.rhs)
+(ns main.sides.rhs)
 
 (defn component [state]
   [:ul

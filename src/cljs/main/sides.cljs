@@ -1,5 +1,5 @@
-(ns ui.sides
-  (:require [ui.sides.rhs :as rhs]))
+(ns main.sides
+  (:require [main.sides.rhs :as rhs]))
 
 (defn component [state]
   [:<>
