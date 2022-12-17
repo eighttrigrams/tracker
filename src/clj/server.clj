@@ -5,7 +5,7 @@
             [ring.middleware.json :as json]
             [env :refer [wrap-env-defaults]]
             [mount.core :as mount]
-            [resources :as r]
+            [repository :as r]
             dispatch
             [ring.middleware.resource :refer [wrap-resource]]))
 

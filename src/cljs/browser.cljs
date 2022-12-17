@@ -1,6 +1,5 @@
 (ns browser
-  (:require [ajax.core :refer [POST]]
-            [reagent.core :as r]
+  (:require [reagent.core :as r]
             ["react-dom/client" :refer [createRoot]]
             [goog.dom :as gdom]
             [cljs.core.async :refer [go]]
@@ -9,19 +8,23 @@
 
 (defonce root (createRoot (gdom/getElement "app")))
 
+(def state (r/atom {:issues []}))
+
+(defn swap-state [%]
+  (swap! state (fn [state] (assoc state :issues %))))
+
 (defn fetch []
   (go (->> ""
             #_{:clj-kondo/ignore [:unresolved-var]}
             api/list-resources 
             <p! 
-            prn)))
+            swap-state)))
 
 (defn simple-component []
-  [:div
-   [:p "I am a component"]
-   [:p.someclass
-    "I have " [:strong "bold"]
-    [:span {:style {:color "red"}} " and red!!! "] "text."]])
+  (fn []
+    [:ul
+     (doall (map (fn [%] [:li {:key (:id %)} (:title %)])
+                     (:issues @state)))]))
 
 (defn init
   []

@@ -1,7 +1,9 @@
-(ns resources
-  (:require [mount.core :as mount]))
+(ns repository
+  (:require [mount.core :as mount]
+            [datastore.config :as db-config]
+            [datastore.search :as search]))
 
-(mount/defstate resources
+(mount/defstate repository
   :start (do
            (tap> [:resources :up 2])
            [{:id   1
@@ -16,4 +18,6 @@
           nil))
 
 (defn list-resources [_arg]
-  [1 2 3]) ;; edit
+  #_(prn db-config/config)
+  #_{:clj-kondo/ignore [:unresolved-var]}
+  (map #(dissoc % :searchable) (search/search-issues db-config/config ""))) ;; edit
