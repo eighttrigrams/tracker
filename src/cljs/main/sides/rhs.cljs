@@ -1,7 +1,6 @@
 (ns main.sides.rhs
   (:require repository))
 
-
 (defn component [_state]
   (fn [state]
     [:<>
