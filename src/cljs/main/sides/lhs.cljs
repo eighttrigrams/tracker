@@ -15,7 +15,11 @@
 
 (defn component [_state]
   (fn [state]
-    [:<>
-     #_(when (= :issues (:active-search @state))
-       [input-component state])
-     [contexts-list state]]))
+    (if (:selected-issue @state)
+      [:<> 
+       [:h1 (:title (:selected-issue @state))]
+       [:p (:description (:selected-issue @state))]]
+      [:<>
+       #_(when (= :issues (:active-search @state))
+           [input-component state])
+       [contexts-list state]])))
