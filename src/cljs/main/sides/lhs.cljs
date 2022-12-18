@@ -5,12 +5,13 @@
    (for [context (:contexts @state)]
      ^{:key (:id context)}
      [:li
-      {:on-click (fn [e]
+      {:class (when (= (:selected-context @state) context) :selected)
+       :on-click (fn [e]
                    (prn "yo" (:id context))
                    (swap! state
                           (fn [old-state]
-                            (assoc old-state :selected-context-id 
-                                   (:id context)))))}
+                            (assoc old-state :selected-context
+                                   context))))}
       (:title context)])])
 
 (defn component [_state]

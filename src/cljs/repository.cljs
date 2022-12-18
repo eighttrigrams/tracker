@@ -13,7 +13,7 @@
 
 (defn fetch! [state q]
   (go (-> {:q                   q    ;; TODO simplify: pass through the state (minus unecessary big parts)
-           :selected-context-id (:selected-context-id @state)}
+           :selected-context-id (:id (:selected-context @state))}
           (assoc :active-search (:active-search @state))
           #_{:clj-kondo/ignore [:unresolved-var]}
           api/list-resources

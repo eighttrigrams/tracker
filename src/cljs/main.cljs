@@ -6,7 +6,7 @@
 
 (def original-state {:issues                []
                      :contexts              []
-                     :selected-context-id   nil
+                     :selected-context      nil
                      :selected-issue        nil
                      ;; nil|:issues|:contexts
                      :active-search         nil})
