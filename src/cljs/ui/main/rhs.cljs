@@ -8,15 +8,15 @@
    {:component-did-mount #(.focus (.getElementById js/document "issues-search-input"))
     :render (fn []
               [:input#issues-search-input
-               {:on-change   #(actions/search! *state (.-value (.-target %)))
-                :on-key-down #(let [code (.-code %)]
-                                (.stopPropagation %)
-                                (when (= code "Escape")
-                                  (actions/quit-search! *state)))}])}))
+               {:autoComplete :off
+                :on-change    #(actions/search! *state (.-value (.-target %)))
+                :on-key-down  #(let [code (.-code %)]
+                                 (.stopPropagation %)
+                                 (when (= code "Escape")
+                                   (actions/quit-search! *state)))}])}))
 
 (defn- issues-list [*state]
   [:ul
-   {:class (when (= :issues (:active-search @*state)) :active-search-list)}
    (doall (for [issue (:issues @*state)]
             ^{:key (:id issue)}
             [:li 
@@ -30,6 +30,8 @@
      (when (= :issues (:active-search @*state))
        [:<>
         [:div.active-search-input-container [input-component *state]]
-        [:div.mask.mask-active-search
+        [:div.mask.search-active
          {:on-click #(actions/quit-search! *state)}]])
-     [issues-list *state]]))
+     [:div.list-component
+      {:class (when (= :issues (:active-search @*state)) :search-active)}
+      [issues-list *state]]]))

@@ -33,10 +33,10 @@
        [:h1 (:title (:selected-issue @*state))]
        [:p (:description (:selected-issue @*state))]]
       (:selected-context @*state)
-      [:ul 
+      [:ul
        [list-item *state (:selected-context @*state)]]
       :else
-      [:<>
+      [:div.list-component
        #_(when (= :issues (:active-search @state))
            [input-component state])
        [contexts-list *state]])))

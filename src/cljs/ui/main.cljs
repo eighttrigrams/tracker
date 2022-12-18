@@ -7,5 +7,5 @@
   (repository/fetch! @*state "" #(reset! *state %))
   (fn [*state]
     [:div#sides-container
-     [:div#lhs-component.list-component [lhs/component *state]]
-     [:div#rhs-component.list-component [rhs/component *state]]]))
+     [:div#lhs-component.side-component [lhs/component *state]]
+     [:div#rhs-component.side-component [rhs/component *state]]]))
