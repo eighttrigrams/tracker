@@ -10,3 +10,8 @@
                      #(reset! *state
                               (dissoc % :active-search)))
   (re-focus))
+
+(defn deselect-context! [*state]
+  (-> @*state
+      (dissoc :selected-context)
+      (repository/fetch! "" #(reset! *state %))))
