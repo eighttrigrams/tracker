@@ -13,6 +13,19 @@
     (repository/fetch! @*state (.-value (.-target e))
                        #(reset! *state %))))
 
+(defn- select-issue![*state issue]
+  (fn [_e]
+    (if (:active-search @*state)
+      (do
+        (prn "yo was geth?")
+        (repository/fetch! @*state ""
+                             #(reset! *state 
+                                      (-> %
+                                          (dissoc :active-search)
+                                          (assoc :selected-issue issue)))))
+      (swap! *state (fn [old-state]
+                      (assoc old-state :selected-issue issue))))))
+
 (defn- input-component [*state]
   (r/create-class 
    {:component-did-mount #(.focus (.getElementById js/document "issues-search-input"))
@@ -27,9 +40,7 @@
             ^{:key (:id issue)}
             [:li 
              {:class    (when (= (:selected-issue @*state) issue) :selected)
-              :on-click (fn [_evt]
-                          (swap! *state (fn [old-state] 
-                                         (assoc old-state :selected-issue issue))))}
+              :on-click (select-issue! *state issue)}
              (:title issue)]))])
 
 (defn component [_*state]
