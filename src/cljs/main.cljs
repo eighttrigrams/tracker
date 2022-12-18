@@ -4,16 +4,17 @@
             repository
             [main.sides :as sides]))
 
-(def original-state {:issues []
-                     :q ""
-                     :issues-search-active? false})
+(def original-state {:issues                []
+                     :contexts              []
+                     ;; nil|:issues|:contexts
+                     :active-search         nil})
 
 (defn component [_keys-pressed]
   (let [state (r/atom original-state)]
     (repository/fetch! state "")
     (fn [keys-pressed]
-      (when (and (not (:issues-search-active? @state))
+      (when (and (not (:active-search @state))
                  (= "KeyI" (:code @keys-pressed)))
-        (swap! state (fn [old-state] (assoc old-state :issues-search-active? true))))
+        (swap! state (fn [old-state] (assoc old-state :active-search :issues))))
       [:div#sides-component
        [sides/component state]])))

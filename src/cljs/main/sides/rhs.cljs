@@ -19,6 +19,6 @@
 (defn component [_state]
   (fn [state]
     [:<>
-     (when (:issues-search-active? @state)
+     (when (= :issues (:active-search @state))
        [input-component state])
      [issues-list state]]))
