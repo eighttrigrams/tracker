@@ -15,7 +15,8 @@
    (for [issue (:issues @state)]
      ^{:key (:id issue)}
      [:li 
-      {:on-click (fn [_evt]
+      {:class (when (= (:selected-issue @state) issue) :selected)
+       :on-click (fn [_evt]
                    (swap! state (fn [old-state] 
                                   (assoc old-state :selected-issue issue))))}
       (:title issue)])])
