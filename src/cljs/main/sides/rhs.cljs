@@ -2,29 +2,32 @@
   (:require [reagent.core :as r]
             repository))
 
-(defn- input-component [state]
+(defn- input-component [*state]
   (r/create-class 
    {:component-did-mount #(.focus (.getElementById js/document "issues-search-input"))
     :render (fn []
               [:input#issues-search-input
                {:on-change (fn [e]
-                             (repository/fetch! @state (.-value (.-target e))
-                                                #(reset! state %)))}])}))
+                             (repository/fetch! @*state (.-value (.-target e))
+                                                #(reset! *state %)))}])}))
 
-(defn- issues-list [state]
+(defn- issues-list [*state]
   [:ul
-   (doall (for [issue (:issues @state)]
+   {:class (when (= :issues (:active-search @*state)) :active-search-list)}
+   (doall (for [issue (:issues @*state)]
             ^{:key (:id issue)}
             [:li 
-             {:class (when (= (:selected-issue @state) issue) :selected)
+             {:class    (when (= (:selected-issue @*state) issue) :selected)
               :on-click (fn [_evt]
-                          (swap! state (fn [old-state] 
+                          (swap! *state (fn [old-state] 
                                          (assoc old-state :selected-issue issue))))}
              (:title issue)]))])
 
-(defn component [_state]
-  (fn [state]
+(defn component [_*state]
+  (fn [*state]
     [:<>
-     (when (= :issues (:active-search @state))
-       [input-component state])
-     [issues-list state]]))
+     (when (= :issues (:active-search @*state))
+       [:<>
+        [:div.active-search-input-container [input-component *state]]
+        [:div.mask.mask-active-search]])
+     [issues-list *state]]))
