@@ -15,7 +15,6 @@
 .list-component.search-active {
     position: relative; 
     top: 30px;
-    z-index: 1005;
     height: calc(100vh - 30px);
 }
 
@@ -26,11 +25,16 @@ ul {
 }
 
 li {
+    position: relative;
     background-color:rgb(148, 76, 123);
     height: 100px;
     margin-bottom: 10px;
     border-radius: 4px;
     padding: 10px;
+}
+
+.list-component.search-active li {
+    z-index: 1005;
 }
 
 li.selected {
