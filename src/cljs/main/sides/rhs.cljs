@@ -8,18 +8,19 @@
     :render (fn []
               [:input#issues-search-input
                {:on-change (fn [e]
-                             (repository/fetch! state (.-value (.-target e))))}])}))
+                             (repository/fetch! @state (.-value (.-target e))
+                                                #(reset! state %)))}])}))
 
 (defn- issues-list [state]
   [:ul
-   (for [issue (:issues @state)]
-     ^{:key (:id issue)}
-     [:li 
-      {:class (when (= (:selected-issue @state) issue) :selected)
-       :on-click (fn [_evt]
-                   (swap! state (fn [old-state] 
-                                  (assoc old-state :selected-issue issue))))}
-      (:title issue)])])
+   (doall (for [issue (:issues @state)]
+            ^{:key (:id issue)}
+            [:li 
+             {:class (when (= (:selected-issue @state) issue) :selected)
+              :on-click (fn [_evt]
+                          (swap! state (fn [old-state] 
+                                         (assoc old-state :selected-issue issue))))}
+             (:title issue)]))])
 
 (defn component [_state]
   (fn [state]

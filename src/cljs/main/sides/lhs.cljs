@@ -1,18 +1,25 @@
-(ns main.sides.lhs)
+(ns main.sides.lhs
+  (:require repository))
+
+(defn- handle-event [state f]
+  (fn [e]
+    (f #(reset! state %) (-> e .-target .-value))))
+
+(defn- on-click-item [state context]
+  (handle-event state
+                (fn [reset! _value]
+                  (repository/fetch!
+                   (assoc @state :selected-context context)
+                   "" reset!))))
 
 (defn- contexts-list [state]
   [:ul
-   (for [context (:contexts @state)]
-     ^{:key (:id context)}
-     [:li
-      {:class (when (= (:selected-context @state) context) :selected)
-       :on-click (fn [e]
-                   (prn "yo" (:id context))
-                   (swap! state
-                          (fn [old-state]
-                            (assoc old-state :selected-context
-                                   context))))}
-      (:title context)])])
+   (doall (for [context (:contexts @state)]
+            ^{:key (:id context)}
+            [:li
+             {:class (when (= (:selected-context @state) context) :selected)
+              :on-click (on-click-item state context)}
+             (:title context)]))])
 
 (defn component [_state]
   (fn [state]

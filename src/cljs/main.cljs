@@ -13,7 +13,7 @@
 
 (defn component [_keys-pressed]
   (let [state (r/atom original-state)]
-    (repository/fetch! state "")
+    (repository/fetch! @state "" #(reset! state %))
     (fn [keys-pressed]
       (when (and (not (:active-search @state))
                  (= "KeyI" (:code @keys-pressed)))
