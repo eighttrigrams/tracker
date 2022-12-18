@@ -2,14 +2,23 @@
   (:require [reagent.core :as r]
             repository))
 
+(defn- quit-search! [*state]
+  (fn [_e]
+    (repository/fetch! @*state ""
+                       #(reset! *state
+                                (dissoc % :active-search)))))
+
+(defn- search! [*state]
+  (fn [e]
+    (repository/fetch! @*state (.-value (.-target e))
+                       #(reset! *state %))))
+
 (defn- input-component [*state]
   (r/create-class 
    {:component-did-mount #(.focus (.getElementById js/document "issues-search-input"))
     :render (fn []
               [:input#issues-search-input
-               {:on-change (fn [e]
-                             (repository/fetch! @*state (.-value (.-target e))
-                                                #(reset! *state %)))}])}))
+               {:on-change (search! *state)}])}))
 
 (defn- issues-list [*state]
   [:ul
@@ -29,5 +38,6 @@
      (when (= :issues (:active-search @*state))
        [:<>
         [:div.active-search-input-container [input-component *state]]
-        [:div.mask.mask-active-search]])
+        [:div.mask.mask-active-search
+         {:on-click (quit-search! *state)}]])
      [issues-list *state]]))
