@@ -3,26 +3,29 @@
             ["react-dom/client" :refer [createRoot]]
             [goog.dom :as gdom]
             api
+            [main.actions :as actions]
             main))
 
 (defonce root (createRoot (gdom/getElement "app")))
 
 (defn ui-component [*keys-pressed]
-  [:div#ui
-   [:div#main-layer
-    {;; TODO document recipe
-     ;; to make the div able to listen to key events, https://stackoverflow.com/a/3149416
-     :tabIndex 0
-     :on-key-up
-     (fn [_e]
-       (reset! *keys-pressed {}))
-     :on-key-down
-     (fn [e]
-       (reset! *keys-pressed 
-               {:code          (.-code e)
-                :ctrl-pressed? (.-ctrlKey e)}))}
-    [main/component *keys-pressed]]
-   [:div#modals-layer]])
+  (r/create-class {:component-did-mount actions/re-focus
+                   :render (fn []
+                             [:div#ui
+                              [:div#main-layer
+                               {;; TODO document recipe
+                                ;; to make the div able to listen to key events, https://stackoverflow.com/a/3149416
+                                :tabIndex 0
+                                :on-key-up
+                                (fn [_e]
+                                  (reset! *keys-pressed {}))
+                                :on-key-down
+                                (fn [e]
+                                  (reset! *keys-pressed 
+                                          {:code          (.-code e)
+                                           :ctrl-pressed? (.-ctrlKey e)}))}
+                               [main/component *keys-pressed]]
+                              [:div#modals-layer]])}))
 
 (defn container []
   (let [keys-pressed 

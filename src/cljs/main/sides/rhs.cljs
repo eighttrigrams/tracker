@@ -1,30 +1,27 @@
 (ns main.sides.rhs
   (:require [reagent.core :as r]
-            repository))
-
-(defn- quit-search! [*state]
-  (fn [_e]
-    (repository/fetch! @*state ""
-                       #(reset! *state
-                                (dissoc % :active-search)))))
+            repository
+            [main.actions :as actions]))
 
 (defn- search! [*state]
   (fn [e]
     (repository/fetch! @*state (.-value (.-target e))
                        #(reset! *state %))))
 
-(defn- select-issue![*state issue]
+(defn- select-issue! [*state issue]
   (fn [_e]
     (if (:active-search @*state)
-      (do
-        (prn "yo was geth?")
-        (repository/fetch! @*state ""
-                             #(reset! *state 
-                                      (-> %
-                                          (dissoc :active-search)
-                                          (assoc :selected-issue issue)))))
+      (repository/fetch! @*state ""
+                         #(reset! *state 
+                                  (-> %
+                                      (dissoc :active-search)
+                                      (assoc :selected-issue issue))))
       (swap! *state (fn [old-state]
                       (assoc old-state :selected-issue issue))))))
+
+(defn quit-search! [*state]
+  (fn [_e]
+    (actions/quit-search! *state)))
 
 (defn- input-component [*state]
   (r/create-class 

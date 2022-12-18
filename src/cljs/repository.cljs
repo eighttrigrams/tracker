@@ -9,7 +9,6 @@
    (assoc :issues (or issues (:issues state)))
    (assoc :contexts (or contexts (:contexts state)))))
 
-
 (defn fetch! [state q f]
   (go (-> {:q                   q    ;; TODO simplify: pass through the state (minus unecessary big parts)
            :selected-context-id (:id (:selected-context state))}
