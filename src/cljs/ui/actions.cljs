@@ -1,4 +1,4 @@
-(ns main.actions
+(ns ui.actions
   (:require repository))
 
 (defn re-focus []

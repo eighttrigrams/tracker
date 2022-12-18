@@ -1,7 +1,7 @@
-(ns main.sides.rhs
+(ns ui.main.rhs
   (:require [reagent.core :as r]
             repository
-            [main.actions :as actions]))
+            [ui.actions :as actions]))
 
 (defn- search! [*state]
   (fn [e]

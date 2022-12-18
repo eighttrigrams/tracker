@@ -1,4 +1,4 @@
-(ns main.sides.lhs
+(ns ui.main.lhs
   (:require repository))
 
 (defn- handle-event [*state f]

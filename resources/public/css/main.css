@@ -13,7 +13,7 @@ body {
     position: absolute;
 }
 
-#sides-component {
+#sides-container {
     position: relative;
     width: 1200px;
     margin: auto;
