@@ -28,7 +28,11 @@
    {:component-did-mount #(.focus (.getElementById js/document "issues-search-input"))
     :render (fn []
               [:input#issues-search-input
-               {:on-change (search! *state)}])}))
+               {:on-change (search! *state)
+                :on-key-down (fn [e] (let [code (.-code e)]
+                                       (.stopPropagation e)
+                                       (when (= code "Escape")
+                                         (actions/quit-search! *state))))}])}))
 
 (defn- issues-list [*state]
   [:ul

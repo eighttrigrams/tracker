@@ -5,12 +5,13 @@
   (fn [e]
     (let [code           (.-code e)
           _ctrl-pressed? (.-ctrlKey e)]
+      (prn code)
       (cond (and (not (:active-search @*state))
                  (= "KeyI" code))
             (swap! *state (fn [old-state] (assoc old-state :active-search :issues)))
             (and (:active-search @*state)
                  (= "Escape" code))
-            (actions/quit-search! *state)
+            (do (prn "yesyo1") (actions/quit-search! *state))
             (and (:selected-issue @*state)
                  (= "Escape" code))
             (do (prn "escape")
