@@ -15,3 +15,17 @@
   (-> @*state
       (dissoc :selected-context)
       (repository/fetch! "" #(reset! *state %))))
+
+(defn select-issue! [*state issue]
+  (if (:active-search @*state)
+    (repository/fetch! @*state ""
+                       #(reset! *state
+                                (-> %
+                                    (dissoc :active-search)
+                                    (assoc :selected-issue issue))))
+    (swap! *state (fn [old-state]
+                    (assoc old-state :selected-issue issue)))))
+
+(defn search! [*state value]
+  (repository/fetch! @*state value
+                     #(reset! *state %)))
