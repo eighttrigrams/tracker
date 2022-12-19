@@ -28,7 +28,8 @@
         {:class :search-active}
         [contexts-list *state]]]
       (:selected-issue @*state)
-      [issue-detail-component *state]
+      [:div.details-component.list-component ;; TODO rename, see css
+       [issue-detail-component *state]]
       (:selected-context @*state)
       [context-detail/component *state]
       :else

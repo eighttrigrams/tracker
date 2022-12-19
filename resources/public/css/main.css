@@ -2,6 +2,7 @@
     display: none;
 }
 
+/* TODO rename to reflect its use in details view */
 .list-component {
     position: absolute;
     top: 0px;
@@ -16,6 +17,12 @@
     position: relative; 
     top: 30px;
     height: calc(100vh - 30px);
+}
+
+.details-component {
+    width: calc(100% - 60px);
+    padding-left: 30px;
+    padding-right: 30px;
 }
 
 ul.cards {
