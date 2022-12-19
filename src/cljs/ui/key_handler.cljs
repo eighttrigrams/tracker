@@ -11,6 +11,8 @@
   (handle-keys* 
    (fn [code _ctrl-pressed? _e]
      (cond (and (not (:active-search @*state))
+                (or (:selected-issue @*state)
+                    (:selected-context @*state))
                 (= "KeyD" code))
            (swap! *state #(assoc % :modal :description))
            (and (not (:active-search @*state))

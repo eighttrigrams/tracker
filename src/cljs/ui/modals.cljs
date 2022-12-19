@@ -5,8 +5,11 @@
 (defn- textarea-component [_*state]
   (r/create-class
    {:component-did-mount #(.focus (.getElementById js/document "description-editor"))
-    :reagent-render (fn [] 
-                      [:textarea#description-editor])}))
+    :reagent-render (fn [*state]
+                      [:textarea#description-editor
+                       {:defaultValue (if (:selected-issue @*state)
+                                        (:description (:selected-issue @*state))
+                                        (:description (:selected-context @*state)))}])}))
 
 (defn component [*state]
   [:div
