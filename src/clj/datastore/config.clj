@@ -2,7 +2,7 @@
   (:require [mount.core :as mount]))
 
 (defn ds []
-  (read-string (slurp "./db-config.edn")))
+  (read-string (slurp "./config.edn")))
 
 (mount/defstate config
   :start (ds)

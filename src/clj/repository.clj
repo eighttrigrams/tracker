@@ -1,6 +1,6 @@
 (ns repository
   (:require [mount.core :as mount]
-            [datastore.config :as db-config]
+            [datastore.config :as config]
             datastore
             [datastore.search :as search]))
 
@@ -24,16 +24,16 @@
   #_{:clj-kondo/ignore [:unresolved-var]}
   (cond
     (= :issues active-search)
-    {:issues (map #(dissoc % :searchable) (search/search-issues db-config/config q selected-context-id))}
+    {:issues (map #(dissoc % :searchable) (search/search-issues (:db config/config) q selected-context-id))}
     (= :contexts active-search)
-    {:contexts (map #(dissoc % :searchable) (search/search-contexts db-config/config q))}
-    :else {:issues   (map #(dissoc % :searchable) (search/search-issues db-config/config "" selected-context-id))
-           :contexts (map #(dissoc % :searchable) (search/search-contexts db-config/config ""))}))
+    {:contexts (map #(dissoc % :searchable) (search/search-contexts (:db config/config) q))}
+    :else {:issues   (map #(dissoc % :searchable) (search/search-issues (:db config/config) "" selected-context-id))
+           :contexts (map #(dissoc % :searchable) (search/search-contexts (:db config/config) ""))}))
 
 #_{:clj-kondo/ignore [:unresolved-var]}
 (defn save-issue [id value]
-  (dissoc (datastore/update-issue-description db-config/config id value) :searchable))
+  (dissoc (datastore/update-issue-description (:db config/config) id value) :searchable))
 
 #_{:clj-kondo/ignore [:unresolved-var]}
 (defn save-context [id value]
-  (dissoc (datastore/update-context-description db-config/config id value) :searchable))
+  (dissoc (datastore/update-context-description (:db config/config) id value) :searchable))

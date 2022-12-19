@@ -5,6 +5,7 @@
             [ring.middleware.json :as json]
             [env :refer [wrap-env-defaults]]
             [mount.core :as mount]
+            [datastore.config :as config]
             [repository :as r]
             dispatch
             [ring.middleware.resource :refer [wrap-resource]]))
@@ -31,7 +32,7 @@
 
 (mount/defstate ^{:on-reload :noop} http-server
   :start
-  (future (j/run-jetty app {:port 3000}))
+  (future (j/run-jetty app {:port (:port config/config)}))
   :stop 0)
 
 (defn -main

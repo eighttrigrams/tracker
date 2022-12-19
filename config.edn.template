@@ -1,0 +1,9 @@
+{:port 3000
+ :db 
+ {:dbtype   "postgresql"
+  :dbname   ""
+  :user     ""
+  :password ""
+  :port     5432
+  :hostname "127.0.0.1"}
+ 

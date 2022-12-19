@@ -9,4 +9,4 @@ resources/public/js/cljs-runtime
 resources/public/js/main.js
 resources/public/js/manifest.edn
 server.jar
-db-config.edn
+config.edn
