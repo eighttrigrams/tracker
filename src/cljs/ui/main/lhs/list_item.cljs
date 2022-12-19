@@ -6,4 +6,6 @@
   [:li
    {:class    (when (= (:selected-context @*state) context) :selected)
     :on-click #(actions/select-context! *state context)}
-   (:title context)])
+   [:div
+    {:class (when (:important context) :important)}
+    (:title context)]])

@@ -41,6 +41,10 @@ li.selected {
     background-color: rgb(167, 92, 138);
 }
 
+.important {
+    font-weight: bold;
+}
+
 .mask {
     background-color: rgba(0,0,0,0.5);
     position: fixed;

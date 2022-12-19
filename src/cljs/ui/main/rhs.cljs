@@ -3,11 +3,14 @@
             [ui.actions :as actions]
             [ui.main.input :as input]))
 
+
 (defn- issues-list-item-component [*state issue]
   [:li
-   {:class    (when (= (:selected-issue @*state) issue) :selected)
+   {:class     (when (= (:selected-issue @*state) issue) :selected)
     :on-click #(actions/select-issue! *state issue)}
-   (:title issue)])
+   [:div
+    {:class (when (:important issue) :important)}
+    (:title issue)]])
 
 (defn- issues-list-component [*state]
   [:ul
