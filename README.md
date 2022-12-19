@@ -5,7 +5,7 @@ An issue tracking system.
 ## Getting started
 
 ```bash
-$1 clj -M:dev -m server
+$1 ./dev.sh
 $2 npx shadow-cljs watch app
 ```
 
@@ -31,9 +31,8 @@ Visit `localhost:8020`.
 ### Package and run
 
 ```bash
-$ npx shadow-cljs release app
-$ clj -M -m uberdeps.uberjar --target server.jar
-$ java -cp server.jar clojure.main -m server
+$ ./deploy.sh
+$ ./start.sh
 visit localhost:3000
 ```
 
