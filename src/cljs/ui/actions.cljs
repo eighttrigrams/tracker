@@ -11,7 +11,6 @@
                               (dissoc % :active-search)))
   (re-focus))
 
-;; TODO review unused
 (defn deselect-context! [*state]
   (-> @*state
       (dissoc :selected-context)
@@ -37,3 +36,16 @@
 (defn cancel-modal! [*state]
   (swap! *state dissoc :modal)
   (re-focus))
+
+(defn save-description! [*state type id value]
+  (repository/save-description! 
+   type id value
+   (fn [updated-item]
+     (repository/fetch! @*state "" 
+                        #(reset! *state 
+                                 (-> %
+                                     (assoc (if (= :issue type)
+                                              :selected-issue
+                                              :selected-context) updated-item)
+                                     (dissoc :modal))))
+     (re-focus))))

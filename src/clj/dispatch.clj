@@ -1,6 +1,8 @@
 (ns dispatch
   (:require [net.eighttrigrams.defn-over-http.core :refer [defdispatch]]
-            [repository :refer [list-resources]]))
+            [repository :refer [list-resources save-issue save-context]]))
 
-#_{:clj-kondo/ignore [:unresolved-symbol]}
-(defdispatch handler list-resources)
+(defdispatch handler 
+  list-resources
+  save-issue
+  save-context)

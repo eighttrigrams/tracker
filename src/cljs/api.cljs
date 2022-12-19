@@ -8,3 +8,7 @@
 
 #_{:clj-kondo/ignore [:unresolved-symbol]}
 (defn-over-http list-resources :return-value [])
+
+(defn-over-http save-issue)
+
+(defn-over-http save-context)

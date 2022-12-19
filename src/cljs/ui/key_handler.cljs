@@ -31,7 +31,7 @@
                 (= "Escape" code))
            (actions/deselect-context! *state)))))
 
-(defn handle-modal-keys [*state]
+(defn handle-modal-keys [*state id value-fn]
   (handle-keys*
    (fn [code ctrl-pressed? e]
      (cond (= "Escape" code)
@@ -39,4 +39,8 @@
            (and (= "KeyS" code)
                 ctrl-pressed?)
            (do (.preventDefault e)
-             (prn "yesyo!"))))))
+               (actions/save-description! 
+                *state
+                (if (:selected-issue @*state) :issue :context)
+                id
+                (value-fn)))))))

@@ -31,12 +31,14 @@
                         (jdbc/execute! ds
                                        (sql/format {:select :*
                                                     :from [:issues]
-                                                    :limit 15}))
+                                                    :limit 15
+                                                    :order-by [[:updated_at :desc]]}))
                         (jdbc/execute! ds
                                        (sql/format {:select :*
                                                     :from   [:issues]
                                                     :where [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]
-                                                    :limit  15}))))]
+                                                    :limit  15
+                                                    :order-by [[:updated_at :desc]]}))))]
       #_(prn result)
       result)
     (let [result (map un-namespace-keys
@@ -46,7 +48,8 @@
                                                     :from [:issues]
                                                     :join [:context_issue [:= :issues.id :context_issue.issue_id]]
                                                     :where [:= :context_issue.context_id selected-context-id]
-                                                    :limit 15}))
+                                                    :limit 15
+                                                    :order-by [[:updated_at :desc]]}))
                         (jdbc/execute! ds
                                        (sql/format {:select :*
                                                     :from   [:issues]
@@ -54,6 +57,7 @@
                                                     :where [:and
                                                             [:= :context_issue.context_id selected-context-id]
                                                             [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]]
-                                                    :limit  15}))))]
+                                                    :limit  15
+                                                    :order-by [[:updated_at :desc]]}))))]
       #_(prn result)
       result)))

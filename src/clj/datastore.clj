@@ -1,7 +1,7 @@
 (ns datastore
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
-            [net.eighttrigrams.rocketoid.datastore.helpers
+            [datastore.helpers
              :refer [un-namespace-keys]]))
 
 ;; entity types
@@ -41,14 +41,29 @@
                                       :from [:issues]
                                       :where [:= :id [:inline id]]})))))
 
-(defn update-issue
-  "Updates an issue"
-  [_id _issue]
-  "TODO implement")
+(defn update-issue-description [ds id value]
+  (jdbc/execute! ds
+                 (sql/format {:update [:issues]
+                              :set    {:description [:inline value]
+                                       :updated_at [:raw "NOW()"]}
+                              :where  [:= :id [:inline id]]}))
+  ;; TODO dedup, see above
+  (un-namespace-keys
+   (first (jdbc/execute! ds
+                         (sql/format {:select :*
+                                      :from [:issues]
+                                      :where [:= :id [:inline id]]})))))
 
-(defn insert-context
-  [_context]
-  "TODO implement")
-
-(defn link-issue-to-context
-  [_issue-id _context-id])
+;; TODO dedup, see above
+(defn update-context-description [ds id value]
+  (jdbc/execute! ds
+                 (sql/format {:update [:contexts]
+                              :set    {:description [:inline value]
+                                       :updated_at [:raw "NOW()"]}
+                              :where  [:= :id [:inline id]]}))
+  ;; TODO dedup, see above
+  (un-namespace-keys
+   (first (jdbc/execute! ds
+                         (sql/format {:select :*
+                                      :from [:contexts]
+                                      :where [:= :id [:inline id]]})))))
