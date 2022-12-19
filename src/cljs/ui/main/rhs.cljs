@@ -1,19 +1,7 @@
 (ns ui.main.rhs
-  (:require [reagent.core :as r]
-            repository
-            [ui.actions :as actions]))
-
-(defn- input-component [*state]
-  (r/create-class 
-   {:component-did-mount #(.focus (.getElementById js/document "issues-search-input"))
-    :render (fn []
-              [:input#issues-search-input
-               {:autoComplete :off
-                :on-change    #(actions/search! *state (.-value (.-target %)))
-                :on-key-down  #(let [code (.-code %)]
-                                 (.stopPropagation %)
-                                 (when (= code "Escape")
-                                   (actions/quit-search! *state)))}])}))
+  (:require repository
+            [ui.actions :as actions]
+            [ui.main.input :as input]))
 
 (defn- issues-list [*state]
   [:ul
@@ -28,10 +16,7 @@
   (fn [*state]
     [:<>
      (when (= :issues (:active-search @*state))
-       [:<>
-        [:div.active-search-input-container [input-component *state]]
-        [:div.mask.search-active
-         {:on-click #(actions/quit-search! *state)}]])
+       [input/component *state])
      [:div.list-component
       {:class (when (= :issues (:active-search @*state)) :search-active)}
       [issues-list *state]]]))
