@@ -37,3 +37,6 @@
 #_{:clj-kondo/ignore [:unresolved-var]}
 (defn save-context [id value]
   (dissoc (datastore/update-context-description (:db config/config) id value) :searchable))
+
+(defn new-issue [value context-id]
+  (dissoc (datastore/new-issue (:db config/config) value context-id) :searchable))

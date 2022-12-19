@@ -31,3 +31,12 @@
             <p!
             #_(update-state state) ;; TODO review
             f))))
+
+#_{:clj-kondo/ignore [:unresolved-var]}
+(defn new-issue! [value context-id f]
+  (go (-> 
+          #_(assoc :active-search (:active-search state))
+          (api/new-issue value context-id)
+          <p!
+          #_(update-state state) ;; TODO review
+          f)))

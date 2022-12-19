@@ -21,6 +21,10 @@
            (and (not (:active-search @*state))
                 (= "KeyC" code))
            (swap! *state (fn [old-state] (assoc old-state :active-search :contexts)))
+           (and (not (:active-search @*state))
+                (:selected-context @*state)
+                (= "KeyN" code))
+           (swap! *state #(assoc % :modal :new-issue))
            (and (:active-search @*state)
                 (= "Escape" code))
            (actions/quit-search! *state)
@@ -35,11 +39,19 @@
   (handle-keys*
    (fn [code ctrl-pressed? e]
      (cond (= "Escape" code)
-           (actions/cancel-modal! *state)
+           (actions/cancel-modal! *state) 
            (and (= "KeyS" code)
-                ctrl-pressed?)
+                ctrl-pressed?
+                (= :new-issue (:modal @*state)))
            (do (.preventDefault e)
-               (actions/save-description! 
+               (actions/new-issue!
+                *state
+                (value-fn)))
+           (and (= "KeyS" code)
+                ctrl-pressed?
+                (= :description (:modal @*state)))
+           (do (.preventDefault e)
+               (actions/save-description!
                 *state
                 (if (:selected-issue @*state) :issue :context)
                 id

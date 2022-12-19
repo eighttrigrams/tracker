@@ -4,7 +4,8 @@
 
 (defn component [*state context]
   [:li
-   {:class    (when (= (:selected-context @*state) context) :selected)
+   {:class    (when (= (:id (:selected-context @*state)) ;; TODO review on :id
+                       (:id context)) :selected)
     :on-click #(actions/select-context! *state context)}
    [:div
     {:class (when (:important context) :important)}

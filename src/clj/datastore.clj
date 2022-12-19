@@ -17,29 +17,21 @@
 ;; TODO move to search ns, explore varags here, make tut about varargs and destructuring?
 ;; TODO in minimals, show examples which use substitution/formatting
 
-(defn insert-issue
-  "Inserts an issue
-   Examples:
-   ```
-   (insert-issue
-    {:title \"title\"
-     :description \"description\"})
-   ```"
-  [ds {title       :title
-       description :description
-       short_title :short_title ;; TODO rename to short-title in app
-       tags        :tags}]
-  (jdbc/execute! ds
-                 (sql/format {:insert-into [:issues]
-                              :columns [:inserted_at :updated_at :title :description :short_title :tags]
-                              :values [[[:raw "NOW()"] [:raw "NOW()"] title description short_title tags]]})))
-
-(defn get-issue-by-id [ds id]
-  (un-namespace-keys
-   (first (jdbc/execute! ds
-                         (sql/format {:select :*
-                                      :from [:issues]
-                                      :where [:= :id [:inline id]]})))))
+(defn new-issue [db value context-id]
+  (prn "new-issue" value context-id)
+  (let [issue (un-namespace-keys 
+               (jdbc/execute-one! db
+                                  (sql/format {:insert-into [:issues]
+                                               :columns     [:inserted_at :updated_at :title]
+                                               :values      [[[:raw "NOW()"] [:raw "NOW()"] value]]})
+                                  
+                                  {:return-keys true}))]
+    (jdbc/execute! db
+                   (sql/format {:insert-into [:context-issue]
+                                :columns [:context_id :issue_id]
+                                :values [[[:inline context-id]
+                                          [:inline (:id issue)]]]}))
+    issue))
 
 (defn update-issue-description [ds id value]
   (jdbc/execute! ds

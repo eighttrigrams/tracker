@@ -12,3 +12,5 @@
 (defn-over-http save-issue)
 
 (defn-over-http save-context)
+
+(defn-over-http new-issue)

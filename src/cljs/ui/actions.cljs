@@ -37,10 +37,24 @@
   (swap! *state dissoc :modal)
   (re-focus))
 
+(defn new-issue! [*state value]
+  (repository/new-issue!
+   value 
+   (:id (:selected-context @*state))
+   (fn [updated-item]
+     (repository/fetch! @*state ""
+                        #(reset! *state
+                                 (-> %
+                                     (assoc :selected-issue updated-item)
+                                     (dissoc :modal))))
+     (re-focus))))
+
+;; TODO use promesa; dedup, see above
 (defn save-description! [*state type id value]
   (repository/save-description! 
    type id value
    (fn [updated-item]
+     (prn "updated-item" updated-item)
      (repository/fetch! @*state "" 
                         #(reset! *state 
                                  (-> %

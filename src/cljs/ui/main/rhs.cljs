@@ -6,7 +6,8 @@
 
 (defn- issues-list-item-component [*state issue]
   [:li
-   {:class     (when (= (:selected-issue @*state) issue) :selected)
+   {:class     (when (= (:id (:selected-issue @*state)) ;; TODO review on :id
+                        (:id issue)) :selected)
     :on-click #(actions/select-issue! *state issue)}
    [:div
     {:class (when (:important issue) :important)}
