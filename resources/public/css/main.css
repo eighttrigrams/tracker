@@ -18,13 +18,13 @@
     height: calc(100vh - 30px);
 }
 
-ul {
+ul.cards {
     margin: 0;
     padding: 5px;
     list-style-type: none;
 }
 
-li {
+li.card {
     position: relative;
     background-color:rgb(148, 76, 123);
     height: 100px;
@@ -33,11 +33,11 @@ li {
     padding: 10px;
 }
 
-.list-component.search-active li {
+.list-component.search-active li.card {
     z-index: 1005;
 }
 
-li.selected {
+li.card.selected {
     background-color: rgb(167, 92, 138);
 }
 

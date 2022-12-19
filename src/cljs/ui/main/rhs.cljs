@@ -5,7 +5,7 @@
 
 
 (defn- issues-list-item-component [*state issue]
-  [:li
+  [:li.card
    {:class     (when (= (:id (:selected-issue @*state)) ;; TODO review on :id
                         (:id issue)) :selected)
     :on-click #(actions/select-issue! *state issue)}
@@ -14,7 +14,7 @@
     (:title issue)]])
 
 (defn- issues-list-component [*state]
-  [:ul
+  [:ul.cards
    (doall (for [issue (:issues @*state)]
             ^{:key (:id issue)}
             [issues-list-item-component *state issue]))])

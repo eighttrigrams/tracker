@@ -2,5 +2,5 @@
   (:require [ui.main.lhs.list-item :as list-item]))
 
 (defn component [*state]
-  [:ul
+  [:ul.cards
    [list-item/component *state (:selected-context @*state)]])

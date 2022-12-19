@@ -1,13 +1,12 @@
 (ns ui.main.lhs
-  (:require [reagent.core :as r]
-   repository
+  (:require repository
             [ui.main.input :as input]
             [ui.main.lhs.context-detail :as context-detail]
             [ui.main.lhs.list-item :as list-item]
             ["react-markdown$default" :as ReactMarkdown]))
 
 (defn- contexts-list [*state]
-  [:ul
+  [:ul.cards
    (doall 
     (for [context (:contexts @*state)]
       ^{:key (:id context)}
