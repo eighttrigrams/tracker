@@ -1,8 +1,10 @@
 (ns ui.main.lhs
-  (:require repository
+  (:require [reagent.core :as r]
+   repository
             [ui.main.input :as input]
             [ui.main.lhs.context-detail :as context-detail]
-            [ui.main.lhs.list-item :as list-item]))
+            [ui.main.lhs.list-item :as list-item]
+            ["react-markdown$default" :as ReactMarkdown]))
 
 (defn- contexts-list [*state]
   [:ul
@@ -14,7 +16,8 @@
 (defn- issue-detail-component [*state]
   [:<>
    [:h1 (:title (:selected-issue @*state))]
-   [:p (:description (:selected-issue @*state))]])
+   [:> ReactMarkdown
+    {:children (:description (:selected-issue @*state))}]])
 
 (defn component [_*state]
   (fn [*state]
