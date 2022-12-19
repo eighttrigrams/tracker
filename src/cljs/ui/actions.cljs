@@ -11,6 +11,7 @@
                               (dissoc % :active-search)))
   (re-focus))
 
+;; TODO review unused
 (defn deselect-context! [*state]
   (-> @*state
       (dissoc :selected-context)
@@ -32,3 +33,7 @@
 (defn search! [*state value]
   (repository/fetch! @*state value
                      #(reset! *state %)))
+
+(defn cancel-modal! [*state]
+  (swap! *state dissoc :modal)
+  (re-focus))

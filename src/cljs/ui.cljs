@@ -3,6 +3,7 @@
             repository
             [ui.key-handler :as key-handler]
             [ui.main :as main]
+            [ui.modals :as modals]
             [ui.actions :as actions]))
 
 (def original-state {:issues                []
@@ -10,7 +11,8 @@
                      :selected-context      nil
                      :selected-issue        nil
                      ;; nil|:issues|:contexts
-                     :active-search         nil})
+                     :active-search         nil
+                     :modal                 nil})
 
 (defn component []
   (let [*state (r/atom original-state)]
@@ -25,4 +27,10 @@
            :tabIndex    0
            :on-key-down (key-handler/handle-keys *state)}
           [main/component *state]]
-         [:div#modals-layer]])})))
+         [:div#modals-layer
+          (when (:modal @*state)
+            [:<>
+             [:div.mask 
+              {:on-click #(actions/cancel-modal! *state)}
+              [:div#modals-component
+               [modals/component *state]]]])]])})))
