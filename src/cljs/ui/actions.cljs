@@ -16,15 +16,18 @@
       (dissoc :selected-context)
       (repository/fetch! "" #(reset! *state %))))
 
+(defn- select-item! [*state item key]
+  (repository/fetch! (-> 
+                      @*state 
+                      (assoc key item)
+                      (dissoc :active-search)) ""
+                     #(reset! *state %)))
+
+(defn select-context! [*state context]
+  (select-item! *state context :selected-context))
+
 (defn select-issue! [*state issue]
-  (if (:active-search @*state)
-    (repository/fetch! @*state ""
-                       #(reset! *state
-                                (-> %
-                                    (dissoc :active-search)
-                                    (assoc :selected-issue issue))))
-    (swap! *state (fn [old-state]
-                    (assoc old-state :selected-issue issue)))))
+  (select-item! *state issue :selected-issue))
 
 (defn search! [*state value]
   (repository/fetch! @*state value

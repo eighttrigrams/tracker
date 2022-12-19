@@ -21,7 +21,10 @@
   (tap> ["args" args selected-context-id])
   #_(prn db-config/config)
   #_{:clj-kondo/ignore [:unresolved-var]}
-  (if (= :issues active-search)
+  (cond
+    (= :issues active-search)
     {:issues (map #(dissoc % :searchable) (search/search-issues db-config/config q selected-context-id))}
-    {:issues (map #(dissoc % :searchable) (search/search-issues db-config/config "" selected-context-id))
-     :contexts (map #(dissoc % :searchable) (search/search-contexts db-config/config ""))}))
+    (= :contexts active-search)
+    {:contexts (map #(dissoc % :searchable) (search/search-contexts db-config/config q))}
+    :else {:issues   (map #(dissoc % :searchable) (search/search-issues db-config/config "" selected-context-id))
+           :contexts (map #(dissoc % :searchable) (search/search-contexts db-config/config ""))}))
