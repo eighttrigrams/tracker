@@ -11,12 +11,12 @@
                       (jdbc/execute! ds
                                      (sql/format {:select :*
                                                   :from [:contexts]
-                                                  :limit 15}))
+                                                  :order-by [[:updated_at :desc]]}))
                       (jdbc/execute! ds
                                      (sql/format {:select :*
                                                   :from   [:contexts]
                                                   :where [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]
-                                                  :limit  15}))))]
+                                                  :order-by [[:updated_at :desc]]}))))]
     #_(prn result)
     result))
 
