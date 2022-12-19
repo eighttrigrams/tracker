@@ -11,12 +11,12 @@
                       (jdbc/execute! ds
                                      (sql/format {:select :*
                                                   :from [:contexts]
-                                                  :order-by [[:updated_at :desc]]}))
+                                                  :order-by [[:important :desc] [:updated_at :desc]]}))
                       (jdbc/execute! ds
                                      (sql/format {:select :*
                                                   :from   [:contexts]
                                                   :where [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]
-                                                  :order-by [[:updated_at :desc]]}))))]
+                                                  :order-by [[:important :desc] [:updated_at :desc]]}))))]
     #_(prn result)
     result))
 
@@ -32,7 +32,7 @@
     (sql/format 
      (merge 
       {:from     [:issues]
-       :order-by [[:updated_at :desc]]
+       :order-by [[:important :desc] [:updated_at :desc]]
        :limit    100}
       (if-not selected-context-id
         (let [result
