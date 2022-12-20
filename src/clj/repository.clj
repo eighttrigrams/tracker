@@ -31,11 +31,11 @@
            :contexts (map #(dissoc % :searchable) (search/search-contexts (:db config/config) ""))}))
 
 #_{:clj-kondo/ignore [:unresolved-var]}
-(defn save-issue [id value]
+(defn update-issue-description [id value]
   (dissoc (datastore/update-issue-description (:db config/config) id value) :searchable))
 
 #_{:clj-kondo/ignore [:unresolved-var]}
-(defn save-context [id value]
+(defn update-context-description [id value]
   (dissoc (datastore/update-context-description (:db config/config) id value) :searchable))
 
 (defn new-issue [value context-id]

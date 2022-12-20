@@ -68,8 +68,8 @@
 
 (defn save-description! [*state type id value]
   (go (let [updated-item (<p! ((if (= type :issue)
-                                 api/save-issue ;; TODO switch in the backend
-                                 api/save-context) id value))] 
+                                 api/update-issue-description
+                                 api/update-context-description) id value))] 
         (fetch-and-reset! *state (-> @*state
                                      (dissoc :modal)
                                      (assoc (if (= :issue type)

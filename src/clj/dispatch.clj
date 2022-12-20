@@ -4,6 +4,6 @@
 
 (defdispatch handler 
   list-resources
-  save-issue
-  save-context
+  update-issue-description
+  update-context-description
   new-issue)
