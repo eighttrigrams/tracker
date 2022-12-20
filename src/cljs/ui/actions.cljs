@@ -21,9 +21,7 @@
   (api/list-resources
    {:q                   q
     :active-search       (:active-search state)
-          ;; TODO simplify: pass through the state (minus unecessary big parts)
-    :selected-context-id (:id (:selected-context state))}) ;; TODO pass selected-context instead only id 
-  )
+    :selected-context-id (:id (:selected-context state))}))
 
 (defn- fetch-resources
   [state value]
