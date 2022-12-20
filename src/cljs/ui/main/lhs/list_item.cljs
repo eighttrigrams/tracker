@@ -1,6 +1,5 @@
 (ns ui.main.lhs.list-item
-  (:require repository
-            [ui.actions :as actions]))
+  (:require [ui.actions :as actions]))
 
 (defn component [*state context]
   [:li.card

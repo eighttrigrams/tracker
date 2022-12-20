@@ -1,6 +1,5 @@
 (ns ui
   (:require [reagent.core :as r] 
-            repository
             [ui.key-handler :as key-handler]
             [ui.main :as main]
             [ui.modals :as modals]

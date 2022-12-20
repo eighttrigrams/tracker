@@ -1,10 +1,10 @@
 (ns ui.main
-  (:require repository
+  (:require [ui.actions :as actions]
             [ui.main.lhs :as lhs]
             [ui.main.rhs :as rhs]))
 
 (defn component [*state]
-  (repository/fetch! @*state "" #(reset! *state %))
+  (actions/fetch! *state)
   (fn [*state]
     [:div#sides-container
      [:div#lhs-component.side-component [lhs/component *state]]

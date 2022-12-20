@@ -17,20 +17,22 @@
                  (swap! *state #(dissoc % :selected-issue))
                  (:selected-context @*state)
                  (actions/deselect-context! *state))
-           (and 
-            (or 
-             (:selected-issue @*state)
-             (:selected-context @*state))
-            (= "KeyD" code))
-           (swap! *state #(assoc % :modal :description))
-           (= "KeyI" code)
-           (swap! *state #(assoc % :active-search :issues))
-           (= "KeyC" code)
-           (swap! *state #(assoc % :active-search :contexts))
-           (and 
-            (:selected-context @*state)
-            (= "KeyN" code))
-           (swap! *state #(assoc % :modal :new-issue))))))
+           (not (:active-search @*state))
+           (cond
+             (and 
+              (or 
+               (:selected-issue @*state)
+               (:selected-context @*state))
+              (= "KeyD" code))
+             (swap! *state #(assoc % :modal :description))
+             (= "KeyI" code)
+             (swap! *state #(assoc % :active-search :issues))
+             (= "KeyC" code)
+             (swap! *state #(assoc % :active-search :contexts))
+             (and 
+              (:selected-context @*state)
+              (= "KeyN" code))
+             (swap! *state #(assoc % :modal :new-issue)))))))
 
 (defn handle-modal-keys [*state id value-fn]
   (handle-keys*

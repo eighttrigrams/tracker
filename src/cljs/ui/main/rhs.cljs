@@ -1,6 +1,5 @@
 (ns ui.main.rhs
-  (:require repository
-            [ui.actions :as actions]
+  (:require [ui.actions :as actions]
             [ui.main.input :as input]))
 
 

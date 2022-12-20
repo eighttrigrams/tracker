@@ -1,6 +1,5 @@
 (ns ui.main.lhs
-  (:require repository
-            [ui.main.input :as input]
+  (:require [ui.main.input :as input]
             [ui.main.lhs.context-detail :as context-detail]
             [ui.main.lhs.list-item :as list-item]
             ["react-markdown$default" :as ReactMarkdown]))
