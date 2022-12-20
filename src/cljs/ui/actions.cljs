@@ -70,25 +70,19 @@
   (re-focus))
 
 (defn new-issue! [*state value]
-  (go (let [new-issue (<p! (api/new-issue value (-> @*state :selected-context :id)))
-            result    (<p! (list-resources @*state ""))]
-        (reset! *state
-                (-> result
-                    (update-state @*state)
-                    (dissoc :modal)
-                    (assoc :selected-issue new-issue)))
+  (go (let [new-issue (<p! (api/new-issue value (-> @*state :selected-context :id)))]
+        (fetch-and-reset! *state (-> @*state
+                                     (dissoc :modal)
+                                     (assoc :selected-issue new-issue)))
         (re-focus))))
 
 (defn save-description! [*state type id value]
   (go (let [updated-item (<p! ((if (= type :issue)
                                  api/save-issue ;; TODO switch in the backend
-                                 api/save-context) id value))
-            result       (<p! (list-resources @*state ""))] 
-        (reset! *state 
-                (-> result
-                    (update-state @*state)
-                    (dissoc :modal)
-                    (assoc (if (= :issue type)
-                             :selected-issue
-                             :selected-context) updated-item)))
+                                 api/save-context) id value))] 
+        (fetch-and-reset! *state (-> @*state
+                                     (dissoc :modal)
+                                     (assoc (if (= :issue type)
+                                              :selected-issue
+                                              :selected-context) updated-item)))
         (re-focus))))

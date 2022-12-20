@@ -13,7 +13,8 @@
   (r/create-class
    {:component-did-mount #(.focus (.getElementById js/document "new-issue"))
     :reagent-render (fn [_]
-                      [:input#new-issue])}))
+                      [:input#new-issue
+                       {:autoComplete :off}])}))
 
 (defn- key-handler [*state item]
   (case (:modal @*state)
