@@ -13,10 +13,25 @@
                      :active-search         nil
                      :modal                 nil})
 
+(defn re-focus []
+  (when-let [el (.getElementById js/document "main-layer")]
+    (.focus el)))
+
+(defn- add-state-watch [*state]
+  (add-watch *state
+             :on-state-change
+             (fn [_ _ old-state new-state]
+               (when (or (and (:active-search old-state)
+                              (not (:active-search new-state)))
+                         (and (:modal old-state) ;; TODO extract duplicate pattern
+                              (not (:modal new-state))))
+                 (re-focus)))))
+
 (defn component []
   (let [*state (r/atom original-state)]
+    (add-state-watch *state)
     (r/create-class
-     {:component-did-mount actions/re-focus
+     {:component-did-mount re-focus
       :render              ;
       (fn []
         [:div#ui

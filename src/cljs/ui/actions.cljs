@@ -3,11 +3,6 @@
             [cljs.core.async.interop :refer-macros [<p!]]
             api))
 
-;; TODO this doesn't seem to belong here
-(defn re-focus []
-  (when-let [el (.getElementById js/document "main-layer")]
-    (.focus el)))
-
 (defn reset-state! [new-state *state]
   (reset! *state new-state))
 
@@ -42,8 +37,7 @@
   (fetch-and-reset! *state @*state))
 
 (defn quit-search! [*state]
-  (fetch-and-reset! *state (dissoc @*state :active-search))
-  (re-focus))
+  (fetch-and-reset! *state (dissoc @*state :active-search)))
 
 (defn deselect-context! [*state] 
   (fetch-and-reset! *state (-> @*state
@@ -64,15 +58,13 @@
   (fetch-and-reset! *state @*state value))
 
 (defn cancel-modal! [*state]
-  (swap! *state dissoc :modal)
-  (re-focus))
+  (swap! *state dissoc :modal))
 
 (defn new-issue! [*state value]
   (go (let [new-issue (<p! (api/new-issue value (-> @*state :selected-context :id)))]
         (fetch-and-reset! *state (-> @*state
                                      (dissoc :modal)
-                                     (assoc :selected-issue new-issue)))
-        (re-focus))))
+                                     (assoc :selected-issue new-issue))))))
 
 (defn save-description! [*state type id value]
   (go (let [updated-item (<p! ((if (= type :issue)
@@ -82,5 +74,4 @@
                                      (dissoc :modal)
                                      (assoc (if (= :issue type)
                                               :selected-issue
-                                              :selected-context) updated-item)))
-        (re-focus))))
+                                              :selected-context) updated-item))))))
