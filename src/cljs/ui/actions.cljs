@@ -25,42 +25,36 @@
     :selected-context-id (:id (:selected-context state))}) ;; TODO pass selected-context instead only id 
   )
 
-(defn fetch! [*state]
-  (go (-> @*state
-          (list-resources "")
+(defn- fetch-resources
+  [state value]
+  (go (-> state
+          (list-resources value)
           <p!
-          (update-state @*state)
-          (reset-state! *state))))
+          (update-state state))))
+
+(defn- fetch-and-reset! 
+  ([*state state] (fetch-and-reset! *state state ""))
+  ([*state state value]
+   (go (-> state
+           (fetch-resources value)
+           <!
+           (reset-state! *state)))))
+
+(defn fetch! [*state]
+  (fetch-and-reset! *state @*state))
 
 (defn quit-search! [*state]
-  (go (-> @*state
-          (list-resources "")
-          <p!
-          (update-state @*state)
-          (dissoc :active-search)
-          (reset-state! *state))
-      (re-focus)))
+  (fetch-and-reset! *state (dissoc @*state :active-search))
+  (re-focus))
 
-(defn deselect-context! [*state]
-  (let [state (-> @*state
-                  (dissoc :selected-context))]
-    (go (-> @*state
-            (list-resources "")
-            <p!
-            (update-state state)
-            (reset-state! *state)))))
+(defn deselect-context! [*state] 
+  (fetch-and-reset! *state (-> @*state
+                               (dissoc :selected-context))))
 
 (defn- select-item! [*state item key]
-  (let [state (-> @*state
-                  (assoc key item)
-                  (dissoc :active-search))]
-    (go (-> state
-            (assoc key item)
-            (list-resources "")
-            <p!
-            (update-state state)
-            (dissoc :active-search)
-            (reset-state! *state)))))
+  (fetch-and-reset! *state (-> @*state
+                               (assoc key item)
+                               (dissoc :active-search))))
 
 (defn select-context! [*state context]
   (select-item! *state context :selected-context))
@@ -69,9 +63,7 @@
   (select-item! *state issue :selected-issue))
 
 (defn search! [*state value]
-  (go (let [new-state (update-state (<p! (list-resources @*state value)) @*state)]
-        (prn (keys new-state))
-        (reset! *state new-state))))
+  (fetch-and-reset! *state @*state value))
 
 (defn cancel-modal! [*state]
   (swap! *state dissoc :modal)
