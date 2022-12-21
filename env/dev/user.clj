@@ -3,7 +3,7 @@
             server
             [datastore.config :as config]))
 
-(def ds (config/ds))
+(def db (:db (config/ds)))
 
 (defn start []
   (mount/start))
