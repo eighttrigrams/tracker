@@ -11,3 +11,8 @@
         (map (fn [[k v]]
                [(keyword (name k)) v])
              m)))
+
+(defn simplify-date [m]
+  (update m :date 
+          #(when % 
+             (.format (java.text.SimpleDateFormat. "yyyy-MM-dd") %))))

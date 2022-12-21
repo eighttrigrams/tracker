@@ -2,7 +2,7 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [datastore.helpers
-             :refer [un-namespace-keys]]))
+             :refer [un-namespace-keys simplify-date]]))
 
 (defn search-contexts
   [ds q]
@@ -25,34 +25,33 @@
    ([\"some-id\" {:title \"title\" :desc \"desc\"}])"
   [ds q selected-context-id]
   (prn "ds" q)
-  (map 
-   un-namespace-keys
+  (->>
    (jdbc/execute! 
     ds
     (sql/format 
      (merge 
-      {:from     [:issues]
+      {:select   [:*
+                  {:select :date
+                   :from   [:events]
+                   :where  [:= :events.issue_id :issues.id]}]
+       :from     [:issues]
        :order-by [[:important :desc] [:updated_at :desc]]
        :limit    100}
       (if-not selected-context-id
         (let [result
               (if (= "" q)
-                {:select :*
-                 :where    [:= :important [:inline true]]
-                 }
-                {:select :*
-                 :where  [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]})]
-          #_(prn result)
+                {:where [:= :important [:inline true]]}
+                {:where [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]})]
           result)
         (let [result
               (if (= "" q)
-                {:select :*
-                 :join   [:context_issue [:= :issues.id :context_issue.issue_id]]
-                 :where  [:= :context_issue.context_id selected-context-id]}
-                {:select :*
-                 :join   [:context_issue [:= :issues.id :context_issue.issue_id]]
-                 :where  [:and
-                          [:= :context_issue.context_id selected-context-id]
-                          [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]]})]
+                {:join  [:context_issue [:= :issues.id :context_issue.issue_id]]
+                 :where [:= :context_issue.context_id selected-context-id]}
+                {:join  [:context_issue [:= :issues.id :context_issue.issue_id]]
+                 :where [:and
+                         [:= :context_issue.context_id selected-context-id]
+                         [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]]})]
           #_(prn result)
-          result)))))))
+          result)))))
+   (map un-namespace-keys)
+   (map simplify-date)))

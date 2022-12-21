@@ -10,7 +10,8 @@
     :on-click #(actions/select-issue! *state issue)}
    [:div
     {:class (when (:important issue) :important)}
-    (:title issue)]])
+    [:b (:title issue)]
+    [:p (:date issue)]]])
 
 (defn- issues-list-component [*state]
   [:ul.cards
