@@ -44,7 +44,8 @@
                  (:selected-issue @*state)
                  (:selected-context @*state))]
       [:div
-       {:on-key-down (key-handler *state item)}
+       {:on-key-down (key-handler *state item)
+        :on-click (fn [e] (.stopPropagation e))}
        (case (:modal @*state)
          :description
          [textarea-component item]
