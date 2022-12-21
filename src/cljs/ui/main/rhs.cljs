@@ -11,7 +11,16 @@
    [:div
     {:class (when (:important issue) :important)}
     [:b (:title issue)]
-    [:p (:date issue)]]])
+    [:p (:date issue)]
+    [:span
+     {:style {:font-size "12px"}}
+     (doall (map 
+             
+             (fn [i]
+               [:span {:key (:id i)}
+                (str (:title i) ",")])
+             
+             (:contexts issue)))]]])
 
 (defn- issues-list-component [*state]
   [:ul.cards

@@ -20,6 +20,13 @@
     #_(prn result)
     result))
 
+(defn- fetch-contexts [ds]
+  (fn [m]
+    (assoc m :contexts 
+           (map un-namespace-keys (jdbc/execute! ds 
+                                                 ["select contexts.id, contexts.title from contexts join context_issue on context_issue.context_id = contexts.id where context_issue.issue_id = ?"
+                                                  (:id m)])))))
+
 (defn search-issues
   "Returns a sequence of items
    ([\"some-id\" {:title \"title\" :desc \"desc\"}])"
@@ -54,4 +61,5 @@
           #_(prn result)
           result)))))
    (map un-namespace-keys)
-   (map simplify-date)))
+   (map simplify-date)
+   (map (fetch-contexts ds))))
