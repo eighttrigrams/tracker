@@ -45,7 +45,7 @@
                  (:selected-context @*state))]
       [:div
        {:on-key-down (key-handler *state item)
-        :on-click (fn [e] (.stopPropagation e))}
+        :on-click #(.stopPropagation %)}
        (case (:modal @*state)
          :description
          [textarea-component item]
