@@ -1,17 +1,27 @@
 (ns ui.modals
   (:require [reagent.core :as r]
-            [ui.key-handler :as key-handler]))
+            [ui.key-handler :as key-handler]
+            [net.eighttrigrams.cljs-text-editor.editor :as editor]))
+
+(defn- get-description-el []
+  (.getElementById js/document "description-editor"))
+
+(defn- get-input-el []
+  (.getElementById js/document "new-issue"))
 
 (defn- textarea-component [_item]
   (r/create-class
-   {:component-did-mount #(.focus (.getElementById js/document "description-editor"))
+   {:component-did-mount ;
+    #(let [el (get-description-el)]
+       (editor/create el {})
+       (.focus el))
     :reagent-render (fn [item]
                       [:textarea#description-editor
                        {:defaultValue (:description item)}])}))
 
 (defn- new-issue-component []
   (r/create-class
-   {:component-did-mount #(.focus (.getElementById js/document "new-issue"))
+   {:component-did-mount #(.focus (get-input-el))
     :reagent-render (fn [_]
                       [:input#new-issue
                        {:autoComplete :off}])}))
@@ -21,11 +31,11 @@
     :description
     (key-handler/handle-modal-keys *state 
                                    (:id item) 
-                                   #(.-value (.getElementById js/document "description-editor")))
+                                   #(.-value (get-description-el)))
     :new-issue
     (key-handler/handle-modal-keys *state 
                                    :new
-                                   #(.-value (.getElementById js/document "new-issue")))
+                                   #(.-value (get-input-el)))
     #()))
 
 (defn component [*state]
