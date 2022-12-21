@@ -22,7 +22,7 @@
 (defn- new-issue-component []
   (r/create-class
    {:component-did-mount #(.focus (get-input-el))
-    :reagent-render (fn [_]
+    :reagent-render (fn []
                       [:input#new-issue
                        {:autoComplete :off}])}))
 
