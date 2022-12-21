@@ -23,6 +23,6 @@
     [:<>
      (when (= :issues (:active-search @*state))
        [input/component *state])
-     [:div.list-component
+     [:div.scrollable
       {:class (when (= :issues (:active-search @*state)) :search-active)}
       [issues-list-component *state]]]))

@@ -1,9 +1,8 @@
-.list-component::-webkit-scrollbar {
+.scrollable::-webkit-scrollbar {
     display: none;
 }
 
-/* TODO rename to reflect its use in details view */
-.list-component {
+.scrollable {
     position: absolute;
     top: 0px;
     height: 100vh;
@@ -13,10 +12,14 @@
 	scrollbar-width: none;
 }
 
-.list-component.search-active {
-    position: relative; 
+.scrollable.search-active {
     top: 30px;
     height: calc(100vh - 30px);
+}
+
+.scrollable.card-shown {
+    top: 133px;
+    height: calc(100vh - 150px);
 }
 
 .details-component {
@@ -40,7 +43,7 @@ li.card {
     padding: 10px;
 }
 
-.list-component.search-active li.card {
+.scrollable.search-active li.card {
     z-index: 1005;
 }
 
