@@ -34,8 +34,7 @@
     (merge
      {:select   [:issues.id]
       :from     [:issues]
-      :order-by [[:important :desc] [:updated_at :desc]]
-      :limit    100}
+      :order-by [[:important :desc] [:updated_at :desc]]}
      (if-not selected-context-id
        (let [result
              (if (= "" q)
