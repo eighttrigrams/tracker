@@ -44,9 +44,11 @@
                                (dissoc :selected-context))))
 
 (defn- select-item! [*state item key]
-  (fetch-and-reset! *state (-> @*state
-                               (assoc key item)
-                               (dissoc :active-search))))
+  (if (:active-search @*state)
+    (fetch-and-reset! *state (-> @*state
+                                 (assoc key item)
+                                 (dissoc :active-search)))
+    (swap! *state #(assoc % key item))))
 
 (defn select-context! [*state context]
   (select-item! *state context :selected-context))
