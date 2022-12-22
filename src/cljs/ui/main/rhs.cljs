@@ -16,9 +16,9 @@
      {:style {:font-size "12px"}}
      (doall (map 
              
-             (fn [i]
-               [:span {:key (:id i)}
-                (str (:title i) ",")])
+             (fn [[idx title]]
+               [:span {:key idx}
+                (str title ",")])
              
              (:contexts issue)))]]])
 
