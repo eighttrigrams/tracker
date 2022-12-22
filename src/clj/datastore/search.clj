@@ -35,7 +35,7 @@
      {:select   [:issues.id]
       :from     [:issues]
       :order-by [[:important :desc] [:updated_at :desc]]
-      :limit    1}
+      :limit    100}
      (if-not selected-context-id
        (let [result
              (if (= "" q)
