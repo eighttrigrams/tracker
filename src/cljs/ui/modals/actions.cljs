@@ -22,3 +22,10 @@
                                      (assoc (if (= :issue type)
                                               :selected-issue
                                               :selected-context) updated-item))))))
+
+(defn update-issue! [*state id value]
+  (go (let [updated-issue (<p! (api/update-issue id value))]
+        (fetch-and-reset! *state (-> @*state
+                                     (dissoc :modal)
+                                     (assoc :selected-issue updated-issue))))))
+

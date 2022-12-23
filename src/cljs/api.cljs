@@ -14,3 +14,5 @@
 (defn-over-http update-context-description)
 
 (defn-over-http new-issue)
+
+(defn-over-http update-issue)

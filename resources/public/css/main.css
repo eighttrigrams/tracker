@@ -86,3 +86,11 @@ li.card.selected {
     height: 100vh;
     width: 600px;
 }
+
+#issue-edit-component {
+    background-color: green;
+    width: 100%;
+    position: absolute;
+    top: 50px;
+    height: 500px;
+}

@@ -6,4 +6,5 @@
   list-resources
   update-issue-description
   update-context-description
-  new-issue)
+  new-issue
+  update-issue)

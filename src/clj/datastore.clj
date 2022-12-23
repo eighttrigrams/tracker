@@ -18,7 +18,6 @@
 ;; TODO in minimals, show examples which use substitution/formatting
 
 (defn new-issue [db value context-id]
-  (prn "new-issue" value context-id)
   (let [issue (un-namespace-keys 
                (jdbc/execute-one! db
                                   (sql/format {:insert-into [:issues]
@@ -32,6 +31,17 @@
                                 :values [[[:inline context-id]
                                           [:inline (:id issue)]]]}))
     issue))
+
+(defn update-issue [db id value]
+  (un-namespace-keys
+   (jdbc/execute-one! db
+                      (sql/format {:update [:issues]
+                                   :where  [:= :id [:inline id]]
+                                   :set    {:title       [:inline (:title value)]
+                                            :short_title [:inline (:short_title value)]
+                                            :tags        [:inline (:tags value)]
+                                            :updated_at  [:raw "NOW()"]}})
+                      {:return-keys true})))
 
 (defn update-issue-description [ds id value]
   (jdbc/execute! ds

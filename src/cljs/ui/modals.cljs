@@ -1,12 +1,13 @@
 (ns ui.modals
   (:require [reagent.core :as r]
+            [net.eighttrigrams.cljs-text-editor.editor :as editor]
             [ui.modals.key-handler :as key-handler]
-            [net.eighttrigrams.cljs-text-editor.editor :as editor]))
+            [ui.modals.issue-edit :as issue-edit]))
 
 (defn- get-description-el []
   (.getElementById js/document "description-editor"))
 
-(defn- get-input-el []
+(defn- get-title-el []
   (.getElementById js/document "issue-title"))
 
 (defn- textarea-component [_item]
@@ -21,13 +22,17 @@
 
 (defn- new-issue-component []
   (r/create-class
-   {:component-did-mount #(.focus (get-input-el))
+   {:component-did-mount #(.focus (get-title-el))
     :reagent-render (fn []
                       [:input#issue-title
                        {:autoComplete :off}])}))
 
 (defn- handle-keys [*state item]
   (case (:modal @*state)
+    :edit-issue
+    (key-handler/handle-edit-issue-keys *state
+                                        (:id item)
+                                        #(issue-edit/get-values))
     :description
     (key-handler/handle-modal-keys *state 
                                    (:id item) 
@@ -35,7 +40,7 @@
     :new-issue
     (key-handler/handle-modal-keys *state 
                                    :new
-                                   #(.-value (get-input-el)))
+                                   #(.-value (get-title-el)))
     #()))
 
 (defn component [*state]
@@ -51,4 +56,6 @@
          [textarea-component item]
          :new-issue
          [new-issue-component]
+         :edit-issue
+         [:div#issue-edit-component [issue-edit/component item]]
          nil)])))
