@@ -31,7 +31,9 @@
      (if show-events?
        {:where [:exists {:select [:events.id]
                          :from   [:events]
-                         :where  [:= :events.issue_id :issues.id]}]}
+                         :where  [:and
+                                  [:= :events.issue_id :issues.id]
+                                  [:not= :events.archived [:inline true]]]}]}
        (if-not selected-context-id 
          (if (= "" q)
            {:where [:= :important [:inline true]]}
