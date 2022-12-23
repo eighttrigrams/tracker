@@ -1,13 +1,13 @@
 (ns ui.modals
   (:require [reagent.core :as r]
-            [ui.key-handler :as key-handler]
+            [ui.modals.key-handler :as key-handler]
             [net.eighttrigrams.cljs-text-editor.editor :as editor]))
 
 (defn- get-description-el []
   (.getElementById js/document "description-editor"))
 
 (defn- get-input-el []
-  (.getElementById js/document "new-issue"))
+  (.getElementById js/document "issue-title"))
 
 (defn- textarea-component [_item]
   (r/create-class
@@ -23,10 +23,10 @@
   (r/create-class
    {:component-did-mount #(.focus (get-input-el))
     :reagent-render (fn []
-                      [:input#new-issue
+                      [:input#issue-title
                        {:autoComplete :off}])}))
 
-(defn- key-handler [*state item]
+(defn- handle-keys [*state item]
   (case (:modal @*state)
     :description
     (key-handler/handle-modal-keys *state 
@@ -44,7 +44,7 @@
                  (:selected-issue @*state)
                  (:selected-context @*state))]
       [:div
-       {:on-key-down (key-handler *state item)
+       {:on-key-down (handle-keys *state item)
         :on-click #(.stopPropagation %)}
        (case (:modal @*state)
          :description

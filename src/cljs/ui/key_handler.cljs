@@ -1,11 +1,6 @@
 (ns ui.key-handler
-  (:require [ui.actions :as actions]))
-
-(defn- handle-keys* [f]
-  (fn [e]
-    (let [code          (.-code e)
-          ctrl-pressed? (.-ctrlKey e)]
-      (f code ctrl-pressed? e))))
+  (:require [ui.actions :as actions]
+            [ui.key-handler.common :refer [handle-keys*]]))
 
 (defn handle-keys [*state]
   (handle-keys* 
@@ -29,6 +24,9 @@
                (:selected-context @*state))
               (= "KeyD" code))
              (swap! *state #(assoc % :modal :description))
+             (and (:selected-issue @*state)
+                  (= "KeyE" code))
+             (swap! *state #(assoc % :modal :edit))
              (and (= "KeyI" code) (not (:show-events? @*state)))
              (swap! *state #(assoc % :active-search :issues))
              (and (= "KeyC" code) (not (:show-events? @*state)))
@@ -37,25 +35,3 @@
               (:selected-context @*state)
               (= "KeyN" code))
              (swap! *state #(assoc % :modal :new-issue)))))))
-
-(defn handle-modal-keys [*state id value-fn]
-  (handle-keys*
-   (fn [code ctrl-pressed? e]
-     (cond (= "Escape" code)
-           (actions/cancel-modal! *state) 
-           (and (= "KeyS" code)
-                ctrl-pressed?
-                (= :new-issue (:modal @*state)))
-           (do (.preventDefault e)
-               (actions/new-issue!
-                *state
-                (value-fn)))
-           (and (= "KeyS" code)
-                ctrl-pressed?
-                (= :description (:modal @*state)))
-           (do (.preventDefault e)
-               (actions/save-description!
-                *state
-                (if (:selected-issue @*state) :issue :context)
-                id
-                (value-fn)))))))

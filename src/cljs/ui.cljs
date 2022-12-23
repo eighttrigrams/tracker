@@ -3,7 +3,7 @@
             [ui.key-handler :as key-handler]
             [ui.main :as main]
             [ui.modals :as modals]
-            [ui.actions :as actions]))
+            [ui.modals.actions :as actions]))
 
 (def original-state {:issues                []
                      :contexts              []
