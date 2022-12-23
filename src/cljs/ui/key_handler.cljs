@@ -13,23 +13,27 @@
      (cond (= "Escape" code)
            (cond (:active-search @*state)
                  (actions/quit-search! *state)
+                 (:show-events? @*state)
+                 (actions/exit-events-view! *state)
                  (:selected-issue @*state)
                  (swap! *state #(dissoc % :selected-issue))
                  (:selected-context @*state)
                  (actions/deselect-context! *state))
            (not (:active-search @*state))
            (cond
+             (= "KeyV" code)
+             (actions/show-events! *state)
              (and 
               (or 
                (:selected-issue @*state)
                (:selected-context @*state))
               (= "KeyD" code))
              (swap! *state #(assoc % :modal :description))
-             (= "KeyI" code)
+             (and (= "KeyI" code) (not (:show-events? @*state)))
              (swap! *state #(assoc % :active-search :issues))
-             (= "KeyC" code)
+             (and (= "KeyC" code) (not (:show-events? @*state)))
              (swap! *state #(assoc % :active-search :contexts))
-             (and 
+             (and
               (:selected-context @*state)
               (= "KeyN" code))
              (swap! *state #(assoc % :modal :new-issue)))))))

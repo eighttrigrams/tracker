@@ -9,6 +9,7 @@
                      :contexts              []
                      :selected-context      nil
                      :selected-issue        nil
+                     :show-events?          false
                      ;; nil|:issues|:contexts
                      :active-search         nil
                      :modal                 nil})

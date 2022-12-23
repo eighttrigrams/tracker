@@ -14,9 +14,9 @@
 
 (defn- list-resources [state q]
   (api/list-resources
-   {:q                   q
-    :active-search       (:active-search state)
-    :selected-context-id (:id (:selected-context state))}))
+   (assoc (select-keys state [:active-search :show-events?])
+          :q q
+          :selected-context-id (:id (:selected-context state)))))
 
 (defn- fetch-resources
   [state value]
@@ -44,7 +44,6 @@
                                (dissoc :selected-context))))
 
 (defn- select-item! [*state item key]
-  (prn key)
   (if (or (:active-search @*state) 
           (= :selected-context key))
     (fetch-and-reset! *state (-> @*state
@@ -60,6 +59,14 @@
 
 (defn search! [*state value]
   (fetch-and-reset! *state @*state value))
+
+(defn show-events! [*state]
+  (fetch-and-reset! *state (-> @*state
+                               (assoc :show-events? true)
+                               (dissoc :selected-context))))
+
+(defn exit-events-view! [*state]
+  (fetch-and-reset! *state (assoc @*state :show-events? false)))
 
 (defn cancel-modal! [*state]
   (swap! *state dissoc :modal))

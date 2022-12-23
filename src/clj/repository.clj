@@ -18,17 +18,21 @@
           (tap> [:resources :down])
           nil))
 
-(defn list-resources [{:keys [selected-context-id q active-search] :as args}]
-  (tap> ["args" args selected-context-id])
+(defn list-resources [{:keys [selected-context-id q active-search show-events?] :as opts}]
+  (tap> ["args" opts selected-context-id])
   #_(prn db-config/config)
   #_{:clj-kondo/ignore [:unresolved-var]}
-  (cond
-    (= :issues active-search)
-    {:issues (map #(dissoc % :searchable) (search/search-issues (:db config/config) q selected-context-id))}
-    (= :contexts active-search)
-    {:contexts (map #(dissoc % :searchable) (search/search-contexts (:db config/config) q))}
-    :else {:issues   (map #(dissoc % :searchable) (search/search-issues (:db config/config) "" selected-context-id))
-           :contexts (map #(dissoc % :searchable) (search/search-contexts (:db config/config) ""))}))
+  (let [db (:db config/config)]
+    (cond
+      show-events?
+      {:issues   (search/search-issues db opts)
+       :contexts []}
+      (= :issues active-search)
+      {:issues (search/search-issues db opts)}
+      (= :contexts active-search)
+      {:contexts (search/search-contexts db q)}
+      :else {:issues   (search/search-issues db opts)
+             :contexts (search/search-contexts db "")})))
 
 #_{:clj-kondo/ignore [:unresolved-var]}
 (defn update-issue-description [id value]
@@ -38,5 +42,6 @@
 (defn update-context-description [id value]
   (dissoc (datastore/update-context-description (:db config/config) id value) :searchable))
 
+#_{:clj-kondo/ignore [:unresolved-var]}
 (defn new-issue [value context-id]
   (dissoc (datastore/new-issue (:db config/config) value context-id) :searchable))
