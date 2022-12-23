@@ -33,15 +33,28 @@
     issue))
 
 (defn update-issue [db id value]
-  (un-namespace-keys
-   (jdbc/execute-one! db
-                      (sql/format {:update [:issues]
-                                   :where  [:= :id [:inline id]]
-                                   :set    {:title       [:inline (:title value)]
-                                            :short_title [:inline (:short_title value)]
-                                            :tags        [:inline (:tags value)]
-                                            :updated_at  [:raw "NOW()"]}})
-                      {:return-keys true})))
+  (jdbc/execute! db
+                 (sql/format {:delete-from [:events]
+                              :where [:= :issue_id [:inline id]]}))
+  (let [issue 
+        (un-namespace-keys
+         (jdbc/execute-one! db
+                            (sql/format {:update [:issues]
+                                         :where  [:= :id [:inline id]]
+                                         :set    {:title       [:inline (:title value)]
+                                                  :short_title [:inline (:short_title value)]
+                                                  :tags        [:inline (:tags value)]
+                                                  :updated_at  [:raw "NOW()"]}})
+                            {:return-keys true}))]
+    (when (:date value)
+      (jdbc/execute! db
+                     (sql/format {:insert-into [:events]
+                                  :columns     [:issue_id :date :inserted_at :updated_at]
+                                  :values      [[[:inline id] 
+                                                 [:inline (:date value)]
+                                                 [:raw "NOW()"]
+                                                 [:raw "NOW()"]]]})))
+    issue))
 
 (defn update-issue-description [ds id value]
   (jdbc/execute! ds
