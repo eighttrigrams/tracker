@@ -25,14 +25,11 @@
 
 (defn- list-resources [state q]
   (api/list-resources
-   (assoc (select-keys state [:active-search ;; TODO use dissoc :issues, :contexts instead
-                              :show-events? 
-                              :issue-to-update
-                              :issue-to-fetch
-                              :selected-issue
-                              :selected-context])
-          :q q
-          :selected-context-id (:id (:selected-context state)))))
+   (-> state
+       (dissoc :issues :contexts)
+       (assoc 
+        :q q
+        :selected-context-id (:id (:selected-context state))))))
 
 (defn- fetch-resources
   [state value]
