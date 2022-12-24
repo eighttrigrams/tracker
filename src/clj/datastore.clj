@@ -17,12 +17,12 @@
 ;; TODO move to search ns, explore varags here, make tut about varargs and destructuring?
 ;; TODO in minimals, show examples which use substitution/formatting
 
-(defn new-issue [db value context-id]
+(defn new-issue [db {title :title} context-id]
   (let [issue
         (jdbc/execute-one! db
                            (sql/format {:insert-into [:issues]
                                         :columns     [:inserted_at :updated_at :title]
-                                        :values      [[[:raw "NOW()"] [:raw "NOW()"] value]]})
+                                        :values      [[[:raw "NOW()"] [:raw "NOW()"] title]]})
                            
                            {:return-keys true})]
     (jdbc/execute! db

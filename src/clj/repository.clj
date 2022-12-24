@@ -20,16 +20,21 @@
 
 (defn list-resources [{:keys [q 
                               active-search 
-                              show-events? 
+                              show-events?
+                              issue-to-insert
                               issue-to-update
                               issue-to-update-description-of
                               context-to-update-description-of
+                              selected-context-id
                               issue-to-fetch] 
                        :as opts}]
   (tap> [:opts opts])
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
     (cond
+      issue-to-insert
+      {:selected-issue (datastore/new-issue db issue-to-insert selected-context-id)
+       :issues         (search/search-issues db opts)}
       issue-to-update-description-of
       {:selected-issue (datastore/update-issue-description db issue-to-update-description-of)
        :issues         (search/search-issues db opts)}
@@ -51,7 +56,3 @@
       {:contexts (search/search-contexts db q)}
       :else {:issues   (search/search-issues db opts)
              :contexts (search/search-contexts db "")})))
-
-#_{:clj-kondo/ignore [:unresolved-var]}
-(defn new-issue [value context-id]
-  (datastore/new-issue (:db config/config) value context-id))

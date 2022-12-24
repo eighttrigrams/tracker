@@ -9,7 +9,7 @@
 (defn- update-state [{:keys [issues 
                              contexts 
                              selected-issue 
-                             selected-context 
+                             selected-context
                              quit-active-search?]} 
                      state]
   (->
@@ -22,6 +22,7 @@
    (dissoc :issue-to-update
            :context-to-update
            :issue-to-fetch
+           :issue-to-insert
            :issue-to-update-description-of
            :context-to-update-description-of)))
 

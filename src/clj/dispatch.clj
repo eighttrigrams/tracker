@@ -2,6 +2,4 @@
   (:require [net.eighttrigrams.defn-over-http.core :refer [defdispatch]]
             [repository :refer :all]))
 
-(defdispatch handler 
-  list-resources
-  new-issue)
+(defdispatch handler list-resources)

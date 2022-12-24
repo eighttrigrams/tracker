@@ -38,8 +38,7 @@
                                          :description (.-value (get-description-el))}))
     :new-issue
     (key-handler/handle-modal-keys *state 
-                                   #(do {:id    :new
-                                         :title (.-value (get-title-el))}))
+                                   #(do {:title (.-value (get-title-el))}))
     #()))
 
 (defn component [*state]
