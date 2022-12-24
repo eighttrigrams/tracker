@@ -36,15 +36,15 @@
 
 #_{:clj-kondo/ignore [:unresolved-var]}
 (defn update-issue-description [id value]
-  (dissoc (datastore/update-issue-description (:db config/config) id value) :searchable))
+  (datastore/update-issue-description (:db config/config) id value))
 
 #_{:clj-kondo/ignore [:unresolved-var]}
 (defn update-context-description [id value]
-  (dissoc (datastore/update-context-description (:db config/config) id value) :searchable))
+  (datastore/update-context-description (:db config/config) id value))
 
 #_{:clj-kondo/ignore [:unresolved-var]}
 (defn new-issue [value context-id]
-  (dissoc (datastore/new-issue (:db config/config) value context-id) :searchable))
+  (datastore/new-issue (:db config/config) value context-id))
 
 (defn update-issue [id value]
-  (dissoc (datastore/update-issue (:db config/config) id value) :searchable))
+  (datastore/update-issue (:db config/config) id value))
