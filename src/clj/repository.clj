@@ -1,4 +1,4 @@
-(ns repository
+(ns repository ;; TODO rename to controller or something, because it contains (data-driven) logic
   (:require [mount.core :as mount]
             [datastore.config :as config]
             datastore
