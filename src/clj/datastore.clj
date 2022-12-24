@@ -1,7 +1,6 @@
 (ns datastore
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
-            [datastore.common :as common]
             [datastore.helpers
              :refer [un-namespace-keys simplify-date]]))
 
@@ -59,33 +58,63 @@
                                            :updated_at  [:raw "NOW()"]}})
                      {:return-keys true}))
 
+(defn- join-related-issues [issue]
+  (-> issue
+      (dissoc :related_issues_ids)
+      (dissoc :related_issues_titles)
+      (assoc :related_issues
+             (zipmap (.getArray (:related_issues_ids issue))
+                     (.getArray (:related_issues_titles issue))))))
+
+(defn- issues-query [id]
+  {:select   [:issues.*
+              {:select :date
+               :from   [:events]
+               :where  [:= :events.issue_id :issues.id]}
+              [[:array_agg :related_issues.id] :related_issues_ids]
+              [[:array_agg :related_issues.title] :related_issues_titles]]
+   :from     [:issues]
+   :join     [:issue_issue [:= :issues.id :issue_issue.left_id]
+              [:issues :related_issues] [:= :related_issues.id :issue_issue.right_id]]
+   :where    [:= :issues.id [:inline id]]
+   :group-by [:issues.id]
+   :order-by [[:issues.important :desc] [:issues.updated_at :desc]]})
+
+(defn- simple-issues-query [id]
+  {:select   [:issues.*
+              {:select :date
+               :from   [:events]
+               :where  [:= :events.issue_id :issues.id]}]
+   :from     [:issues]
+   :where    [:= :issues.id [:inline id]]
+   :group-by [:issues.id]
+   :order-by [[:issues.important :desc] [:issues.updated_at :desc]]})
+
+(defn- get-issue-with-related-issues [db id]
+  (when-let [result (-> id
+                        issues-query
+                        sql/format
+                        (#(jdbc/execute-one! db % {:return-keys true})) ;; TODO try swiss-arrows or extract fn
+                        )]
+    (join-related-issues result)))
+
+(defn get-issue [db {:keys [id]}]
+  (-> (if-let [issue (get-issue-with-related-issues db id)]
+        issue
+        (-> id
+            simple-issues-query
+            sql/format
+            (#(jdbc/execute-one! db % {:return-keys true}))))
+      un-namespace-keys
+      simplify-date
+      (dissoc :searchable)))
+
 (defn update-issue [db {:keys [id date] :as issue}]
   (delete-date db id)
   (update-issue* db issue)
   (when date
     (insert-date db id date))
-  (-> id
-      list
-      common/issues-query
-      sql/format
-      (#(jdbc/execute-one! db % {:return-keys true})) ;; TODO try swiss-arrows or extract fn
-      un-namespace-keys
-      common/join-contexts
-      simplify-date
-      (dissoc :searchable)))
-
-;; TODO dedup, see above
-(defn get-issue [db {:keys [id]}]
-  (tap> [:get-issue id])
-  (-> id
-      list
-      common/issues-query
-      sql/format
-      (#(jdbc/execute-one! db % {:return-keys true}))
-      un-namespace-keys
-      common/join-contexts
-      simplify-date
-      (dissoc :searchable)))
+  (get-issue db issue))
 
 (defn update-issue-description [ds id value]
   (-> 

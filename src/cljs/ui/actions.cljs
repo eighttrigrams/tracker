@@ -18,9 +18,10 @@
                                (dissoc :active-search))))
 
 (defn select-issue! [*state issue]
-  ;; TODO Set :selected-issue immediately, for a snappy response in the UI.
-  ;;      Use issue argument for that. The subsequent call to fetch-and-reset! then
-  ;;      will fetch and replace that, and thereby fetch the connected-issues.
+  ;; For a snappy response in the UI, set :selected-issue immediately.
+  ;; The subsequent call to fetch-and-reset! then
+  ;; will fetch and replace it, thereby filling in the related issues.
+  (swap! *state assoc :selected-issue issue)
   (fetch-and-reset! *state (-> @*state
                                (assoc :issue-to-fetch issue))))
 

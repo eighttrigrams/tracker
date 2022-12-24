@@ -24,8 +24,6 @@
                               issue-to-update
                               issue-to-fetch] 
                        :as opts}]
-  (tap> ["args" opts])
-  #_(prn db-config/config)
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
     (cond

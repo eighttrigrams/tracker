@@ -1,7 +1,6 @@
 (ns datastore.search
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
-            [datastore.common :as common]
             [datastore.helpers
              :refer [un-namespace-keys simplify-date]]))
 
@@ -47,6 +46,28 @@
                     [:= :context_issue.context_id selected-context-id]
                     [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]]})))))))
 
+(defn- join-contexts [issue]
+  (-> issue
+      (dissoc :context_ids)
+      (dissoc :context_titles)
+      (assoc :contexts
+             (zipmap (.getArray (:context_ids issue))
+                     (.getArray (:context_titles issue))))))
+
+(defn- issues-query [ids]
+  {:select   [:issues.*
+              {:select :date
+               :from   [:events]
+               :where  [:= :events.issue_id :issues.id]}
+              [[:array_agg :contexts.id] :context_ids]
+              [[:array_agg :contexts.title] :context_titles]]
+   :from     [:issues]
+   :join     [:context_issue [:= :issues.id :context_issue.issue_id]
+              :contexts [:= :context_issue.context_id :contexts.id]]
+   :where    [:in :issues.id [:inline ids]]
+   :group-by [:issues.id]
+   :order-by [[:issues.important :desc] [:issues.updated_at :desc]]})
+
 (defn search-issues
   "Returns a sequence of items
    ([\"some-id\" {:title \"title\" :desc \"desc\"}])"
@@ -54,11 +75,11 @@
        :or   {q ""}}]
   (->> (fetch-ids ds q selected-context-id show-events?)
        (map #(:issues/id %))
-       common/issues-query
+       issues-query
        sql/format
        (jdbc/execute! ds)
        (map un-namespace-keys)
        (map simplify-date)
-       (map common/join-contexts)
+       (map join-contexts)
        (map #(dissoc % :searchable))
        (#(if show-events? (sort-by :date %) %))))
