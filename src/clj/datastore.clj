@@ -60,29 +60,24 @@
         (dissoc :searchable))))
 
 (defn update-issue-description [ds id value]
-  (jdbc/execute-one! ds
-                     (sql/format {:update [:issues]
-                                  :set    {:description [:inline value]
-                                           :updated_at [:raw "NOW()"]}
-                                  :where  [:= :id [:inline id]]}))
-  (-> (jdbc/execute-one! ds
-                         (sql/format {:select :*
-                                      :from [:issues]
-                                      :where [:= :id [:inline id]]}))
-      un-namespace-keys
-      (dissoc :searchable)))
+  (-> 
+   (jdbc/execute-one! ds
+                      (sql/format {:update [:issues]
+                                   :set    {:description [:inline value]
+                                            :updated_at [:raw "NOW()"]}
+                                   :where  [:= :id [:inline id]]})
+                      {:return-keys true})
+   un-namespace-keys
+   (dissoc :searchable)))
 
 ;; TODO dedup, see above
 (defn update-context-description [ds id value]
-  (jdbc/execute-one! ds
-                     (sql/format {:update [:contexts]
-                                  :set    {:description [:inline value]
-                                           :updated_at [:raw "NOW()"]}
-                                  :where  [:= :id [:inline id]]}))
-  
-  (-> (jdbc/execute-one! ds
-                         (sql/format {:select :*
-                                      :from [:contexts]
-                                      :where [:= :id [:inline id]]}))
-      un-namespace-keys
-      (dissoc :searchable)))
+  (-> 
+   (jdbc/execute-one! ds
+                      (sql/format {:update [:contexts]
+                                   :set    {:description [:inline value]
+                                            :updated_at  [:raw "NOW()"]}
+                                   :where  [:= :id [:inline id]]})
+                      {:return-keys true})
+   un-namespace-keys
+   (dissoc :searchable)))
