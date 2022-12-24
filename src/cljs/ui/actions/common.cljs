@@ -6,15 +6,19 @@
 (defn reset-state! [new-state *state]
   (reset! *state new-state))
 
-(defn- update-state [{:keys [issues contexts]} state]
+(defn- update-state [{:keys [issues contexts selected-issue selected-context]} state]
   (->
    state
    (assoc :issues (or issues (:issues state)))
-   (assoc :contexts (or contexts (:contexts state)))))
+   (assoc :contexts (or contexts (:contexts state)))
+   (assoc :selected-issue (or selected-issue (:selected-issue state)))
+   (assoc :selected-context (or selected-context (:selected-context state)))
+   (dissoc :issue-to-update)
+   (dissoc :context-to-update)))
 
 (defn- list-resources [state q]
   (api/list-resources
-   (assoc (select-keys state [:active-search :show-events?])
+   (assoc (select-keys state [:active-search :show-events? :issue-to-update])
           :q q
           :selected-context-id (:id (:selected-context state)))))
 

@@ -24,7 +24,7 @@
                 id
                 (value-fn)))))))
 
-(defn handle-edit-issue-keys [*state id value-fn]
+(defn handle-edit-issue-keys [*state value-fn]
   (handle-keys*
    (fn [code ctrl-pressed? e]
      (cond (= "Escape" code)
@@ -32,5 +32,4 @@
            (and (= "KeyS" code)
                 ctrl-pressed?)
            (do (.preventDefault e)
-               (actions/update-issue! *state
-                                      id (value-fn)))))))
+               (actions/update-issue! *state (value-fn)))))))

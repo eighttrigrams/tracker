@@ -23,9 +23,9 @@
                                               :selected-issue
                                               :selected-context) updated-item))))))
 
-(defn update-issue! [*state id value]
-  (go (let [updated-issue (<p! (api/update-issue id value))]
-        (fetch-and-reset! *state (-> @*state
-                                     (dissoc :modal)
-                                     (assoc :selected-issue updated-issue))))))
+(defn update-issue! [*state issue]
+  (fetch-and-reset! *state 
+                    (-> @*state
+                        (assoc :issue-to-update issue)
+                        (dissoc :modal))))
 

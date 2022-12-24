@@ -1,8 +1,9 @@
 (ns datastore
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
+            [datastore.common :as common]
             [datastore.helpers
-             :refer [un-namespace-keys]]))
+             :refer [un-namespace-keys simplify-date]]))
 
 ;; entity types
 ;; - issues
@@ -34,30 +35,44 @@
         un-namespace-keys
         (dissoc :searchable))))
 
-(defn update-issue [db id value]
+(defn- delete-date [db issue-id]
   (jdbc/execute! db
                  (sql/format {:delete-from [:events]
-                              :where [:= :issue_id [:inline id]]}))
-  (let [issue
-        (jdbc/execute-one! db
-                           (sql/format {:update [:issues]
-                                        :where  [:= :id [:inline id]]
-                                        :set    {:title       [:inline (:title value)]
-                                                 :short_title [:inline (:short_title value)]
-                                                 :tags        [:inline (:tags value)]
-                                                 :updated_at  [:raw "NOW()"]}})
-                           {:return-keys true})]
-    (when (:date value)
-      (jdbc/execute! db
-                     (sql/format {:insert-into [:events]
-                                  :columns     [:issue_id :date :inserted_at :updated_at]
-                                  :values      [[[:inline id] 
-                                                 [:inline (:date value)]
-                                                 [:raw "NOW()"]
-                                                 [:raw "NOW()"]]]})))
-    (-> issue
-        un-namespace-keys
-        (dissoc :searchable))))
+                              :where [:= :issue_id [:inline issue-id]]})))
+
+(defn- insert-date [db issue-id date]
+  (jdbc/execute! db
+                 (sql/format {:insert-into [:events]
+                              :columns     [:issue_id :date :inserted_at :updated_at]
+                              :values      [[[:inline issue-id]
+                                             [:inline date]
+                                             [:raw "NOW()"]
+                                             [:raw "NOW()"]]]})))
+
+(defn- update-issue* [db {:keys [id title short_title tags]}]
+  (jdbc/execute-one! db
+                     (sql/format {:update [:issues]
+                                  :where  [:= :id [:inline id]]
+                                  :set    {:title       [:inline title]
+                                           :short_title [:inline short_title]
+                                           :tags        [:inline tags]
+                                           :updated_at  [:raw "NOW()"]}})
+                     {:return-keys true}))
+
+(defn update-issue [db {:keys [id date] :as issue}]
+  (delete-date db id)
+  (update-issue* db issue)
+  (when date
+    (insert-date db id date))
+  (-> id
+      list
+      common/issues-query
+      sql/format
+      (#(jdbc/execute-one! db % {:return-keys true})) ;; TODO try swiss-arrows or extract fn
+      un-namespace-keys
+      common/join-contexts
+      simplify-date
+      (dissoc :searchable)))
 
 (defn update-issue-description [ds id value]
   (-> 

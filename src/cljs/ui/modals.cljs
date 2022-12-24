@@ -31,8 +31,7 @@
   (case (:modal @*state)
     :edit-issue
     (key-handler/handle-edit-issue-keys *state
-                                        (:id item)
-                                        #(issue-edit/get-values))
+                                        #(issue-edit/get-values (:id item)))
     :description
     (key-handler/handle-modal-keys *state 
                                    (:id item) 

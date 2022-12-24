@@ -47,8 +47,9 @@
              {:type :date
               :defaultValue (:date item)}]])])})))
 
-(defn get-values []
-  {:title       (.-value (get-title-el))
+(defn get-values [id]
+  {:id          id
+   :title       (.-value (get-title-el))
    :short_title (.-value (get-short-title-el))
    :tags        (.-value (get-tags-el))
    :has-event?  (.-checked (get-event-el))
