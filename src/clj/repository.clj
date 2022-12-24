@@ -28,7 +28,6 @@
                               selected-context-id
                               issue-to-fetch] 
                        :as opts}]
-  (tap> [:opts opts])
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
     (cond
