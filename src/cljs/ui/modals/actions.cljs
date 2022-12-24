@@ -13,19 +13,16 @@
                                      (dissoc :modal)
                                      (assoc :selected-issue new-issue))))))
 
-(defn save-description! [*state type id value]
-  (go (let [updated-item (<p! ((if (= type :issue)
-                                 api/update-issue-description
-                                 api/update-context-description) id value))]
-        (fetch-and-reset! *state (-> @*state
-                                     (dissoc :modal)
-                                     (assoc (if (= :issue type)
-                                              :selected-issue
-                                              :selected-context) updated-item))))))
+
+(defn save-description! [*state type item]
+  (fetch-and-reset! *state (-> @*state
+                               (dissoc :modal)
+                               (assoc (if (= :issue type)
+                                        :issue-to-update-description-of
+                                        :context-to-update-description-of) item))))
 
 (defn update-issue! [*state issue]
   (fetch-and-reset! *state 
                     (-> @*state
                         (assoc :issue-to-update issue)
                         (dissoc :modal))))
-

@@ -22,11 +22,19 @@
                               active-search 
                               show-events? 
                               issue-to-update
+                              issue-to-update-description-of
+                              context-to-update-description-of
                               issue-to-fetch] 
                        :as opts}]
+  (tap> [:opts opts])
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
     (cond
+      issue-to-update-description-of
+      {:selected-issue (datastore/update-issue-description db issue-to-update-description-of)
+       :issues         (search/search-issues db opts)}
+      context-to-update-description-of
+      {:selected-context (datastore/update-context-description db context-to-update-description-of)}
       issue-to-update
       {:selected-issue (datastore/update-issue db issue-to-update)
        :issues         (search/search-issues db opts)}
@@ -43,14 +51,6 @@
       {:contexts (search/search-contexts db q)}
       :else {:issues   (search/search-issues db opts)
              :contexts (search/search-contexts db "")})))
-
-#_{:clj-kondo/ignore [:unresolved-var]}
-(defn update-issue-description [id value]
-  (datastore/update-issue-description (:db config/config) id value))
-
-#_{:clj-kondo/ignore [:unresolved-var]}
-(defn update-context-description [id value]
-  (datastore/update-context-description (:db config/config) id value))
 
 #_{:clj-kondo/ignore [:unresolved-var]}
 (defn new-issue [value context-id]

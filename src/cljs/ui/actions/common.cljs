@@ -14,14 +14,16 @@
                      state]
   (->
    state
-   (assoc :issues (or issues (:issues state)))
+   (assoc :issues (or issues (:issues state))) ;; TODO simplify by having just one assoc
    (assoc :contexts (or contexts (:contexts state)))
    (assoc :selected-issue (or selected-issue (:selected-issue state)))
    (assoc :selected-context (or selected-context (:selected-context state)))
    (#(if quit-active-search? (dissoc % :active-search) %))
-   (dissoc :issue-to-update)
-   (dissoc :issue-to-fetch)
-   (dissoc :context-to-update)))
+   (dissoc :issue-to-update
+           :context-to-update
+           :issue-to-fetch
+           :issue-to-update-description-of
+           :context-to-update-description-of)))
 
 (defn- list-resources [state q]
   (api/list-resources

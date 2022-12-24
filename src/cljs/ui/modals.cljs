@@ -34,12 +34,12 @@
                                         #(issue-edit/get-values (:id item)))
     :description
     (key-handler/handle-modal-keys *state 
-                                   (:id item) 
-                                   #(.-value (get-description-el)))
+                                   #(do {:id          (:id item) 
+                                         :description (.-value (get-description-el))}))
     :new-issue
     (key-handler/handle-modal-keys *state 
-                                   :new
-                                   #(.-value (get-title-el)))
+                                   #(do {:id    :new
+                                         :title (.-value (get-title-el))}))
     #()))
 
 (defn component [*state]

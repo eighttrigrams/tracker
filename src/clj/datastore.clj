@@ -116,23 +116,19 @@
     (insert-date db id date))
   (get-issue db issue))
 
-(defn update-issue-description [ds id value]
-  (-> 
-   (jdbc/execute-one! ds
-                      (sql/format {:update [:issues]
-                                   :set    {:description [:inline value]
-                                            :updated_at [:raw "NOW()"]}
-                                   :where  [:= :id [:inline id]]})
-                      {:return-keys true})
-   un-namespace-keys
-   (dissoc :searchable)))
+(defn update-issue-description [db {:keys [id description] :as issue}]
+  (jdbc/execute-one! db
+                     (sql/format {:update [:issues]
+                                  :set    {:description [:inline description]
+                                           :updated_at [:raw "NOW()"]}
+                                  :where  [:= :id [:inline id]]}))
+  (get-issue db issue))
 
-;; TODO dedup, see above
-(defn update-context-description [ds id value]
+(defn update-context-description [ds {:keys [id description]}]
   (-> 
    (jdbc/execute-one! ds
                       (sql/format {:update [:contexts]
-                                   :set    {:description [:inline value]
+                                   :set    {:description [:inline description]
                                             :updated_at  [:raw "NOW()"]}
                                    :where  [:= :id [:inline id]]})
                       {:return-keys true})

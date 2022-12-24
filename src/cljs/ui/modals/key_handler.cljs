@@ -2,7 +2,7 @@
   (:require [ui.modals.actions :as actions]
             [ui.key-handler.common :refer [handle-keys*]]))
 
-(defn handle-modal-keys [*state id value-fn]
+(defn handle-modal-keys [*state value-fn]
   (handle-keys*
    (fn [code ctrl-pressed? e]
      (cond (= "Escape" code)
@@ -21,7 +21,6 @@
                (actions/save-description!
                 *state
                 (if (:selected-issue @*state) :issue :context)
-                id
                 (value-fn)))))))
 
 (defn handle-edit-issue-keys [*state value-fn]
