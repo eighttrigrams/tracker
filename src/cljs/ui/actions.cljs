@@ -12,19 +12,17 @@
   (fetch-and-reset! *state (-> @*state
                                (dissoc :selected-context))))
 
-(defn- select-item! [*state item key]
-  (if (or (:active-search @*state) 
-          (= :selected-context key))
-    (fetch-and-reset! *state (-> @*state
-                                 (assoc key item)
-                                 (dissoc :active-search)))
-    (swap! *state #(assoc % key item))))
-
 (defn select-context! [*state context]
-  (select-item! *state context :selected-context))
+  (fetch-and-reset! *state (-> @*state
+                               (assoc :selected-context context)
+                               (dissoc :active-search))))
 
 (defn select-issue! [*state issue]
-  (select-item! *state issue :selected-issue))
+  ;; TODO Set :selected-issue immediately, for a snappy response in the UI.
+  ;;      Use issue argument for that. The subsequent call to fetch-and-reset! then
+  ;;      will fetch and replace that, and thereby fetch the connected-issues.
+  (fetch-and-reset! *state (-> @*state
+                               (assoc :issue-to-fetch issue))))
 
 (defn search! [*state value]
   (fetch-and-reset! *state @*state value))

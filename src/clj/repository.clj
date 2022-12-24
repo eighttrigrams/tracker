@@ -18,8 +18,13 @@
           (tap> [:resources :down])
           nil))
 
-(defn list-resources [{:keys [selected-context-id q active-search show-events? issue-to-update] :as opts}]
-  (tap> ["args" opts selected-context-id])
+(defn list-resources [{:keys [q 
+                              active-search 
+                              show-events? 
+                              issue-to-update
+                              issue-to-fetch] 
+                       :as opts}]
+  (tap> ["args" opts])
   #_(prn db-config/config)
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
@@ -27,6 +32,10 @@
       issue-to-update
       {:selected-issue (datastore/update-issue db issue-to-update)
        :issues         (search/search-issues db opts)}
+      issue-to-fetch
+      {:selected-issue      (datastore/get-issue db issue-to-fetch)
+       :issues              (when active-search (search/search-issues db opts))
+       :quit-active-search? (boolean active-search)}
       show-events?
       {:issues   (search/search-issues db opts)
        :contexts []}

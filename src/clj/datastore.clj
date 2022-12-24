@@ -74,6 +74,19 @@
       simplify-date
       (dissoc :searchable)))
 
+;; TODO dedup, see above
+(defn get-issue [db {:keys [id]}]
+  (tap> [:get-issue id])
+  (-> id
+      list
+      common/issues-query
+      sql/format
+      (#(jdbc/execute-one! db % {:return-keys true}))
+      un-namespace-keys
+      common/join-contexts
+      simplify-date
+      (dissoc :searchable)))
+
 (defn update-issue-description [ds id value]
   (-> 
    (jdbc/execute-one! ds
