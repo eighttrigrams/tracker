@@ -53,6 +53,7 @@ li.card.selected {
 
 .important {
     font-weight: bold;
+    color: greenyellow;
 }
 
 .mask {

@@ -10,7 +10,12 @@
     :on-click #(actions/select-issue! *state issue)}
    [:div
     {:class (when (:important issue) :important)}
-    [:b (:title issue) "-" (:short_title issue) "-" (:short_title_ints issue)]
+    [:b (when (and (:selected-context @*state) 
+                   (not= 0 (:search_mode (:selected-context @*state))))
+          (str "(" (if (> (:short_title_ints issue) 0)
+                     (:short_title_ints issue)
+                     (or (:short_title issue) (:short_title_ints issue))) ") ")) 
+     (:title issue)]
     [:p (:date issue)]
     [:span
      {:style {:font-size "12px"}}
