@@ -22,7 +22,6 @@
      (doall 
       (->> (:contexts issue)
            (filter (fn [[idx _title]]
-                     (prn idx)
                      (not= idx (:id (:selected-context @*state)))))
            (map (fn [[idx title]]
                   [:span {:key idx}
