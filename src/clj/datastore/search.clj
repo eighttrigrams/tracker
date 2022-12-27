@@ -77,6 +77,21 @@
    :group-by [:issues.id]
    :order-by [[:issues.important :desc] [:issues.updated_at :desc]]})
 
+(defn- re-order [issues search-mode]
+  (if (= 1 search-mode)
+    (let [top (sort-by #(:short_title %) 
+                       (filter #(and (some? (:short_title %))
+                                     (= 0 (:short_title_ints %))) issues))
+          bottom (sort-by #(:short_title_ints %)
+                          (filter #(> (:short_title_ints %) 0) issues))]
+      (concat top bottom))
+    (let [top (reverse (sort-by #(:short_title_ints %)
+                                (filter #(> (:short_title_ints %) 0) issues)))
+          bottom (reverse (sort-by #(:short_title %)
+                                   (filter #(and (= (:short_title_ints %) 0)
+                                                 (some? (:short_title %))) issues)))]
+      (concat top bottom))))
+
 (defn search-issues
   "Returns a sequence of items
    ([\"some-id\" {:title \"title\" :desc \"desc\"}])"
@@ -91,4 +106,7 @@
        (map simplify-date)
        (map join-contexts)
        (map #(dissoc % :searchable))
-       (#(if show-events? (sort-by :date %) %))))
+       (#(if show-events? (sort-by :date %) %))
+       (#(if (contains? #{1 2} (:search_mode selected-context))
+           (re-order % (:search_mode selected-context))
+           %))))

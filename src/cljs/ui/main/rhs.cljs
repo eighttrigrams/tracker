@@ -10,7 +10,7 @@
     :on-click #(actions/select-issue! *state issue)}
    [:div
     {:class (when (:important issue) :important)}
-    [:b (:title issue)]
+    [:b (:title issue) "-" (:short_title issue) "-" (:short_title_ints issue)]
     [:p (:date issue)]
     [:span
      {:style {:font-size "12px"}}
