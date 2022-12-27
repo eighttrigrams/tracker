@@ -30,9 +30,7 @@
   (api/list-resources
    (-> state
        (dissoc :issues :contexts)
-       (assoc 
-        :q q
-        :selected-context-id (:id (:selected-context state))))))
+       (assoc :q q))))
 
 (defn- fetch-resources
   [state value]

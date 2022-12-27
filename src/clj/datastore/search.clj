@@ -20,31 +20,40 @@
    (map un-namespace-keys)
    (map #(dissoc % :searchable))))
 
-(defn- fetch-ids [ds q selected-context-id show-events?]
-  (jdbc/execute!
-   ds
-   (sql/format
-    (merge
-     {:select   [:issues.id]
-      :from     [:issues]
-      :order-by [[:important :desc] [:updated_at :desc]]}
-     (if show-events?
-       {:where [:exists {:select [:events.id]
-                         :from   [:events]
-                         :where  [:and
-                                  [:= :events.issue_id :issues.id]
-                                  [:not= :events.archived [:inline true]]]}]}
-       (if-not selected-context-id 
-         (if (= "" q)
-           {:where [:= :important [:inline true]]}
-           {:where [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]})
-         (if (= "" q)
-           {:join  [:context_issue [:= :issues.id :context_issue.issue_id]]
-            :where [:= :context_issue.context_id selected-context-id]}
-           {:join  [:context_issue [:= :issues.id :context_issue.issue_id]]
-            :where [:and
-                    [:= :context_issue.context_id selected-context-id]
-                    [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]]})))))))
+(defn- fetch-ids [ds q selected-context show-events?]
+  (let [selected-context-id (:id selected-context)
+        search-clause       (if (not= "" q)
+                              [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))] 
+                              [:=])
+        join-clause         (if selected-context
+                              [:context_issue [:= :issues.id :context_issue.issue_id]]
+                              [])
+        join-where-clause   (if selected-context
+                              [:= :context_issue.context_id selected-context-id]
+                              [:=])
+        exists-clause       (if show-events? 
+                              [:exists {:select [:events.id]
+                                        :from   [:events]
+                                        :where  [:and
+                                                 [:= :events.issue_id :issues.id]
+                                                 [:not= :events.archived [:inline true]]]}]
+                              [:=])]
+    (jdbc/execute!
+     ds
+     (sql/format
+      {:select   [:issues.id]
+       :from     [:issues]
+       :order-by [[:important :desc] [:updated_at :desc]]
+       :join     join-clause
+       :where    [:and
+                  exists-clause
+                  join-where-clause
+                  (if (and (= "" q) 
+                           (not selected-context)
+                           (not show-events?))
+                    [:= :important [:inline true]] 
+                    [:=])
+                  search-clause]}))))
 
 (defn- join-contexts [issue]
   (-> issue
@@ -71,9 +80,9 @@
 (defn search-issues
   "Returns a sequence of items
    ([\"some-id\" {:title \"title\" :desc \"desc\"}])"
-  [ds {:keys [q selected-context-id show-events?]
+  [ds {:keys [q selected-context show-events?]
        :or   {q ""}}]
-  (->> (fetch-ids ds q selected-context-id show-events?)
+  (->> (fetch-ids ds q selected-context show-events?)
        (map #(:issues/id %))
        issues-query
        sql/format

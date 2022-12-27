@@ -27,7 +27,7 @@
              (and (:selected-issue @*state)
                   (= "KeyE" code))
              (swap! *state #(assoc % :modal :edit-issue))
-             (and (= "KeyI" code) (not (:show-events? @*state)))
+             (= "KeyI" code)
              (swap! *state #(assoc % :active-search :issues))
              (and (= "KeyC" code) (not (:show-events? @*state)))
              (swap! *state #(assoc % :active-search :contexts))
