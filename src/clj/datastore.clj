@@ -192,9 +192,7 @@
 
 (defn cycle-search-mode [db {:keys [id] :as context}]
   (let [context (get-context db context)]
-    (-> (jdbc/execute-one! db (sql/format {:update [:contexts]
-                                           :set    {:search_mode [:inline (mod (inc (:search_mode context)) 3)]}
-                                           :where  [:= :id [:inline id]]})
-                           {:return-keys true})
-        un-namespace-keys
-        (dissoc :searchable))))
+    (jdbc/execute-one! db (sql/format {:update [:contexts]
+                                       :set    {:search_mode [:inline (mod (inc (:search_mode context)) 3)]}
+                                       :where  [:= :id [:inline id]]}))
+    (get-context db context)))
