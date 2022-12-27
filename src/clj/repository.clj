@@ -23,6 +23,7 @@
                               show-events?
                               issue-to-insert
                               issue-to-update
+                              context-to-update
                               issue-to-update-description-of
                               context-to-update-description-of
                               selected-context-id
@@ -43,6 +44,9 @@
       issue-to-update
       {:selected-issue (datastore/update-issue db issue-to-update)
        :issues         (search/search-issues db opts)}
+      context-to-update
+      {:selected-context (datastore/update-context db context-to-update)
+       :issues           (search/search-issues db opts)} ;; maybe not necessary (yet)
       issue-to-fetch
       {:selected-issue      (datastore/get-issue db issue-to-fetch)
        :issues              (when active-search (search/search-issues db opts))

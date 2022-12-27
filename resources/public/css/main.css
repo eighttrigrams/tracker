@@ -88,7 +88,7 @@ li.card.selected {
     width: 600px;
 }
 
-#issue-edit-component {
+#edit-component {
     background-color: green;
     width: 100%;
     position: absolute;

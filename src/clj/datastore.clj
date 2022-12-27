@@ -58,6 +58,16 @@
                                            :updated_at  [:raw "NOW()"]}})
                      {:return-keys true}))
 
+(defn- update-context* [db {:keys [id title short_title tags]}]
+  (jdbc/execute-one! db
+                     (sql/format {:update [:contexts]
+                                  :where  [:= :id [:inline id]]
+                                  :set    {:title       [:inline title]
+                                           :short_title [:inline short_title]
+                                           :tags        [:inline tags]
+                                           :updated_at  [:raw "NOW()"]}})
+                     {:return-keys true}))
+
 (defn- join-related-issues [issue]
   (-> issue
       (dissoc :related_issues_ids)
@@ -156,6 +166,10 @@
   (when date
     (insert-date db id date))
   (get-issue db issue))
+
+(defn update-context [db context] 
+  (update-context* db context)
+  (get-context db context))
 
 (defn update-issue-description [db {:keys [id description] :as issue}]
   (jdbc/execute-one! db

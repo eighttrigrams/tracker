@@ -16,26 +16,25 @@
 (defn- get-date-el []
   (.getElementById js/document "date-picker"))
 
-(defn component [item]
-  (let [date-visible? (r/atom (boolean (:date item)))]
+(defn component [issue]
+  (let [date-visible? (r/atom (boolean (:date issue)))]
     (r/create-class
      {:component-did-mount #(.focus (get-title-el))
       :reagent-render      ;
       (fn [_item]
-        (prn (when (get-date-el) (.-value (get-date-el))))
         [:<>
          [:div
           [:input#issue-title
            {:autoComplete :off
-            :defaultValue (:title item)}]]
+            :defaultValue (:title issue)}]]
          [:div
           [:input#issue-short-title
            {:autoComplete :off
-            :defaultValue (:short_title item)}]] ;; TODO work with short-title
+            :defaultValue (:short_title issue)}]] ;; TODO work with short-title
          [:div
           [:input#issue-tags
            {:autoComplete :off
-            :defaultValue (:tags item)}]]
+            :defaultValue (:tags issue)}]]
          [:div
           [:input#has-date
            {:type :checkbox
@@ -45,7 +44,7 @@
            [:div
             [:input#date-picker
              {:type :date
-              :defaultValue (:date item)}]])])})))
+              :defaultValue (:date issue)}]])])})))
 
 (defn get-values [id]
   {:id          id

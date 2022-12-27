@@ -22,3 +22,9 @@
                     (-> @*state
                         (assoc :issue-to-update issue)
                         (dissoc :modal))))
+
+(defn update-context! [*state context]
+  (fetch-and-reset! *state
+                    (-> @*state
+                        (assoc :context-to-update context)
+                        (dissoc :modal))))
