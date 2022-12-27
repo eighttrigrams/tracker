@@ -95,18 +95,20 @@
 (defn search-issues
   "Returns a sequence of items
    ([\"some-id\" {:title \"title\" :desc \"desc\"}])"
-  [ds {:keys [q selected-context show-events?]
+  [db {:keys [q selected-context show-events?]
        :or   {q ""}}]
-  (->> (fetch-ids ds q selected-context show-events?)
-       (map #(:issues/id %))
-       issues-query
-       sql/format
-       (jdbc/execute! ds)
-       (map un-namespace-keys)
-       (map simplify-date)
-       (map join-contexts)
-       (map #(dissoc % :searchable))
-       (#(if show-events? (sort-by :date %) %))
-       (#(if (contains? #{1 2} (:search_mode selected-context))
-           (re-order % (:search_mode selected-context))
-           %))))
+  (if-let [ids (seq (fetch-ids db q selected-context show-events?))]
+    (->> ids
+         (map #(:issues/id %))
+         issues-query
+         sql/format
+         (jdbc/execute! db)
+         (map un-namespace-keys)
+         (map simplify-date)
+         (map join-contexts)
+         (map #(dissoc % :searchable))
+         (#(if show-events? (sort-by :date %) %))
+         (#(if (contains? #{1 2} (:search_mode selected-context))
+             (re-order % (:search_mode selected-context))
+             %)))
+    '()))

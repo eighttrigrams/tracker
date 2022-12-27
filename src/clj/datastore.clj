@@ -133,7 +133,6 @@
    :group-by [:contexts.id]})
 
 (defn- get-context-with-secondary-contexts [db id]
-  (tap> 1)
   (when-let [result (-> id
                         contexts-query
                         sql/format

@@ -48,9 +48,11 @@
        :issues              (when active-search (search/search-issues db opts))
        :quit-active-search? (boolean active-search)}
       context-to-fetch
-      {:selected-context    (datastore/get-context db context-to-fetch)
-       :issues              (when active-search (search/search-issues db opts))
-       :quit-active-search? (boolean active-search)}
+      (let [selected-context (datastore/get-context db context-to-fetch)]
+        (tap> [:selected-context selected-context])
+        {:selected-context    selected-context
+         :issues              (search/search-issues db (assoc opts :selected-context selected-context))
+         :quit-active-search? (boolean active-search)})
       show-events?
       {:issues   (search/search-issues db opts)
        :contexts []}
