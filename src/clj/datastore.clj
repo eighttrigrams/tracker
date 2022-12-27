@@ -78,7 +78,7 @@
               [:issues :related_issues] [:= :related_issues.id :issue_issue.right_id]]
    :where    [:= :issues.id [:inline id]]
    :group-by [:issues.id]
-   :order-by [[:issues.important :desc] [:issues.updated_at :desc]]})
+   :order-by [[:issues.important :desc] [:issues.updated_at :desc]]}) ;; TODO remove
 
 (defn- simple-issues-query [id]
   {:select   [:issues.*
@@ -87,14 +87,14 @@
                :where  [:= :events.issue_id :issues.id]}]
    :from     [:issues]
    :where    [:= :issues.id [:inline id]]
-   :group-by [:issues.id]
-   :order-by [[:issues.important :desc] [:issues.updated_at :desc]]})
+   :group-by [:issues.id] ;; TODO remove
+   :order-by [[:issues.important :desc] [:issues.updated_at :desc]]}) ;; TODO remove
 
 (defn- get-issue-with-related-issues [db id]
   (when-let [result (-> id
                         issues-query
                         sql/format
-                        (#(jdbc/execute-one! db % {:return-keys true})) ;; TODO try swiss-arrows or extract fn
+                        (#(jdbc/execute-one! db % {:return-keys true}))
                         )]
     (join-related-issues result)))
 
@@ -107,6 +107,48 @@
             (#(jdbc/execute-one! db % {:return-keys true}))))
       un-namespace-keys
       simplify-date
+      (dissoc :searchable)))
+
+(defn- join-secondary-contexts [context]
+  (-> context
+      (dissoc :secondary_contexts_ids)
+      (dissoc :secondary_contexts_titles)
+      (assoc :secondary_contexts
+             (zipmap (.getArray (:secondary_contexts_ids context))
+                     (.getArray (:secondary_contexts_titles context))))))
+
+(defn- simple-contexts-query [id]
+  {:select   [:contexts.*]
+   :from     [:contexts]
+   :where    [:= :contexts.id [:inline id]]})
+
+(defn- contexts-query [id]
+  {:select   [:contexts.*
+              [[:array_agg :secondary_contexts.id] :secondary_contexts_ids]
+              [[:array_agg :secondary_contexts.title] :secondary_contexts_titles]]
+   :from     [:contexts]
+   :join     [:context_context [:= :contexts.id :context_context.parent_id]
+              [:contexts :secondary_contexts] [:= :secondary_contexts.id :context_context.child_id]]
+   :where    [:= :contexts.id [:inline id]]
+   :group-by [:contexts.id]})
+
+(defn- get-context-with-secondary-contexts [db id]
+  (tap> 1)
+  (when-let [result (-> id
+                        contexts-query
+                        sql/format
+                        (#(jdbc/execute-one! db % {:return-keys true}))
+                        )]
+    (join-secondary-contexts result)))
+
+(defn get-context [db {:keys [id]}]
+  (-> (if-let [context (get-context-with-secondary-contexts db id)]
+        context
+        (-> id
+            simple-contexts-query
+            sql/format
+            (#(jdbc/execute-one! db % {:return-keys true}))))
+      un-namespace-keys
       (dissoc :searchable)))
 
 (defn update-issue [db {:keys [id date] :as issue}]

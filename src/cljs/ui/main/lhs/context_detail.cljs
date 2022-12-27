@@ -7,5 +7,11 @@
    [list-item/component *state (:selected-context @*state)]])
 
 (defn component [*state]
-  [:> ReactMarkdown
-   {:children (:description (:selected-context @*state))}])
+  [:<>
+   [:ul
+    (doall (map (fn [[id title]]
+                  [:li
+                   {:key id} title]) 
+                (:secondary_contexts (:selected-context @*state))))]
+   [:> ReactMarkdown
+    {:children (:description (:selected-context @*state))}]])

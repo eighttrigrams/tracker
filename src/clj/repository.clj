@@ -26,6 +26,7 @@
                               issue-to-update-description-of
                               context-to-update-description-of
                               selected-context-id
+                              context-to-fetch
                               issue-to-fetch] 
                        :as opts}]
   #_{:clj-kondo/ignore [:unresolved-var]}
@@ -44,6 +45,10 @@
        :issues         (search/search-issues db opts)}
       issue-to-fetch
       {:selected-issue      (datastore/get-issue db issue-to-fetch)
+       :issues              (when active-search (search/search-issues db opts))
+       :quit-active-search? (boolean active-search)}
+      context-to-fetch
+      {:selected-context    (datastore/get-context db context-to-fetch)
        :issues              (when active-search (search/search-issues db opts))
        :quit-active-search? (boolean active-search)}
       show-events?

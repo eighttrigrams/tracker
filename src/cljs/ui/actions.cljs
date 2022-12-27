@@ -13,9 +13,10 @@
                                (dissoc :selected-context))))
 
 (defn select-context! [*state context]
+  ;; See below
+  (swap! *state assoc :selected-context context)
   (fetch-and-reset! *state (-> @*state
-                               (assoc :selected-context context)
-                               (dissoc :active-search))))
+                               (assoc :context-to-fetch context))))
 
 (defn select-issue! [*state issue]
   ;; For a snappy response in the UI, set :selected-issue immediately.

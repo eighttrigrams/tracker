@@ -22,6 +22,7 @@
    (dissoc :issue-to-update
            :context-to-update
            :issue-to-fetch
+           :context-to-fetch
            :issue-to-insert
            :issue-to-update-description-of
            :context-to-update-description-of)))
