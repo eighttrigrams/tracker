@@ -18,6 +18,7 @@
 ;; TODO in minimals, show examples which use substitution/formatting
 
 (defn new-issue [db {title :title} context-id]
+  (tap> [:insert-issue context-id title])
   (let [issue
         (jdbc/execute-one! db
                            (sql/format {:insert-into [:issues]

@@ -27,7 +27,6 @@
                               issue-to-update-description-of
                               context-to-update-description-of
                               selected-context
-                              selected-context-id ;; TODO review where the id comes from
                               context-to-fetch
                               issue-to-fetch
                               do-cycle-search-mode] 
@@ -40,7 +39,7 @@
         {:selected-context selected-context
          :issues (search/search-issues db (assoc opts :selected-context selected-context))})
       issue-to-insert
-      {:selected-issue (datastore/new-issue db issue-to-insert selected-context-id)
+      {:selected-issue (datastore/new-issue db issue-to-insert (:id selected-context))
        :issues         (search/search-issues db opts)}
       issue-to-update-description-of
       {:selected-issue (datastore/update-issue-description db issue-to-update-description-of)
