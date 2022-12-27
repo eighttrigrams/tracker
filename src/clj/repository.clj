@@ -26,13 +26,19 @@
                               context-to-update
                               issue-to-update-description-of
                               context-to-update-description-of
-                              selected-context-id
+                              selected-context
+                              selected-context-id ;; TODO review where the id comes from
                               context-to-fetch
-                              issue-to-fetch] 
+                              issue-to-fetch
+                              do-cycle-search-mode] 
                        :as opts}]
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
     (cond
+      do-cycle-search-mode
+      (let [selected-context (datastore/cycle-search-mode db selected-context)]
+        {:selected-context selected-context
+         :issues (search/search-issues db (assoc opts :selected-context selected-context))})
       issue-to-insert
       {:selected-issue (datastore/new-issue db issue-to-insert selected-context-id)
        :issues         (search/search-issues db opts)}
@@ -53,7 +59,6 @@
        :quit-active-search? (boolean active-search)}
       context-to-fetch
       (let [selected-context (datastore/get-context db context-to-fetch)]
-        (tap> [:selected-context selected-context])
         {:selected-context    selected-context
          :issues              (search/search-issues db (assoc opts :selected-context selected-context))
          :quit-active-search? (boolean active-search)})

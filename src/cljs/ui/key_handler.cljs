@@ -36,5 +36,9 @@
              (swap! *state #(assoc % :active-search :contexts))
              (and
               (:selected-context @*state)
+              (= "KeyS" code))
+             (actions/cycle-search-mode! *state)
+             (and
+              (:selected-context @*state)
               (= "KeyN" code))
              (swap! *state #(assoc % :modal :new-issue)))))))

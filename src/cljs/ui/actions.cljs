@@ -36,3 +36,6 @@
 
 (defn exit-events-view! [*state]
   (fetch-and-reset! *state (assoc @*state :show-events? false)))
+
+(defn cycle-search-mode! [*state]
+  (fetch-and-reset! *state (assoc @*state :do-cycle-search-mode true)))

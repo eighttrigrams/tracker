@@ -8,6 +8,8 @@
 
 (defn component [*state]
   [:<>
+   [:h2 "Search mode: " (:search_mode (:selected-context @*state))]
+   [:h2 "Secondary contexts:"]
    [:ul
     (doall (map (fn [[id title]]
                   [:li
