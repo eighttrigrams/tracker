@@ -19,13 +19,14 @@
     [:p (:date issue)]
     [:span
      {:style {:font-size "12px"}}
-     (doall (map 
-             
-             (fn [[idx title]]
-               [:span {:key idx}
-                (str title ",")])
-             
-             (:contexts issue)))]]])
+     (doall 
+      (->> (:contexts issue)
+           (filter (fn [[idx _title]]
+                     (prn idx)
+                     (not= idx (:id (:selected-context @*state)))))
+           (map (fn [[idx title]]
+                  [:span {:key idx}
+                   (str title ",")]))))]]])
 
 (defn- issues-list-component [*state]
   [:ul.cards
