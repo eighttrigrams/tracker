@@ -180,9 +180,9 @@
                                   :where  [:= :id [:inline id]]}))
   (get-issue db issue))
 
-(defn update-context-description [ds {:keys [id description]}]
+(defn update-context-description [db {:keys [id description]}]
   (-> 
-   (jdbc/execute-one! ds
+   (jdbc/execute-one! db
                       (sql/format {:update [:contexts]
                                    :set    {:description [:inline description]
                                             :updated_at  [:raw "NOW()"]}
@@ -197,3 +197,13 @@
                                        :set    {:search_mode [:inline (mod (inc (:search_mode context)) 3)]}
                                        :where  [:= :id [:inline id]]}))
     (get-context db context)))
+
+(defn delete-issue [db {:keys [id]}]
+  (jdbc/execute! db (sql/format {:delete-from [:context_issue]
+                                 :where [:= :issue_id [:inline id]]}))
+  (jdbc/execute! db (sql/format {:delete-from [:issue_issue]
+                                 :where [:or 
+                                         [:= :left_id [:inline id]]
+                                         [:= :right_id [:inline id]]]}))
+  (jdbc/execute! db (sql/format {:delete-from [:issues]
+                                 :where [:= :id [:inline id]]})))

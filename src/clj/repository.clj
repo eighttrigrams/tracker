@@ -26,14 +26,19 @@
                               context-to-update
                               issue-to-update-description-of
                               context-to-update-description-of
+                              selected-issue
                               selected-context
                               context-to-fetch
                               issue-to-fetch
-                              do-cycle-search-mode] 
+                              do-cycle-search-mode
+                              do-delete-issue] 
                        :as opts}]
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
     (cond
+      do-delete-issue
+      (do (datastore/delete-issue db selected-issue)
+        {:issues (search/search-issues db opts)})
       do-cycle-search-mode
       (let [selected-context (datastore/cycle-search-mode db selected-context)]
         {:selected-context selected-context

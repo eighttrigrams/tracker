@@ -26,7 +26,8 @@
            :issue-to-insert
            :issue-to-update-description-of
            :context-to-update-description-of
-           :do-cycle-search-mode)))
+           :do-cycle-search-mode
+           :do-delete-issue)))
 
 (defn- list-resources [state q]
   (api/list-resources

@@ -39,3 +39,7 @@
 
 (defn cycle-search-mode! [*state]
   (fetch-and-reset! *state (assoc @*state :do-cycle-search-mode true)))
+
+(defn delete-issue! [*state]
+  (when (js/window.confirm "Delete currently selected issue?")
+    (fetch-and-reset! *state (assoc @*state :do-delete-issue true))))

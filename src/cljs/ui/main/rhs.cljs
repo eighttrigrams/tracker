@@ -2,7 +2,6 @@
   (:require [ui.actions :as actions]
             [ui.main.input :as input]))
 
-
 (defn- issues-list-item-component [*state issue]
   [:li.card
    {:class     (when (= (:id (:selected-issue @*state)) ;; TODO review on :id
