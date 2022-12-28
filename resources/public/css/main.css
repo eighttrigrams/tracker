@@ -88,7 +88,7 @@ li.card.selected {
     width: 600px;
 }
 
-#edit-component {
+#modal-component {
     background-color: green;
     width: 100%;
     position: absolute;

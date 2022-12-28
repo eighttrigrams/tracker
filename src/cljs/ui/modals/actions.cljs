@@ -28,3 +28,6 @@
                     (-> @*state
                         (assoc :context-to-update context)
                         (dissoc :modal))))
+
+(defn update-issue-contexts! [*state values]
+  (prn "update-issue-contexts!" values))

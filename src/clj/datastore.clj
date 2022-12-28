@@ -77,16 +77,28 @@
              (zipmap (.getArray (:related_issues_ids issue))
                      (.getArray (:related_issues_titles issue))))))
 
+(defn- join-contexts [issue] ;; TODO dedup with search/join-contexts
+  (-> issue
+      (dissoc :context_ids)
+      (dissoc :context_titles)
+      (assoc :contexts
+             (zipmap (.getArray (:context_ids issue))
+                     (.getArray (:context_titles issue))))))
+
 (defn- issues-query [id]
   {:select   [:issues.*
               {:select :date
                :from   [:events]
                :where  [:= :events.issue_id :issues.id]}
               [[:array_agg :related_issues.id] :related_issues_ids]
-              [[:array_agg :related_issues.title] :related_issues_titles]]
+              [[:array_agg :related_issues.title] :related_issues_titles]
+              [[:array_agg :contexts.id] :context_ids]
+              [[:array_agg :contexts.title] :context_titles]]
    :from     [:issues]
    :join     [:issue_issue [:= :issues.id :issue_issue.left_id]
-              [:issues :related_issues] [:= :related_issues.id :issue_issue.right_id]]
+              [:issues :related_issues] [:= :related_issues.id :issue_issue.right_id]
+              :context_issue [:= :issues.id :context_issue.issue_id]
+              :contexts [:= :context_issue.context_id :contexts.id]]
    :where    [:= :issues.id [:inline id]]
    :group-by [:issues.id]
    :order-by [[:issues.important :desc] [:issues.updated_at :desc]]}) ;; TODO remove
@@ -95,8 +107,12 @@
   {:select   [:issues.*
               {:select :date
                :from   [:events]
-               :where  [:= :events.issue_id :issues.id]}]
+               :where  [:= :events.issue_id :issues.id]}
+              [[:array_agg :contexts.id] :context_ids]
+              [[:array_agg :contexts.title] :context_titles]]
    :from     [:issues]
+   :join     [:context_issue [:= :issues.id :context_issue.issue_id]
+              :contexts [:= :context_issue.context_id :contexts.id]]
    :where    [:= :issues.id [:inline id]]
    :group-by [:issues.id] ;; TODO remove
    :order-by [[:issues.important :desc] [:issues.updated_at :desc]]}) ;; TODO remove
@@ -117,6 +133,7 @@
             sql/format
             (#(jdbc/execute-one! db % {:return-keys true}))))
       un-namespace-keys
+      join-contexts
       simplify-date
       (dissoc :searchable)))
 
