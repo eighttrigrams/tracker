@@ -30,4 +30,7 @@
                         (dissoc :modal))))
 
 (defn update-issue-contexts! [*state values]
-  (prn "update-issue-contexts!" values))
+  (fetch-and-reset! *state
+                    (-> @*state
+                        (assoc :link-issue-contexts values)
+                        (dissoc :modal))))

@@ -229,3 +229,13 @@
   (jdbc/execute! db (sql/format {:update [:issues]
                                  :set {:updated_at [:raw "NOW()"]}
                                  :where [:= :id [:inline id]]})))
+
+(defn link-issue-contexts [db selected-issue link-issue-contexts]
+  (jdbc/execute! db (sql/format {:delete-from [:context_issue]
+                                 :where [:= :issue_id [:inline (:id selected-issue)]]}))
+  (doall (for [context-id link-issue-contexts]
+           (jdbc/execute! db (sql/format {:insert-into [:context_issue]
+                                          :columns [:issue_id :context_id]
+                                          :values [[[:inline (:id selected-issue)] 
+                                                    [:inline context-id]]]}))))
+  (get-issue db selected-issue))

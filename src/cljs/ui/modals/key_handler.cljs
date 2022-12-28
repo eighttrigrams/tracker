@@ -3,11 +3,9 @@
             [ui.key-handler.common :refer [handle-keys*]]))
 
 (defn handle-modal-keys [*state value-fn]
-  (prn "modal->" (:modal @*state))
   (handle-keys*
    (fn [code ctrl-pressed? e]
      (let [{:keys [modal]} @*state]
-       (prn "modal" modal code)
        (cond (= "Escape" code)
              (actions/cancel-modal! *state)
              (and (= "KeyS" code) ctrl-pressed? (= :link-context-issue modal))

@@ -7,15 +7,14 @@
 (def state (atom #{}))
 
 (defn component [selected-context issue]
-  (reset! state 
+  (reset! state
           (doall
-           (->> 
-            (:secondary_contexts selected-context)
+           (->>
+            (conj (:secondary_contexts selected-context) [(:id selected-context) (:title selected-context)])
             (filter (fn [[idx _title]]
                       (contains? (set (keys (:contexts issue))) idx)))
             (map (fn [[idx _title]] idx))
             (into #{}))))
-  
   (r/create-class
    {:component-did-mount #(.focus (get-component-el))
     :reagent-render ;
@@ -34,7 +33,7 @@
                                  (fn [vals] ((if (contains? vals idx) disj conj) vals idx)))
               :type :checkbox
               :defaultChecked (contains? (set (keys (:contexts issue))) idx)}]])
-         (:secondary_contexts selected-context)))])}))
+         (conj (:secondary_contexts selected-context) [(:id selected-context) (:title selected-context)])))])}))
 
 (defn get-values []
   @state)

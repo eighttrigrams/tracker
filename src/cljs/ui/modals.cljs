@@ -30,14 +30,13 @@
                        {:autoComplete :off}])}))
 
 (defn- handle-keys [*state item]
-  (prn "here:" (:modal @*state))
   (case (:modal @*state)
     (:edit-context :edit-issue)
     (key-handler/handle-edit-keys *state
-                                   #((if (:selected-issue @*state)
-                                       issue-edit/get-values
-                                       context-edit/get-values)
-                                     (:id item)))
+                                  #((if (:selected-issue @*state)
+                                      issue-edit/get-values
+                                      context-edit/get-values)
+                                    (:id item)))
     :description
     (key-handler/handle-modal-keys *state 
                                    #(do {:id          (:id item) 

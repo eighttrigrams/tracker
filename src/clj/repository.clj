@@ -30,6 +30,7 @@
                               selected-context
                               context-to-fetch
                               issue-to-fetch
+                              link-issue-contexts
                               do-cycle-search-mode
                               do-delete-issue
                               do-reprioritize-issue] 
@@ -37,6 +38,9 @@
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
     (cond
+      link-issue-contexts 
+      {:selected-issue  (datastore/link-issue-contexts db selected-issue link-issue-contexts)
+       :issues (search/search-issues db opts)}
       do-reprioritize-issue
       (do (datastore/reprioritize-issue db selected-issue) 
           {:issues (search/search-issues db opts)})

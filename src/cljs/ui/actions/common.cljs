@@ -26,6 +26,7 @@
            :issue-to-insert
            :issue-to-update-description-of
            :context-to-update-description-of
+           :link-issue-contexts
            :do-cycle-search-mode
            :do-delete-issue
            :do-reprioritize-issue)))
