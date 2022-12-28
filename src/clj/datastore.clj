@@ -207,3 +207,8 @@
                                          [:= :right_id [:inline id]]]}))
   (jdbc/execute! db (sql/format {:delete-from [:issues]
                                  :where [:= :id [:inline id]]})))
+
+(defn reprioritize-issue [db {:keys [id]}]
+  (jdbc/execute! db (sql/format {:update [:issues]
+                                 :set {:updated_at [:raw "NOW()"]}
+                                 :where [:= :id [:inline id]]})))

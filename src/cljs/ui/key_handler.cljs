@@ -5,15 +5,16 @@
 (defn handle-keys [*state]
   (handle-keys* 
    (fn [code _ctrl-pressed? _e]
-     (let [{:keys [selected-issue]} @*state]
+     (let [{:keys [selected-issue
+                   selected-context]} @*state]
        (cond (= "Escape" code)
              (cond (:active-search @*state)
                    (actions/quit-search! *state)
                    (:show-events? @*state)
                    (actions/exit-events-view! *state)
-                   (:selected-issue @*state)
+                   selected-issue
                    (swap! *state #(dissoc % :selected-issue))
-                   (:selected-context @*state)
+                   selected-context
                    (actions/deselect-context! *state))
              (not (:active-search @*state))
              (cond
@@ -21,26 +22,23 @@
                (actions/show-events! *state)
                (and
                 (or
-                 (:selected-issue @*state)
-                 (:selected-context @*state))
+                 selected-issue
+                 selected-context)
                 (= "KeyD" code))
                (swap! *state #(assoc % :modal :description))
                (and selected-issue (= "KeyE" code))
                (swap! *state #(assoc % :modal :edit-issue)) 
                (and selected-issue (= "Delete" code))
                (actions/delete-issue! *state)
-               (and (:selected-context @*state)
-                    (= "KeyE" code))
+               (and selected-issue (= "KeyP" code))
+               (actions/reprioritize-issue! *state)
+               (and selected-context (= "KeyE" code))
                (swap! *state #(assoc % :modal :edit-context))
                (= "KeyI" code)
                (swap! *state #(assoc % :active-search :issues))
                (and (= "KeyC" code) (not (:show-events? @*state)))
                (swap! *state #(assoc % :active-search :contexts))
-               (and
-                (:selected-context @*state)
-                (= "KeyS" code))
+               (and selected-context (= "KeyS" code))
                (actions/cycle-search-mode! *state)
-               (and
-                (:selected-context @*state)
-                (= "KeyN" code))
+               (and selected-context (= "KeyN" code))
                (swap! *state #(assoc % :modal :new-issue))))))))

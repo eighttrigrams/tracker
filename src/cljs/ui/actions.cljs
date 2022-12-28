@@ -43,3 +43,6 @@
 (defn delete-issue! [*state]
   (when (js/window.confirm "Delete currently selected issue?")
     (fetch-and-reset! *state (assoc @*state :do-delete-issue true))))
+
+(defn reprioritize-issue! [*state]
+  (fetch-and-reset! *state (assoc @*state :do-reprioritize-issue true)))
