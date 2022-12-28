@@ -46,3 +46,6 @@
 
 (defn reprioritize-issue! [*state]
   (fetch-and-reset! *state (assoc @*state :do-reprioritize-issue true)))
+
+(defn mark-issue-important! [*state]
+  (fetch-and-reset! *state (assoc @*state :do-mark-issue-important true)))

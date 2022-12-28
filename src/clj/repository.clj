@@ -33,7 +33,8 @@
                               link-issue-contexts
                               do-cycle-search-mode
                               do-delete-issue
-                              do-reprioritize-issue] 
+                              do-reprioritize-issue
+                              do-mark-issue-important] 
                        :as opts}]
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
@@ -44,6 +45,9 @@
       do-reprioritize-issue
       (do (datastore/reprioritize-issue db selected-issue) 
           {:issues (search/search-issues db opts)})
+      do-mark-issue-important
+      {:selected-issue (datastore/mark-issue-important db selected-issue) 
+       :issues (search/search-issues db opts)}
       do-delete-issue
       (do (datastore/delete-issue db selected-issue)
           {:issues (search/search-issues db opts)})
