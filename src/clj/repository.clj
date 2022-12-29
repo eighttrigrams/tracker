@@ -18,11 +18,15 @@
           (tap> [:resources :down])
           nil))
 
+(defn get-issues [q]
+  (let [db (:db config/config)]
+    (search/search-issues db {:q q})))
+
 (defn list-resources [{:keys [q 
                               active-search 
                               show-events?
                               issue-to-insert
-                              issue-to-update
+                              issue-and-related-issues-to-update
                               context-to-update
                               issue-to-update-description-of
                               context-to-update-description-of
@@ -63,8 +67,8 @@
        :issues         (search/search-issues db opts)}
       context-to-update-description-of
       {:selected-context (datastore/update-context-description db context-to-update-description-of)}
-      issue-to-update
-      {:selected-issue (datastore/update-issue db issue-to-update)
+      issue-and-related-issues-to-update
+      {:selected-issue (datastore/update-issue db issue-and-related-issues-to-update)
        :issues         (search/search-issues db opts)}
       context-to-update
       {:selected-context (datastore/update-context db context-to-update)

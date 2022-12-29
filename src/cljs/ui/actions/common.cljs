@@ -19,7 +19,7 @@
    (assoc :selected-issue (or selected-issue (:selected-issue state)))
    (assoc :selected-context (or selected-context (:selected-context state)))
    (#(if quit-active-search? (dissoc % :active-search) %))
-   (dissoc :issue-to-update
+   (dissoc :issue-and-related-issues-to-update
            :context-to-update
            :issue-to-fetch
            :context-to-fetch

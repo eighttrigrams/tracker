@@ -10,7 +10,8 @@
   (reset! state
           (doall
            (->>
-            (conj (:secondary_contexts selected-context) [(:id selected-context) (:title selected-context)])
+            (conj (:secondary_contexts selected-context) 
+                  [(:id selected-context) (:title selected-context)])
             (filter (fn [[idx _title]]
                       (contains? (set (keys (:contexts issue))) idx)))
             (map (fn [[idx _title]] idx))
@@ -28,12 +29,13 @@
             {:key idx}
             title
             [:input
-             {:key idx
-              :on-change #(swap! state 
-                                 (fn [vals] ((if (contains? vals idx) disj conj) vals idx)))
-              :type :checkbox
+             {:key            idx
+              :on-change      #(swap! state 
+                                      (fn [vals] ((if (contains? vals idx) disj conj) vals idx)))
+              :type           :checkbox
               :defaultChecked (contains? (set (keys (:contexts issue))) idx)}]])
-         (conj (:secondary_contexts selected-context) [(:id selected-context) (:title selected-context)])))])}))
+         (conj (:secondary_contexts selected-context) 
+               [(:id selected-context) (:title selected-context)])))])}))
 
 (defn get-values []
   @state)

@@ -178,12 +178,29 @@
       un-namespace-keys
       (dissoc :searchable)))
 
-(defn update-issue [db {:keys [id date] :as issue}]
-  (delete-date db id)
-  (update-issue* db issue)
-  (when date
-    (insert-date db id date))
-  (get-issue db issue))
+(defn- delete-related-issues [db id]
+  (jdbc/execute! db (sql/format {:delete-from [:issue_issue]
+                                 :where       [:or 
+                                               [:= :left_id [:inline id]]
+                                               [:= :right_id [:inline id]]]})))
+
+(defn- relate-issues [db id related-issues-ids]
+  (doall
+   (for [related-issue-id related-issues-ids]
+     (jdbc/execute! db (sql/format {:insert-into [:issue-issue]
+                                    :columns     [:left_id :right_id]
+                                    :values      [[[:inline id] [:inline related-issue-id]]
+                                                  [[:inline related-issue-id] [:inline id]]]})))))
+
+(defn update-issue [db {:keys [issue related-issues-ids]}]
+  (let [{:keys [date id]} issue]
+    (delete-date db id)
+    (delete-related-issues db id)
+    (relate-issues db id related-issues-ids)
+    (update-issue* db issue)
+    (when date
+      (insert-date db id date))
+    (get-issue db issue)))
 
 (defn update-context [db context] 
   (update-context* db context)

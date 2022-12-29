@@ -20,7 +20,7 @@
 (defn update-issue! [*state issue]
   (fetch-and-reset! *state 
                     (-> @*state
-                        (assoc :issue-to-update issue)
+                        (assoc :issue-and-related-issues-to-update issue)
                         (dissoc :modal))))
 
 (defn update-context! [*state context]
