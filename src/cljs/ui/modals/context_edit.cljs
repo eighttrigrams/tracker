@@ -25,15 +25,15 @@
       (fn [context]
         [:<> 
          [:div
-          [:input#context-title
+          [:input#context-title.line
            {:autoComplete :off
             :defaultValue (:title context)}]]
          [:div
-          [:input#context-short-title
+          [:input#context-short-title.line
            {:autoComplete :off
             :defaultValue (:short_title context)}]] ;; TODO work with short-title
          [:div
-          [:input#context-tags
+          [:input#context-tags.line
            {:autoComplete :off
             :defaultValue (:tags context)}]]
          [:ul (doall (map (fn [[idx title]]

@@ -32,15 +32,15 @@
       (fn [_item]
         [:<>
          [:div
-          [:input#issue-title
+          [:input#issue-title.line
            {:autoComplete :off
             :defaultValue (:title issue)}]]
          [:div
-          [:input#issue-short-title
+          [:input#issue-short-title.line
            {:autoComplete :off
             :defaultValue (:short_title issue)}]] ;; TODO work with short-title
          [:div
-          [:input#issue-tags
+          [:input#issue-tags.line
            {:autoComplete :off
             :defaultValue (:tags issue)}]]
          [:div

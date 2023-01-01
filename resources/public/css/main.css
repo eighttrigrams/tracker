@@ -95,3 +95,15 @@ li.card.selected {
     top: 50px;
     height: 500px;
 }
+
+#modal-component input.line {
+    width: calc(100% - 20px);
+    height: 20px;
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 0;
+}
+
+#modal-component input:focus {
+    outline: none;
+}
