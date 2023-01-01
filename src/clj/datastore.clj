@@ -17,19 +17,23 @@
 ;; TODO move to search ns, explore varags here, make tut about varargs and destructuring?
 ;; TODO in minimals, show examples which use substitution/formatting
 
-(defn new-issue [db {title :title} context-id]
+(defn new-issue [db {title :title} context-id selected-secondary-contexts-ids]
   (let [issue
         (jdbc/execute-one! db
                            (sql/format {:insert-into [:issues]
                                         :columns     [:inserted_at :updated_at :title]
                                         :values      [[[:raw "NOW()"] [:raw "NOW()"] title]]})
                            
-                           {:return-keys true})]
+                           {:return-keys true})
+        values (vec (doall 
+                     (map (fn [ctx-id]
+                            [[:inline ctx-id]
+                             [:inline (:issues/id issue)]])
+                          (conj selected-secondary-contexts-ids context-id))))]
     (jdbc/execute! db
                    (sql/format {:insert-into [:context-issue]
                                 :columns [:context_id :issue_id]
-                                :values [[[:inline context-id]
-                                          [:inline (:issues/id issue)]]]}))
+                                :values values}))
     (-> issue
         un-namespace-keys
         (dissoc :searchable))))

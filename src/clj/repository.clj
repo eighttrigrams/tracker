@@ -37,6 +37,7 @@
                               context-to-update-description-of
                               selected-issue
                               selected-context
+                              selected-secondary-contexts-ids
                               context-to-fetch
                               issue-to-fetch
                               link-issue-contexts
@@ -66,7 +67,7 @@
         {:selected-context selected-context
          :issues           (search/search-issues db (assoc opts :selected-context selected-context))})
       issue-to-insert
-      {:selected-issue (datastore/new-issue db issue-to-insert (:id selected-context))
+      {:selected-issue (datastore/new-issue db issue-to-insert (:id selected-context) selected-secondary-contexts-ids)
        :issues         (search/search-issues db opts)}
       context-to-insert
       {:selected-context (datastore/new-context db context-to-insert)
