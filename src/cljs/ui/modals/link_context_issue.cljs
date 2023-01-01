@@ -8,10 +8,10 @@
 (defn- get-component-el []
   (.getElementById js/document "link-context-issue-component"))
 
-(def contexts-ids (atom #{}))
+(def *contexts-ids (atom #{}))
 
 (defn- reset-contexts-ids! [issue selectable-contexts]
-  (reset! contexts-ids
+  (reset! *contexts-ids
           (doall
            (->>
             selectable-contexts
@@ -20,12 +20,36 @@
             (map (fn [[idx _title]] idx))
             (into #{})))))
 
+(defn- context-adder-component [*dropdown-contexts *selectable-contexts]
+  [:<>
+   [:input#in
+    {:on-change (fn [%] (go (-> (api/get-contexts (-> % .-target .-value))
+                                <p!
+                                (#(reset! *dropdown-contexts %)))))}]
+   [:select#sel
+    (doall (map (fn [{:keys [id title]}]
+                  [:option {:value (str id ":::" title)
+                            :key   id} title])
+                @*dropdown-contexts))]
+   [:input
+    {:type     :button
+     :value    "Add"
+     :on-click (fn [_evt] (let [[id title]
+                                (str/split (.-value (.getElementById js/document "sel"))
+                                           #":::")]
+
+                            (swap! *selectable-contexts assoc (int id) title)))}]])
+
 (defn component [selected-context issue]
-  (let [dropdown-contexts   (r/atom '())
-        selectable-contexts (r/atom (merge (conj (:secondary_contexts selected-context)
-                                                 [(:id selected-context) (:title selected-context)])
-                                           (:contexts issue)))]
-    (reset-contexts-ids! issue @selectable-contexts)
+  (let [*dropdown-contexts   (r/atom '())
+        *selectable-contexts (r/atom (merge (conj (:secondary_contexts selected-context)
+                                                  [(:id selected-context) (:title selected-context)])
+                                            (:contexts issue)))
+        toggle-select-context            (fn [idx] 
+                                #(swap! *contexts-ids
+                                       (fn [vals] ((if (contains? vals idx) disj conj)
+                                                   vals idx))))]
+    (reset-contexts-ids! issue @*selectable-contexts)
     
     (r/create-class
      {:component-did-mount #(.focus (get-component-el))
@@ -34,42 +58,20 @@
         [:<>
          [:div#link-context-issue-component
           {:tabIndex 0}
-          (doall
-           (map 
-            (fn [[idx title]]
-              [:div
-               {:key idx}
-               title
-               [:input
-                {:key            idx
-                 :on-change      #(swap! contexts-ids 
-                                         (fn [vals] ((if (contains? vals idx) disj conj) 
-                                                     vals idx)))
-                 :type           :checkbox
-                 :defaultChecked (contains? (set (keys (:contexts issue))) idx)}]])
-            @selectable-contexts))]
+          (map 
+           (fn [[idx title]]
+             [:div
+              {:key idx}
+              title
+              [:input
+               {:key            idx
+                :on-change      (toggle-select-context idx)
+                :type           :checkbox
+                :defaultChecked (contains? (set (keys (:contexts issue))) idx)}]])
+           @*selectable-contexts)]
          
          [:hr]
-         ;; TODO extract and re-use this section (context_edit, issue_edit)
-         [:input#in
-          {:on-change (fn [%] (go (-> (api/get-contexts (-> % .-target .-value))
-                                      <p!
-                                      (#(reset! dropdown-contexts %)))))}]
-         [:select#sel
-          (doall (map (fn [{:keys [id title]}]
-                        [:option {:value (str id ":::" title)
-                                  :key   id} title])
-                      @dropdown-contexts))]
-         [:input
-          {:type     :button
-           :value    "Add"
-           :on-click (fn [_evt] (let [[id title]
-                                      (str/split (.-value (.getElementById js/document "sel"))
-                                                 #":::")]
-                                  
-                                  (swap! selectable-contexts assoc (int id) title)))}]]
-        
-        )})))
+         [context-adder-component *dropdown-contexts *selectable-contexts]])})))
 
 (defn get-values []
-  @contexts-ids)
+  @*contexts-ids)
