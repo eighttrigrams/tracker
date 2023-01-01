@@ -11,12 +11,12 @@
              (and (= "KeyS" code) ctrl-pressed? (= :link-context-issue modal))
              (do (.preventDefault e)
                  (actions/update-issue-contexts! *state (value-fn)))
-             (and (= "KeyS" code) ctrl-pressed? (= :new-issue modal))
+             (and (= "Enter" code) (= :new-issue modal))
              (do (.preventDefault e)
                  (actions/new-issue!
                   *state
                   (value-fn)))
-             (and (= "KeyS" code) ctrl-pressed? (= :new-context modal))
+             (and (= "Enter" code) (= :new-context modal))
              (do (.preventDefault e)
                  (actions/new-context!
                   *state

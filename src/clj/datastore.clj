@@ -41,8 +41,8 @@
 (defn new-context [db {title :title}]
   (-> (jdbc/execute-one! db
                          (sql/format {:insert-into [:contexts]
-                                      :columns [:inserted_at :updated_at :title]
-                                      :values [[[:raw "NOW()"] [:raw "NOW()"] [:inline title]]]})
+                                      :columns [:inserted_at :updated_at :title :search_mode]
+                                      :values [[[:raw "NOW()"] [:raw "NOW()"] [:inline title] [:inline 0]]]})
                          {:return-keys true})
       un-namespace-keys
       (dissoc :searchable)))
