@@ -59,6 +59,30 @@
        {:type           :checkbox
         :defaultChecked (:event_archived? issue)}]])])
 
+(defn- related-issues-component [*related-issues *dropdown-issues]
+  [:<>
+   [:ul (doall (map (fn [[idx title]]
+                      [:li
+                       {:key idx
+                        :on-click #(swap! *related-issues dissoc idx)}
+                       title]) @*related-issues))]
+   [:input#in
+    {:on-change (fn [%] (go (-> (api/get-issues (-> % .-target .-value))
+                                <p!
+                                (#(reset! *dropdown-issues %)))))}]
+   [:select#sel
+    (doall (map (fn [{:keys [id title]}]
+                  [:option {:value (str id ":::" title)
+                            :key id} title])
+                @*dropdown-issues))]
+   [:input
+    {:type :button
+     :value "Add"
+     :on-click (fn [_evt] (let [[id title]
+                                (str/split (.-value (.getElementById js/document "sel"))
+                                           #":::")]
+                            (swap! *related-issues assoc (int id) title)))}]])
+
 (defn component [issue]
   (let [*date-visible?  (r/atom (boolean (:date issue)))
         *dropdown-issues (r/atom '())]
@@ -74,27 +98,7 @@
          [event-component issue *date-visible?]
          [:hr]
          [:h4 "Related issues"]
-         [:ul (doall (map (fn [[idx title]]
-                            [:li
-                             {:key idx
-                              :on-click #(swap! *related-issues dissoc idx)}
-                             title]) @*related-issues))]
-         [:input#in
-          {:on-change (fn [%] (go (-> (api/get-issues (-> % .-target .-value))
-                                      <p!
-                                      (#(reset! *dropdown-issues %)))))}]
-         [:select#sel
-          (doall (map (fn [{:keys [id title]}]
-                        [:option {:value (str id ":::" title)
-                                  :key id} title]) 
-                      @*dropdown-issues))]
-         [:input
-          {:type :button
-           :value "Add"
-           :on-click (fn [_evt] (let [[id title]
-                                      (str/split (.-value (.getElementById js/document "sel")) 
-                                                 #":::")]
-                                  (swap! *related-issues assoc (int id) title)))}]])})))
+         [related-issues-component *related-issues *dropdown-issues]])})))
 
 (defn get-values [id]
   {:issue              {:id              id
