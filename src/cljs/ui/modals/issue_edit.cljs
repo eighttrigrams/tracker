@@ -20,7 +20,7 @@
 (defn- get-date-el []
   (.getElementById js/document "date-picker"))
 
-(def related-issues (r/atom #{}))
+(def related-issues (r/atom {}))
 
 (defn component [issue]
   (let [date-visible?  (r/atom (boolean (:date issue)))

@@ -22,12 +22,16 @@
   (let [db (:db config/config)]
     (search/search-issues db {:q q})))
 
+(defn get-contexts [q]
+  (let [db (:db config/config)]
+    (search/search-contexts db q)))
+
 (defn list-resources [{:keys [q 
                               active-search 
                               show-events?
                               issue-to-insert
                               issue-and-related-issues-to-update
-                              context-to-update
+                              context-and-secondary-contexts-to-update
                               issue-to-update-description-of
                               context-to-update-description-of
                               selected-issue
@@ -70,8 +74,8 @@
       issue-and-related-issues-to-update
       {:selected-issue (datastore/update-issue db issue-and-related-issues-to-update)
        :issues         (search/search-issues db opts)}
-      context-to-update
-      {:selected-context (datastore/update-context db context-to-update)
+      context-and-secondary-contexts-to-update
+      {:selected-context (datastore/update-context db context-and-secondary-contexts-to-update)
        :issues           (search/search-issues db opts)} ;; maybe not necessary (yet)
       issue-to-fetch
       {:selected-issue      (datastore/get-issue db issue-to-fetch)

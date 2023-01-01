@@ -26,7 +26,7 @@
 (defn update-context! [*state context]
   (fetch-and-reset! *state
                     (-> @*state
-                        (assoc :context-to-update context)
+                        (assoc :context-and-secondary-contexts-to-update context)
                         (dissoc :modal))))
 
 (defn update-issue-contexts! [*state values]

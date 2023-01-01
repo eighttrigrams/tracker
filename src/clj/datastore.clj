@@ -192,6 +192,17 @@
                                     :values      [[[:inline id] [:inline related-issue-id]]
                                                   [[:inline related-issue-id] [:inline id]]]})))))
 
+(defn- relate-contexts [db id secondary-contexts-ids]
+  (doall
+   (for [secondary-context-id secondary-contexts-ids]
+     (jdbc/execute! db (sql/format {:insert-into [:context_context]
+                                    :columns [:parent_id :child_id]
+                                    :values [[[:inline id] [:inline secondary-context-id]]]})))))
+
+(defn- delete-secondary-contexts [db id]
+  (jdbc/execute! db (sql/format {:delete-from [:context_context]
+                                 :where [:= :parent_id [:inline id]]})))
+
 (defn update-issue [db {:keys [issue related-issues-ids]}]
   (let [{:keys [date id]} issue]
     (delete-date db id)
@@ -202,9 +213,12 @@
       (insert-date db id date))
     (get-issue db issue)))
 
-(defn update-context [db context] 
-  (update-context* db context)
-  (get-context db context))
+(defn update-context [db {:keys [context secondary-contexts-ids]}] 
+  (let [{:keys [id]} context]
+    (delete-secondary-contexts db id)
+    (relate-contexts db id secondary-contexts-ids)
+    (update-context* db context)
+    (get-context db context)))
 
 (defn update-issue-description [db {:keys [id description] :as issue}]
   (jdbc/execute-one! db

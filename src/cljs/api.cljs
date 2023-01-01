@@ -10,3 +10,5 @@
 (defn-over-http list-resources :return-value [])
 
 (defn-over-http get-issues :return-value [])
+
+(defn-over-http get-contexts :return-value [])
