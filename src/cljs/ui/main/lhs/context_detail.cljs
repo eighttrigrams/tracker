@@ -13,7 +13,6 @@
     [:ul
      (doall
       (map (fn [[id title]]
-             (prn id selected-secondary-contexts-ids)
              [:li
               {:key id
                :on-click (fn [_]
