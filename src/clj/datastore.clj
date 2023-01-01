@@ -74,14 +74,15 @@
                  (sql/format {:delete-from [:events]
                               :where [:= :issue_id [:inline issue-id]]})))
 
-(defn- insert-date [db issue-id date]
+(defn- insert-date [db issue-id date event_archived?]
   (jdbc/execute! db
                  (sql/format {:insert-into [:events]
-                              :columns     [:issue_id :date :inserted_at :updated_at]
+                              :columns     [:issue_id :date :inserted_at :updated_at :archived]
                               :values      [[[:inline issue-id]
                                              [:inline date]
                                              [:raw "NOW()"]
-                                             [:raw "NOW()"]]]})))
+                                             [:raw "NOW()"]
+                                             [:inline event_archived?]]]})))
 
 (defn- update-issue* [db {:keys [id title short_title tags]}]
   (jdbc/execute-one! db
@@ -124,6 +125,9 @@
               {:select :date
                :from   [:events]
                :where  [:= :events.issue_id :issues.id]}
+              {:select [[:archived :event_archived?]]
+               :from   [:events]
+               :where  [:= :events.issue_id :issues.id]}
               [[:array_agg :related_issues.id] :related_issues_ids]
               [[:array_agg :related_issues.title] :related_issues_titles]
               [[:array_agg :contexts.id] :context_ids]
@@ -140,6 +144,9 @@
 (defn- simple-issues-query [id]
   {:select   [:issues.*
               {:select :date
+               :from   [:events]
+               :where  [:= :events.issue_id :issues.id]}
+              {:select [[:archived :event_archived?]]
                :from   [:events]
                :where  [:= :events.issue_id :issues.id]}
               [[:array_agg :contexts.id] :context_ids]
@@ -238,13 +245,13 @@
                                  :where [:= :parent_id [:inline id]]})))
 
 (defn update-issue [db {:keys [issue related-issues-ids]}]
-  (let [{:keys [date id]} issue]
+  (let [{:keys [date id event_archived?]} issue]
     (delete-date db id)
     (delete-related-issues db id)
     (relate-issues db id related-issues-ids)
     (update-issue* db issue)
     (when date
-      (insert-date db id date))
+      (insert-date db id date event_archived?))
     (get-issue db issue)))
 
 (defn update-context [db {:keys [context secondary-contexts-ids]}] 
