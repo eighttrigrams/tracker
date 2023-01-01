@@ -24,6 +24,7 @@
            :issue-to-fetch
            :context-to-fetch
            :issue-to-insert
+           :context-to-insert
            :issue-to-update-description-of
            :context-to-update-description-of
            :link-issue-contexts

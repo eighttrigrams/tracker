@@ -16,6 +16,11 @@
                  (actions/new-issue!
                   *state
                   (value-fn)))
+             (and (= "KeyS" code) ctrl-pressed? (= :new-context modal))
+             (do (.preventDefault e)
+                 (actions/new-context!
+                  *state
+                  (value-fn)))
              (and (= "KeyS" code) ctrl-pressed? (= :description modal))
              (do (.preventDefault e)
                  (actions/save-description!

@@ -10,7 +10,7 @@
   (.getElementById js/document "description-editor"))
 
 (defn- get-title-el []
-  (.getElementById js/document "issue-title"))
+  (.getElementById js/document "title"))
 
 (defn- textarea-component [_item]
   (r/create-class
@@ -26,7 +26,14 @@
   (r/create-class
    {:component-did-mount #(.focus (get-title-el))
     :reagent-render (fn []
-                      [:input#issue-title
+                      [:input#title
+                       {:autoComplete :off}])}))
+
+(defn- new-context-component []
+  (r/create-class
+   {:component-did-mount #(.focus (get-title-el))
+    :reagent-render (fn []
+                      [:input#title
                        {:autoComplete :off}])}))
 
 (defn- handle-keys [*state item]
@@ -43,6 +50,9 @@
                                          :description (.-value (get-description-el))}))
     :new-issue
     (key-handler/handle-modal-keys *state 
+                                   #(do {:title (.-value (get-title-el))}))
+    :new-context
+    (key-handler/handle-modal-keys *state
                                    #(do {:title (.-value (get-title-el))}))
     :link-context-issue
     (key-handler/handle-modal-keys *state
@@ -62,6 +72,8 @@
          [textarea-component item]
          :new-issue
          [new-issue-component]
+         :new-context
+         [new-context-component]
          :link-context-issue
          [:div#modal-component [link-context-issue/component (:selected-context @*state) item]]
          :edit-issue

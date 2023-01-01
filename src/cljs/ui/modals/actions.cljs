@@ -10,6 +10,11 @@
                                (dissoc :modal)
                                (assoc :issue-to-insert issue))))
 
+(defn new-context! [*state context]
+  (fetch-and-reset! *state (-> @*state
+                               (dissoc :modal)
+                               (assoc :context-to-insert context))))
+
 (defn save-description! [*state type item]
   (fetch-and-reset! *state (-> @*state
                                (dissoc :modal)

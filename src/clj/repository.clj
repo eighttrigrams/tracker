@@ -30,6 +30,7 @@
                               active-search 
                               show-events?
                               issue-to-insert
+                              context-to-insert
                               issue-and-related-issues-to-update
                               context-and-secondary-contexts-to-update
                               issue-to-update-description-of
@@ -48,24 +49,27 @@
   (let [db (:db config/config)]
     (cond
       link-issue-contexts 
-      {:selected-issue  (datastore/link-issue-contexts db selected-issue link-issue-contexts)
-       :issues (search/search-issues db opts)}
+      {:selected-issue (datastore/link-issue-contexts db selected-issue link-issue-contexts)
+       :issues         (search/search-issues db opts)}
       do-reprioritize-issue
       (do (datastore/reprioritize-issue db selected-issue) 
           {:issues (search/search-issues db opts)})
       do-mark-issue-important
       {:selected-issue (datastore/mark-issue-important db selected-issue) 
-       :issues (search/search-issues db opts)}
+       :issues         (search/search-issues db opts)}
       do-delete-issue
       (do (datastore/delete-issue db selected-issue)
           {:issues (search/search-issues db opts)})
       do-cycle-search-mode
       (let [selected-context (datastore/cycle-search-mode db selected-context)]
         {:selected-context selected-context
-         :issues (search/search-issues db (assoc opts :selected-context selected-context))})
+         :issues           (search/search-issues db (assoc opts :selected-context selected-context))})
       issue-to-insert
       {:selected-issue (datastore/new-issue db issue-to-insert (:id selected-context))
        :issues         (search/search-issues db opts)}
+      context-to-insert
+      {:selected-context (datastore/new-context db context-to-insert)
+       :issues         []}
       issue-to-update-description-of
       {:selected-issue (datastore/update-issue-description db issue-to-update-description-of)
        :issues         (search/search-issues db opts)}
