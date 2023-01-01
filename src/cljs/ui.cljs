@@ -5,14 +5,15 @@
             [ui.modals :as modals]
             [ui.modals.actions :as actions]))
 
-(def original-state {:issues                []
-                     :contexts              []
-                     :selected-context      nil
-                     :selected-issue        nil
-                     :show-events?          false
+(def original-state {:issues                          []
+                     :contexts                        []
+                     :selected-context                nil
+                     :selected-secondary-contexts-ids #{}
+                     :selected-issue                  nil
+                     :show-events?                    false
                      ;; nil|:issues|:contexts
-                     :active-search         nil
-                     :modal                 nil})
+                     :active-search                   nil
+                     :modal                           nil})
 
 (defn re-focus []
   (when-let [el (.getElementById js/document "main-layer")]

@@ -31,7 +31,8 @@
            :do-cycle-search-mode
            :do-delete-issue
            :do-reprioritize-issue
-           :do-mark-issue-important)))
+           :do-mark-issue-important
+           :do-change-secondary-contexts-selection)))
 
 (defn- list-resources [state q]
   (api/list-resources

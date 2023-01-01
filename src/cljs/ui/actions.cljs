@@ -16,6 +16,7 @@
   ;; See below
   (swap! *state assoc :selected-context context)
   (fetch-and-reset! *state (-> @*state
+                               (assoc :selected-secondary-contexts-ids #{})
                                (assoc :context-to-fetch context))))
 
 (defn select-issue! [*state issue]
@@ -28,6 +29,10 @@
 
 (defn search! [*state value]
   (fetch-and-reset! *state @*state value))
+
+(defn change-secondary-contexts-selection! [*state]
+  (fetch-and-reset! *state (-> @*state
+                               (assoc :do-change-secondary-contexts-selection true))))
 
 (defn show-events! [*state]
   (fetch-and-reset! *state (-> @*state

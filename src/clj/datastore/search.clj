@@ -1,5 +1,6 @@
 (ns datastore.search
-  (:require [next.jdbc :as jdbc]
+  (:require [clojure.set :as set]
+            [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [datastore.helpers
              :refer [un-namespace-keys simplify-date]]))
@@ -92,10 +93,19 @@
                                                  (some? (:short_title %))) issues)))]
       (concat top bottom))))
 
+(defn- filter-by-selected-secondary-contexts [selected-secondary-contexts-ids issues]
+  (if (seq selected-secondary-contexts-ids)
+    (filter (fn [issue]
+              (seq (set/intersection 
+                    (set (keys (:contexts issue)))
+                    selected-secondary-contexts-ids))
+              ) issues)
+    issues))
+
 (defn search-issues
   "Returns a sequence of items
    ([\"some-id\" {:title \"title\" :desc \"desc\"}])"
-  [db {:keys [q selected-context show-events?]
+  [db {:keys [q selected-context show-events? selected-secondary-contexts-ids]
        :or   {q ""}}]
   (if-let [ids (seq (fetch-ids db q selected-context show-events?))]
     (->> ids
@@ -110,5 +120,6 @@
          (#(if show-events? (sort-by :date %) %))
          (#(if (contains? #{1 2} (:search_mode selected-context))
              (re-order % (:search_mode selected-context))
-             %)))
+             %))
+         (filter-by-selected-secondary-contexts selected-secondary-contexts-ids))
     '()))
