@@ -1,5 +1,6 @@
 (ns datastore
-  (:require [next.jdbc :as jdbc]
+  (:require [clojure.string :as str]
+            [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [datastore.helpers
              :refer [un-namespace-keys simplify-date]]))
@@ -18,13 +19,27 @@
 ;; TODO in minimals, show examples which use substitution/formatting
 
 (defn new-issue [db {title :title} context-id selected-secondary-contexts-ids]
-  (let [issue
-        (jdbc/execute-one! db
-                           (sql/format {:insert-into [:issues]
-                                        :columns     [:inserted_at :updated_at :title]
-                                        :values      [[[:raw "NOW()"] [:raw "NOW()"] title]]})
-                           
-                           {:return-keys true})
+  (let [parts       (str/split title #"\|")
+        title       (if (= 1 (count parts))
+                      (first parts)
+                      (second parts))
+        short_title (if (= 1 (count parts))
+                      ""
+                      (first parts))
+        issue
+        (jdbc/execute-one! 
+         db
+         (sql/format {:insert-into [:issues]
+                      :columns     [:inserted_at 
+                                    :updated_at 
+                                    :title
+                                    :short_title]
+                      :values      [[[:raw "NOW()"] 
+                                     [:raw "NOW()"] 
+                                     title
+                                     short_title]]})
+         
+         {:return-keys true})
         values (vec (doall 
                      (map (fn [ctx-id]
                             [[:inline ctx-id]
@@ -39,11 +54,18 @@
         (dissoc :searchable))))
 
 (defn new-context [db {title :title}]
-  (-> (jdbc/execute-one! db
-                         (sql/format {:insert-into [:contexts]
-                                      :columns [:inserted_at :updated_at :title :search_mode]
-                                      :values [[[:raw "NOW()"] [:raw "NOW()"] [:inline title] [:inline 0]]]})
-                         {:return-keys true})
+  (-> (jdbc/execute-one! 
+       db
+       (sql/format {:insert-into [:contexts]
+                    :columns     [:inserted_at 
+                                  :updated_at 
+                                  :title 
+                                  :search_mode]
+                    :values      [[[:raw "NOW()"] 
+                                   [:raw "NOW()"] 
+                                   [:inline title]
+                                   [:inline 0]]]})
+       {:return-keys true})
       un-namespace-keys
       (dissoc :searchable)))
 
