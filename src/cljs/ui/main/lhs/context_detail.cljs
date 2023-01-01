@@ -32,22 +32,29 @@
     [:ul
      (->> secondary_contexts
           (count-issues issues)
-          (sort-by (fn [[_id [_title count]]] count))
-          reverse
+          (sort-by (fn [[_id [title _count]]] (.toLowerCase title)))
           (map (fn [[id [title count]]]
                  [:li
                   {:key id
                    :on-click (select-secondary-context *state id)} 
-                  (when (contains? selected-secondary-contexts-ids id) "!")
-                  title
-                  (str " (" count ")")])))]))
+                  [:span {:style (when (contains? selected-secondary-contexts-ids id)
+                                   {:font-weight :bold})} title]
+                  (when (empty? selected-secondary-contexts-ids)
+                    (str " (" count ")"))])))]))
 
 (defn component [_*state]
   (fn [*state]
     [:<>
-     [:h2 "Search mode: " (:search_mode (:selected-context @*state))]
-     [:h2 "Secondary contexts:"]
-     [secondary-contexts-component *state]
+     [:h2 "Search mode: " 
+      (case (:search_mode (:selected-context @*state))
+        0 "Normal"
+        1 "A->Z"
+        2 "Z->A")]
+     (when (:secondary_contexts (:selected-context @*state))
+       [:<>
+        [:hr]
+        [:h2 "Secondary contexts:"]
+        [secondary-contexts-component *state]])
      [:hr]
      [:> ReactMarkdown
       {:children (:description (:selected-context @*state))}]]))
