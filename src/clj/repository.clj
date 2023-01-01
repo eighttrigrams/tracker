@@ -46,7 +46,6 @@
                               do-mark-issue-important
                               do-change-secondary-contexts-selection] 
                        :as opts}]
-  (tap> [:opts (dissoc opts :selected-context)])
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
     (cond
