@@ -171,6 +171,7 @@
   (get-issue db issue))
 
 (defn delete-issue [db {:keys [id]}]
+  (delete-date db id)
   (jdbc/execute! db (sql/format {:delete-from [:context_issue]
                                  :where [:= :issue_id [:inline id]]}))
   (jdbc/execute! db (sql/format {:delete-from [:issue_issue]
