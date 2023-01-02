@@ -1,9 +1,8 @@
 (ns datastore.contexts
-  (:require [clojure.string :as str]
-            [next.jdbc :as jdbc]
+  (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [datastore.helpers
-             :refer [un-namespace-keys simplify-date]]))
+             :refer [un-namespace-keys]]))
 
 (defn new-context [db {title :title}]
   (-> (jdbc/execute-one!

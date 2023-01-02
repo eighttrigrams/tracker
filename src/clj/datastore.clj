@@ -1,8 +1,5 @@
 (ns datastore
-  (:require [next.jdbc :as jdbc]
-            [honey.sql :as sql]
-            [datastore.helpers :refer [un-namespace-keys]]
-            [datastore.issues :as issues]
+  (:require [datastore.issues :as issues]
             [datastore.contexts :as contexts]))
 
 ;; entity types
@@ -17,8 +14,6 @@
 
 ;; TODO move to search ns, explore varags here, make tut about varargs and destructuring?
 ;; TODO in minimals, show examples which use substitution/formatting
-
-
 
 (def update-issue issues/update-issue)
 
