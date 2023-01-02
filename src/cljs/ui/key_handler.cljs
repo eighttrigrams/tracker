@@ -14,6 +14,8 @@
                    (actions/exit-events-view! *state)
                    selected-issue
                    (swap! *state #(dissoc % :selected-issue))
+                   (seq (:selected-secondary-contexts-ids @*state))
+                   (swap! *state assoc :selected-secondary-contexts-ids #{})
                    selected-context
                    (actions/deselect-context! *state))
              (not (:active-search @*state))
