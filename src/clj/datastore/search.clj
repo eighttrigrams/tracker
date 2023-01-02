@@ -1,9 +1,13 @@
 (ns datastore.search
   (:require [clojure.set :as set]
+            [clojure.string :as str]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [datastore.helpers
              :refer [un-namespace-keys simplify-date]]))
+
+(defn- convert-q-to-query-string [q]
+  (str/join " & " (map #(str % ":*") (str/split q #" "))))
 
 (defn search-contexts
   [ds q]
@@ -16,7 +20,8 @@
      (jdbc/execute! ds
                     (sql/format {:select :*
                                  :from   [:contexts]
-                                 :where [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))]
+                                 :where [:raw (format "searchable @@ to_tsquery('simple', '%s')" 
+                                                      (convert-q-to-query-string q))]
                                  :order-by [[:important :desc] [:updated_at :desc]]})))
    (map un-namespace-keys)
    (map #(dissoc % :searchable))))
@@ -24,7 +29,8 @@
 (defn- fetch-ids [ds q selected-context show-events?]
   (let [selected-context-id (:id selected-context)
         search-clause       (if (not= "" q)
-                              [:raw (format "searchable @@ to_tsquery('simple', '%s')" (str q ":*"))] 
+                              [:raw (format "searchable @@ to_tsquery('simple', '%s')" 
+                                            (convert-q-to-query-string q))] 
                               [:=])
         join-clause         (if selected-context
                               [:context_issue [:= :issues.id :context_issue.issue_id]]
