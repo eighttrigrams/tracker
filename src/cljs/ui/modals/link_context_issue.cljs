@@ -35,11 +35,10 @@
    [:input
     {:type     :button
      :value    "Add"
-     :on-click (fn [_evt] (let [[id title]
-                                (str/split (.-value (.getElementById js/document "sel"))
-                                           #":::")]
-
-                            (swap! *selectable-contexts assoc (int id) title)))}]])
+     :on-click #(let [value (.-value (.getElementById js/document "sel"))]
+                  (when (not= "" value)
+                    (let [[id title] (str/split value #":::")]
+                      (swap! *selectable-contexts assoc (int id) title))))}]])
 
 (defn component [selected-context issue]
   (let [*dropdown-contexts    (r/atom '())
