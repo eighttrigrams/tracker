@@ -30,6 +30,7 @@
                               active-search 
                               show-events?
                               issue-to-insert
+                              issue-to-delete
                               context-to-insert
                               context-to-delete
                               issue-and-related-issues-to-update
@@ -43,7 +44,6 @@
                               issue-to-fetch
                               link-issue-contexts
                               do-cycle-search-mode
-                              do-delete-issue
                               do-reprioritize-issue
                               do-mark-issue-important
                               do-change-secondary-contexts-selection] 
@@ -60,8 +60,8 @@
       do-mark-issue-important
       {:selected-issue (datastore/mark-issue-important db selected-issue) 
        :issues         (search/search-issues db opts)}
-      do-delete-issue
-      (do (datastore/delete-issue db selected-issue)
+      issue-to-delete
+      (do (datastore/delete-issue db issue-to-delete)
           {:issues (search/search-issues db opts)})
       context-to-delete
       (do (datastore/delete-context db context-to-delete)

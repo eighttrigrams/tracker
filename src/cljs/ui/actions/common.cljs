@@ -24,13 +24,13 @@
            :issue-to-fetch
            :context-to-fetch
            :context-to-delete
+           :issue-to-delete
            :issue-to-insert
            :context-to-insert
            :issue-to-update-description-of
            :context-to-update-description-of
            :link-issue-contexts
            :do-cycle-search-mode
-           :do-delete-issue
            :do-reprioritize-issue
            :do-mark-issue-important
            :do-change-secondary-contexts-selection)))

@@ -47,7 +47,9 @@
 
 (defn delete-issue! [*state]
   (when (js/window.confirm "Delete currently selected issue?")
-    (fetch-and-reset! *state (assoc @*state :do-delete-issue true))))
+    (fetch-and-reset! *state (-> @*state
+                                 (assoc :issue-to-delete (:selected-issue @*state))
+                                 (dissoc :selected-issue)))))
 
 (defn delete-context! [*state]
   (when (js/window.confirm "Delete currently selected context?")
