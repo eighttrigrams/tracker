@@ -14,11 +14,11 @@
 (defn- get-tags-el []
   (.getElementById js/document "context-tags")) ;; TODO maybe just name it "tags"
 
-(def secondary-contexts (r/atom {}))
+(def *secondary-contexts (r/atom {}))
 
 (defn component [context]
-  (let [dropdown-contexts (r/atom '())]
-    (reset! secondary-contexts (:secondary_contexts context))
+  (let [*dropdown-contexts (r/atom '())]
+    (reset! *secondary-contexts (:secondary_contexts context))
     (r/create-class 
      {:component-did-mount #(.focus (get-title-el))
       :reagent-render
@@ -39,24 +39,32 @@
          [:ul (doall (map (fn [[idx title]]
                             [:li
                              {:key idx
-                              :on-click #(swap! secondary-contexts dissoc idx)}
-                             title]) @secondary-contexts))]
+                              :on-click #(swap! *secondary-contexts dissoc idx)}
+                             title]) @*secondary-contexts))]
          [:input#in
           {:on-change (fn [%] (go (-> (api/get-contexts (-> % .-target .-value))
                                       <p!
-                                      (#(reset! dropdown-contexts %)))))}]
+                                      (#(reset! *dropdown-contexts 
+                                                (remove (fn [context*]
+                                                          (or 
+                                                           (contains? (into #{} 
+                                                                            (keys @*secondary-contexts))
+                                                                      (:id context*))
+                                                           (= (:id context)
+                                                                 (:id context*)))) %))))))}]
          [:select#sel
           (doall (map (fn [{:keys [id title]}]
                         [:option {:value (str id ":::" title)
                                   :key id} title])
-                      @dropdown-contexts))]
+                      @*dropdown-contexts))]
          [:input
           {:type :button
            :value "Add"
            :on-click #(let [value (.-value (.getElementById js/document "sel"))]
                         (when (not= "" value)
                           (let [[id title] (str/split value #":::")]
-                            (swap! secondary-contexts assoc (int id) title))))}]])})))
+                            (swap! *secondary-contexts assoc (int id) title)
+                            (reset! *dropdown-contexts '()))))}]])})))
 
 (defn get-values [id]
   {:context
@@ -64,4 +72,4 @@
     :title       (.-value (get-title-el))
     :short_title (.-value (get-short-title-el))
     :tags        (.-value (get-tags-el))}
-   :secondary-contexts-ids (keys @secondary-contexts)})
+   :secondary-contexts-ids (keys @*secondary-contexts)})
