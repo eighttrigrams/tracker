@@ -43,6 +43,11 @@ li.card {
     padding: 10px;
 }
 
+li.card span {
+    position: relative;
+    top: -20px;
+}
+
 .scrollable.search-active li.card {
     z-index: 1005;
 }

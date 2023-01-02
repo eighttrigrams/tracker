@@ -6,7 +6,10 @@
         {:keys [title related_issues description]} selected-issue]
     [:<>
      [:h4 (if selected-context (str "[" (:title selected-context) "]") "[Overview]")]
-     [:h1 title]
+     [:span
+      {:style {:font-size "35px"}}
+      [:> ReactMarkdown
+       {:children title}]]
      (when related_issues
       [:ul 
        (doall (map (fn [[id title]]

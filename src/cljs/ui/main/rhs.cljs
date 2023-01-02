@@ -1,6 +1,7 @@
 (ns ui.main.rhs
   (:require [ui.actions :as actions]
-            [ui.main.input :as input]))
+            [ui.main.input :as input]
+            ["react-markdown$default" :as ReactMarkdown]))
 
 (defn- issues-list-item-component [*state issue]
   [:li.card
@@ -9,12 +10,15 @@
     :on-click #(actions/select-issue! *state issue)}
    [:div
     {:class (when (:important issue) :important)}
-    [:b (when (and (:selected-context @*state) 
-                   (not= 0 (:search_mode (:selected-context @*state))))
-          (str "(" (if (> (:short_title_ints issue) 0)
-                     (:short_title_ints issue)
-                     (or (:short_title issue) (:short_title_ints issue))) ") ")) 
-     (:title issue)]
+    [:span 
+     {:style {:font-size "20px"}}
+     (when (and (:selected-context @*state) 
+                      (not= 0 (:search_mode (:selected-context @*state))))
+             (str "(" (if (> (:short_title_ints issue) 0)
+                        (:short_title_ints issue)
+                        (or (:short_title issue) (:short_title_ints issue))) ") ")) 
+     [:> ReactMarkdown
+      {:children (:title issue)}]]
     [:p (:date issue)]
     [:span
      {:style {:font-size "12px"}}
