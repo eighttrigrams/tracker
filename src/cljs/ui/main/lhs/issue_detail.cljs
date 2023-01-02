@@ -2,14 +2,17 @@
   (:require ["react-markdown$default" :as ReactMarkdown]))
 
 (defn component [*state]
-  [:<>
-   [:h1 (:title (:selected-issue @*state))]
-   (when (:related_issues (:selected-issue @*state))
-     [:ul 
-      (doall (map (fn [[id title]]
-                    [:li 
-                     {:key id}
-                     title])
-                  (:related_issues (:selected-issue @*state))))])
-   [:> ReactMarkdown
-    {:children (:description (:selected-issue @*state))}]])
+  (let [{:keys [selected-issue selected-context]} @*state
+        {:keys [title related_issues description]} selected-issue]
+    [:<>
+     [:h4 (if selected-context (str "[" (:title selected-context) "]") "[Overview]")]
+     [:h1 title]
+     (when related_issues
+      [:ul 
+       (doall (map (fn [[id title]]
+                     [:li 
+                      {:key id}
+                      title])
+                   related_issues))])
+     [:> ReactMarkdown
+      {:children description}]]))
