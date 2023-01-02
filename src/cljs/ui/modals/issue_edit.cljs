@@ -1,6 +1,7 @@
 (ns ui.modals.issue-edit
   (:require [clojure.string :as str]
             [reagent.core :as r]
+            [net.eighttrigrams.cljs-text-editor.editor :as editor]
             api
             [cljs.core.async :refer [go]]
             [cljs.core.async.interop :refer-macros [<p!]]))
@@ -26,19 +27,24 @@
 (def *related-issues (r/atom {}))
 
 (defn basic-elements-component [issue]
-  [:<>
-   [:div
-    [:input#issue-title.line
-     {:autoComplete :off
-      :defaultValue (:title issue)}]]
-   [:div
-    [:input#issue-short-title.line
-     {:autoComplete :off
-      :defaultValue (:short_title issue)}]] ;; TODO work with short-title
-   [:div
-    [:input#issue-tags.line
-     {:autoComplete :off
-      :defaultValue (:tags issue)}]]])
+  (r/create-class {:component-did-mount #(do (editor/create (get-title-el) {:input-field-mode? true})
+                                             (editor/create (get-short-title-el) {:input-field-mode? true})
+                                             (editor/create (get-tags-el) {:input-field-mode? true}))
+                   :reagent-render ;
+                   (fn [_issue]
+                     [:<>
+                      [:div
+                       [:input#issue-title.line
+                        {:autoComplete :off
+                         :defaultValue (:title issue)}]]
+                      [:div
+                       [:input#issue-short-title.line
+                        {:autoComplete :off
+                         :defaultValue (:short_title issue)}]] ;; TODO work with short-title
+                      [:div
+                       [:input#issue-tags.line
+                        {:autoComplete :off
+                         :defaultValue (:tags issue)}]]])}))
 
 (defn event-component [issue *date-visible?]
   [:<>

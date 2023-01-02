@@ -24,17 +24,21 @@
 
 (defn- new-issue-component []
   (r/create-class
-   {:component-did-mount #(.focus (get-title-el))
-    :reagent-render (fn []
-                      [:input#title
-                       {:autoComplete :off}])}))
+   {:component-did-mount #(let [el (get-title-el)]
+                            (editor/create el {:input-field-mode? true})
+                            (.focus el))
+    :reagent-render      (fn []
+                           [:input#title
+                            {:autoComplete :off}])}))
 
 (defn- new-context-component []
   (r/create-class
-   {:component-did-mount #(.focus (get-title-el))
-    :reagent-render (fn []
-                      [:input#title
-                       {:autoComplete :off}])}))
+   {:component-did-mount #(let [el (get-title-el)]
+                            (editor/create el {:input-field-mode? true})
+                            (.focus el))
+    :reagent-render      (fn []
+                           [:input#title
+                            {:autoComplete :off}])}))
 
 (defn- handle-keys [*state item]
   (case (:modal @*state)

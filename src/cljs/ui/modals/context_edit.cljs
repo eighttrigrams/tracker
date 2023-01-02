@@ -1,6 +1,7 @@
 (ns ui.modals.context-edit
   (:require [clojure.string :as str]
             [reagent.core :as r]
+            [net.eighttrigrams.cljs-text-editor.editor :as editor]
             api
             [cljs.core.async :refer [go]]
             [cljs.core.async.interop :refer-macros [<p!]]))
@@ -20,7 +21,10 @@
   (let [*dropdown-contexts (r/atom '())]
     (reset! *secondary-contexts (:secondary_contexts context))
     (r/create-class 
-     {:component-did-mount #(.focus (get-title-el))
+     {:component-did-mount #(do (.focus (get-title-el))
+                                (editor/create (get-title-el) {:input-field-mode? true})
+                                (editor/create (get-short-title-el) {:input-field-mode? true})
+                                (editor/create (get-tags-el) {:input-field-mode? true}))
       :reagent-render
       (fn [context]
         [:<> 
