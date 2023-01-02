@@ -26,7 +26,11 @@
    [:input#in
     {:on-change (fn [%] (go (-> (api/get-contexts (-> % .-target .-value))
                                 <p!
-                                (#(reset! *dropdown-contexts %)))))}]
+                                (#(reset! *dropdown-contexts 
+                                          (remove (fn [context*]
+                                                    (contains? (into #{} (keys @*selectable-contexts))
+                                                               (:id context*))
+                                                    ) %))))))}]
    [:select#sel
     (doall (map (fn [{:keys [id title]}]
                   [:option {:value (str id ":::" title)
@@ -38,14 +42,14 @@
      :on-click #(let [value (.-value (.getElementById js/document "sel"))]
                   (when (not= "" value)
                     (let [[id title] (str/split value #":::")]
-                      (swap! *selectable-contexts assoc (int id) title))))}]])
+                      (swap! *selectable-contexts assoc (int id) title)
+                      (reset! *dropdown-contexts '()))))}]])
 
 (defn component [selected-context issue]
   (let [*dropdown-contexts    (r/atom '())
         contexts              (into {} (conj (:secondary_contexts selected-context)
                                              [(:id selected-context) (:title selected-context)]))
-        *selectable-contexts  (r/atom (merge contexts
-                                             (:contexts issue)))
+        *selectable-contexts  (r/atom (merge contexts (:contexts issue)))
         toggle-select-context (fn [idx] 
                                 #(swap! *contexts-ids
                                         (fn [vals] ((if (contains? vals idx) disj conj)
