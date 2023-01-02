@@ -11,6 +11,7 @@
 (def *contexts-ids (atom #{}))
 
 (defn- reset-contexts-ids! [issue selectable-contexts]
+  (prn selectable-contexts)
   (reset! *contexts-ids
           (doall
            (->>
@@ -41,14 +42,15 @@
                             (swap! *selectable-contexts assoc (int id) title)))}]])
 
 (defn component [selected-context issue]
-  (let [*dropdown-contexts   (r/atom '())
-        *selectable-contexts (r/atom (merge (conj (:secondary_contexts selected-context)
-                                                  [(:id selected-context) (:title selected-context)])
-                                            (:contexts issue)))
-        toggle-select-context            (fn [idx] 
+  (let [*dropdown-contexts    (r/atom '())
+        contexts              (into {} (conj (:secondary_contexts selected-context)
+                                             [(:id selected-context) (:title selected-context)]))
+        *selectable-contexts  (r/atom (merge contexts
+                                             (:contexts issue)))
+        toggle-select-context (fn [idx] 
                                 #(swap! *contexts-ids
-                                       (fn [vals] ((if (contains? vals idx) disj conj)
-                                                   vals idx))))]
+                                        (fn [vals] ((if (contains? vals idx) disj conj)
+                                                    vals idx))))]
     (reset-contexts-ids! issue @*selectable-contexts)
     
     (r/create-class
