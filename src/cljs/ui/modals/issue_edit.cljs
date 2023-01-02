@@ -59,7 +59,7 @@
        {:type           :checkbox
         :defaultChecked (:event_archived? issue)}]])])
 
-(defn- related-issues-component [*related-issues *dropdown-issues]
+(defn- related-issues-component [issue *related-issues *dropdown-issues]
   [:<>
    [:ul (doall (map (fn [[idx title]]
                       [:li
@@ -69,19 +69,25 @@
    [:input#in
     {:on-change (fn [%] (go (-> (api/get-issues (-> % .-target .-value))
                                 <p!
-                                (#(reset! *dropdown-issues %)))))}]
+                                (#(reset! *dropdown-issues 
+                                          (remove (fn [issue*]
+                                                    (or
+                                                     (contains? (into #{} (keys @*related-issues))
+                                                                (:id issue*))
+                                                     (= (:id issue)
+                                                        (:id issue*)))) %))))))}]
    [:select#sel
     (doall (map (fn [{:keys [id title]}]
                   [:option {:value (str id ":::" title)
                             :key id} title])
                 @*dropdown-issues))]
    [:input
-    {:type :button
-     :value "Add"
-     :on-click (fn [_evt] (let [[id title]
-                                (str/split (.-value (.getElementById js/document "sel"))
-                                           #":::")]
-                            (swap! *related-issues assoc (int id) title)))}]])
+    {:type     :button
+     :value    "Add"
+     :on-click #(let [value (.-value (.getElementById js/document "sel"))]
+                  (when (not= "" value)
+                    (let [[id title] (str/split value #":::")]
+                      (swap! *related-issues assoc (int id) title))))}]])
 
 (defn component [issue]
   (let [*date-visible?  (r/atom (boolean (:date issue)))
@@ -98,7 +104,7 @@
          [event-component issue *date-visible?]
          [:hr]
          [:h4 "Related issues"]
-         [related-issues-component *related-issues *dropdown-issues]])})))
+         [related-issues-component issue *related-issues *dropdown-issues]])})))
 
 (defn get-values [id]
   {:issue              {:id              id
