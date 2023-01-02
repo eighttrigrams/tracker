@@ -30,6 +30,7 @@
            :link-issue-contexts
            :do-cycle-search-mode
            :do-delete-issue
+           :do-delete-context
            :do-reprioritize-issue
            :do-mark-issue-important
            :do-change-secondary-contexts-selection)))

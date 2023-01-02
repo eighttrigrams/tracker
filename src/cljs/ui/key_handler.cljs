@@ -30,6 +30,8 @@
                (swap! *state #(assoc % :modal :edit-issue)) 
                (and selected-issue (= "Delete" code))
                (actions/delete-issue! *state)
+               (and selected-context (= "Delete" code))
+               (actions/delete-context! *state)
                (and selected-issue (= "KeyP" code))
                (actions/reprioritize-issue! *state)
                (and selected-context selected-issue (= "KeyL" code))

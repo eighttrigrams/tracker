@@ -1,6 +1,10 @@
 (ns datastore
-  (:require [datastore.issues :as issues]
-            [datastore.contexts :as contexts]))
+  (:require [next.jdbc :as jdbc]
+            [honey.sql :as sql]
+            [datastore.issues :as issues]
+            [datastore.contexts :as contexts]
+            [datastore.helpers
+             :refer [un-namespace-keys]]))
 
 ;; entity types
 ;; - issues
@@ -40,3 +44,34 @@
 (def get-context contexts/get-context)
 
 (def new-context contexts/new-context)
+
+(defn delete-context [db {:keys [id]}]
+  (doall
+   (for [issue-relation ;
+         (map un-namespace-keys 
+              (jdbc/execute! db
+                             (sql/format {:select :*
+                                          :from   [:context_issue]
+                                          :where  [:= :context_id id]})
+                             {:return-keys true}))]
+     (let [context-relations (map un-namespace-keys 
+                                  (jdbc/execute! db
+                                                 (sql/format {:select :*
+                                                              :from   [:context_issue]
+                                                              :where  [:= :issue_id (:issue_id issue-relation)]})
+                                                 {:return-keys true}))]
+       (if (= 1 (count context-relations))
+         (issues/delete-issue db {:id (:issue_id issue-relation)})
+         (jdbc/execute! db
+                        (sql/format {:delete-from [:context_issue]
+                                     :where [:and 
+                                             [:= :context_id id]
+                                             [:= :issue_id (:issue_id issue-relation)]]}))))))
+  (jdbc/execute! db ;; TODO maybe use fn from contexts ns
+                 (sql/format {:delete-from [:context_context]
+                              :where [:or 
+                                      [:= :parent_id id]
+                                      [:= :child_id id]]}))
+  (jdbc/execute! db
+                 (sql/format {:delete-from [:contexts]
+                              :where [:= :id id]})))
