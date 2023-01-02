@@ -2,7 +2,8 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [datastore.helpers :refer [un-namespace-keys]]
-            [datastore.issues :as issues]))
+            [datastore.issues :as issues]
+            [datastore.contexts :as contexts]))
 
 ;; entity types
 ;; - issues
@@ -17,129 +18,30 @@
 ;; TODO move to search ns, explore varags here, make tut about varargs and destructuring?
 ;; TODO in minimals, show examples which use substitution/formatting
 
-(defn new-context [db {title :title}]
-  (-> (jdbc/execute-one! 
-       db
-       (sql/format {:insert-into [:contexts]
-                    :columns     [:inserted_at 
-                                  :updated_at 
-                                  :title 
-                                  :search_mode]
-                    :values      [[[:raw "NOW()"] 
-                                   [:raw "NOW()"] 
-                                   [:inline title]
-                                   [:inline 0]]]})
-       {:return-keys true})
-      un-namespace-keys
-      (dissoc :searchable)))
 
-(defn- update-context* [db {:keys [id title short_title tags]}]
-  (jdbc/execute-one! db
-                     (sql/format {:update [:contexts]
-                                  :where  [:= :id [:inline id]]
-                                  :set    {:title       [:inline title]
-                                           :short_title [:inline short_title]
-                                           :tags        [:inline tags]
-                                           :updated_at  [:raw "NOW()"]}})
-                     {:return-keys true}))
 
-(defn- join-secondary-contexts [context]
-  (-> context
-      (dissoc :secondary_contexts_ids)
-      (dissoc :secondary_contexts_titles)
-      (assoc :secondary_contexts
-             (zipmap (.getArray (:secondary_contexts_ids context))
-                     (.getArray (:secondary_contexts_titles context))))))
+(def update-issue issues/update-issue)
 
-(defn- simple-contexts-query [id]
-  {:select   [:contexts.*]
-   :from     [:contexts]
-   :where    [:= :contexts.id [:inline id]]})
+(def get-issue issues/get-issue)
 
-(defn- contexts-query [id]
-  {:select   [:contexts.*
-              [[:array_agg :secondary_contexts.id] :secondary_contexts_ids]
-              [[:array_agg :secondary_contexts.title] :secondary_contexts_titles]]
-   :from     [:contexts]
-   :join     [:context_context [:= :contexts.id :context_context.parent_id]
-              [:contexts :secondary_contexts] [:= :secondary_contexts.id :context_context.child_id]]
-   :where    [:= :contexts.id [:inline id]]
-   :group-by [:contexts.id]})
+(def update-issue-description issues/update-issue-description)
 
-(defn- get-context-with-secondary-contexts [db id]
-  (when-let [result (-> id
-                        contexts-query
-                        sql/format
-                        (#(jdbc/execute-one! db % {:return-keys true}))
-                        )]
-    (join-secondary-contexts result)))
+(def new-issue issues/new-issue)
 
-(defn get-context [db {:keys [id]}]
-  (-> (if-let [context (get-context-with-secondary-contexts db id)]
-        context
-        (-> id
-            simple-contexts-query
-            sql/format
-            (#(jdbc/execute-one! db % {:return-keys true}))))
-      un-namespace-keys
-      (dissoc :searchable)))
+(def reprioritize-issue issues/reprioritize-issue)
 
-(defn- relate-contexts [db id secondary-contexts-ids]
-  (doall
-   (for [secondary-context-id secondary-contexts-ids]
-     (jdbc/execute! db (sql/format {:insert-into [:context_context]
-                                    :columns [:parent_id :child_id]
-                                    :values [[[:inline id] [:inline secondary-context-id]]]})))))
+(def mark-issue-important issues/mark-issue-important) 
 
-(defn- delete-secondary-contexts [db id]
-  (jdbc/execute! db (sql/format {:delete-from [:context_context]
-                                 :where [:= :parent_id [:inline id]]})))
+(def link-issue-contexts issues/link-issue-contexts)
 
-(defn update-context [db {:keys [context secondary-contexts-ids]}] 
-  (let [{:keys [id]} context]
-    (delete-secondary-contexts db id)
-    (relate-contexts db id secondary-contexts-ids)
-    (update-context* db context)
-    (get-context db context)))
+(def delete-issue issues/delete-issue)
 
-(defn update-issue [& args]
-  (apply issues/update-issue args))
+(def cycle-search-mode contexts/cycle-search-mode)
 
-(defn get-issue [& args]
-  (apply issues/get-issue args))
+(def update-context-description contexts/update-context-description)
 
-(defn update-issue-description [& args]
-  (apply issues/update-issue-description args))
+(def update-context contexts/update-context)
 
-(defn new-issue [& args]
-  (apply issues/new-issue args))
+(def get-context contexts/get-context)
 
-(defn reprioritize-issue [& args]
-  (apply issues/reprioritize-issue args))
-
-(defn mark-issue-important [& args]
-  (apply issues/mark-issue-important args)) 
-
-(defn link-issue-contexts [& args]
-  (apply issues/link-issue-contexts args))
-
-(defn delete-issue [& args]
-  (apply issues/delete-issue args))
-
-(defn update-context-description [db {:keys [id description]}]
-  (-> 
-   (jdbc/execute-one! db
-                      (sql/format {:update [:contexts]
-                                   :set    {:description [:inline description]
-                                            :updated_at  [:raw "NOW()"]}
-                                   :where  [:= :id [:inline id]]})
-                      {:return-keys true})
-   un-namespace-keys
-   (dissoc :searchable)))
-
-(defn cycle-search-mode [db {:keys [id] :as context}]
-  (let [context (get-context db context)]
-    (jdbc/execute-one! db (sql/format {:update [:contexts]
-                                       :set    {:search_mode [:inline (mod (inc (:search_mode context)) 3)]}
-                                       :where  [:= :id [:inline id]]}))
-    (get-context db context)))
+(def new-context contexts/new-context)
