@@ -37,10 +37,13 @@
 (defn show-events! [*state]
   (fetch-and-reset! *state (-> @*state
                                (assoc :show-events? true)
+                               (dissoc :selected-issue)
                                (dissoc :selected-context))))
 
 (defn exit-events-view! [*state]
-  (fetch-and-reset! *state (assoc @*state :show-events? false)))
+  (fetch-and-reset! *state (-> @*state
+                               (assoc :show-events? false)
+                               (dissoc :selected-issue))))
 
 (defn cycle-search-mode! [*state]
   (fetch-and-reset! *state (assoc @*state :do-cycle-search-mode true)))
