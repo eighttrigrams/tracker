@@ -23,6 +23,7 @@
            :context-and-secondary-contexts-to-update
            :issue-to-fetch
            :context-to-fetch
+           :context-to-delete
            :issue-to-insert
            :context-to-insert
            :issue-to-update-description-of
@@ -30,7 +31,6 @@
            :link-issue-contexts
            :do-cycle-search-mode
            :do-delete-issue
-           :do-delete-context
            :do-reprioritize-issue
            :do-mark-issue-important
            :do-change-secondary-contexts-selection)))

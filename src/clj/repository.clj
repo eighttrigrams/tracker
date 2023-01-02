@@ -31,6 +31,7 @@
                               show-events?
                               issue-to-insert
                               context-to-insert
+                              context-to-delete
                               issue-and-related-issues-to-update
                               context-and-secondary-contexts-to-update
                               issue-to-update-description-of
@@ -43,7 +44,6 @@
                               link-issue-contexts
                               do-cycle-search-mode
                               do-delete-issue
-                              do-delete-context
                               do-reprioritize-issue
                               do-mark-issue-important
                               do-change-secondary-contexts-selection] 
@@ -63,11 +63,10 @@
       do-delete-issue
       (do (datastore/delete-issue db selected-issue)
           {:issues (search/search-issues db opts)})
-      do-delete-context
-      (do (datastore/delete-context db selected-context)
-          {:issues (search/search-issues db (dissoc opts :selected-context))
-           :contexts (search/search-contexts db "")
-           :selected-context nil})
+      context-to-delete
+      (do (datastore/delete-context db context-to-delete)
+          {:issues (search/search-issues db opts)
+           :contexts (search/search-contexts db "")})
       do-cycle-search-mode
       (let [selected-context (datastore/cycle-search-mode db selected-context)]
         {:selected-context selected-context
