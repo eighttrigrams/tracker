@@ -107,3 +107,7 @@ li.card.selected {
 #modal-component input:focus {
     outline: none;
 }
+
+#title {
+    width: 600px;
+}
