@@ -48,8 +48,8 @@
      [:h2 "Search mode: " 
       (case (:search_mode (:selected-context @*state))
         0 "Normal"
-        1 "A->Z"
-        2 "Z->A")]
+        1 "A->Z,0->9"
+        2 "9->0,Z->A")]
      (when (:secondary_contexts (:selected-context @*state))
        [:<>
         [:hr]
