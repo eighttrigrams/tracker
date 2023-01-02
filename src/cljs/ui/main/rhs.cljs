@@ -10,7 +10,7 @@
     :on-click #(actions/select-issue! *state issue)}
    [:div
     {:class (when (:important issue) :important)}
-    [:span 
+    [:span.title
      {:style {:font-size "20px"}}
      (when (and (:selected-context @*state) 
                       (not= 0 (:search_mode (:selected-context @*state))))
@@ -19,8 +19,9 @@
                         (or (:short_title issue) (:short_title_ints issue))) ") ")) 
      [:> ReactMarkdown
       {:children (:title issue)}]]
-    [:p (:date issue)]
-    [:span
+    [:span.date (:date issue)]
+    [:br]
+    [:span.contexts
      {:style {:font-size "12px"}}
      (doall 
       (->> (:contexts issue)
