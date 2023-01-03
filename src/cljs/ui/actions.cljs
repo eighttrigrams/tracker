@@ -41,6 +41,7 @@
 (defn show-events! [*state]
   (fetch-and-reset! *state (-> @*state
                                (assoc :show-events? true)
+                               (assoc :selected-secondary-contexts-ids #{})
                                (dissoc :selected-issue)
                                (dissoc :selected-context))))
 
