@@ -15,7 +15,7 @@
                    selected-issue
                    (swap! *state #(dissoc % :selected-issue))
                    (seq (:selected-secondary-contexts-ids @*state))
-                   (swap! *state assoc :selected-secondary-contexts-ids #{})
+                   (actions/deselect-secondary-contexts! *state)
                    selected-context
                    (actions/deselect-context! *state))
              (not (:active-search @*state))

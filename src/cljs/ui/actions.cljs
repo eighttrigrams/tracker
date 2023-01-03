@@ -30,6 +30,10 @@
 (defn search! [*state value]
   (fetch-and-reset! *state @*state value))
 
+(defn deselect-secondary-contexts! [*state]
+  (fetch-and-reset! *state (-> @*state
+                               (assoc :selected-secondary-contexts-ids #{}))))
+
 (defn change-secondary-contexts-selection! [*state]
   (fetch-and-reset! *state (-> @*state
                                (assoc :do-change-secondary-contexts-selection true))))
