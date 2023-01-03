@@ -13,41 +13,6 @@
              (zipmap (.getArray (:context_ids issue))
                      (.getArray (:context_titles issue))))))
 
-(defn new-issue [db {title :title} context-id selected-secondary-contexts-ids]
-  (let [parts       (str/split title #"\|")
-        title       (if (= 1 (count parts))
-                      (first parts)
-                      (second parts))
-        short_title (if (= 1 (count parts))
-                      ""
-                      (first parts))
-        issue
-        (jdbc/execute-one!
-         db
-         (sql/format {:insert-into [:issues]
-                      :columns     [:inserted_at
-                                    :updated_at
-                                    :title
-                                    :short_title]
-                      :values      [[[:raw "NOW()"]
-                                     [:raw "NOW()"]
-                                     title
-                                     short_title]]})
-
-         {:return-keys true})
-        values (vec (doall
-                     (map (fn [ctx-id]
-                            [[:inline ctx-id]
-                             [:inline (:issues/id issue)]])
-                          (conj selected-secondary-contexts-ids context-id))))]
-    (jdbc/execute! db
-                   (sql/format {:insert-into [:context-issue]
-                                :columns [:context_id :issue_id]
-                                :values values}))
-    (-> issue
-        un-namespace-keys
-        (dissoc :searchable))))
-
 (defn- delete-date [db issue-id]
   (jdbc/execute! db
                  (sql/format {:delete-from [:events]
@@ -201,3 +166,35 @@
                                           :values [[[:inline (:id selected-issue)]
                                                     [:inline context-id]]]}))))
   (get-issue db selected-issue))
+
+(defn new-issue [db {title :title} context-id selected-secondary-contexts-ids]
+  (let [parts       (str/split title #"\|")
+        title       (if (= 1 (count parts))
+                      (first parts)
+                      (second parts))
+        short_title (if (= 1 (count parts))
+                      ""
+                      (first parts))
+        issue-id    (:issues/id (jdbc/execute-one!
+                                 db
+                                 (sql/format {:insert-into [:issues]
+                                              :columns     [:inserted_at
+                                                            :updated_at
+                                                            :title
+                                                            :short_title]
+                                              :values      [[[:raw "NOW()"]
+                                                             [:raw "NOW()"]
+                                                             title
+                                                             short_title]]})
+
+                                 {:return-keys true}))
+        values      (vec (doall
+                          (map (fn [ctx-id]
+                                 [[:inline ctx-id]
+                                  [:inline issue-id]])
+                               (conj selected-secondary-contexts-ids context-id))))]
+    (jdbc/execute! db
+                   (sql/format {:insert-into [:context_issue]
+                                :columns     [:context_id :issue_id]
+                                :values      values}))
+    (get-issue db {:id issue-id})))

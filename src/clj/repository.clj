@@ -72,8 +72,11 @@
         {:selected-context selected-context
          :issues           (search/search-issues db (assoc opts :selected-context selected-context))})
       issue-to-insert
-      {:selected-issue (datastore/new-issue db issue-to-insert (:id selected-context) selected-secondary-contexts-ids)
-       :issues         (search/search-issues db opts)}
+      (let [selected-issue (datastore/new-issue db issue-to-insert
+                                                (:id selected-context)
+                                                selected-secondary-contexts-ids)]
+        {:selected-issue selected-issue
+         :issues         (search/search-issues db (assoc opts :selected-issue selected-issue))})
       context-to-insert
       {:selected-context (datastore/new-context db context-to-insert)
        :issues         []}
