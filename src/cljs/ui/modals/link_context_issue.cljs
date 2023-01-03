@@ -11,7 +11,6 @@
 (def *contexts-ids (atom #{}))
 
 (defn- reset-contexts-ids! [issue selectable-contexts]
-  (prn selectable-contexts)
   (reset! *contexts-ids
           (doall
            (->>
@@ -43,6 +42,7 @@
                   (when (not= "" value)
                     (let [[id title] (str/split value #":::")]
                       (swap! *selectable-contexts assoc (int id) title)
+                      (swap! *contexts-ids conj (int id))
                       (reset! *dropdown-contexts '()))))}]])
 
 (defn component [selected-context issue]
@@ -59,7 +59,7 @@
     (r/create-class
      {:component-did-mount #(.focus (get-component-el))
       :reagent-render      ;
-      (fn [_selected-context issue]
+      (fn [_selected-context _issue]
         [:<>
          [:div#link-context-issue-component
           {:tabIndex 0}
@@ -72,7 +72,7 @@
                {:key            idx
                 :on-change      (toggle-select-context idx)
                 :type           :checkbox
-                :defaultChecked (contains? (set (keys (:contexts issue))) idx)}]])
+                :defaultChecked (contains? @*contexts-ids idx)}]])
            @*selectable-contexts)]
          
          [:hr]
