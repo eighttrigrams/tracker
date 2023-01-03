@@ -48,7 +48,9 @@
 (defn component [selected-context issue]
   (let [*dropdown-contexts    (r/atom '())
         contexts              (into {} (conj (:secondary_contexts selected-context)
-                                             [(:id selected-context) (:title selected-context)]))
+                                             (when selected-context 
+                                               [(:id selected-context) 
+                                                (:title selected-context)])))
         *selectable-contexts  (r/atom (merge contexts (:contexts issue)))
         toggle-select-context (fn [idx] 
                                 #(swap! *contexts-ids

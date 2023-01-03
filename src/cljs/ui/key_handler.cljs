@@ -36,7 +36,7 @@
                (actions/delete-context! *state)
                (and selected-issue (= "KeyP" code))
                (actions/reprioritize-issue! *state)
-               (and selected-context selected-issue (= "KeyL" code))
+               (and selected-issue (= "KeyL" code))
                (swap! *state #(assoc % :modal :link-context-issue))
                (and selected-issue (= "KeyT" code))
                (actions/mark-issue-important! *state)
