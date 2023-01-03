@@ -17,7 +17,8 @@
   (swap! *state assoc :selected-context context)
   (fetch-and-reset! *state (-> @*state
                                (assoc :selected-secondary-contexts-ids #{})
-                               (assoc :context-to-fetch context))))
+                               (assoc :context-to-fetch context)
+                               (dissoc :selected-issue))))
 
 (defn select-issue! [*state issue]
   ;; For a snappy response in the UI, set :selected-issue immediately.
