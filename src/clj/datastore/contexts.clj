@@ -89,15 +89,13 @@
     (get-context db context)))
 
 (defn update-context-description [db {:keys [id description]}]
-  (->
-   (jdbc/execute-one! db
-                      (sql/format {:update [:contexts]
-                                   :set    {:description [:inline description]
-                                            :updated_at  [:raw "NOW()"]}
-                                   :where  [:= :id [:inline id]]})
-                      {:return-keys true})
-   un-namespace-keys
-   (dissoc :searchable)))
+  (jdbc/execute-one! db
+                     (sql/format {:update [:contexts]
+                                  :set    {:description [:inline description]
+                                           :updated_at  [:raw "NOW()"]}
+                                  :where  [:= :id [:inline id]]})
+                     {:return-keys true})
+  (get-context db {:id id}))
 
 (defn cycle-search-mode [db {:keys [id] :as context}]
   (let [context (get-context db context)]
