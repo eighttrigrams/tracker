@@ -47,6 +47,6 @@
           (when (:modal @*state)
             [:<>
              [:div.mask 
-              {:on-click #(actions/cancel-modal! *state)}
+              {:on-double-click #(actions/cancel-modal! *state)}
               [:div#modals-component
                [modals/component *state]]]])]])})))
