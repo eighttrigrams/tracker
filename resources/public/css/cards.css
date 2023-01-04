@@ -1,0 +1,51 @@
+li.card {
+    position: relative;
+    background-color: rgb(102, 15, 69);
+    height: 100px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.scrollable.search-active li.card {
+    z-index: 1005;
+}
+
+li.card.selected {
+    background-color:rgb(148, 76, 123);
+}
+
+.important {
+    font-weight: bold;
+    color: #ff459a;
+}
+
+li.card span.title {
+    position: relative;
+    top: -20px;
+}
+
+li.card.issue-card span.title {
+    position: absolute;
+    top: -15px;
+    font-size: 20px;
+    
+    /* https://stackoverflow.com/a/13924997 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* number of lines to show */
+            line-clamp: 2; 
+    -webkit-box-orient: vertical;
+}
+
+li.card.issue-card span.contexts {
+    position: absolute;
+    top: 95px;
+    font-size: 12px;
+}
+
+li.card.issue-card span.info {
+    position: absolute;
+    top: 64px;
+}

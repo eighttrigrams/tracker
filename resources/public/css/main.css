@@ -34,43 +34,6 @@ ul.cards {
     list-style-type: none;
 }
 
-li.card {
-    position: relative;
-    background-color: rgb(102, 15, 69);
-    height: 100px;
-    margin-bottom: 10px;
-    border-radius: 4px;
-    padding: 10px;
-}
-
-li.card span.title {
-    position: relative;
-    top: -20px;
-}
-
-li.card span.date {
-    position: absolute;
-    top: 75px;
-}
-
-li.card span.contexts {
-    position: absolute;
-    top: 95px;
-}
-
-.scrollable.search-active li.card {
-    z-index: 1005;
-}
-
-li.card.selected {
-    background-color:rgb(148, 76, 123);
-}
-
-.important {
-    font-weight: bold;
-    color: #ff459a;
-}
-
 .mask {
     background-color: rgba(0,0,0,0.5);
     position: fixed;
