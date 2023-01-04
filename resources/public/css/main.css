@@ -36,7 +36,7 @@ ul.cards {
 
 li.card {
     position: relative;
-    background-color:rgb(148, 76, 123);
+    background-color: rgb(102, 15, 69);
     height: 100px;
     margin-bottom: 10px;
     border-radius: 4px;
@@ -58,13 +58,12 @@ li.card span.contexts {
     top: 95px;
 }
 
-
 .scrollable.search-active li.card {
     z-index: 1005;
 }
 
 li.card.selected {
-    background-color: rgb(102, 15, 69);
+    background-color:rgb(148, 76, 123);
 }
 
 .important {
