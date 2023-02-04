@@ -112,7 +112,7 @@
         (seq (set/intersection 
               (set (keys (:contexts issue)))
               selected-secondary-contexts-ids)))
-       )issues)
+       ) issues)
     issues))
 
 (defn search-issues
