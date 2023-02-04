@@ -100,18 +100,24 @@
       (concat top bottom))))
 
 (defn- filter-by-selected-secondary-contexts [selected-secondary-contexts-ids 
-                                              secondary-contexts-inverted?
+                                              unassigned-secondary-contexts-selected?
                                               issues]
   (if (seq selected-secondary-contexts-ids)
-    ((if-not secondary-contexts-inverted? filter remove) 
+    (filter
      (fn [issue]
-       (seq (set/intersection 
-             (set (keys (:contexts issue)))
-             selected-secondary-contexts-ids))
-       ) issues)
-    (if-not secondary-contexts-inverted? 
-      issues
-      (filter #(= 1 (count (:contexts %))) issues))))
+       (or 
+        (and unassigned-secondary-contexts-selected?
+             (= 1 (count (:contexts issue))))
+        (seq (set/intersection 
+              (set (keys (:contexts issue)))
+              selected-secondary-contexts-ids)))
+       )issues)
+    (if unassigned-secondary-contexts-selected?
+      (filter 
+       (fn [issue]
+         (= 1 (count (:contexts issue))))
+       issues)
+      issues)))
 
 (defn search-issues
   "Returns a sequence of items
@@ -120,10 +126,8 @@
               selected-context 
               show-events? 
               selected-secondary-contexts-ids
-              secondary-contexts-inverted?]
+              unassigned-secondary-contexts-selected?]
        :or   {q ""}}]
-  
-  (tap> [:sec secondary-contexts-inverted?])
   
   (if-let [ids (seq (fetch-ids db q selected-context show-events?))]
     (->> ids
@@ -140,5 +144,5 @@
              (re-order % (:search_mode selected-context))
              %))
          (filter-by-selected-secondary-contexts selected-secondary-contexts-ids
-                                                secondary-contexts-inverted?))
+                                                unassigned-secondary-contexts-selected?))
     '()))

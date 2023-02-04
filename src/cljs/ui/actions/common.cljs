@@ -34,7 +34,7 @@
            :do-reprioritize-issue
            :do-mark-issue-important
            :do-change-secondary-contexts-selection
-           :do-change-secondary-contexts-inverted)))
+           :do-change-secondary-contexts-unassigned-selected)))
 
 (defn- list-resources [state q]
   (api/list-resources

@@ -47,7 +47,7 @@
                               do-reprioritize-issue
                               do-mark-issue-important
                               do-change-secondary-contexts-selection
-                              do-change-secondary-contexts-inverted] 
+                              do-change-secondary-contexts-unassigned-selected] 
                        :as opts}]
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
@@ -110,7 +110,7 @@
       {:contexts (search/search-contexts db q)}
       do-change-secondary-contexts-selection
       {:issues (search/search-issues db opts)}
-      do-change-secondary-contexts-inverted
+      do-change-secondary-contexts-unassigned-selected
       {:issues (search/search-issues db opts)}
       :else {:issues   (search/search-issues db opts)
              :contexts (search/search-contexts db "")})))

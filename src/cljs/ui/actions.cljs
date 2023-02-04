@@ -40,9 +40,9 @@
   (fetch-and-reset! *state (-> @*state
                                (assoc :do-change-secondary-contexts-selection true))))
 
-(defn change-secondary-contexts-inverted! [*state]
+(defn change-secondary-contexts-unassigned-selected! [*state]
   (fetch-and-reset! *state (-> @*state
-                               (assoc :do-change-secondary-contexts-inverted true))))
+                               (assoc :do-change-secondary-contexts-unassigned-selected true))))
 
 (defn show-events! [*state]
   (fetch-and-reset! *state (-> @*state
