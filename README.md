@@ -5,22 +5,22 @@ An issue tracking system.
 ## Getting started
 
 ```bash
-$1 ./dev.sh
-$2 npx shadow-cljs watch app
+$1 ./dev.sh                  # Server
+$2 npx shadow-cljs watch app # Frontend
 ```
 
 Visit `localhost:8020`
 
 ## REPL Workflow (Server)
 
-Begin with
+Instead of starting the server with `./dev.sh`, begin with
+firing up a REPL, either by jacking-in or by running `clj -M:dev`. 
+Then execute the following:
 
 ```clojure
 clj:user:> (start)
 {:started ["#'resources/resources" "#'server/http-server"]}
 ```
-
-Visit `localhost:8020`.
 
 ### VSCode
 
@@ -28,7 +28,7 @@ Visit `localhost:8020`.
     - deps.edn
         - Profile: :dev
 
-### Package and run
+## Package and run
 
 ```bash
 $ ./deploy.sh
@@ -36,7 +36,7 @@ $ ./start.sh
 visit localhost:3000
 ```
 
-### Clean
+## Clean
 
 ```bash
 $ rm -rf resources/public/js/*
