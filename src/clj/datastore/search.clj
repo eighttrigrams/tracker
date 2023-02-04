@@ -102,7 +102,8 @@
 (defn- filter-by-selected-secondary-contexts [selected-secondary-contexts-ids 
                                               unassigned-secondary-contexts-selected?
                                               issues]
-  (if (seq selected-secondary-contexts-ids)
+  (if (or unassigned-secondary-contexts-selected?
+          (seq selected-secondary-contexts-ids))
     (filter
      (fn [issue]
        (or 
@@ -112,12 +113,7 @@
               (set (keys (:contexts issue)))
               selected-secondary-contexts-ids)))
        )issues)
-    (if unassigned-secondary-contexts-selected?
-      (filter 
-       (fn [issue]
-         (= 1 (count (:contexts issue))))
-       issues)
-      issues)))
+    issues))
 
 (defn search-issues
   "Returns a sequence of items
