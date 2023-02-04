@@ -47,19 +47,20 @@
                               do-reprioritize-issue
                               do-mark-issue-important
                               do-change-secondary-contexts-selection
-                              do-change-secondary-contexts-unassigned-selected] 
+                              do-change-secondary-contexts-unassigned-selected
+                              do-change-secondary-contexts-inverted] 
                        :as opts}]
   #_{:clj-kondo/ignore [:unresolved-var]}
   (let [db (:db config/config)]
     (cond
-      link-issue-contexts 
+      link-issue-contexts
       {:selected-issue (datastore/link-issue-contexts db selected-issue link-issue-contexts)
        :issues         (search/search-issues db opts)}
       do-reprioritize-issue
-      (do (datastore/reprioritize-issue db selected-issue) 
+      (do (datastore/reprioritize-issue db selected-issue)
           {:issues (search/search-issues db opts)})
       do-mark-issue-important
-      {:selected-issue (datastore/mark-issue-important db selected-issue) 
+      {:selected-issue (datastore/mark-issue-important db selected-issue)
        :issues         (search/search-issues db opts)}
       issue-to-delete
       (do (datastore/delete-issue db issue-to-delete)
@@ -111,6 +112,8 @@
       do-change-secondary-contexts-selection
       {:issues (search/search-issues db opts)}
       do-change-secondary-contexts-unassigned-selected
+      {:issues (search/search-issues db opts)}
+      do-change-secondary-contexts-inverted
       {:issues (search/search-issues db opts)}
       :else {:issues   (search/search-issues db opts)
              :contexts (search/search-contexts db "")})))

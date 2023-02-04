@@ -25,15 +25,15 @@
            #((if (contains? % id) disj conj) % id))
     (actions/change-secondary-contexts-selection! *state)))
 
-(defn- invert-secondary-contexts [*state]
+(defn- select-unassigned-secondary-contexts [*state]
   (fn [_]
     (swap! *state update :unassigned-secondary-contexts-selected? not)
     (actions/change-secondary-contexts-unassigned-selected! *state)))
 
-(defn- invert-component [*state]
+(defn- unassigned-secondary-contexts-component [*state]
   [:span {:style (when (:unassigned-secondary-contexts-selected? @*state)
                    {:font-weight :bold})
-          :on-click (invert-secondary-contexts *state)}
+          :on-click (select-unassigned-secondary-contexts *state)}
    "No secondary contexts"])
 
 (defn- secondary-contexts-component [*state]
@@ -42,7 +42,7 @@
                                        unassigned-secondary-contexts-selected?]
          {:keys [secondary_contexts]} :selected-context} @*state]
     [:ul
-     [:li [invert-component *state]]
+     [:li [unassigned-secondary-contexts-component *state]]
      (->> secondary_contexts
           (count-issues issues)
           (sort-by (fn [[_id [title _count]]] (.toLowerCase title)))
@@ -56,6 +56,17 @@
                              (not unassigned-secondary-contexts-selected?))
                     (str " (" count ")"))])))]))
 
+(defn- select-invert-contexts [*state]
+  (fn [_]
+    (swap! *state update :secondary-contexts-inverted? not)
+    (actions/change-secondary-contexts-inverted! *state)))
+
+(defn- invert-component [*state]
+  [:span {:style (when (:secondary-contexts-inverted? @*state)
+                   {:font-weight :bold})
+          :on-click (select-invert-contexts *state)}
+   "Invert"])
+
 (defn component [_*state]
   (fn [*state]
     [:<>
@@ -68,6 +79,7 @@
        [:<>
         [:hr]
         [:h2 "Secondary contexts:"]
+        [invert-component *state]
         [secondary-contexts-component *state]])
      [:hr]
      [:> ReactMarkdown
