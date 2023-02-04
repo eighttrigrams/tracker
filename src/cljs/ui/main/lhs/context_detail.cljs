@@ -42,6 +42,17 @@
                   (when (empty? selected-secondary-contexts-ids)
                     (str " (" count ")"))])))]))
 
+(defn- invert-secondary-contexts [*state]
+  (fn [_]
+    (swap! *state update :secondary-contexts-inverted? not)
+    (actions/change-secondary-contexts-inverted! *state)))
+
+(defn- invert-component [*state]
+  [:span {:style (when (:secondary-contexts-inverted? @*state)
+                   {:font-weight :bold})
+          :on-click (invert-secondary-contexts *state)}
+   "Invert"])
+
 (defn component [_*state]
   (fn [*state]
     [:<>
@@ -53,7 +64,8 @@
      (when (:secondary_contexts (:selected-context @*state))
        [:<>
         [:hr]
-        [:h2 "Secondary contexts:"]
+        [:h2 "Secondary contexts:"] 
+        [invert-component *state]
         [secondary-contexts-component *state]])
      [:hr]
      [:> ReactMarkdown

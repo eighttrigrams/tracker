@@ -17,6 +17,7 @@
   (swap! *state assoc :selected-context context)
   (fetch-and-reset! *state (-> @*state
                                (assoc :selected-secondary-contexts-ids #{})
+                               (assoc :secondary-contexts-inverted? false)
                                (assoc :context-to-fetch context)
                                (dissoc :selected-issue))))
 
@@ -38,6 +39,10 @@
 (defn change-secondary-contexts-selection! [*state]
   (fetch-and-reset! *state (-> @*state
                                (assoc :do-change-secondary-contexts-selection true))))
+
+(defn change-secondary-contexts-inverted! [*state]
+  (fetch-and-reset! *state (-> @*state
+                               (assoc :do-change-secondary-contexts-inverted true))))
 
 (defn show-events! [*state]
   (fetch-and-reset! *state (-> @*state
