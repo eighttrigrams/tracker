@@ -5,6 +5,7 @@ An issue tracking system.
 ## Getting started
 
 ```bash
+$ cp config.edn.template config.edn # Edit!
 $1 ./dev.sh                  # Server
 $2 npx shadow-cljs watch app # Frontend
 ```
