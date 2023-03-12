@@ -31,5 +31,5 @@
            (filter (fn [[idx _title]]
                      (not= idx (:id (:selected-context @*state)))))
            (map (fn [[idx title]]
-                  [:span {:key idx}
-                   (str title ",")]))))]]])
+                  [:span.badge {:key idx}
+                   title]))))]]])

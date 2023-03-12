@@ -49,3 +49,10 @@ li.card.issue-card span.info {
     position: absolute;
     top: 64px;
 }
+
+li.card.issue-card span.badge {
+    background-color: wheat;
+    border-radius: 3px;
+    padding: 3px;
+    margin-right: 3px;
+}
