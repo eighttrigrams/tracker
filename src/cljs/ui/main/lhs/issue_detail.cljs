@@ -14,7 +14,6 @@
               title])
            related-issues)]]))
 
-
 (defn- context-links-component [*state related-contexts]
   (when (seq related-contexts)
     [:<>

@@ -8,12 +8,14 @@
 (defn new-issue! [*state issue]
   (fetch-and-reset! *state (-> @*state
                                (dissoc :modal)
-                               (assoc :issue-to-insert issue))))
+                               (assoc :cmd :insert-issue)
+                               (assoc :arg issue))))
 
 (defn new-context! [*state context]
   (fetch-and-reset! *state (-> @*state
                                (dissoc :modal)
-                               (assoc :context-to-insert context))))
+                               (assoc :cmd :insert-context)
+                               (assoc :arg context))))
 
 (defn save-description! [*state type item]
   (fetch-and-reset! *state (-> @*state

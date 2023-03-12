@@ -17,14 +17,14 @@
   ([*state context suppress-reset-issue]
    ;; See below
    (swap! *state assoc :selected-context context)
-    (fetch-and-reset! *state (-> @*state
-                                 (assoc :selected-secondary-contexts-ids #{})
-                                 (assoc :secondary-contexts-inverted? false)
-                                 (assoc :unassigned-secondary-contexts-selected? false)
-                                 (assoc :context-to-fetch context)
-                                 (#(if-not suppress-reset-issue
-                                     (dissoc % :selected-issue)
-                                     (identity %)))))))
+   (fetch-and-reset! *state (-> @*state
+                                (assoc :selected-secondary-contexts-ids #{})
+                                (assoc :secondary-contexts-inverted? false)
+                                (assoc :unassigned-secondary-contexts-selected? false)
+                                (assoc :context-to-fetch context)
+                                (#(if-not suppress-reset-issue
+                                    (dissoc % :selected-issue)
+                                    (identity %)))))))
 
 (defn select-issue! [*state issue]
   ;; For a snappy response in the UI, set :selected-issue immediately.
@@ -39,24 +39,23 @@
 
 (defn deselect-secondary-contexts! [*state]
   (fetch-and-reset! *state (-> @*state
-                               (assoc :selected-secondary-contexts-ids #{}))))
+                               (assoc :cmd :deselect-secondary-contexts))))
 
 (defn change-secondary-contexts-selection! [*state]
   (fetch-and-reset! *state (-> @*state
-                               (assoc :do-change-secondary-contexts-selection true))))
+                               (assoc :cmd :do-change-secondary-contexts-selection))))
 
 (defn change-secondary-contexts-unassigned-selected! [*state]
   (fetch-and-reset! *state (-> @*state
-                               (assoc :do-change-secondary-contexts-unassigned-selected true))))
+                               (assoc :cmd :do-change-secondary-contexts-unassigned-selected))))
 
 (defn change-secondary-contexts-inverted! [*state]
   (fetch-and-reset! *state (-> @*state
-                               (assoc :do-change-secondary-contexts-inverted true))))
+                               (assoc :cmd :do-change-secondary-contexts-inverted))))
 
 (defn show-events! [*state]
   (fetch-and-reset! *state (-> @*state
                                (assoc :show-events? true)
-                               (assoc :selected-secondary-contexts-ids #{})
                                (dissoc :selected-issue)
                                (dissoc :selected-context))))
 
@@ -66,22 +65,24 @@
                                (dissoc :selected-issue))))
 
 (defn cycle-search-mode! [*state]
-  (fetch-and-reset! *state (assoc @*state :do-cycle-search-mode true)))
+  (fetch-and-reset! *state (assoc @*state :cmd :cylce-search-mode)))
 
 (defn delete-issue! [*state]
   (when (js/window.confirm "Delete currently selected issue?")
     (fetch-and-reset! *state (-> @*state
-                                 (assoc :issue-to-delete (:selected-issue @*state))
+                                 (assoc :cmd :delete-issue)
+                                 (assoc :arg (:selected-issue @*state))
                                  (dissoc :selected-issue)))))
 
 (defn delete-context! [*state]
   (when (js/window.confirm "Delete currently selected context?")
     (fetch-and-reset! *state (-> @*state 
-                                 (assoc :context-to-delete (:selected-context @*state))
+                                 (assoc :cmd :delete-context)
+                                 (assoc :arg (:selected-context @*state))
                                  (dissoc :selected-context)))))
 
 (defn reprioritize-issue! [*state]
-  (fetch-and-reset! *state (assoc @*state :do-reprioritize-issue true)))
+  (fetch-and-reset! *state (assoc @*state :cmd :reprioritize-issue)))
 
 (defn mark-issue-important! [*state]
-  (fetch-and-reset! *state (assoc @*state :do-mark-issue-important true)))
+  (fetch-and-reset! *state (assoc @*state :cmd :mark-issue-important)))
