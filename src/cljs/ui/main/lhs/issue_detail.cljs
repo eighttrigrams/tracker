@@ -16,7 +16,7 @@
 
 
 (defn- context-links-component [*state related-contexts]
-  (when related-contexts
+  (when-not (seq related-contexts)
     [:<>
      [:h3 "Contexts"]
      [:ul
@@ -30,7 +30,6 @@
 (defn component [*state]
   (let [{:keys [selected-issue selected-context]} @*state
         {:keys [title related_issues description contexts]} selected-issue]
-    (prn selected-issue)
     [:<>
      [:h4 (if selected-context (str "[" (:title selected-context) "]") "[Overview]")]
      [context-links-component *state (remove #(= (first %) (:id selected-context)) contexts)] 
