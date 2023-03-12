@@ -4,11 +4,13 @@
 
 (defn handle-modal-keys [*state value-fn]
   (handle-keys*
-   (fn [code ctrl-pressed? e]
+   (fn [code _ctrl-pressed? meta-pressed? alt-pressed? e]
      (let [{:keys [modal]} @*state]
        (cond (= "Escape" code)
              (actions/cancel-modal! *state)
-             (and (= "KeyS" code) ctrl-pressed? (= :link-context-issue modal))
+             (and (= "Digit9" code) 
+                  (or meta-pressed? alt-pressed?) 
+                  (= :link-context-issue modal))
              (do (.preventDefault e)
                  (actions/update-issue-contexts! *state (value-fn)))
              (and (= "Enter" code) (= :new-issue modal))
@@ -21,7 +23,9 @@
                  (actions/new-context!
                   *state
                   (value-fn)))
-             (and (= "KeyS" code) ctrl-pressed? (= :description modal))
+             (and (= "Digit9" code) 
+                  (or meta-pressed? alt-pressed?)
+                  (= :description modal))
              (do (.preventDefault e)
                  (actions/save-description!
                   *state
@@ -30,11 +34,11 @@
 
 (defn handle-edit-keys [*state value-fn]
   (handle-keys*
-   (fn [code ctrl-pressed? e]
+   (fn [code _ctrl-pressed? meta-pressed? alt-pressed? e]
      (cond (= "Escape" code)
            (actions/cancel-modal! *state)
-           (and (= "KeyS" code)
-                ctrl-pressed?)
+           (and (= "Digit9" code)
+                (or meta-pressed? alt-pressed?))
            (do (.preventDefault e)
                ((if (:selected-issue @*state)
                   actions/update-issue!
