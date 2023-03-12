@@ -30,22 +30,18 @@
                               cmd
                               arg
                               active-search 
-                              show-events?
-                              issue-and-related-issues-to-update
-                              context-and-secondary-contexts-to-update
-                              issue-to-update-description-of
-                              context-to-update-description-of
                               selected-issue
                               selected-context
                               selected-secondary-contexts-ids
                               context-to-fetch
-                              issue-to-fetch
                               link-issue-contexts] 
                        :as   opts}]
   #_{:clj-kondo/ignore [:unresolved-var]}
   (merge 
    {:active-search                   active-search
-    :selected-secondary-contexts-ids selected-secondary-contexts-ids}
+    :selected-secondary-contexts-ids selected-secondary-contexts-ids
+    :selected-issue                  selected-issue
+    :selected-context                selected-context}
    (let [db (:db config/config)]
      (cond
        link-issue-contexts
@@ -59,11 +55,13 @@
         :issues         (search/search-issues db opts)}
        (= :delete-issue cmd)
        (do (datastore/delete-issue db arg)
-           {:issues (search/search-issues db opts)})
+           {:issues         (search/search-issues db opts)
+            :selected-issue nil})
        (= :delete-context cmd)
        (do (datastore/delete-context db arg)
-           {:issues   (search/search-issues db opts)
-            :contexts (search/search-contexts db "")})
+           {:issues           (search/search-issues db opts)
+            :contexts         (search/search-contexts db "")
+            :selected-context nil})
        (= :do-cycle-search-mode cmd)
        (let [selected-context (datastore/cycle-search-mode db selected-context)]
          {:selected-context selected-context
@@ -77,19 +75,19 @@
        (= :insert-context cmd)
        {:selected-context (datastore/new-context db arg)
         :issues           []}
-       issue-to-update-description-of
-       {:selected-issue (datastore/update-issue-description db issue-to-update-description-of)
+       (= :update-issue-description cmd)
+       {:selected-issue (datastore/update-issue-description db arg)
         :issues         (search/search-issues db opts)}
-       context-to-update-description-of
-       {:selected-context (datastore/update-context-description db context-to-update-description-of)}
-       issue-and-related-issues-to-update
-       {:selected-issue (datastore/update-issue db issue-and-related-issues-to-update)
+       (= :update-context-description cmd)
+       {:selected-context (datastore/update-context-description db arg)}
+       (= :update-issue cmd)
+       {:selected-issue (datastore/update-issue db arg)
         :issues         (search/search-issues db opts)}
-       context-and-secondary-contexts-to-update
-       {:selected-context (datastore/update-context db context-and-secondary-contexts-to-update)
+       (= :update-context cmd)
+       {:selected-context (datastore/update-context db arg)
         :issues           (search/search-issues db opts)} ;; maybe not necessary (yet)
-       issue-to-fetch
-       {:selected-issue (datastore/get-issue db issue-to-fetch)
+       (= :fetch-issue cmd)
+       {:selected-issue (datastore/get-issue db arg)
         :issues         (when active-search (search/search-issues db opts))
         :active-search  nil}
        context-to-fetch
@@ -97,10 +95,6 @@
          {:selected-context selected-context
           :issues           (search/search-issues db (assoc opts :selected-context selected-context))
           :active-search    nil})
-       show-events?
-       {:issues   (search/search-issues db opts)
-        :contexts []
-        :selected-secondary-contexts-ids #{}}
        (= :issues active-search)
        {:issues (search/search-issues db opts)}
        (= :contexts active-search)
@@ -115,5 +109,19 @@
        {:issues                          (search/search-issues db opts)
         :contexts                        (search/search-contexts db "")
         :selected-secondary-contexts-ids #{}}
+       (= :exit-events-view cmd)
+       {:issues         (search/search-issues db opts)
+        :contexts       (search/search-contexts db "")
+        :selected-issue nil}
+       (= :enter-events-view cmd)
+       {:issues                          (search/search-issues db opts)
+        :contexts                        []
+        :selected-issue                  nil
+        :selectec-context                nil
+        :selected-secondary-contexts-ids #{}}
+       (= :deselect-context cmd)
+       {:issues           (search/search-issues db opts)
+        :contexts         (search/search-contexts db "")
+        :selected-context nil}
        :else {:issues   (search/search-issues db opts)
               :contexts (search/search-contexts db "")}))))

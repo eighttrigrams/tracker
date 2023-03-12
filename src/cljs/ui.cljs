@@ -2,8 +2,7 @@
   (:require [reagent.core :as r] 
             [ui.key-handler :as key-handler]
             [ui.main :as main]
-            [ui.modals :as modals]
-            [ui.modals.actions :as actions]))
+            [ui.modals :as modals]))
 
 (def original-state {:issues                          []
                      :contexts                        []

@@ -20,20 +20,23 @@
 (defn save-description! [*state type item]
   (fetch-and-reset! *state (-> @*state
                                (dissoc :modal)
-                               (assoc (if (= :issue type)
-                                        :issue-to-update-description-of
-                                        :context-to-update-description-of) item))))
+                               (assoc :cmd (if (= :issue type)
+                                             :update-issue-description
+                                             :update-context-description))
+                               (assoc :arg item))))
 
 (defn update-issue! [*state issue]
   (fetch-and-reset! *state 
                     (-> @*state
-                        (assoc :issue-and-related-issues-to-update issue)
+                        (assoc :cmd :update-issue)
+                        (assoc :arg issue)
                         (dissoc :modal))))
 
 (defn update-context! [*state context]
   (fetch-and-reset! *state
                     (-> @*state
-                        (assoc :context-and-secondary-contexts-to-update context)
+                        (assoc :cmd :update-context)
+                        (assoc :arg context)
                         (dissoc :modal))))
 
 (defn update-issue-contexts! [*state values]

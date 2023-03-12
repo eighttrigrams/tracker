@@ -10,7 +10,7 @@
 
 (defn deselect-context! [*state] 
   (fetch-and-reset! *state (-> @*state
-                               (dissoc :selected-context))))
+                               (assoc :cmd :deselect-context))))
 
 (defn select-context! 
   ([*state context] (select-context! *state context false))
@@ -18,12 +18,13 @@
    ;; See below
    (swap! *state assoc :selected-context context)
    (fetch-and-reset! *state (-> @*state
+                                ;; TODO review; simplify
                                 (assoc :selected-secondary-contexts-ids #{})
                                 (assoc :secondary-contexts-inverted? false)
                                 (assoc :unassigned-secondary-contexts-selected? false)
                                 (assoc :context-to-fetch context)
                                 (#(if-not suppress-reset-issue
-                                    (dissoc % :selected-issue)
+                                    (dissoc % :selected-issue) ;; TODO review
                                     (identity %)))))))
 
 (defn select-issue! [*state issue]
@@ -32,7 +33,8 @@
   ;; will fetch and replace it, thereby filling in the related issues.
   (swap! *state assoc :selected-issue issue)
   (fetch-and-reset! *state (-> @*state
-                               (assoc :issue-to-fetch issue))))
+                               (assoc :cmd :fetch-issue)
+                               (assoc :arg issue))))
 
 (defn search! [*state value]
   (fetch-and-reset! *state @*state value))
@@ -55,14 +57,14 @@
 
 (defn show-events! [*state]
   (fetch-and-reset! *state (-> @*state
-                               (assoc :show-events? true)
-                               (dissoc :selected-issue)
-                               (dissoc :selected-context))))
+                               (assoc :cmd :enter-events-view)
+                               (assoc :show-events? true) ;; TODO set this in the backend
+                               )))
 
 (defn exit-events-view! [*state]
   (fetch-and-reset! *state (-> @*state
-                               (assoc :show-events? false)
-                               (dissoc :selected-issue))))
+                               (assoc :cmd :exist-events-view)
+                               (assoc :show-events? false))))
 
 (defn cycle-search-mode! [*state]
   (fetch-and-reset! *state (assoc @*state :cmd :cylce-search-mode)))
@@ -71,8 +73,7 @@
   (when (js/window.confirm "Delete currently selected issue?")
     (fetch-and-reset! *state (-> @*state
                                  (assoc :cmd :delete-issue)
-                                 (assoc :arg (:selected-issue @*state))
-                                 (dissoc :selected-issue)))))
+                                 (assoc :arg (:selected-issue @*state))))))
 
 (defn delete-context! [*state]
   (when (js/window.confirm "Delete currently selected context?")
