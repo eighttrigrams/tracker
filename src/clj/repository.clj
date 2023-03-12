@@ -123,5 +123,6 @@
        {:issues           (search/search-issues db opts)
         :contexts         (search/search-contexts db "")
         :selected-context nil}
+       ;; TODO get rid of default case here
        :else {:issues   (search/search-issues db opts)
               :contexts (search/search-contexts db "")}))))
