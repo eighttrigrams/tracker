@@ -13,12 +13,16 @@
                   (= :link-context-issue modal))
              (do (.preventDefault e)
                  (actions/update-issue-contexts! *state (value-fn)))
-             (and (= "Enter" code) (= :new-issue modal))
+             (and (= "Digit9" code)
+                  (or meta-pressed? alt-pressed?)
+                  (= :new-issue modal))
              (do (.preventDefault e)
                  (actions/new-issue!
                   *state
                   (value-fn)))
-             (and (= "Enter" code) (= :new-context modal))
+             (and (= "Digit9" code) 
+                  (or meta-pressed? alt-pressed?)
+                  (= :new-context modal))
              (do (.preventDefault e)
                  (actions/new-context!
                   *state
