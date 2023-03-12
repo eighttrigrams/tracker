@@ -23,7 +23,7 @@
       (map (fn [[id title]]
              [:li
               {:key      id
-               :on-click #(actions/select-context! *state {:id id})}
+               :on-click #(actions/select-context! *state {:id id} true)}
               title])
            related-contexts)]]))
 

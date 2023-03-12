@@ -12,15 +12,19 @@
   (fetch-and-reset! *state (-> @*state
                                (dissoc :selected-context))))
 
-(defn select-context! [*state context]
-  ;; See below
-  (swap! *state assoc :selected-context context)
-  (fetch-and-reset! *state (-> @*state
-                               (assoc :selected-secondary-contexts-ids #{})
-                               (assoc :secondary-contexts-inverted? false)
-                               (assoc :unassigned-secondary-contexts-selected? false)
-                               (assoc :context-to-fetch context)
-                               (dissoc :selected-issue))))
+(defn select-context! 
+  ([*state context] (select-context! *state context false))
+  ([*state context suppress-reset-issue]
+   ;; See below
+   (swap! *state assoc :selected-context context)
+    (fetch-and-reset! *state (-> @*state
+                                 (assoc :selected-secondary-contexts-ids #{})
+                                 (assoc :secondary-contexts-inverted? false)
+                                 (assoc :unassigned-secondary-contexts-selected? false)
+                                 (assoc :context-to-fetch context)
+                                 (#(if-not suppress-reset-issue
+                                     (dissoc % :selected-issue)
+                                     (identity %)))))))
 
 (defn select-issue! [*state issue]
   ;; For a snappy response in the UI, set :selected-issue immediately.
