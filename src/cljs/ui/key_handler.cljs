@@ -50,7 +50,9 @@
                     (not alt-pressed?)
                     (not (:show-events? @*state)))
                (swap! *state #(assoc % :active-search :contexts))
-               (and selected-context (= "KeyS" code))
+               (and selected-context 
+                    (not selected-issue)
+                    (= "KeyS" code))
                (actions/cycle-search-mode! *state)
                (and selected-context (= "KeyN" code))
                (swap! *state #(assoc % :modal :new-issue))
