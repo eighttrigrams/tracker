@@ -69,7 +69,7 @@
                                (assoc :show-events? false))))
 
 (defn cycle-search-mode! [*state]
-  (fetch-and-reset! *state (assoc @*state :cmd :cylce-search-mode)))
+  (fetch-and-reset! *state (assoc @*state :cmd :cycle-search-mode)))
 
 (defn delete-issue! [*state]
   (when (js/window.confirm "Delete currently selected issue?")
