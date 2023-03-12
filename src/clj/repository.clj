@@ -63,7 +63,7 @@
            {:issues           (search/search-issues db opts)
             :contexts         (search/search-contexts db "")
             :selected-context nil})
-       (= :do-cycle-search-mode cmd)
+       (= :cycle-search-mode cmd)
        (let [selected-context (datastore/cycle-search-mode db selected-context)]
          {:selected-context selected-context
           :issues           (search/search-issues db (assoc opts :selected-context selected-context))})
@@ -100,11 +100,11 @@
        {:issues (search/search-issues db opts)}
        (= :contexts active-search)
        {:contexts (search/search-contexts db q)}
-       (= :do-change-secondary-contexts-selection cmd)
+       (= :change-secondary-contexts-selection cmd)
        {:issues (search/search-issues db opts)}
-       (= :do-change-secondary-contexts-unassigned-selected cmd)
+       (= :change-secondary-contexts-unassigned-selected cmd)
        {:issues (search/search-issues db opts)}
-       (= :do-change-secondary-contexts-inverted cmd)
+       (= :change-secondary-contexts-inverted cmd)
        {:issues (search/search-issues db opts)}
        (= :deselect-secondary-contexts cmd)
        {:issues                          (search/search-issues db opts)

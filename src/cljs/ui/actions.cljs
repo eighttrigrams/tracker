@@ -47,15 +47,15 @@
 
 (defn change-secondary-contexts-selection! [*state]
   (fetch-and-reset! *state (-> @*state
-                               (assoc :cmd :do-change-secondary-contexts-selection))))
+                               (assoc :cmd :change-secondary-contexts-selection))))
 
 (defn change-secondary-contexts-unassigned-selected! [*state]
   (fetch-and-reset! *state (-> @*state
-                               (assoc :cmd :do-change-secondary-contexts-unassigned-selected))))
+                               (assoc :cmd :change-secondary-contexts-unassigned-selected))))
 
 (defn change-secondary-contexts-inverted! [*state]
   (fetch-and-reset! *state (-> @*state
-                               (assoc :cmd :do-change-secondary-contexts-inverted))))
+                               (assoc :cmd :change-secondary-contexts-inverted))))
 
 (defn show-events! [*state]
   (fetch-and-reset! *state (-> @*state
