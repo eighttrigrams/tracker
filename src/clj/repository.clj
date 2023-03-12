@@ -36,6 +36,7 @@
                               context-to-fetch
                               link-issue-contexts] 
                        :as   opts}]
+
   #_{:clj-kondo/ignore [:unresolved-var]}
   (merge 
    {:active-search                   active-search
@@ -120,7 +121,7 @@
         :selectec-context                nil
         :selected-secondary-contexts-ids #{}}
        (= :deselect-context cmd)
-       {:issues           (search/search-issues db opts)
+       {:issues           (search/search-issues db (dissoc opts :selected-context))
         :contexts         (search/search-contexts db "")
         :selected-context nil}
        ;; TODO get rid of default case here
