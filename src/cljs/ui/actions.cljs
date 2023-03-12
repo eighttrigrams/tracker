@@ -79,8 +79,7 @@
   (when (js/window.confirm "Delete currently selected context?")
     (fetch-and-reset! *state (-> @*state 
                                  (assoc :cmd :delete-context)
-                                 (assoc :arg (:selected-context @*state))
-                                 (dissoc :selected-context)))))
+                                 (assoc :arg (:selected-context @*state))))))
 
 (defn reprioritize-issue! [*state]
   (fetch-and-reset! *state (assoc @*state :cmd :reprioritize-issue)))
