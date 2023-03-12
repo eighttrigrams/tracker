@@ -40,6 +40,7 @@
   (fetch-and-reset! *state @*state value))
 
 (defn deselect-secondary-contexts! [*state]
+  ;; TODO dedup, extract common pattern here
   (fetch-and-reset! *state (-> @*state
                                (assoc :cmd :deselect-secondary-contexts))))
 
