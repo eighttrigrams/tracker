@@ -49,4 +49,5 @@
              [:div.mask 
               {:on-double-click #(actions/cancel-modal! *state)}
               [:div#modals-component
+               {:on-double-click #(.stopPropagation %)}
                [modals/component *state]]]])]])})))
