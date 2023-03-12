@@ -16,7 +16,7 @@
 
 
 (defn- context-links-component [*state related-contexts]
-  (when-not (seq related-contexts)
+  (when (seq related-contexts)
     [:<>
      [:h3 "Contexts"]
      [:ul
