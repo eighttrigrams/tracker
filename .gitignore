@@ -1,0 +1,17 @@
+.cpcache/
+.nrepl-port
+.server.port
+.shadow-cljs.pid
+target/
+node_modules/
+.shadow-cljs/
+resources/public/js/
+config.edn
+config.edn.*
+!config.edn.template
+data/
+.lsp
+.clj-kondo
+.editor-layouts.json
+.claude/settings.local.json
+.playwright-mcp

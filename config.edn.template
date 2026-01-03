@@ -1,0 +1,3 @@
+{:db {:type :sqlite-memory}
+ :dangerously-skip-logins? true
+ :shadow? true}
