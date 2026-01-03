@@ -1,6 +1,7 @@
 (ns et.tr.server
   (:require [ring.adapter.jetty9 :as jetty]
             [et.tr.db :as db]
+            [et.tr.middleware.rate-limit :refer [wrap-rate-limit]]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.string :as str]
@@ -144,7 +145,8 @@
       (wrap-auth)
       (wrap-json-response)
       (wrap-cors :access-control-allow-origin [#".*"]
-                 :access-control-allow-methods [:get :post])))
+                 :access-control-allow-methods [:get :post])
+      (wrap-rate-limit)))
 
 (defn- run-server [port]
   (let [host (or (System/getenv "HOST") "127.0.0.1")]

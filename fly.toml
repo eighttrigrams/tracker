@@ -1,5 +1,5 @@
-app = "tracker"
-primary_region = "iad"
+app = "tracker-ibh-lq"
+primary_region = "cdg"
 
 [env]
   PORT = "8080"
