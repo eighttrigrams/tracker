@@ -31,7 +31,7 @@
                             :sort-mode :recent
                             :drag-task nil
                             :drag-over-task nil
-                            :upcoming-horizon :week}))
+                            :upcoming-horizon nil}))
 
 (defn auth-headers []
   (let [token (:token @app-state)
@@ -43,6 +43,7 @@
 
 (declare fetch-tasks)
 (declare fetch-users)
+(declare calculate-best-horizon)
 
 (defn- save-auth-to-storage [token user]
   (when token
@@ -125,7 +126,9 @@
        :keywords? true
        :headers (auth-headers)
        :handler (fn [tasks]
-                  (swap! app-state assoc :tasks tasks))})))
+                  (swap! app-state assoc :tasks tasks)
+                  (when (nil? (:upcoming-horizon @app-state))
+                    (swap! app-state assoc :upcoming-horizon (calculate-best-horizon tasks))))})))
 
 (defn has-active-filters? []
   (let [{:keys [filter-people filter-places filter-projects filter-goals]} @app-state]
@@ -499,14 +502,31 @@
     (.setDate d (+ (.getDate d) days))
     (.substring (.toISOString d) 0 10)))
 
+(def horizon-order [:three-days :week :month :three-months :year :eighteen-months])
+
 (defn horizon-end-date [horizon]
   (let [today (today-str)]
     (case horizon
+      :three-days (add-days today 3)
       :week (add-days today 7)
       :month (add-days today 30)
+      :three-months (add-days today 90)
       :year (add-days today 365)
-      :two-years (add-days today 730)
+      :eighteen-months (add-days today 548)
       (add-days today 7))))
+
+(defn count-upcoming-tasks-for-horizon [tasks horizon]
+  (let [today (today-str)
+        end-date (horizon-end-date horizon)]
+    (count (filter (fn [task]
+                     (and (:due_date task)
+                          (> (:due_date task) today)
+                          (<= (:due_date task) end-date)))
+                   tasks))))
+
+(defn calculate-best-horizon [tasks]
+  (or (first (filter #(>= (count-upcoming-tasks-for-horizon tasks %) 10) horizon-order))
+      :eighteen-months))
 
 (defn overdue-tasks []
   (let [today (today-str)]
@@ -558,6 +578,7 @@
          :places []
          :projects []
          :goals []
+         :upcoming-horizon nil
          :active-tab :today)
   (fetch-tasks)
   (fetch-people)

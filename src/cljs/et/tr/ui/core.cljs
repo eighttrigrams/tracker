@@ -93,14 +93,18 @@
   (let [horizon (:upcoming-horizon @state/app-state)]
     [:div.horizon-selector
      [:span "Show: "]
+     [:button {:class (when (= horizon :three-days) "active")
+               :on-click #(state/set-upcoming-horizon :three-days)} "3 Days"]
      [:button {:class (when (= horizon :week) "active")
                :on-click #(state/set-upcoming-horizon :week)} "Week"]
      [:button {:class (when (= horizon :month) "active")
                :on-click #(state/set-upcoming-horizon :month)} "Month"]
+     [:button {:class (when (= horizon :three-months) "active")
+               :on-click #(state/set-upcoming-horizon :three-months)} "3 Months"]
      [:button {:class (when (= horizon :year) "active")
                :on-click #(state/set-upcoming-horizon :year)} "Year"]
-     [:button {:class (when (= horizon :two-years) "active")
-               :on-click #(state/set-upcoming-horizon :two-years)} "2 Years"]]))
+     [:button {:class (when (= horizon :eighteen-months) "active")
+               :on-click #(state/set-upcoming-horizon :eighteen-months)} "1.5 Years"]]))
 
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
