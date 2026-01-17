@@ -1,52 +1,31 @@
 (ns et.tr.db
   (:require [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs]))
+            [next.jdbc.result-set :as rs]
+            [et.tr.migrations :as migrations]))
 
 (defn init-conn [{:keys [type path]}]
   (let [db-spec (case type
                   :sqlite-memory {:dbtype "sqlite" :dbname "file::memory:?cache=shared"}
-                  :sqlite-file {:dbtype "sqlite" :dbname path})]
-    (jdbc/get-datasource db-spec)))
+                  :sqlite-file {:dbtype "sqlite" :dbname path})
+        ds (jdbc/get-datasource db-spec)
+        persistent-conn (when (= type :sqlite-memory) (jdbc/get-connection ds))
+        conn-for-use (or persistent-conn ds)]
+    (migrations/migrate! conn-for-use)
+    {:conn conn-for-use
+     :persistent-conn persistent-conn
+     :type type}))
 
-(defn create-tables [ds]
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS tasks (
-                       id INTEGER PRIMARY KEY AUTOINCREMENT,
-                       title TEXT NOT NULL,
-                       description TEXT DEFAULT '',
-                       created_at TEXT NOT NULL DEFAULT (datetime('now')))"])
-  (try
-    (jdbc/execute! ds ["ALTER TABLE tasks ADD COLUMN description TEXT DEFAULT ''"])
-    (catch Exception _))
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS people (
-                       id INTEGER PRIMARY KEY AUTOINCREMENT,
-                       name TEXT NOT NULL UNIQUE)"])
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS places (
-                       id INTEGER PRIMARY KEY AUTOINCREMENT,
-                       name TEXT NOT NULL UNIQUE)"])
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS task_categories (
-                       task_id INTEGER NOT NULL,
-                       category_type TEXT NOT NULL,
-                       category_id INTEGER NOT NULL,
-                       PRIMARY KEY (task_id, category_type, category_id),
-                       FOREIGN KEY (task_id) REFERENCES tasks(id))"])
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS projects (
-                       id INTEGER PRIMARY KEY AUTOINCREMENT,
-                       name TEXT NOT NULL UNIQUE)"])
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS goals (
-                       id INTEGER PRIMARY KEY AUTOINCREMENT,
-                       name TEXT NOT NULL UNIQUE)"])
-  (try
-    (jdbc/execute! ds ["ALTER TABLE tasks ADD COLUMN sort_order REAL DEFAULT NULL"])
-    (catch Exception _))
-  (jdbc/execute! ds ["UPDATE tasks SET sort_order = (SELECT COUNT(*) FROM tasks t2 WHERE t2.created_at >= tasks.created_at) WHERE sort_order IS NULL"]))
+(defn- get-conn [ds]
+  (if (map? ds) (:conn ds) ds))
 
 (defn add-task [ds title]
-  (let [min-order (or (:min_order (jdbc/execute-one! ds
+  (let [conn (get-conn ds)
+        min-order (or (:min_order (jdbc/execute-one! conn
                                     ["SELECT MIN(sort_order) as min_order FROM tasks"]
                                     {:builder-fn rs/as-unqualified-maps}))
                       1.0)
         new-order (- min-order 1.0)
-        result (jdbc/execute-one! ds
+        result (jdbc/execute-one! conn
                  ["INSERT INTO tasks (title, sort_order) VALUES (?, ?) RETURNING id, title, description, created_at, sort_order"
                   title new-order]
                  {:builder-fn rs/as-unqualified-maps})]
@@ -55,25 +34,26 @@
 (defn list-tasks
   ([ds] (list-tasks ds :recent))
   ([ds sort-mode]
-   (let [order-clause (if (= sort-mode :manual)
+   (let [conn (get-conn ds)
+         order-clause (if (= sort-mode :manual)
                         "ORDER BY sort_order ASC, created_at DESC"
                         "ORDER BY created_at DESC")
-         tasks (jdbc/execute! ds
+         tasks (jdbc/execute! conn
                  [(str "SELECT id, title, description, created_at, sort_order FROM tasks " order-clause)]
                  {:builder-fn rs/as-unqualified-maps})
-         categories (jdbc/execute! ds
+         categories (jdbc/execute! conn
                       ["SELECT task_id, category_type, category_id FROM task_categories"]
                       {:builder-fn rs/as-unqualified-maps})
-         people (jdbc/execute! ds
+         people (jdbc/execute! conn
                   ["SELECT id, name FROM people"]
                   {:builder-fn rs/as-unqualified-maps})
-         places (jdbc/execute! ds
+         places (jdbc/execute! conn
                   ["SELECT id, name FROM places"]
                   {:builder-fn rs/as-unqualified-maps})
-         projects (jdbc/execute! ds
+         projects (jdbc/execute! conn
                     ["SELECT id, name FROM projects"]
                     {:builder-fn rs/as-unqualified-maps})
-         goals (jdbc/execute! ds
+         goals (jdbc/execute! conn
                  ["SELECT id, name FROM goals"]
                  {:builder-fn rs/as-unqualified-maps})
          people-by-id (into {} (map (juxt :id :name) people))
@@ -99,67 +79,67 @@
            tasks))))
 
 (defn add-person [ds name]
-  (jdbc/execute-one! ds
+  (jdbc/execute-one! (get-conn ds)
     ["INSERT INTO people (name) VALUES (?) RETURNING id, name" name]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn add-place [ds name]
-  (jdbc/execute-one! ds
+  (jdbc/execute-one! (get-conn ds)
     ["INSERT INTO places (name) VALUES (?) RETURNING id, name" name]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn list-people [ds]
-  (jdbc/execute! ds
+  (jdbc/execute! (get-conn ds)
     ["SELECT id, name FROM people ORDER BY name"]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn list-places [ds]
-  (jdbc/execute! ds
+  (jdbc/execute! (get-conn ds)
     ["SELECT id, name FROM places ORDER BY name"]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn add-project [ds name]
-  (jdbc/execute-one! ds
+  (jdbc/execute-one! (get-conn ds)
     ["INSERT INTO projects (name) VALUES (?) RETURNING id, name" name]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn add-goal [ds name]
-  (jdbc/execute-one! ds
+  (jdbc/execute-one! (get-conn ds)
     ["INSERT INTO goals (name) VALUES (?) RETURNING id, name" name]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn list-projects [ds]
-  (jdbc/execute! ds
+  (jdbc/execute! (get-conn ds)
     ["SELECT id, name FROM projects ORDER BY name"]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn list-goals [ds]
-  (jdbc/execute! ds
+  (jdbc/execute! (get-conn ds)
     ["SELECT id, name FROM goals ORDER BY name"]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn categorize-task [ds task-id category-type category-id]
-  (jdbc/execute-one! ds
+  (jdbc/execute-one! (get-conn ds)
     ["INSERT OR IGNORE INTO task_categories (task_id, category_type, category_id) VALUES (?, ?, ?)"
      task-id category-type category-id]))
 
 (defn uncategorize-task [ds task-id category-type category-id]
-  (jdbc/execute-one! ds
+  (jdbc/execute-one! (get-conn ds)
     ["DELETE FROM task_categories WHERE task_id = ? AND category_type = ? AND category_id = ?"
      task-id category-type category-id]))
 
 (defn update-task [ds task-id title description]
-  (jdbc/execute-one! ds
+  (jdbc/execute-one! (get-conn ds)
     ["UPDATE tasks SET title = ?, description = ? WHERE id = ? RETURNING id, title, description, created_at"
      title description task-id]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn get-task-sort-order [ds task-id]
-  (:sort_order (jdbc/execute-one! ds
+  (:sort_order (jdbc/execute-one! (get-conn ds)
                  ["SELECT sort_order FROM tasks WHERE id = ?" task-id]
                  {:builder-fn rs/as-unqualified-maps})))
 
 (defn reorder-task [ds task-id new-sort-order]
-  (jdbc/execute-one! ds
+  (jdbc/execute-one! (get-conn ds)
     ["UPDATE tasks SET sort_order = ? WHERE id = ?" new-sort-order task-id])
   {:success true :sort_order new-sort-order})

@@ -1,20 +1,17 @@
 (ns et.tr.db-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
-            [next.jdbc :as jdbc]
             [et.tr.db :as db]))
 
 (def ^:dynamic *ds* nil)
 
 (defn with-in-memory-db [f]
-  (let [db-name (str "file:test" (System/nanoTime) "?mode=memory&cache=shared")
-        ds (jdbc/get-datasource {:dbtype "sqlite" :dbname db-name})
-        conn (jdbc/get-connection ds)]
-    (db/create-tables conn)
+  (let [conn (db/init-conn {:type :sqlite-memory})]
     (try
       (binding [*ds* conn]
         (f))
       (finally
-        (.close conn)))))
+        (when-let [pc (:persistent-conn conn)]
+          (.close pc))))))
 
 (use-fixtures :each with-in-memory-db)
 

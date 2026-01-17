@@ -32,7 +32,6 @@
     (when (nil? @config)
       (reset! config (load-config)))
     (let [conn (db/init-conn (get @config :db {:type :sqlite-memory}))]
-      (db/create-tables conn)
       (reset! ds conn)))
   @ds)
 

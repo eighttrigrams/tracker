@@ -1,0 +1,38 @@
+{:id "001-initial-schema"
+ :up ["CREATE TABLE IF NOT EXISTS tasks (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         title TEXT NOT NULL,
+         description TEXT DEFAULT '',
+         created_at TEXT NOT NULL DEFAULT (datetime('now')),
+         sort_order REAL
+       )"
+      "CREATE TABLE IF NOT EXISTS people (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL UNIQUE
+       )"
+      "CREATE TABLE IF NOT EXISTS places (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL UNIQUE
+       )"
+      "CREATE TABLE IF NOT EXISTS projects (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL UNIQUE
+       )"
+      "CREATE TABLE IF NOT EXISTS goals (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL UNIQUE
+       )"
+      "CREATE TABLE IF NOT EXISTS task_categories (
+         task_id INTEGER NOT NULL,
+         category_type TEXT NOT NULL,
+         category_id INTEGER NOT NULL,
+         PRIMARY KEY (task_id, category_type, category_id),
+         FOREIGN KEY (task_id) REFERENCES tasks(id)
+       )"]
+ :down ["DROP TABLE IF EXISTS task_categories"
+        "DROP TABLE IF EXISTS goals"
+        "DROP TABLE IF EXISTS projects"
+        "DROP TABLE IF EXISTS places"
+        "DROP TABLE IF EXISTS people"
+        "DROP TABLE IF EXISTS tasks"]
+ :transactions false}
