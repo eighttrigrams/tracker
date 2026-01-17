@@ -8,6 +8,8 @@
                             :projects []
                             :goals []
                             :users []
+                            :available-users []
+                            :show-user-switcher false
                             :filter-people #{}
                             :filter-places #{}
                             :filter-projects #{}
@@ -64,10 +66,14 @@
      :keywords? true
      :handler (fn [resp]
                 (swap! app-state assoc :auth-required? (:required resp))
-                (when-not (:required resp)
-                  (swap! app-state assoc :logged-in? true)
-                  (fetch-tasks))
-                (when (:required resp)
+                (if-not (:required resp)
+                  (do
+                    (swap! app-state assoc
+                           :logged-in? true
+                           :current-user {:id nil :username "admin" :is_admin true})
+                    (fetch-tasks)
+                    (fetch-available-users)
+                    (fetch-users))
                   (let [{:keys [token user]} (load-auth-from-storage)]
                     (when (and token user)
                       (swap! app-state assoc
@@ -527,6 +533,39 @@
 
 (defn is-admin? []
   (true? (get-in @app-state [:current-user :is_admin])))
+
+(defn fetch-available-users []
+  (GET "/api/auth/available-users"
+    {:response-format :json
+     :keywords? true
+     :handler (fn [users]
+                (swap! app-state assoc :available-users users))
+     :error-handler (fn [_]
+                      (swap! app-state assoc :available-users []))}))
+
+(defn toggle-user-switcher []
+  (swap! app-state update :show-user-switcher not))
+
+(defn close-user-switcher []
+  (swap! app-state assoc :show-user-switcher false))
+
+(defn switch-user [user]
+  (swap! app-state assoc
+         :current-user user
+         :show-user-switcher false
+         :tasks []
+         :people []
+         :places []
+         :projects []
+         :goals []
+         :active-tab :today)
+  (fetch-tasks)
+  (fetch-people)
+  (fetch-places)
+  (fetch-projects)
+  (fetch-goals)
+  (when (:is_admin user)
+    (fetch-users)))
 
 (defn fetch-users []
   (GET "/api/users"

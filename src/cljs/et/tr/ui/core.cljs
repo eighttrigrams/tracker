@@ -540,19 +540,41 @@
          [:button.cancel {:on-click #(state/clear-pending-new-task)} "Cancel"]
          [:button.confirm {:on-click #(state/confirm-pending-new-task)} "Add Task"]]]])))
 
-(defn user-info-bar []
+(defn user-switcher-dropdown []
+  (let [available-users (:available-users @state/app-state)
+        current-user (:current-user @state/app-state)]
+    [:div.user-switcher-dropdown
+     (for [user available-users]
+       ^{:key (or (:id user) "admin")}
+       [:div.user-switcher-item
+        {:class (when (= (:id user) (:id current-user)) "active")
+         :on-click #(state/switch-user user)}
+        (:username user)])]))
+
+(defn user-info []
   (let [current-user (:current-user @state/app-state)
         active-tab (:active-tab @state/app-state)
-        is-admin (state/is-admin?)]
+        is-admin (state/is-admin?)
+        auth-required? (:auth-required? @state/app-state)
+        show-switcher (:show-user-switcher @state/app-state)]
     (when current-user
-      [:div.user-info-bar
+      [:div.user-info
        (when is-admin
          [:button.users-btn
           {:class (when (= active-tab :users) "active")
            :on-click #(state/set-active-tab :users)}
           "Users"])
-       [:span.current-user (:username current-user)]
-       [:button.logout-btn {:on-click state/logout} "Logout"]])))
+       (if auth-required?
+         [:<>
+          [:span.current-user (:username current-user)]
+          [:button.logout-btn {:on-click state/logout} "Logout"]]
+         [:div.user-switcher-wrapper
+          [:button.switch-user-btn
+           {:on-click state/toggle-user-switcher}
+           [:span.current-user (:username current-user)]
+           [:span.dropdown-arrow (if show-switcher "▲" "▼")]]
+          (when show-switcher
+            [user-switcher-dropdown])])])))
 
 (defn app []
   (let [{:keys [auth-required? logged-in? active-tab]} @state/app-state]
@@ -571,9 +593,9 @@
        [:div
         (when-let [error (:error @state/app-state)]
           [:div.error error])
-        [user-info-bar]
         [:div.top-bar
-         [tabs]]
+         [tabs]
+         [user-info]]
         (case active-tab
           :today [today-tab]
           :people-places [people-places-tab]

@@ -108,6 +108,13 @@
 (defn password-required-handler [_req]
   {:status 200 :body {:required (not (allow-skip-logins?))}})
 
+(defn available-users-handler [_req]
+  (if (allow-skip-logins?)
+    (let [users (db/list-users (ensure-ds))
+          admin {:id nil :username "admin" :is_admin true}]
+      {:status 200 :body (cons admin users)})
+    {:status 403 :body {:error "Not available in production mode"}}))
+
 (defn list-tasks-handler [req]
   (let [user-id (get-user-id req)
         sort-mode (keyword (get-in req [:params "sort"] "recent"))]
@@ -276,6 +283,7 @@
 (defroutes api-routes
   (context "/api" []
     (GET "/auth/required" [] password-required-handler)
+    (GET "/auth/available-users" [] available-users-handler)
     (POST "/auth/login" [] login-handler)
     (GET "/users" [] list-users-handler)
     (POST "/users" [] add-user-handler)
