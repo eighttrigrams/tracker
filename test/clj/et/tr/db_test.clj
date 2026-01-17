@@ -209,3 +209,23 @@
       (db/set-task-due-date *ds* (:id task3) "2026-02-01")
       (let [tasks (db/list-tasks *ds* :due-date)]
         (is (= ["Earlier" "Middle" "Later"] (map :title tasks)))))))
+
+(deftest delete-task-test
+  (testing "deletes task and returns success"
+    (let [task (db/add-task *ds* "To be deleted")
+          result (db/delete-task *ds* (:id task))]
+      (is (= true (:success result)))
+      (is (= 0 (count (db/list-tasks *ds*))))))
+
+  (testing "returns success false for non-existent task"
+    (let [result (db/delete-task *ds* 99999)]
+      (is (= false (:success result))))))
+
+(deftest delete-task-with-categories-test
+  (testing "deletes task and its categories"
+    (let [task (db/add-task *ds* "Categorized task")
+          person (db/add-person *ds* "Test Person")]
+      (db/categorize-task *ds* (:id task) "person" (:id person))
+      (is (= 1 (count (:people (first (db/list-tasks *ds*))))))
+      (db/delete-task *ds* (:id task))
+      (is (= 0 (count (db/list-tasks *ds*)))))))

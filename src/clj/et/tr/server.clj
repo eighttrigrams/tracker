@@ -186,6 +186,13 @@
         result (db/set-task-due-date (ensure-ds) task-id due-date)]
     {:status 200 :body result}))
 
+(defn delete-task-handler [req]
+  (let [task-id (Integer/parseInt (get-in req [:params :id]))
+        result (db/delete-task (ensure-ds) task-id)]
+    (if (:success result)
+      {:status 200 :body {:success true}}
+      {:status 404 :body {:success false :error "Task not found"}})))
+
 (defroutes api-routes
   (context "/api" []
     (GET "/auth/required" [] password-required-handler)
@@ -193,6 +200,7 @@
     (GET "/tasks" [] list-tasks-handler)
     (POST "/tasks" [] add-task-handler)
     (PUT "/tasks/:id" [] update-task-handler)
+    (DELETE "/tasks/:id" [] delete-task-handler)
     (POST "/tasks/:id/categorize" [] categorize-task-handler)
     (DELETE "/tasks/:id/categorize" [] uncategorize-task-handler)
     (POST "/tasks/:id/reorder" [] reorder-task-handler)

@@ -330,12 +330,27 @@
                  [category-selector task "person" people "Person"]
                  [category-selector task "place" places "Place"]
                  [category-selector task "project" projects "Project"]
-                 [category-selector task "goal" goals "Goal"]]]
+                 [category-selector task "goal" goals "Goal"]]
+                [:div.item-actions
+                 [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} "Delete"]]]
                [task-categories-readonly task])])]))]))
+
+(defn confirm-delete-modal []
+  (when-let [task (:confirm-delete-task @state/app-state)]
+    [:div.modal-overlay {:on-click #(state/clear-confirm-delete)}
+     [:div.modal {:on-click #(.stopPropagation %)}
+      [:div.modal-header "Delete Task"]
+      [:div.modal-body
+       [:p "Are you sure you want to delete this task?"]
+       [:p.task-title (:title task)]]
+      [:div.modal-footer
+       [:button.cancel {:on-click #(state/clear-confirm-delete)} "Cancel"]
+       [:button.confirm-delete {:on-click #(state/delete-task (:id task))} "Delete"]]]]))
 
 (defn app []
   (let [{:keys [auth-required? logged-in? active-tab]} @state/app-state]
     [:div
+     [confirm-delete-modal]
      (cond
        (nil? auth-required?)
        [:div "Loading..."]

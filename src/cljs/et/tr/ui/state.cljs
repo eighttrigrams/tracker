@@ -14,6 +14,7 @@
                             :filter-search ""
                             :expanded-task nil
                             :editing-task nil
+                            :confirm-delete-task nil
                             :active-tab :tasks
                             :auth-required? nil
                             :logged-in? false
@@ -312,3 +313,23 @@
                                tasks))))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due date")))}))
+
+(defn set-confirm-delete-task [task]
+  (swap! app-state assoc :confirm-delete-task task))
+
+(defn clear-confirm-delete []
+  (swap! app-state assoc :confirm-delete-task nil))
+
+(defn delete-task [task-id]
+  (DELETE (str "/api/tasks/" task-id)
+    {:format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [_]
+                (swap! app-state update :tasks
+                       (fn [tasks] (filterv #(not= (:id %) task-id) tasks)))
+                (swap! app-state assoc :expanded-task nil :confirm-delete-task nil))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete task"))
+                      (clear-confirm-delete))}))

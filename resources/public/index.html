@@ -414,6 +414,77 @@
       border-style: dashed;
       background: rgba(0, 113, 227, 0.05);
     }
+    .item-actions {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .delete-btn {
+      background: transparent;
+      color: #ff3b30;
+      border: 1px solid #ff3b30;
+      padding: 6px 14px;
+      font-size: 0.85em;
+    }
+    .delete-btn:hover {
+      background: #ff3b30;
+      color: white;
+    }
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    .modal {
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--glass-border);
+      border-radius: var(--glass-radius);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+      min-width: 320px;
+      max-width: 400px;
+    }
+    .modal-header {
+      padding: 16px 20px;
+      font-weight: 600;
+      font-size: 1.1em;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .modal-body {
+      padding: 20px;
+    }
+    .modal-body p { margin: 0 0 8px 0; color: var(--text-secondary); }
+    .modal-body p.task-title { font-weight: 500; color: var(--text-primary); }
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .modal-footer button.cancel {
+      background: rgba(0, 0, 0, 0.06);
+      color: var(--text-primary);
+    }
+    .modal-footer button.cancel:hover {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    .modal-footer button.confirm-delete {
+      background: #ff3b30;
+    }
+    .modal-footer button.confirm-delete:hover {
+      background: #e0352b;
+    }
   </style>
 </head>
 <body>

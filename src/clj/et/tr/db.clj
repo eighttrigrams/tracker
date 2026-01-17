@@ -153,3 +153,10 @@
     ["UPDATE tasks SET due_date = ? WHERE id = ? RETURNING id, due_date"
      due-date task-id]
     {:builder-fn rs/as-unqualified-maps}))
+
+(defn delete-task [ds task-id]
+  (jdbc/execute-one! (get-conn ds)
+    ["DELETE FROM task_categories WHERE task_id = ?" task-id])
+  (let [result (jdbc/execute-one! (get-conn ds)
+                 ["DELETE FROM tasks WHERE id = ?" task-id])]
+    {:success (pos? (:next.jdbc/update-count result))}))
