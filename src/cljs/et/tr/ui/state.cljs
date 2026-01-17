@@ -7,6 +7,7 @@
                             :places []
                             :projects []
                             :goals []
+                            :users []
                             :filter-people #{}
                             :filter-places #{}
                             :filter-projects #{}
@@ -21,6 +22,7 @@
                             :auth-required? nil
                             :logged-in? false
                             :token nil
+                            :current-user nil
                             :error nil
                             :collapsed-filters #{:people :places :projects :goals}
                             :sort-mode :recent
@@ -29,10 +31,31 @@
                             :upcoming-horizon :week}))
 
 (defn auth-headers []
-  (when-let [token (:token @app-state)]
-    {"Authorization" (str "Bearer " token)}))
+  (let [token (:token @app-state)
+        current-user (:current-user @app-state)
+        user-id (:id current-user)]
+    (cond-> {}
+      token (assoc "Authorization" (str "Bearer " token))
+      (and (not token) current-user) (assoc "X-User-Id" (if (nil? user-id) "null" (str user-id))))))
 
 (declare fetch-tasks)
+(declare fetch-users)
+
+(defn- save-auth-to-storage [token user]
+  (when token
+    (.setItem js/localStorage "auth-token" token))
+  (when user
+    (.setItem js/localStorage "auth-user" (js/JSON.stringify (clj->js user)))))
+
+(defn- clear-auth-from-storage []
+  (.removeItem js/localStorage "auth-token")
+  (.removeItem js/localStorage "auth-user"))
+
+(defn- load-auth-from-storage []
+  (let [token (.getItem js/localStorage "auth-token")
+        user-str (.getItem js/localStorage "auth-user")]
+    {:token token
+     :user (when user-str (js->clj (js/JSON.parse user-str) :keywordize-keys true))}))
 
 (defn fetch-auth-required []
   (GET "/api/auth/required"
@@ -42,28 +65,58 @@
                 (swap! app-state assoc :auth-required? (:required resp))
                 (when-not (:required resp)
                   (swap! app-state assoc :logged-in? true)
-                  (fetch-tasks)))}))
+                  (fetch-tasks))
+                (when (:required resp)
+                  (let [{:keys [token user]} (load-auth-from-storage)]
+                    (when (and token user)
+                      (swap! app-state assoc
+                             :logged-in? true
+                             :token token
+                             :current-user user)
+                      (fetch-tasks)
+                      (when (:is_admin user)
+                        (fetch-users))))))}))
 
-(defn login [password on-success]
+(defn login [username password on-success]
   (POST "/api/auth/login"
-    {:params {:email "admin" :password password}
+    {:params {:username username :password password}
      :format :json
      :response-format :json
      :keywords? true
      :handler (fn [resp]
-                (swap! app-state assoc
-                       :logged-in? true
-                       :token (:token resp)
-                       :error nil)
-                (when on-success (on-success)))
-     :error-handler (fn [_]
-                      (swap! app-state assoc :error "Invalid password"))}))
+                (let [user (:user resp)
+                      token (:token resp)]
+                  (swap! app-state assoc
+                         :logged-in? true
+                         :token token
+                         :current-user user
+                         :error nil)
+                  (save-auth-to-storage token user)
+                  (when on-success (on-success))
+                  (when (:is_admin user)
+                    (fetch-users))))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Invalid credentials")))}))
+
+(defn logout []
+  (clear-auth-from-storage)
+  (swap! app-state assoc
+         :logged-in? false
+         :token nil
+         :current-user nil
+         :tasks []
+         :people []
+         :places []
+         :projects []
+         :goals []
+         :users []))
 
 (defn fetch-tasks []
   (let [sort-mode (name (:sort-mode @app-state))]
     (GET (str "/api/tasks?sort=" sort-mode)
       {:response-format :json
        :keywords? true
+       :headers (auth-headers)
        :handler (fn [tasks]
                   (swap! app-state assoc :tasks tasks))})))
 
@@ -168,6 +221,7 @@
   (GET "/api/people"
     {:response-format :json
      :keywords? true
+     :headers (auth-headers)
      :handler (fn [people]
                 (swap! app-state assoc :people people))}))
 
@@ -175,6 +229,7 @@
   (GET "/api/places"
     {:response-format :json
      :keywords? true
+     :headers (auth-headers)
      :handler (fn [places]
                 (swap! app-state assoc :places places))}))
 
@@ -208,6 +263,7 @@
   (GET "/api/projects"
     {:response-format :json
      :keywords? true
+     :headers (auth-headers)
      :handler (fn [projects]
                 (swap! app-state assoc :projects projects))}))
 
@@ -215,6 +271,7 @@
   (GET "/api/goals"
     {:response-format :json
      :keywords? true
+     :headers (auth-headers)
      :handler (fn [goals]
                 (swap! app-state assoc :goals goals))}))
 
@@ -466,3 +523,41 @@
                        (> (:due_date %) today)
                        (<= (:due_date %) end-date)))
          (sort-by :due_date))))
+
+(defn is-admin? []
+  (true? (get-in @app-state [:current-user :is_admin])))
+
+(defn fetch-users []
+  (GET "/api/users"
+    {:response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [users]
+                (swap! app-state assoc :users users))
+     :error-handler (fn [_]
+                      (swap! app-state assoc :users []))}))
+
+(defn add-user [username password on-success]
+  (POST "/api/users"
+    {:params {:username username :password password}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [user]
+                (swap! app-state update :users conj user)
+                (when on-success (on-success)))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add user")))}))
+
+(defn delete-user [user-id]
+  (DELETE (str "/api/users/" user-id)
+    {:format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [_]
+                (swap! app-state update :users
+                       (fn [users] (filterv #(not= (:id %) user-id) users))))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete user")))}))

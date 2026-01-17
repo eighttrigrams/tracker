@@ -609,6 +609,98 @@
     .tag .check {
       margin-left: 2px;
     }
+    .user-info-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+    }
+    .current-user {
+      font-size: 0.85em;
+      color: var(--text-secondary);
+    }
+    .logout-btn, .users-btn {
+      padding: 6px 12px;
+      font-size: 0.8em;
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    .logout-btn:hover, .users-btn:hover {
+      background: var(--surface-subtle);
+      color: var(--text-primary);
+      transform: none;
+    }
+    .users-btn.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .add-user-form {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .add-user-form input {
+      flex: 1;
+    }
+    .user-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .user-list .username {
+      flex: 1;
+    }
+    .admin-badge {
+      font-size: 0.75em;
+      padding: 2px 8px;
+      background: var(--accent);
+      color: white;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+    .delete-user-btn {
+      padding: 4px 10px;
+      font-size: 0.8em;
+      background: transparent;
+      color: #ff3b30;
+      border: 1px solid #ff3b30;
+    }
+    .delete-user-btn:hover {
+      background: #ff3b30;
+      color: white;
+    }
+    .login-form {
+      flex-direction: column;
+      max-width: 300px;
+      margin: 100px auto;
+      padding: 24px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--glass-border);
+      border-radius: var(--glass-radius);
+      box-shadow: var(--glass-shadow);
+    }
+    .login-form h2 {
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .login-form input {
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    .login-form button {
+      width: 100%;
+    }
   </style>
 </head>
 <body>

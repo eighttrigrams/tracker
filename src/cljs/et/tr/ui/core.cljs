@@ -4,26 +4,39 @@
             [et.tr.ui.state :as state]))
 
 (defn login-form []
-  (let [password (r/atom "")]
+  (let [username (r/atom "")
+        password (r/atom "")]
     (fn []
-      [:div.login-form
-       [:h2 "Login"]
-       (when-let [error (:error @state/app-state)]
-         [:div.error error])
-       [:input {:type "password"
-                :placeholder "Password"
-                :value @password
-                :on-change #(reset! password (-> % .-target .-value))
-                :on-key-down (fn [e]
-                               (when (= (.-key e) "Enter")
-                                 (state/login @password (fn []
-                                                          (reset! password "")
-                                                          (state/fetch-tasks)))))}]
-       [:button {:on-click (fn [_]
-                             (state/login @password (fn []
-                                                      (reset! password "")
-                                                      (state/fetch-tasks))))}
-        "Login"]])))
+      (let [do-login (fn []
+                       (state/login @username @password
+                                    (fn []
+                                      (reset! username "")
+                                      (reset! password "")
+                                      (state/fetch-tasks)
+                                      (state/fetch-people)
+                                      (state/fetch-places)
+                                      (state/fetch-projects)
+                                      (state/fetch-goals))))]
+        [:div.login-form
+         [:h2 "Login"]
+         (when-let [error (:error @state/app-state)]
+           [:div.error error])
+         [:input {:type "text"
+                  :placeholder "Username"
+                  :value @username
+                  :on-change #(reset! username (-> % .-target .-value))
+                  :on-key-down (fn [e]
+                                 (when (= (.-key e) "Enter")
+                                   (do-login)))}]
+         [:input {:type "password"
+                  :placeholder "Password"
+                  :value @password
+                  :on-change #(reset! password (-> % .-target .-value))
+                  :on-key-down (fn [e]
+                                 (when (= (.-key e) "Enter")
+                                   (do-login)))}]
+         [:button {:on-click (fn [_] (do-login))}
+          "Login"]]))))
 
 (defn add-task-form []
   (let [title (r/atom "")]
@@ -249,6 +262,45 @@
          ^{:key (:id goal)}
          [:li (:name goal)])]]]))
 
+(defn add-user-form []
+  (let [username (r/atom "")
+        password (r/atom "")]
+    (fn []
+      [:div.add-user-form
+       [:input {:type "text"
+                :placeholder "Username"
+                :value @username
+                :on-change #(reset! username (-> % .-target .-value))}]
+       [:input {:type "password"
+                :placeholder "Password"
+                :value @password
+                :on-change #(reset! password (-> % .-target .-value))
+                :on-key-down #(when (= (.-key %) "Enter")
+                                (state/add-user @username @password
+                                                (fn []
+                                                  (reset! username "")
+                                                  (reset! password ""))))}]
+       [:button {:on-click #(state/add-user @username @password
+                                            (fn []
+                                              (reset! username "")
+                                              (reset! password "")))}
+        "Add User"]])))
+
+(defn users-tab []
+  (let [{:keys [users]} @state/app-state]
+    [:div.manage-tab
+     [:div.manage-section
+      [:h3 "Users"]
+      [add-user-form]
+      [:ul.entity-list.user-list
+       (for [user users]
+         ^{:key (:id user)}
+         [:li
+          [:span.username (:username user)]
+          [:button.delete-user-btn
+           {:on-click #(state/delete-user (:id user))}
+           "Delete"]])]]]))
+
 (defn category-selector [task category-type entities label]
   (let [task-categories (case category-type
                           "person" (:people task)
@@ -464,6 +516,20 @@
          [:button.cancel {:on-click #(state/clear-pending-new-task)} "Cancel"]
          [:button.confirm {:on-click #(state/confirm-pending-new-task)} "Add Task"]]]])))
 
+(defn user-info-bar []
+  (let [current-user (:current-user @state/app-state)
+        active-tab (:active-tab @state/app-state)
+        is-admin (state/is-admin?)]
+    (when current-user
+      [:div.user-info-bar
+       (when is-admin
+         [:button.users-btn
+          {:class (when (= active-tab :users) "active")
+           :on-click #(state/set-active-tab :users)}
+          "Users"])
+       [:span.current-user (:username current-user)]
+       [:button.logout-btn {:on-click state/logout} "Logout"]])))
+
 (defn app []
   (let [{:keys [auth-required? logged-in? active-tab]} @state/app-state]
     [:div
@@ -480,12 +546,14 @@
        [:div
         (when-let [error (:error @state/app-state)]
           [:div.error error])
+        [user-info-bar]
         [:div.top-bar
          [tabs]]
         (case active-tab
           :today [today-tab]
           :people-places [people-places-tab]
           :projects-goals [projects-goals-tab]
+          :users [users-tab]
           [:div.main-layout
            [sidebar-filters]
            [:div.main-content

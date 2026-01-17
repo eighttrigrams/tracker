@@ -56,113 +56,155 @@
 (defn- jwt-secret []
   (or (System/getenv "ADMIN_PASSWORD") "dev-secret"))
 
-(defn- create-token []
-  (jwt/sign {:user "admin"} (jwt-secret)))
+(defn- create-token [user-id username is-admin]
+  (jwt/sign {:user-id user-id :username username :is-admin is-admin} (jwt-secret)))
 
 (defn- verify-token [token]
   (try
     (jwt/unsign token (jwt-secret))
     (catch Exception _ nil)))
 
+(defn- extract-token [req]
+  (when-let [auth-header (get-in req [:headers "authorization"])]
+    (when (str/starts-with? auth-header "Bearer ")
+      (subs auth-header 7))))
+
+(defn- get-user-from-request [req]
+  (if (allow-skip-logins?)
+    (let [user-id-str (get-in req [:headers "x-user-id"])]
+      (if (or (nil? user-id-str) (= user-id-str "null"))
+        {:user-id nil :is-admin true}
+        (let [user-id (Integer/parseInt user-id-str)]
+          {:user-id user-id :is-admin false})))
+    (when-let [token (extract-token req)]
+      (verify-token token))))
+
+(defn- get-user-id [req]
+  (:user-id (get-user-from-request req)))
+
+(defn- admin-password []
+  (or (System/getenv "ADMIN_PASSWORD") "admin"))
+
 (defn login-handler [req]
-  (let [{:keys [email password]} (:body req)]
+  (let [{:keys [username password]} (:body req)]
     (if (allow-skip-logins?)
-      {:status 200 :body {:success true :message "No password required"}}
-      (if (= email "admin")
-        (let [admin-password (if (prod-mode?)
-                               (System/getenv "ADMIN_PASSWORD")
-                               "admin")]
-          (if (= password admin-password)
-            {:status 200 :body {:success true :token (create-token)}}
-            {:status 401 :body {:success false :error "Invalid credentials"}}))
-        {:status 401 :body {:success false :error "Invalid credentials"}}))))
+      (if (= username "admin")
+        {:status 200 :body {:success true :user {:id nil :username "admin" :is_admin true}}}
+        (if-let [user (db/get-user-by-username (ensure-ds) username)]
+          {:status 200 :body {:success true :user (dissoc user :password_hash)}}
+          {:status 401 :body {:success false :error "User not found"}}))
+      (if (= username "admin")
+        (if (= password (admin-password))
+          {:status 200 :body {:success true
+                              :token (create-token nil "admin" true)
+                              :user {:id nil :username "admin" :is_admin true}}}
+          {:status 401 :body {:success false :error "Invalid credentials"}})
+        (if-let [user (db/verify-user (ensure-ds) username password)]
+          {:status 200 :body {:success true
+                              :token (create-token (:id user) (:username user) false)
+                              :user user}}
+          {:status 401 :body {:success false :error "Invalid credentials"}})))))
 
 (defn password-required-handler [_req]
   {:status 200 :body {:required (not (allow-skip-logins?))}})
 
 (defn list-tasks-handler [req]
-  (let [sort-mode (keyword (get-in req [:params "sort"] "recent"))]
-    {:status 200 :body (db/list-tasks (ensure-ds) sort-mode)}))
+  (let [user-id (get-user-id req)
+        sort-mode (keyword (get-in req [:params "sort"] "recent"))]
+    {:status 200 :body (db/list-tasks (ensure-ds) user-id sort-mode)}))
 
 (defn add-task-handler [req]
-  (let [{:keys [title]} (:body req)]
+  (let [user-id (get-user-id req)
+        {:keys [title]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [task (db/add-task (ensure-ds) title)]
+      (let [task (db/add-task (ensure-ds) user-id title)]
         {:status 201 :body (assoc task :people [] :places [] :projects [] :goals [])}))))
 
 (defn update-task-handler [req]
-  (let [task-id (Integer/parseInt (get-in req [:params :id]))
+  (let [user-id (get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [title description]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [task (db/update-task (ensure-ds) task-id title (or description ""))]
+      (let [task (db/update-task (ensure-ds) user-id task-id title (or description ""))]
         {:status 200 :body task}))))
 
-(defn list-people-handler [_req]
-  {:status 200 :body (db/list-people (ensure-ds))})
+(defn list-people-handler [req]
+  (let [user-id (get-user-id req)]
+    {:status 200 :body (db/list-people (ensure-ds) user-id)}))
 
 (defn add-person-handler [req]
-  (let [{:keys [name]} (:body req)]
+  (let [user-id (get-user-id req)
+        {:keys [name]} (:body req)]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db/add-person (ensure-ds) name)}
+        {:status 201 :body (db/add-person (ensure-ds) user-id name)}
         (catch Exception _
           {:status 409 :body {:success false :error "Person already exists"}})))))
 
-(defn list-places-handler [_req]
-  {:status 200 :body (db/list-places (ensure-ds))})
+(defn list-places-handler [req]
+  (let [user-id (get-user-id req)]
+    {:status 200 :body (db/list-places (ensure-ds) user-id)}))
 
 (defn add-place-handler [req]
-  (let [{:keys [name]} (:body req)]
+  (let [user-id (get-user-id req)
+        {:keys [name]} (:body req)]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db/add-place (ensure-ds) name)}
+        {:status 201 :body (db/add-place (ensure-ds) user-id name)}
         (catch Exception _
           {:status 409 :body {:success false :error "Place already exists"}})))))
 
-(defn list-projects-handler [_req]
-  {:status 200 :body (db/list-projects (ensure-ds))})
+(defn list-projects-handler [req]
+  (let [user-id (get-user-id req)]
+    {:status 200 :body (db/list-projects (ensure-ds) user-id)}))
 
 (defn add-project-handler [req]
-  (let [{:keys [name]} (:body req)]
+  (let [user-id (get-user-id req)
+        {:keys [name]} (:body req)]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db/add-project (ensure-ds) name)}
+        {:status 201 :body (db/add-project (ensure-ds) user-id name)}
         (catch Exception _
           {:status 409 :body {:success false :error "Project already exists"}})))))
 
-(defn list-goals-handler [_req]
-  {:status 200 :body (db/list-goals (ensure-ds))})
+(defn list-goals-handler [req]
+  (let [user-id (get-user-id req)]
+    {:status 200 :body (db/list-goals (ensure-ds) user-id)}))
 
 (defn add-goal-handler [req]
-  (let [{:keys [name]} (:body req)]
+  (let [user-id (get-user-id req)
+        {:keys [name]} (:body req)]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db/add-goal (ensure-ds) name)}
+        {:status 201 :body (db/add-goal (ensure-ds) user-id name)}
         (catch Exception _
           {:status 409 :body {:success false :error "Goal already exists"}})))))
 
 (defn categorize-task-handler [req]
-  (let [task-id (Integer/parseInt (get-in req [:params :id]))
+  (let [user-id (get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [category-type category-id]} (:body req)]
-    (db/categorize-task (ensure-ds) task-id category-type category-id)
+    (db/categorize-task (ensure-ds) user-id task-id category-type category-id)
     {:status 200 :body {:success true}}))
 
 (defn uncategorize-task-handler [req]
-  (let [task-id (Integer/parseInt (get-in req [:params :id]))
+  (let [user-id (get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [category-type category-id]} (:body req)]
-    (db/uncategorize-task (ensure-ds) task-id category-type category-id)
+    (db/uncategorize-task (ensure-ds) user-id task-id category-type category-id)
     {:status 200 :body {:success true}}))
 
 (defn reorder-task-handler [req]
-  (let [task-id (Integer/parseInt (get-in req [:params :id]))
+  (let [user-id (get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [target-task-id position]} (:body req)
-        all-tasks (db/list-tasks (ensure-ds) :manual)
+        all-tasks (db/list-tasks (ensure-ds) user-id :manual)
         target-idx (->> all-tasks
                         (map-indexed vector)
                         (some (fn [[idx task]] (when (= (:id task) target-task-id) idx))))
@@ -177,26 +219,67 @@
                       (+ target-order 1.0))
                     :else
                     (/ (+ target-order neighbor-order) 2.0))]
-    (db/reorder-task (ensure-ds) task-id new-order)
+    (db/reorder-task (ensure-ds) user-id task-id new-order)
     {:status 200 :body {:success true :sort_order new-order}}))
 
 (defn set-due-date-handler [req]
-  (let [task-id (Integer/parseInt (get-in req [:params :id]))
+  (let [user-id (get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [due-date]} (:body req)
-        result (db/set-task-due-date (ensure-ds) task-id due-date)]
+        result (db/set-task-due-date (ensure-ds) user-id task-id due-date)]
     {:status 200 :body result}))
 
 (defn delete-task-handler [req]
-  (let [task-id (Integer/parseInt (get-in req [:params :id]))
-        result (db/delete-task (ensure-ds) task-id)]
+  (let [user-id (get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
+        result (db/delete-task (ensure-ds) user-id task-id)]
     (if (:success result)
       {:status 200 :body {:success true}}
       {:status 404 :body {:success false :error "Task not found"}})))
+
+(defn- is-admin? [req]
+  (:is-admin (get-user-from-request req)))
+
+(defn list-users-handler [req]
+  (if (is-admin? req)
+    {:status 200 :body (db/list-users (ensure-ds))}
+    {:status 403 :body {:error "Admin access required"}}))
+
+(defn add-user-handler [req]
+  (if (is-admin? req)
+    (let [{:keys [username password]} (:body req)]
+      (if (or (str/blank? username) (str/blank? password))
+        {:status 400 :body {:error "Username and password are required"}}
+        (if (= username "admin")
+          {:status 400 :body {:error "Cannot create user named 'admin'"}}
+          (try
+            (let [user (db/create-user (ensure-ds) username password)]
+              {:status 201 :body (dissoc user :password_hash)})
+            (catch Exception _
+              {:status 409 :body {:error "Username already exists"}})))))
+    {:status 403 :body {:error "Admin access required"}}))
+
+(defn delete-user-handler [req]
+  (if (is-admin? req)
+    (let [user-id (Integer/parseInt (get-in req [:params :id]))
+          result (db/delete-user (ensure-ds) user-id)]
+      (if (:success result)
+        {:status 200 :body {:success true}}
+        {:status 404 :body {:error "User not found"}}))
+    {:status 403 :body {:error "Admin access required"}}))
+
+(defn- serve-index [_]
+  {:status 200
+   :headers {"Content-Type" "text/html"}
+   :body (slurp (io/resource "public/index.html"))})
 
 (defroutes api-routes
   (context "/api" []
     (GET "/auth/required" [] password-required-handler)
     (POST "/auth/login" [] login-handler)
+    (GET "/users" [] list-users-handler)
+    (POST "/users" [] add-user-handler)
+    (DELETE "/users/:id" [] delete-user-handler)
     (GET "/tasks" [] list-tasks-handler)
     (POST "/tasks" [] add-task-handler)
     (PUT "/tasks/:id" [] update-task-handler)
@@ -214,21 +297,11 @@
     (GET "/goals" [] list-goals-handler)
     (POST "/goals" [] add-goal-handler)))
 
-(defn- serve-index [_]
-  {:status 200
-   :headers {"Content-Type" "text/html"}
-   :body (slurp (io/resource "public/index.html"))})
-
 (defroutes app-routes
   api-routes
   (GET "/" [] serve-index)
   (route/resources "/")
   (route/not-found {:status 404 :body {:error "Not found"}}))
-
-(defn- extract-token [req]
-  (when-let [auth-header (get-in req [:headers "authorization"])]
-    (when (str/starts-with? auth-header "Bearer ")
-      (subs auth-header 7))))
 
 (defn- mutating-request? [req]
   (#{:post :put :delete} (:request-method req)))
