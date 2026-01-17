@@ -71,9 +71,55 @@
        :on-click #(state/set-active-tab :projects-goals)}
       "Projects & Goals"]]))
 
+(defn today-task-item [task]
+  [:div.today-task-item
+   [:span.task-title (:title task)]
+   [:span.task-date (:due_date task)]])
+
+(defn horizon-selector []
+  (let [horizon (:upcoming-horizon @state/app-state)]
+    [:div.horizon-selector
+     [:span "Show: "]
+     [:button {:class (when (= horizon :week) "active")
+               :on-click #(state/set-upcoming-horizon :week)} "Week"]
+     [:button {:class (when (= horizon :month) "active")
+               :on-click #(state/set-upcoming-horizon :month)} "Month"]
+     [:button {:class (when (= horizon :year) "active")
+               :on-click #(state/set-upcoming-horizon :year)} "Year"]
+     [:button {:class (when (= horizon :two-years) "active")
+               :on-click #(state/set-upcoming-horizon :two-years)} "2 Years"]]))
+
 (defn today-tab []
-  [:div.today-tab
-   [:p "Here you'll find important things you should pay attention to."]])
+  (let [overdue (state/overdue-tasks)
+        today (state/today-tasks)
+        upcoming (state/upcoming-tasks)]
+    [:div.today-tab
+     [:div.today-section.overdue
+      [:h3 "Overdue"]
+      (if (seq overdue)
+        [:div.task-list
+         (for [task overdue]
+           ^{:key (:id task)}
+           [today-task-item task])]
+        [:p.empty-message "No overdue tasks"])]
+     [:div.today-section.today
+      [:h3 "Today"]
+      (if (seq today)
+        [:div.task-list
+         (for [task today]
+           ^{:key (:id task)}
+           [today-task-item task])]
+        [:p.empty-message "No tasks for today"])]
+     [:div.today-section.upcoming
+      [:div.section-header
+       [:h3 "Upcoming"]
+       [horizon-selector]]
+      (if (seq upcoming)
+        [:div.task-list
+         (for [task upcoming]
+           ^{:key (:id task)}
+           [today-task-item task])]
+        [:p.empty-message "No upcoming tasks"])]]))
 
 (defn search-filter []
   (let [search-term (:filter-search @state/app-state)]

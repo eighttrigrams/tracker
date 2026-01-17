@@ -15,7 +15,7 @@
                             :expanded-task nil
                             :editing-task nil
                             :confirm-delete-task nil
-                            :active-tab :tasks
+                            :active-tab :today
                             :auth-required? nil
                             :logged-in? false
                             :token nil
@@ -23,7 +23,8 @@
                             :collapsed-filters #{:people :places :projects :goals}
                             :sort-mode :recent
                             :drag-task nil
-                            :drag-over-task nil}))
+                            :drag-over-task nil
+                            :upcoming-horizon :week}))
 
 (defn auth-headers []
   (when-let [token (:token @app-state)]
@@ -333,3 +334,46 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete task"))
                       (clear-confirm-delete))}))
+
+(defn set-upcoming-horizon [horizon]
+  (swap! app-state assoc :upcoming-horizon horizon))
+
+(defn today-str []
+  (.substring (.toISOString (js/Date.)) 0 10))
+
+(defn add-days [date-str days]
+  (let [d (js/Date. date-str)]
+    (.setDate d (+ (.getDate d) days))
+    (.substring (.toISOString d) 0 10)))
+
+(defn horizon-end-date [horizon]
+  (let [today (today-str)]
+    (case horizon
+      :week (add-days today 7)
+      :month (add-days today 30)
+      :year (add-days today 365)
+      :two-years (add-days today 730)
+      (add-days today 7))))
+
+(defn overdue-tasks []
+  (let [today (today-str)]
+    (->> (:tasks @app-state)
+         (filter #(and (:due_date %)
+                       (< (:due_date %) today)))
+         (sort-by :due_date))))
+
+(defn today-tasks []
+  (let [today (today-str)]
+    (->> (:tasks @app-state)
+         (filter #(= (:due_date %) today))
+         (sort-by :due_date))))
+
+(defn upcoming-tasks []
+  (let [today (today-str)
+        horizon (:upcoming-horizon @app-state)
+        end-date (horizon-end-date horizon)]
+    (->> (:tasks @app-state)
+         (filter #(and (:due_date %)
+                       (> (:due_date %) today)
+                       (<= (:due_date %) end-date)))
+         (sort-by :due_date))))
