@@ -311,7 +311,6 @@
 (defn app []
   (let [{:keys [auth-required? logged-in? active-tab]} @state/app-state]
     [:div
-     [:h1 "Tracker"]
      (cond
        (nil? auth-required?)
        [:div "Loading..."]
