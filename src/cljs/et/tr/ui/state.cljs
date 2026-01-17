@@ -12,6 +12,7 @@
                             :filter-projects #{}
                             :filter-goals #{}
                             :filter-search ""
+                            :category-search {:people "" :places "" :projects "" :goals ""}
                             :expanded-task nil
                             :editing-task nil
                             :confirm-delete-task nil
@@ -326,6 +327,9 @@
 
 (defn set-filter-search [search-term]
   (swap! app-state assoc :filter-search search-term))
+
+(defn set-category-search [category-key search-term]
+  (swap! app-state assoc-in [:category-search category-key] search-term))
 
 (defn set-active-tab [tab]
   (swap! app-state assoc :active-tab tab))

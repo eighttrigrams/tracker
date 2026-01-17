@@ -145,7 +145,11 @@
       "Due date"]]))
 
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
-  (let [selected-items (filter #(contains? selected-ids (:id %)) items)]
+  (let [selected-items (filter #(contains? selected-ids (:id %)) items)
+        search-term (get-in @state/app-state [:category-search filter-key] "")
+        visible-items (if (seq search-term)
+                        (filter #(state/prefix-matches? (:name %) search-term) items)
+                        items)]
     [:div.filter-section
      [:div.filter-header
       [:button.collapse-toggle
@@ -164,8 +168,13 @@
               (:name item)
               [:button.remove-item {:on-click #(toggle-fn (:id item))} "x"]]))])
        [:div.filter-items
+        [:input.category-search
+         {:type "text"
+          :placeholder "Search..."
+          :value search-term
+          :on-change #(state/set-category-search filter-key (-> % .-target .-value))}]
         (doall
-         (for [item items]
+         (for [item visible-items]
            ^{:key (:id item)}
            [:button.filter-item
             {:class (when (contains? selected-ids (:id item)) "active")
