@@ -151,15 +151,15 @@
 (defn sort-mode-toggle []
   (let [sort-mode (:sort-mode @state/app-state)]
     [:div.sort-toggle
-     [:button {:class (when (= sort-mode :recent) "active")
-               :on-click #(when (not= sort-mode :recent) (state/set-sort-mode :recent))}
-      "Recent"]
      [:button {:class (when (= sort-mode :manual) "active")
                :on-click #(when (not= sort-mode :manual) (state/set-sort-mode :manual))}
       "Manual"]
      [:button {:class (when (= sort-mode :due-date) "active")
                :on-click #(when (not= sort-mode :due-date) (state/set-sort-mode :due-date))}
-      "Due date"]]))
+      "Due date"]
+     [:button {:class (when (= sort-mode :recent) "active")
+               :on-click #(when (not= sort-mode :recent) (state/set-sort-mode :recent))}
+      "Recent"]]))
 
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
   (let [selected-items (filter #(contains? selected-ids (:id %)) items)

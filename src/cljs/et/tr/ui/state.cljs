@@ -28,7 +28,7 @@
                             :current-user nil
                             :error nil
                             :collapsed-filters #{:people :places :projects :goals}
-                            :sort-mode :recent
+                            :sort-mode :manual
                             :drag-task nil
                             :drag-over-task nil
                             :upcoming-horizon nil}))
