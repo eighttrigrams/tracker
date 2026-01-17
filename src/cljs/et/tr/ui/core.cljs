@@ -302,16 +302,16 @@
                                                   (state/set-editing (:id task)))}
                    "✎"]
                   [:span.date-picker-wrapper
+                   {:on-click #(.stopPropagation %)}
                    [:input.date-picker-input
                     {:type "date"
                      :value (or (:due_date task) "")
-                     :on-click #(.stopPropagation %)
                      :on-change (fn [e]
                                   (let [v (.. e -target -value)]
                                     (state/set-task-due-date (:id task) (when (seq v) v))))}]
                    [:button.calendar-icon {:on-click (fn [e]
                                                        (.stopPropagation e)
-                                                       (-> e .-target .-previousSibling .showPicker))}
+                                                       (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
                     "📅"]]])]
               [:div.item-date
                (when (:due_date task)
