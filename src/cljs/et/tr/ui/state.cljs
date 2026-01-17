@@ -17,6 +17,7 @@
                             :expanded-task nil
                             :editing-task nil
                             :confirm-delete-task nil
+                            :confirm-delete-user nil
                             :pending-new-task nil
                             :active-tab :today
                             :auth-required? nil
@@ -550,6 +551,12 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add user")))}))
 
+(defn set-confirm-delete-user [user]
+  (swap! app-state assoc :confirm-delete-user user))
+
+(defn clear-confirm-delete-user []
+  (swap! app-state assoc :confirm-delete-user nil))
+
 (defn delete-user [user-id]
   (DELETE (str "/api/users/" user-id)
     {:format :json
@@ -558,6 +565,8 @@
      :headers (auth-headers)
      :handler (fn [_]
                 (swap! app-state update :users
-                       (fn [users] (filterv #(not= (:id %) user-id) users))))
+                       (fn [users] (filterv #(not= (:id %) user-id) users)))
+                (clear-confirm-delete-user))
      :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete user")))}))
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete user"))
+                      (clear-confirm-delete-user))}))

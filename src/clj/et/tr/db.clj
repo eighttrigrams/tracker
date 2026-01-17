@@ -42,9 +42,22 @@
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn delete-user [ds user-id]
-  (let [result (jdbc/execute-one! (get-conn ds)
-                 ["DELETE FROM users WHERE id = ?" user-id])]
-    {:success (pos? (:next.jdbc/update-count result))}))
+  (let [conn (get-conn ds)
+        task-ids (mapv :id (jdbc/execute! conn
+                             ["SELECT id FROM tasks WHERE user_id = ?" user-id]
+                             {:builder-fn rs/as-unqualified-maps}))]
+    (when (seq task-ids)
+      (jdbc/execute-one! conn
+        (into [(str "DELETE FROM task_categories WHERE task_id IN ("
+                    (clojure.string/join "," (repeat (count task-ids) "?"))
+                    ")")] task-ids)))
+    (jdbc/execute-one! conn ["DELETE FROM tasks WHERE user_id = ?" user-id])
+    (jdbc/execute-one! conn ["DELETE FROM people WHERE user_id = ?" user-id])
+    (jdbc/execute-one! conn ["DELETE FROM places WHERE user_id = ?" user-id])
+    (jdbc/execute-one! conn ["DELETE FROM projects WHERE user_id = ?" user-id])
+    (jdbc/execute-one! conn ["DELETE FROM goals WHERE user_id = ?" user-id])
+    (let [result (jdbc/execute-one! conn ["DELETE FROM users WHERE id = ?" user-id])]
+      {:success (pos? (:next.jdbc/update-count result))})))
 
 (defn add-task [ds user-id title]
   (let [conn (get-conn ds)

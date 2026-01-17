@@ -541,6 +541,7 @@
     }
     .modal-body p { margin: 0 0 8px 0; color: var(--text-secondary); }
     .modal-body p.task-title { font-weight: 500; color: var(--text-primary); }
+    .modal-body p.warning { color: #ff3b30; font-size: 0.9em; margin-top: 12px; }
     .modal-footer {
       padding: 16px 20px;
       border-top: 1px solid rgba(0, 0, 0, 0.06);
@@ -560,6 +561,14 @@
     }
     .modal-footer button.confirm-delete:hover {
       background: #e0352b;
+    }
+    .modal-footer button.confirm-delete:disabled {
+      background: rgba(255, 59, 48, 0.4);
+      cursor: not-allowed;
+    }
+    .modal-footer button.confirm-delete:disabled:hover {
+      background: rgba(255, 59, 48, 0.4);
+      transform: none;
     }
     .modal-footer button.confirm {
       background: var(--accent);

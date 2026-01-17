@@ -298,7 +298,7 @@
          [:li
           [:span.username (:username user)]
           [:button.delete-user-btn
-           {:on-click #(state/delete-user (:id user))}
+           {:on-click #(state/set-confirm-delete-user user)}
            "Delete"]])]]]))
 
 (defn category-selector [task category-type entities label]
@@ -454,6 +454,30 @@
        [:button.cancel {:on-click #(state/clear-confirm-delete)} "Cancel"]
        [:button.confirm-delete {:on-click #(state/delete-task (:id task))} "Delete"]]]]))
 
+(defn confirm-delete-user-modal []
+  (let [confirmation-input (r/atom "")]
+    (fn []
+      (when-let [user (:confirm-delete-user @state/app-state)]
+        (let [username (:username user)
+              matches? (= @confirmation-input username)]
+          [:div.modal-overlay {:on-click #(do (reset! confirmation-input "") (state/clear-confirm-delete-user))}
+           [:div.modal {:on-click #(.stopPropagation %)}
+            [:div.modal-header "Delete User"]
+            [:div.modal-body
+             [:p "Are you sure you want to delete this user?"]
+             [:p.task-title username]
+             [:p.warning "All tasks and data belonging to this user will be permanently deleted."]
+             [:p {:style {:margin-top "16px"}} (str "Type \"" username "\" to confirm:")]
+             [:input {:type "text"
+                      :value @confirmation-input
+                      :on-change #(reset! confirmation-input (-> % .-target .-value))
+                      :placeholder "Enter username"
+                      :style {:width "100%" :margin-top "8px"}}]]
+            [:div.modal-footer
+             [:button.cancel {:on-click #(do (reset! confirmation-input "") (state/clear-confirm-delete-user))} "Cancel"]
+             [:button.confirm-delete {:disabled (not matches?)
+                                      :on-click #(do (reset! confirmation-input "") (state/delete-user (:id user)))} "Delete"]]]])))))
+
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable
    {:class (str category-type (when selected? " selected"))
@@ -534,6 +558,7 @@
   (let [{:keys [auth-required? logged-in? active-tab]} @state/app-state]
     [:div
      [confirm-delete-modal]
+     [confirm-delete-user-modal]
      [pending-task-modal]
      (cond
        (nil? auth-required?)
