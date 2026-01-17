@@ -293,7 +293,13 @@
             [:div
              [:div.item-header
               {:on-click #(state/toggle-expanded (:id task))}
-              [:div.item-title (:title task)]
+              [:div.item-title
+               (:title task)
+               (when is-expanded
+                 [:button.edit-icon {:on-click (fn [e]
+                                                 (.stopPropagation e)
+                                                 (state/set-editing (:id task)))}
+                  "✎"])]
               [:div.item-date (:created_at task)]]
              (if is-expanded
                [:div.item-details
@@ -303,9 +309,7 @@
                  [category-selector task "person" people "Person"]
                  [category-selector task "place" places "Place"]
                  [category-selector task "project" projects "Project"]
-                 [category-selector task "goal" goals "Goal"]]
-                [:button.edit-btn {:on-click #(state/set-editing (:id task))}
-                 "Edit"]]
+                 [category-selector task "goal" goals "Goal"]]]
                [task-categories-readonly task])])]))]))
 
 (defn app []
