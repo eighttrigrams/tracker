@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [ajax.core :refer [GET POST PUT DELETE]]))
 
-(defonce app-state (r/atom {:items []
+(defonce app-state (r/atom {:tasks []
                             :people []
                             :places []
                             :projects []
@@ -12,8 +12,8 @@
                             :filter-projects #{}
                             :filter-goals #{}
                             :filter-search ""
-                            :expanded-item nil
-                            :editing-item nil
+                            :expanded-task nil
+                            :editing-task nil
                             :active-tab :tasks
                             :auth-required? nil
                             :logged-in? false
@@ -21,14 +21,14 @@
                             :error nil
                             :collapsed-filters #{:people :places :projects :goals}
                             :sort-mode :recent
-                            :drag-item nil
-                            :drag-over-item nil}))
+                            :drag-task nil
+                            :drag-over-task nil}))
 
 (defn auth-headers []
   (when-let [token (:token @app-state)]
     {"Authorization" (str "Bearer " token)}))
 
-(declare fetch-items)
+(declare fetch-tasks)
 
 (defn fetch-auth-required []
   (GET "/api/auth/required"
@@ -38,7 +38,7 @@
                 (swap! app-state assoc :auth-required? (:required resp))
                 (when-not (:required resp)
                   (swap! app-state assoc :logged-in? true)
-                  (fetch-items)))}))
+                  (fetch-tasks)))}))
 
 (defn login [password on-success]
   (POST "/api/auth/login"
@@ -55,26 +55,26 @@
      :error-handler (fn [_]
                       (swap! app-state assoc :error "Invalid password"))}))
 
-(defn fetch-items []
+(defn fetch-tasks []
   (let [sort-mode (name (:sort-mode @app-state))]
-    (GET (str "/api/items?sort=" sort-mode)
+    (GET (str "/api/tasks?sort=" sort-mode)
       {:response-format :json
        :keywords? true
-       :handler (fn [items]
-                  (swap! app-state assoc :items items))})))
+       :handler (fn [tasks]
+                  (swap! app-state assoc :tasks tasks))})))
 
-(defn add-item [title on-success]
-  (POST "/api/items"
+(defn add-task [title on-success]
+  (POST "/api/tasks"
     {:params {:title title}
      :format :json
      :response-format :json
      :keywords? true
      :headers (auth-headers)
-     :handler (fn [item]
-                (swap! app-state update :items #(cons item %))
+     :handler (fn [task]
+                (swap! app-state update :tasks #(cons task %))
                 (when on-success (on-success)))
      :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add item")))}))
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))
 
 (defn fetch-people []
   (GET "/api/people"
@@ -156,43 +156,43 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add goal")))}))
 
-(defn tag-item [item-id tag-type tag-id]
-  (POST (str "/api/items/" item-id "/tag")
-    {:params {:tag-type tag-type :tag-id tag-id}
+(defn categorize-task [task-id category-type category-id]
+  (POST (str "/api/tasks/" task-id "/categorize")
+    {:params {:category-type category-type :category-id category-id}
      :format :json
      :response-format :json
      :keywords? true
      :headers (auth-headers)
      :handler (fn [_]
-                (fetch-items))}))
+                (fetch-tasks))}))
 
-(defn untag-item [item-id tag-type tag-id]
-  (DELETE (str "/api/items/" item-id "/tag")
-    {:params {:tag-type tag-type :tag-id tag-id}
+(defn uncategorize-task [task-id category-type category-id]
+  (DELETE (str "/api/tasks/" task-id "/categorize")
+    {:params {:category-type category-type :category-id category-id}
      :format :json
      :response-format :json
      :keywords? true
      :headers (auth-headers)
      :handler (fn [_]
-                (fetch-items))}))
+                (fetch-tasks))}))
 
-(defn update-item [item-id title description on-success]
-  (PUT (str "/api/items/" item-id)
+(defn update-task [task-id title description on-success]
+  (PUT (str "/api/tasks/" task-id)
     {:params {:title title :description description}
      :format :json
      :response-format :json
      :keywords? true
      :headers (auth-headers)
-     :handler (fn [updated-item]
-                (swap! app-state update :items
-                       (fn [items]
-                         (mapv #(if (= (:id %) item-id)
-                                  (merge % updated-item)
+     :handler (fn [updated-task]
+                (swap! app-state update :tasks
+                       (fn [tasks]
+                         (mapv #(if (= (:id %) task-id)
+                                  (merge % updated-task)
                                   %)
-                               items)))
+                               tasks)))
                 (when on-success (on-success)))
      :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update item")))}))
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))}))
 
 (defn toggle-filter-person [person-id]
   (swap! app-state update :filter-people
@@ -243,14 +243,14 @@
 (defn set-active-tab [tab]
   (swap! app-state assoc :active-tab tab))
 
-(defn toggle-expanded [item-id]
-  (swap! app-state update :expanded-item #(if (= % item-id) nil item-id)))
+(defn toggle-expanded [task-id]
+  (swap! app-state update :expanded-task #(if (= % task-id) nil task-id)))
 
-(defn set-editing [item-id]
-  (swap! app-state assoc :editing-item item-id))
+(defn set-editing [task-id]
+  (swap! app-state assoc :editing-task task-id))
 
 (defn clear-editing []
-  (swap! app-state assoc :editing-item nil))
+  (swap! app-state assoc :editing-task nil))
 
 (defn prefix-matches? [title search-term]
   (let [title-lower (.toLowerCase title)
@@ -258,11 +258,11 @@
         words (.split title-lower #"\s+")]
     (some #(.startsWith % search-lower) words)))
 
-(defn filtered-items []
-  (let [{:keys [items filter-people filter-places filter-projects filter-goals filter-search]} @app-state
-        matches-any? (fn [item-tags filter-ids]
-                       (some #(contains? filter-ids (:id %)) item-tags))]
-    (cond->> items
+(defn filtered-tasks []
+  (let [{:keys [tasks filter-people filter-places filter-projects filter-goals filter-search]} @app-state
+        matches-any? (fn [task-categories filter-ids]
+                       (some #(contains? filter-ids (:id %)) task-categories))]
+    (cond->> tasks
       (seq filter-people) (filter #(matches-any? (:people %) filter-people))
       (seq filter-places) (filter #(matches-any? (:places %) filter-places))
       (seq filter-projects) (filter #(matches-any? (:projects %) filter-projects))
@@ -271,27 +271,27 @@
 
 (defn set-sort-mode [mode]
   (swap! app-state assoc :sort-mode mode)
-  (fetch-items))
+  (fetch-tasks))
 
-(defn set-drag-item [item-id]
-  (swap! app-state assoc :drag-item item-id))
+(defn set-drag-task [task-id]
+  (swap! app-state assoc :drag-task task-id))
 
-(defn set-drag-over-item [item-id]
-  (swap! app-state assoc :drag-over-item item-id))
+(defn set-drag-over-task [task-id]
+  (swap! app-state assoc :drag-over-task task-id))
 
 (defn clear-drag-state []
-  (swap! app-state assoc :drag-item nil :drag-over-item nil))
+  (swap! app-state assoc :drag-task nil :drag-over-task nil))
 
-(defn reorder-item [item-id target-item-id position]
-  (POST (str "/api/items/" item-id "/reorder")
-    {:params {:target-item-id target-item-id :position position}
+(defn reorder-task [task-id target-task-id position]
+  (POST (str "/api/tasks/" task-id "/reorder")
+    {:params {:target-task-id target-task-id :position position}
      :format :json
      :response-format :json
      :keywords? true
      :headers (auth-headers)
      :handler (fn [_]
                 (clear-drag-state)
-                (fetch-items))
+                (fetch-tasks))
      :error-handler (fn [resp]
                       (clear-drag-state)
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))}))

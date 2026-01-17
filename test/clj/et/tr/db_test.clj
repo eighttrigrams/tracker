@@ -18,121 +18,121 @@
 
 (use-fixtures :each with-in-memory-db)
 
-(deftest add-item-test
-  (testing "adds item with title and returns it"
-    (let [item (db/add-item *ds* "Test task")]
-      (is (some? (:id item)))
-      (is (= "Test task" (:title item)))
-      (is (= "" (:description item)))
-      (is (some? (:created_at item)))
-      (is (some? (:sort_order item))))))
+(deftest add-task-test
+  (testing "adds task with title and returns it"
+    (let [task (db/add-task *ds* "Test task")]
+      (is (some? (:id task)))
+      (is (= "Test task" (:title task)))
+      (is (= "" (:description task)))
+      (is (some? (:created_at task)))
+      (is (some? (:sort_order task))))))
 
-(deftest add-item-sort-order-test
-  (testing "new items get decreasing sort_order (appear at top)"
-    (let [item1 (db/add-item *ds* "First")
-          item2 (db/add-item *ds* "Second")
-          item3 (db/add-item *ds* "Third")]
-      (is (< (:sort_order item3) (:sort_order item2)))
-      (is (< (:sort_order item2) (:sort_order item1))))))
+(deftest add-task-sort-order-test
+  (testing "new tasks get decreasing sort_order (appear at top)"
+    (let [task1 (db/add-task *ds* "First")
+          task2 (db/add-task *ds* "Second")
+          task3 (db/add-task *ds* "Third")]
+      (is (< (:sort_order task3) (:sort_order task2)))
+      (is (< (:sort_order task2) (:sort_order task1))))))
 
-(deftest list-items-empty-test
-  (testing "returns empty list when no items"
-    (is (= [] (db/list-items *ds*)))))
+(deftest list-tasks-empty-test
+  (testing "returns empty list when no tasks"
+    (is (= [] (db/list-tasks *ds*)))))
 
-(deftest list-items-with-tags-test
-  (testing "returns items with tags"
-    (let [item (db/add-item *ds* "Task with tags")
+(deftest list-tasks-with-categories-test
+  (testing "returns tasks with categories"
+    (let [task (db/add-task *ds* "Task with categories")
           person (db/add-person *ds* "Alice")]
-      (db/tag-item *ds* (:id item) "person" (:id person))
-      (let [items (db/list-items *ds*)
-            retrieved (first items)]
-        (is (= 1 (count items)))
-        (is (= "Task with tags" (:title retrieved)))
+      (db/categorize-task *ds* (:id task) "person" (:id person))
+      (let [tasks (db/list-tasks *ds*)
+            retrieved (first tasks)]
+        (is (= 1 (count tasks)))
+        (is (= "Task with categories" (:title retrieved)))
         (is (= [{:id (:id person) :name "Alice"}] (:people retrieved)))
         (is (= [] (:places retrieved)))
         (is (= [] (:projects retrieved)))
         (is (= [] (:goals retrieved)))))))
 
-(deftest list-items-recent-mode-test
-  (testing "recent mode returns all items"
-    (db/add-item *ds* "First")
-    (db/add-item *ds* "Second")
-    (db/add-item *ds* "Third")
-    (let [items (db/list-items *ds* :recent)]
-      (is (= 3 (count items)))
-      (is (= #{"First" "Second" "Third"} (set (map :title items)))))))
+(deftest list-tasks-recent-mode-test
+  (testing "recent mode returns all tasks"
+    (db/add-task *ds* "First")
+    (db/add-task *ds* "Second")
+    (db/add-task *ds* "Third")
+    (let [tasks (db/list-tasks *ds* :recent)]
+      (is (= 3 (count tasks)))
+      (is (= #{"First" "Second" "Third"} (set (map :title tasks)))))))
 
-(deftest list-items-manual-mode-test
+(deftest list-tasks-manual-mode-test
   (testing "manual mode orders by sort_order ASC"
-    (db/add-item *ds* "First")
+    (db/add-task *ds* "First")
     (Thread/sleep 10)
-    (db/add-item *ds* "Second")
+    (db/add-task *ds* "Second")
     (Thread/sleep 10)
-    (db/add-item *ds* "Third")
-    (let [items (db/list-items *ds* :manual)]
-      (is (= ["Third" "Second" "First"] (map :title items))))))
+    (db/add-task *ds* "Third")
+    (let [tasks (db/list-tasks *ds* :manual)]
+      (is (= ["Third" "Second" "First"] (map :title tasks))))))
 
-(deftest reorder-item-updates-sort-order-test
-  (testing "updates item sort_order"
-    (let [item (db/add-item *ds* "Test")
-          result (db/reorder-item *ds* (:id item) 99.5)]
+(deftest reorder-task-updates-sort-order-test
+  (testing "updates task sort_order"
+    (let [task (db/add-task *ds* "Test")
+          result (db/reorder-task *ds* (:id task) 99.5)]
       (is (= true (:success result)))
       (is (= 99.5 (:sort_order result)))
-      (is (= 99.5 (db/get-item-sort-order *ds* (:id item)))))))
+      (is (= 99.5 (db/get-task-sort-order *ds* (:id task)))))))
 
-(deftest reorder-item-changes-position-test
+(deftest reorder-task-changes-position-test
   (testing "reordering changes position in manual mode"
-    (let [item1 (db/add-item *ds* "A")
-          _item2 (db/add-item *ds* "B")
-          item3 (db/add-item *ds* "C")
-          initial-order (map :title (db/list-items *ds* :manual))]
+    (let [task1 (db/add-task *ds* "A")
+          _task2 (db/add-task *ds* "B")
+          task3 (db/add-task *ds* "C")
+          initial-order (map :title (db/list-tasks *ds* :manual))]
       (is (= ["C" "B" "A"] initial-order))
-      (db/reorder-item *ds* (:id item1) (- (:sort_order item3) 0.5))
-      (let [new-order (map :title (db/list-items *ds* :manual))]
+      (db/reorder-task *ds* (:id task1) (- (:sort_order task3) 0.5))
+      (let [new-order (map :title (db/list-tasks *ds* :manual))]
         (is (= ["A" "C" "B"] new-order))))))
 
-(deftest get-item-sort-order-test
-  (testing "returns sort_order for item"
-    (let [item (db/add-item *ds* "Test")]
-      (is (= (:sort_order item) (db/get-item-sort-order *ds* (:id item))))))
+(deftest get-task-sort-order-test
+  (testing "returns sort_order for task"
+    (let [task (db/add-task *ds* "Test")]
+      (is (= (:sort_order task) (db/get-task-sort-order *ds* (:id task))))))
 
-  (testing "returns nil for non-existent item"
-    (is (nil? (db/get-item-sort-order *ds* 99999)))))
+  (testing "returns nil for non-existent task"
+    (is (nil? (db/get-task-sort-order *ds* 99999)))))
 
-(deftest update-item-test
+(deftest update-task-test
   (testing "updates title and description"
-    (let [item (db/add-item *ds* "Original")
-          updated (db/update-item *ds* (:id item) "Updated" "New description")]
+    (let [task (db/add-task *ds* "Original")
+          updated (db/update-task *ds* (:id task) "Updated" "New description")]
       (is (= "Updated" (:title updated)))
       (is (= "New description" (:description updated)))
-      (is (= (:id item) (:id updated))))))
+      (is (= (:id task) (:id updated))))))
 
-(deftest tag-item-test
-  (testing "can tag item with person, place, project, goal"
-    (let [item (db/add-item *ds* "Task")
+(deftest categorize-task-test
+  (testing "can categorize task with person, place, project, goal"
+    (let [task (db/add-task *ds* "Task")
           person (db/add-person *ds* "Bob")
           place (db/add-place *ds* "Office")
           project (db/add-project *ds* "Website")
           goal (db/add-goal *ds* "Launch")]
-      (db/tag-item *ds* (:id item) "person" (:id person))
-      (db/tag-item *ds* (:id item) "place" (:id place))
-      (db/tag-item *ds* (:id item) "project" (:id project))
-      (db/tag-item *ds* (:id item) "goal" (:id goal))
-      (let [items (db/list-items *ds*)
-            tagged (first items)]
-        (is (= 1 (count (:people tagged))))
-        (is (= 1 (count (:places tagged))))
-        (is (= 1 (count (:projects tagged))))
-        (is (= 1 (count (:goals tagged))))))))
+      (db/categorize-task *ds* (:id task) "person" (:id person))
+      (db/categorize-task *ds* (:id task) "place" (:id place))
+      (db/categorize-task *ds* (:id task) "project" (:id project))
+      (db/categorize-task *ds* (:id task) "goal" (:id goal))
+      (let [tasks (db/list-tasks *ds*)
+            categorized (first tasks)]
+        (is (= 1 (count (:people categorized))))
+        (is (= 1 (count (:places categorized))))
+        (is (= 1 (count (:projects categorized))))
+        (is (= 1 (count (:goals categorized))))))))
 
-(deftest untag-item-test
-  (testing "can untag item"
-    (let [item (db/add-item *ds* "Task")
+(deftest uncategorize-task-test
+  (testing "can uncategorize task"
+    (let [task (db/add-task *ds* "Task")
           person (db/add-person *ds* "Carol")]
-      (db/tag-item *ds* (:id item) "person" (:id person))
-      (is (= 1 (count (:people (first (db/list-items *ds*))))))
-      (db/untag-item *ds* (:id item) "person" (:id person))
-      (is (= 0 (count (:people (first (db/list-items *ds*)))))))))
+      (db/categorize-task *ds* (:id task) "person" (:id person))
+      (is (= 1 (count (:people (first (db/list-tasks *ds*))))))
+      (db/uncategorize-task *ds* (:id task) "person" (:id person))
+      (is (= 0 (count (:people (first (db/list-tasks *ds*)))))))))
 
 (deftest people-crud-test
   (testing "add and list people"
@@ -168,12 +168,12 @@
 
 (deftest sort-order-midpoint-test
   (testing "midpoint insertion maintains order"
-    (let [item1 (db/add-item *ds* "A")
-          item2 (db/add-item *ds* "B")
-          item3 (db/add-item *ds* "C")
-          order1 (:sort_order item1)
-          order2 (:sort_order item2)
+    (let [task1 (db/add-task *ds* "A")
+          task2 (db/add-task *ds* "B")
+          task3 (db/add-task *ds* "C")
+          order1 (:sort_order task1)
+          order2 (:sort_order task2)
           midpoint (/ (+ order1 order2) 2.0)]
-      (db/reorder-item *ds* (:id item3) midpoint)
-      (let [items (db/list-items *ds* :manual)]
-        (is (= ["B" "C" "A"] (map :title items)))))))
+      (db/reorder-task *ds* (:id task3) midpoint)
+      (let [tasks (db/list-tasks *ds* :manual)]
+        (is (= ["B" "C" "A"] (map :title tasks)))))))

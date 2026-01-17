@@ -18,14 +18,14 @@
                                (when (= (.-key e) "Enter")
                                  (state/login @password (fn []
                                                           (reset! password "")
-                                                          (state/fetch-items)))))}]
+                                                          (state/fetch-tasks)))))}]
        [:button {:on-click (fn [_]
                              (state/login @password (fn []
                                                       (reset! password "")
-                                                      (state/fetch-items))))}
+                                                      (state/fetch-tasks))))}
         "Login"]])))
 
-(defn add-item-form []
+(defn add-task-form []
   (let [title (r/atom "")]
     (fn []
       [:div.add-form
@@ -34,8 +34,8 @@
                 :value @title
                 :on-change #(reset! title (-> % .-target .-value))
                 :on-key-down #(when (= (.-key %) "Enter")
-                                (state/add-item @title (fn [] (reset! title ""))))}]
-       [:button {:on-click #(state/add-item @title (fn [] (reset! title "")))}
+                                (state/add-task @title (fn [] (reset! title ""))))}]
+       [:button {:on-click #(state/add-task @title (fn [] (reset! title "")))}
         "Add"]])))
 
 (defn add-entity-form [placeholder add-fn]
@@ -191,37 +191,37 @@
          ^{:key (:id goal)}
          [:li (:name goal)])]]]))
 
-(defn tag-selector [item tag-type entities label]
-  (let [item-tags (case tag-type
-                    "person" (:people item)
-                    "place" (:places item)
-                    "project" (:projects item)
-                    "goal" (:goals item))
-        item-tag-ids (set (map :id item-tags))]
+(defn category-selector [task category-type entities label]
+  (let [task-categories (case category-type
+                          "person" (:people task)
+                          "place" (:places task)
+                          "project" (:projects task)
+                          "goal" (:goals task))
+        task-category-ids (set (map :id task-categories))]
     [:div.tag-selector
      [:select
       {:value ""
        :on-change (fn [e]
-                    (let [tag-id (js/parseInt (-> e .-target .-value))]
-                      (when (pos? tag-id)
-                        (state/tag-item (:id item) tag-type tag-id))))}
+                    (let [category-id (js/parseInt (-> e .-target .-value))]
+                      (when (pos? category-id)
+                        (state/categorize-task (:id task) category-type category-id))))}
       [:option {:value ""} (str "+ " label)]
       (for [entity entities
-            :when (not (contains? item-tag-ids (:id entity)))]
+            :when (not (contains? task-category-ids (:id entity)))]
         ^{:key (:id entity)}
         [:option {:value (:id entity)} (:name entity)])]
-     (for [tag item-tags]
-       ^{:key (str tag-type "-" (:id tag))}
+     (for [category task-categories]
+       ^{:key (str category-type "-" (:id category))}
        [:span.tag
-        {:class tag-type}
-        (:name tag)
+        {:class category-type}
+        (:name category)
         [:button.remove-tag
-         {:on-click #(state/untag-item (:id item) tag-type (:id tag))}
+         {:on-click #(state/uncategorize-task (:id task) category-type (:id category))}
          "x"]])]))
 
-(defn item-edit-form [item]
-  (let [title (r/atom (:title item))
-        description (r/atom (or (:description item) ""))]
+(defn task-edit-form [task]
+  (let [title (r/atom (:title task))
+        description (r/atom (or (:description task) ""))]
     (fn []
       [:div.item-edit-form
        [:input {:type "text"
@@ -234,79 +234,79 @@
                    :rows 3}]
        [:div.edit-buttons
         [:button {:on-click (fn []
-                              (state/update-item (:id item) @title @description
+                              (state/update-task (:id task) @title @description
                                                  #(state/clear-editing)))}
          "Save"]
         [:button.cancel {:on-click #(state/clear-editing)}
          "Cancel"]]])))
 
-(defn item-tags-readonly [item]
-  (let [all-tags (concat
-                   (map #(assoc % :type "person") (:people item))
-                   (map #(assoc % :type "place") (:places item))
-                   (map #(assoc % :type "project") (:projects item))
-                   (map #(assoc % :type "goal") (:goals item)))]
-    (when (seq all-tags)
+(defn task-categories-readonly [task]
+  (let [all-categories (concat
+                         (map #(assoc % :type "person") (:people task))
+                         (map #(assoc % :type "place") (:places task))
+                         (map #(assoc % :type "project") (:projects task))
+                         (map #(assoc % :type "goal") (:goals task)))]
+    (when (seq all-categories)
       [:div.item-tags-readonly
-       (for [tag all-tags]
-         ^{:key (str (:type tag) "-" (:id tag))}
-         [:span.tag {:class (:type tag)} (:name tag)])])))
+       (for [category all-categories]
+         ^{:key (str (:type category) "-" (:id category))}
+         [:span.tag {:class (:type category)} (:name category)])])))
 
-(defn items-list []
-  (let [{:keys [people places projects goals expanded-item editing-item sort-mode drag-item drag-over-item]} @state/app-state
-        items (state/filtered-items)
+(defn tasks-list []
+  (let [{:keys [people places projects goals expanded-task editing-task sort-mode drag-task drag-over-task]} @state/app-state
+        tasks (state/filtered-tasks)
         manual-mode? (= sort-mode :manual)]
     [:ul.items
-     (for [item items]
-       (let [is-expanded (= expanded-item (:id item))
-             is-editing (= editing-item (:id item))
-             is-dragging (= drag-item (:id item))
-             is-drag-over (= drag-over-item (:id item))]
-         ^{:key (:id item)}
+     (for [task tasks]
+       (let [is-expanded (= expanded-task (:id task))
+             is-editing (= editing-task (:id task))
+             is-dragging (= drag-task (:id task))
+             is-drag-over (= drag-over-task (:id task))]
+         ^{:key (:id task)}
          [:li {:class (str (when is-expanded "expanded")
                            (when is-dragging " dragging")
                            (when is-drag-over " drag-over"))
                :draggable (and manual-mode? (not is-editing))
                :on-drag-start (fn [e]
                                 (when manual-mode?
-                                  (.setData (.-dataTransfer e) "text/plain" (str (:id item)))
-                                  (state/set-drag-item (:id item))))
+                                  (.setData (.-dataTransfer e) "text/plain" (str (:id task)))
+                                  (state/set-drag-task (:id task))))
                :on-drag-end (fn [_]
                               (state/clear-drag-state))
                :on-drag-over (fn [e]
                                (when manual-mode?
                                  (.preventDefault e)
-                                 (state/set-drag-over-item (:id item))))
+                                 (state/set-drag-over-task (:id task))))
                :on-drag-leave (fn [_]
-                                (when (= drag-over-item (:id item))
-                                  (state/set-drag-over-item nil)))
+                                (when (= drag-over-task (:id task))
+                                  (state/set-drag-over-task nil)))
                :on-drop (fn [e]
                           (.preventDefault e)
-                          (when (and manual-mode? drag-item (not= drag-item (:id item)))
+                          (when (and manual-mode? drag-task (not= drag-task (:id task)))
                             (let [rect (.getBoundingClientRect (.-currentTarget e))
                                   y (.-clientY e)
                                   mid-y (+ (.-top rect) (/ (.-height rect) 2))
                                   position (if (< y mid-y) "before" "after")]
-                              (state/reorder-item drag-item (:id item) position))))}
+                              (state/reorder-task drag-task (:id task) position))))}
           (if is-editing
-            [item-edit-form item]
+            [task-edit-form task]
             [:div
              [:div.item-header
-              {:on-click #(state/toggle-expanded (:id item))}
-              [:div.item-title (:title item)]
-              [:div.item-date (:created_at item)]]
+              {:on-click #(state/toggle-expanded (:id task))}
+              [:div.item-title (:title task)]
+              [:div.item-date (:created_at task)]]
              (if is-expanded
                [:div.item-details
-                (when (seq (:description item))
-                  [:div.item-description (:description item)])
+                (when (seq (:description task))
+                  [:div.item-description (:description task)])
                 [:div.item-tags
-                 [tag-selector item "person" people "Person"]
-                 [tag-selector item "place" places "Place"]
-                 [tag-selector item "project" projects "Project"]
-                 [tag-selector item "goal" goals "Goal"]]
-                [:button.edit-btn {:on-click #(state/set-editing (:id item))}
+                 [category-selector task "person" people "Person"]
+                 [category-selector task "place" places "Place"]
+                 [category-selector task "project" projects "Project"]
+                 [category-selector task "goal" goals "Goal"]]
+                [:button.edit-btn {:on-click #(state/set-editing (:id task))}
                  "Edit"]]
-               [item-tags-readonly item])])]))]))
+               [task-categories-readonly task])])]))]))
 
 (defn app []
   (let [{:keys [auth-required? logged-in? active-tab]} @state/app-state]
@@ -336,8 +336,8 @@
              [:h2 "Tasks"]
              [sort-mode-toggle]]
             [search-filter]
-            [add-item-form]
-            [items-list]]])])]))
+            [add-task-form]
+            [tasks-list]]])])]))
 
 (defn init []
   (state/fetch-auth-required)
@@ -347,4 +347,4 @@
   (state/fetch-goals)
   (rdom/render [app] (.getElementById js/document "app"))
   (when (:logged-in? @state/app-state)
-    (state/fetch-items)))
+    (state/fetch-tasks)))

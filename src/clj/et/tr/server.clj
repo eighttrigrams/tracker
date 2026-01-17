@@ -81,24 +81,24 @@
 (defn password-required-handler [_req]
   {:status 200 :body {:required (not (allow-skip-logins?))}})
 
-(defn list-items-handler [req]
+(defn list-tasks-handler [req]
   (let [sort-mode (keyword (get-in req [:params "sort"] "recent"))]
-    {:status 200 :body (db/list-items (ensure-ds) sort-mode)}))
+    {:status 200 :body (db/list-tasks (ensure-ds) sort-mode)}))
 
-(defn add-item-handler [req]
+(defn add-task-handler [req]
   (let [{:keys [title]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [item (db/add-item (ensure-ds) title)]
-        {:status 201 :body (assoc item :people [] :places [] :projects [] :goals [])}))))
+      (let [task (db/add-task (ensure-ds) title)]
+        {:status 201 :body (assoc task :people [] :places [] :projects [] :goals [])}))))
 
-(defn update-item-handler [req]
-  (let [item-id (Integer/parseInt (get-in req [:params :id]))
+(defn update-task-handler [req]
+  (let [task-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [title description]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [item (db/update-item (ensure-ds) item-id title (or description ""))]
-        {:status 200 :body item}))))
+      (let [task (db/update-task (ensure-ds) task-id title (or description ""))]
+        {:status 200 :body task}))))
 
 (defn list-people-handler [_req]
   {:status 200 :body (db/list-people (ensure-ds))})
@@ -148,29 +148,29 @@
         (catch Exception _
           {:status 409 :body {:success false :error "Goal already exists"}})))))
 
-(defn tag-item-handler [req]
-  (let [item-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [tag-type tag-id]} (:body req)]
-    (db/tag-item (ensure-ds) item-id tag-type tag-id)
+(defn categorize-task-handler [req]
+  (let [task-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [category-type category-id]} (:body req)]
+    (db/categorize-task (ensure-ds) task-id category-type category-id)
     {:status 200 :body {:success true}}))
 
-(defn untag-item-handler [req]
-  (let [item-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [tag-type tag-id]} (:body req)]
-    (db/untag-item (ensure-ds) item-id tag-type tag-id)
+(defn uncategorize-task-handler [req]
+  (let [task-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [category-type category-id]} (:body req)]
+    (db/uncategorize-task (ensure-ds) task-id category-type category-id)
     {:status 200 :body {:success true}}))
 
-(defn reorder-item-handler [req]
-  (let [item-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [target-item-id position]} (:body req)
-        all-items (db/list-items (ensure-ds) :manual)
-        target-idx (->> all-items
+(defn reorder-task-handler [req]
+  (let [task-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [target-task-id position]} (:body req)
+        all-tasks (db/list-tasks (ensure-ds) :manual)
+        target-idx (->> all-tasks
                         (map-indexed vector)
-                        (some (fn [[idx item]] (when (= (:id item) target-item-id) idx))))
-        target-order (:sort_order (nth all-items target-idx))
+                        (some (fn [[idx task]] (when (= (:id task) target-task-id) idx))))
+        target-order (:sort_order (nth all-tasks target-idx))
         neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
-        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-items)))
-                         (:sort_order (nth all-items neighbor-idx)))
+        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-tasks)))
+                         (:sort_order (nth all-tasks neighbor-idx)))
         new-order (cond
                     (nil? neighbor-order)
                     (if (= position "before")
@@ -178,19 +178,19 @@
                       (+ target-order 1.0))
                     :else
                     (/ (+ target-order neighbor-order) 2.0))]
-    (db/reorder-item (ensure-ds) item-id new-order)
+    (db/reorder-task (ensure-ds) task-id new-order)
     {:status 200 :body {:success true :sort_order new-order}}))
 
 (defroutes api-routes
   (context "/api" []
     (GET "/auth/required" [] password-required-handler)
     (POST "/auth/login" [] login-handler)
-    (GET "/items" [] list-items-handler)
-    (POST "/items" [] add-item-handler)
-    (PUT "/items/:id" [] update-item-handler)
-    (POST "/items/:id/tag" [] tag-item-handler)
-    (DELETE "/items/:id/tag" [] untag-item-handler)
-    (POST "/items/:id/reorder" [] reorder-item-handler)
+    (GET "/tasks" [] list-tasks-handler)
+    (POST "/tasks" [] add-task-handler)
+    (PUT "/tasks/:id" [] update-task-handler)
+    (POST "/tasks/:id/categorize" [] categorize-task-handler)
+    (DELETE "/tasks/:id/categorize" [] uncategorize-task-handler)
+    (POST "/tasks/:id/reorder" [] reorder-task-handler)
     (GET "/people" [] list-people-handler)
     (POST "/people" [] add-person-handler)
     (GET "/places" [] list-places-handler)
