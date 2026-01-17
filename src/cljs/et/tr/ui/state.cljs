@@ -15,6 +15,7 @@
                             :expanded-task nil
                             :editing-task nil
                             :confirm-delete-task nil
+                            :pending-new-task nil
                             :active-tab :today
                             :auth-required? nil
                             :logged-in? false
@@ -65,7 +66,11 @@
        :handler (fn [tasks]
                   (swap! app-state assoc :tasks tasks))})))
 
-(defn add-task [title on-success]
+(defn has-active-filters? []
+  (let [{:keys [filter-people filter-places filter-projects filter-goals]} @app-state]
+    (or (seq filter-people) (seq filter-places) (seq filter-projects) (seq filter-goals))))
+
+(defn add-task-with-categories [title categories on-success]
   (POST "/api/tasks"
     {:params {:title title}
      :format :json
@@ -73,10 +78,90 @@
      :keywords? true
      :headers (auth-headers)
      :handler (fn [task]
-                (swap! app-state update :tasks #(cons task %))
-                (when on-success (on-success)))
+                (let [task-id (:id task)
+                      {:keys [people places projects goals]} categories
+                      categorize-all (fn []
+                                       (doseq [id people]
+                                         (POST (str "/api/tasks/" task-id "/categorize")
+                                           {:params {:category-type "person" :category-id id}
+                                            :format :json
+                                            :response-format :json
+                                            :keywords? true
+                                            :headers (auth-headers)
+                                            :handler (fn [_])}))
+                                       (doseq [id places]
+                                         (POST (str "/api/tasks/" task-id "/categorize")
+                                           {:params {:category-type "place" :category-id id}
+                                            :format :json
+                                            :response-format :json
+                                            :keywords? true
+                                            :headers (auth-headers)
+                                            :handler (fn [_])}))
+                                       (doseq [id projects]
+                                         (POST (str "/api/tasks/" task-id "/categorize")
+                                           {:params {:category-type "project" :category-id id}
+                                            :format :json
+                                            :response-format :json
+                                            :keywords? true
+                                            :headers (auth-headers)
+                                            :handler (fn [_])}))
+                                       (doseq [id goals]
+                                         (POST (str "/api/tasks/" task-id "/categorize")
+                                           {:params {:category-type "goal" :category-id id}
+                                            :format :json
+                                            :response-format :json
+                                            :keywords? true
+                                            :headers (auth-headers)
+                                            :handler (fn [_])}))
+                                       (js/setTimeout fetch-tasks 500))]
+                  (swap! app-state update :tasks #(cons task %))
+                  (categorize-all)
+                  (when on-success (on-success))))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))
+
+(defn set-pending-new-task [title on-success]
+  (let [{:keys [filter-people filter-places filter-projects filter-goals]} @app-state]
+    (swap! app-state assoc :pending-new-task
+           {:title title
+            :on-success on-success
+            :categories {:people filter-people
+                         :places filter-places
+                         :projects filter-projects
+                         :goals filter-goals}})))
+
+(defn clear-pending-new-task []
+  (swap! app-state assoc :pending-new-task nil))
+
+(defn update-pending-category [category-type id]
+  (let [key (case category-type
+              "person" :people
+              "place" :places
+              "project" :projects
+              "goal" :goals
+              (keyword category-type))]
+    (swap! app-state update-in [:pending-new-task :categories key]
+           #(if (contains? % id) (disj % id) (conj (or % #{}) id)))))
+
+(defn confirm-pending-new-task []
+  (when-let [{:keys [title on-success categories]} (:pending-new-task @app-state)]
+    (add-task-with-categories title categories on-success)
+    (clear-pending-new-task)))
+
+(defn add-task [title on-success]
+  (if (has-active-filters?)
+    (set-pending-new-task title on-success)
+    (POST "/api/tasks"
+      {:params {:title title}
+       :format :json
+       :response-format :json
+       :keywords? true
+       :headers (auth-headers)
+       :handler (fn [task]
+                  (swap! app-state update :tasks #(cons task %))
+                  (when on-success (on-success)))
+       :error-handler (fn [resp]
+                        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))})))
 
 (defn fetch-people []
   (GET "/api/people"

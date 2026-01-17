@@ -555,6 +555,54 @@
     .modal-footer button.confirm-delete:hover {
       background: #e0352b;
     }
+    .modal-footer button.confirm {
+      background: var(--accent);
+    }
+    .modal-footer button.confirm:hover {
+      background: var(--accent-hover);
+    }
+    .pending-task-modal {
+      min-width: 400px;
+      max-width: 500px;
+    }
+    .modal-instruction {
+      font-size: 0.9em;
+      margin-bottom: 16px !important;
+    }
+    .category-group {
+      margin-bottom: 16px;
+    }
+    .category-group:last-child {
+      margin-bottom: 0;
+    }
+    .category-group label {
+      display: block;
+      font-size: 0.8em;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+    .category-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag.selectable {
+      cursor: pointer;
+      opacity: 0.4;
+      transition: all 0.2s ease;
+    }
+    .tag.selectable:hover {
+      opacity: 0.7;
+    }
+    .tag.selectable.selected {
+      opacity: 1;
+    }
+    .tag .check {
+      margin-left: 2px;
+    }
   </style>
 </head>
 <body>

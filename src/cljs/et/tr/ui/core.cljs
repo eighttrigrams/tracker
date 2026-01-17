@@ -393,10 +393,73 @@
        [:button.cancel {:on-click #(state/clear-confirm-delete)} "Cancel"]
        [:button.confirm-delete {:on-click #(state/delete-task (:id task))} "Delete"]]]]))
 
+(defn category-tag-item [category-type id name selected? toggle-fn]
+  [:span.tag.selectable
+   {:class (str category-type (when selected? " selected"))
+    :on-click #(toggle-fn category-type id)}
+   name
+   (when selected? [:span.check " ✓"])])
+
+(defn pending-task-modal []
+  (when-let [{:keys [title categories]} (:pending-new-task @state/app-state)]
+    (let [{:keys [people places projects goals]} @state/app-state
+          {:keys [people places projects goals]
+           :as selected} categories
+          selected-people (or people #{})
+          selected-places (or places #{})
+          selected-projects (or projects #{})
+          selected-goals (or goals #{})]
+      [:div.modal-overlay {:on-click #(state/clear-pending-new-task)}
+       [:div.modal.pending-task-modal {:on-click #(.stopPropagation %)}
+        [:div.modal-header "Add Task with Categories"]
+        [:div.modal-body
+         [:p.task-title title]
+         [:p.modal-instruction "Select which categories to assign:"]
+         (when (seq (:people @state/app-state))
+           [:div.category-group
+            [:label "People:"]
+            [:div.category-tags
+             (for [p (:people @state/app-state)]
+               ^{:key (:id p)}
+               [category-tag-item "person" (:id p) (:name p)
+                (contains? selected-people (:id p))
+                state/update-pending-category])]])
+         (when (seq (:places @state/app-state))
+           [:div.category-group
+            [:label "Places:"]
+            [:div.category-tags
+             (for [p (:places @state/app-state)]
+               ^{:key (:id p)}
+               [category-tag-item "place" (:id p) (:name p)
+                (contains? selected-places (:id p))
+                state/update-pending-category])]])
+         (when (seq (:projects @state/app-state))
+           [:div.category-group
+            [:label "Projects:"]
+            [:div.category-tags
+             (for [p (:projects @state/app-state)]
+               ^{:key (:id p)}
+               [category-tag-item "project" (:id p) (:name p)
+                (contains? selected-projects (:id p))
+                state/update-pending-category])]])
+         (when (seq (:goals @state/app-state))
+           [:div.category-group
+            [:label "Goals:"]
+            [:div.category-tags
+             (for [g (:goals @state/app-state)]
+               ^{:key (:id g)}
+               [category-tag-item "goal" (:id g) (:name g)
+                (contains? selected-goals (:id g))
+                state/update-pending-category])]])]
+        [:div.modal-footer
+         [:button.cancel {:on-click #(state/clear-pending-new-task)} "Cancel"]
+         [:button.confirm {:on-click #(state/confirm-pending-new-task)} "Add Task"]]]])))
+
 (defn app []
   (let [{:keys [auth-required? logged-in? active-tab]} @state/app-state]
     [:div
      [confirm-delete-modal]
+     [pending-task-modal]
      (cond
        (nil? auth-required?)
        [:div "Loading..."]
