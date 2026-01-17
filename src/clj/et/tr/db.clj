@@ -35,11 +35,15 @@
   ([ds] (list-tasks ds :recent))
   ([ds sort-mode]
    (let [conn (get-conn ds)
-         order-clause (if (= sort-mode :manual)
-                        "ORDER BY sort_order ASC, created_at DESC"
+         where-clause (if (= sort-mode :due-date)
+                          "WHERE due_date IS NOT NULL"
+                          "")
+         order-clause (case sort-mode
+                        :manual "ORDER BY sort_order ASC, created_at DESC"
+                        :due-date "ORDER BY due_date ASC"
                         "ORDER BY created_at DESC")
          tasks (jdbc/execute! conn
-                 [(str "SELECT id, title, description, created_at, due_date, sort_order FROM tasks " order-clause)]
+                 [(str "SELECT id, title, description, created_at, due_date, sort_order FROM tasks " where-clause " " order-clause)]
                  {:builder-fn rs/as-unqualified-maps})
          categories (jdbc/execute! conn
                       ["SELECT task_id, category_type, category_id FROM task_categories"]

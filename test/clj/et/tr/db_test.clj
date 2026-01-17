@@ -174,3 +174,38 @@
       (db/reorder-task *ds* (:id task3) midpoint)
       (let [tasks (db/list-tasks *ds* :manual)]
         (is (= ["B" "C" "A"] (map :title tasks)))))))
+
+(deftest set-task-due-date-test
+  (testing "sets due date on task"
+    (let [task (db/add-task *ds* "Task with due date")
+          result (db/set-task-due-date *ds* (:id task) "2026-01-15")]
+      (is (= (:id task) (:id result)))
+      (is (= "2026-01-15" (:due_date result)))))
+
+  (testing "clears due date when nil"
+    (let [task (db/add-task *ds* "Another task")]
+      (db/set-task-due-date *ds* (:id task) "2026-01-20")
+      (let [result (db/set-task-due-date *ds* (:id task) nil)]
+        (is (nil? (:due_date result)))))))
+
+(deftest list-tasks-due-date-mode-filters-test
+  (testing "due-date mode filters out tasks without due dates"
+    (let [_task1 (db/add-task *ds* "No date")
+          task2 (db/add-task *ds* "Has date")
+          task3 (db/add-task *ds* "Also has date")]
+      (db/set-task-due-date *ds* (:id task2) "2026-02-01")
+      (db/set-task-due-date *ds* (:id task3) "2026-01-15")
+      (let [tasks (db/list-tasks *ds* :due-date)]
+        (is (= 2 (count tasks)))
+        (is (not (some #(= "No date" (:title %)) tasks)))))))
+
+(deftest list-tasks-due-date-mode-orders-test
+  (testing "due-date mode orders by due date ascending"
+    (let [task1 (db/add-task *ds* "Later")
+          task2 (db/add-task *ds* "Earlier")
+          task3 (db/add-task *ds* "Middle")]
+      (db/set-task-due-date *ds* (:id task1) "2026-03-01")
+      (db/set-task-due-date *ds* (:id task2) "2026-01-01")
+      (db/set-task-due-date *ds* (:id task3) "2026-02-01")
+      (let [tasks (db/list-tasks *ds* :due-date)]
+        (is (= ["Earlier" "Middle" "Later"] (map :title tasks)))))))
