@@ -85,6 +85,16 @@
      (when (seq search-term)
        [:button.clear-search {:on-click #(state/set-filter-search "")} "x"])]))
 
+(defn sort-mode-toggle []
+  (let [sort-mode (:sort-mode @state/app-state)]
+    [:div.sort-toggle
+     [:button {:class (when (= sort-mode :recent) "active")
+               :on-click #(when (not= sort-mode :recent) (state/set-sort-mode :recent))}
+      "Recent first"]
+     [:button {:class (when (= sort-mode :manual) "active")
+               :on-click #(when (not= sort-mode :manual) (state/set-sort-mode :manual))}
+      "Manual order"]]))
+
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
   (let [selected-items (filter #(contains? selected-ids (:id %)) items)]
     [:div.filter-section
@@ -243,14 +253,41 @@
          [:span.tag {:class (:type tag)} (:name tag)])])))
 
 (defn items-list []
-  (let [{:keys [people places projects goals expanded-item editing-item]} @state/app-state
-        items (state/filtered-items)]
+  (let [{:keys [people places projects goals expanded-item editing-item sort-mode drag-item drag-over-item]} @state/app-state
+        items (state/filtered-items)
+        manual-mode? (= sort-mode :manual)]
     [:ul.items
      (for [item items]
        (let [is-expanded (= expanded-item (:id item))
-             is-editing (= editing-item (:id item))]
+             is-editing (= editing-item (:id item))
+             is-dragging (= drag-item (:id item))
+             is-drag-over (= drag-over-item (:id item))]
          ^{:key (:id item)}
-         [:li {:class (when is-expanded "expanded")}
+         [:li {:class (str (when is-expanded "expanded")
+                           (when is-dragging " dragging")
+                           (when is-drag-over " drag-over"))
+               :draggable (and manual-mode? (not is-editing))
+               :on-drag-start (fn [e]
+                                (when manual-mode?
+                                  (.setData (.-dataTransfer e) "text/plain" (str (:id item)))
+                                  (state/set-drag-item (:id item))))
+               :on-drag-end (fn [_]
+                              (state/clear-drag-state))
+               :on-drag-over (fn [e]
+                               (when manual-mode?
+                                 (.preventDefault e)
+                                 (state/set-drag-over-item (:id item))))
+               :on-drag-leave (fn [_]
+                                (when (= drag-over-item (:id item))
+                                  (state/set-drag-over-item nil)))
+               :on-drop (fn [e]
+                          (.preventDefault e)
+                          (when (and manual-mode? drag-item (not= drag-item (:id item)))
+                            (let [rect (.getBoundingClientRect (.-currentTarget e))
+                                  y (.-clientY e)
+                                  mid-y (+ (.-top rect) (/ (.-height rect) 2))
+                                  position (if (< y mid-y) "before" "after")]
+                              (state/reorder-item drag-item (:id item) position))))}
           (if is-editing
             [item-edit-form item]
             [:div
@@ -295,7 +332,9 @@
           [:div.main-layout
            [sidebar-filters]
            [:div.main-content
-            [:h2 "Tasks"]
+            [:div.tasks-header
+             [:h2 "Tasks"]
+             [sort-mode-toggle]]
             [search-filter]
             [add-item-form]
             [items-list]]])])]))

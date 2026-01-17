@@ -5,7 +5,7 @@
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.string :as str]
-            [compojure.core :refer [defroutes GET POST context]]
+            [compojure.core :refer [defroutes GET POST PUT DELETE context]]
             [compojure.route :as route]
             [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
             [ring.middleware.params :refer [wrap-params]]
@@ -81,22 +81,124 @@
 (defn password-required-handler [_req]
   {:status 200 :body {:required (not (allow-skip-logins?))}})
 
-(defn list-items-handler [_req]
-  {:status 200 :body (db/list-items (ensure-ds))})
+(defn list-items-handler [req]
+  (let [sort-mode (keyword (get-in req [:params "sort"] "recent"))]
+    {:status 200 :body (db/list-items (ensure-ds) sort-mode)}))
 
 (defn add-item-handler [req]
   (let [{:keys [title]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
       (let [item (db/add-item (ensure-ds) title)]
-        {:status 201 :body item}))))
+        {:status 201 :body (assoc item :people [] :places [] :projects [] :goals [])}))))
+
+(defn update-item-handler [req]
+  (let [item-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [title description]} (:body req)]
+    (if (str/blank? title)
+      {:status 400 :body {:success false :error "Title is required"}}
+      (let [item (db/update-item (ensure-ds) item-id title (or description ""))]
+        {:status 200 :body item}))))
+
+(defn list-people-handler [_req]
+  {:status 200 :body (db/list-people (ensure-ds))})
+
+(defn add-person-handler [req]
+  (let [{:keys [name]} (:body req)]
+    (if (str/blank? name)
+      {:status 400 :body {:success false :error "Name is required"}}
+      (try
+        {:status 201 :body (db/add-person (ensure-ds) name)}
+        (catch Exception _
+          {:status 409 :body {:success false :error "Person already exists"}})))))
+
+(defn list-places-handler [_req]
+  {:status 200 :body (db/list-places (ensure-ds))})
+
+(defn add-place-handler [req]
+  (let [{:keys [name]} (:body req)]
+    (if (str/blank? name)
+      {:status 400 :body {:success false :error "Name is required"}}
+      (try
+        {:status 201 :body (db/add-place (ensure-ds) name)}
+        (catch Exception _
+          {:status 409 :body {:success false :error "Place already exists"}})))))
+
+(defn list-projects-handler [_req]
+  {:status 200 :body (db/list-projects (ensure-ds))})
+
+(defn add-project-handler [req]
+  (let [{:keys [name]} (:body req)]
+    (if (str/blank? name)
+      {:status 400 :body {:success false :error "Name is required"}}
+      (try
+        {:status 201 :body (db/add-project (ensure-ds) name)}
+        (catch Exception _
+          {:status 409 :body {:success false :error "Project already exists"}})))))
+
+(defn list-goals-handler [_req]
+  {:status 200 :body (db/list-goals (ensure-ds))})
+
+(defn add-goal-handler [req]
+  (let [{:keys [name]} (:body req)]
+    (if (str/blank? name)
+      {:status 400 :body {:success false :error "Name is required"}}
+      (try
+        {:status 201 :body (db/add-goal (ensure-ds) name)}
+        (catch Exception _
+          {:status 409 :body {:success false :error "Goal already exists"}})))))
+
+(defn tag-item-handler [req]
+  (let [item-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [tag-type tag-id]} (:body req)]
+    (db/tag-item (ensure-ds) item-id tag-type tag-id)
+    {:status 200 :body {:success true}}))
+
+(defn untag-item-handler [req]
+  (let [item-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [tag-type tag-id]} (:body req)]
+    (db/untag-item (ensure-ds) item-id tag-type tag-id)
+    {:status 200 :body {:success true}}))
+
+(defn reorder-item-handler [req]
+  (let [item-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [target-item-id position]} (:body req)
+        all-items (db/list-items (ensure-ds) :manual)
+        target-idx (->> all-items
+                        (map-indexed vector)
+                        (some (fn [[idx item]] (when (= (:id item) target-item-id) idx))))
+        target-order (:sort_order (nth all-items target-idx))
+        neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
+        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-items)))
+                         (:sort_order (nth all-items neighbor-idx)))
+        new-order (cond
+                    (nil? neighbor-order)
+                    (if (= position "before")
+                      (- target-order 1.0)
+                      (+ target-order 1.0))
+                    :else
+                    (/ (+ target-order neighbor-order) 2.0))]
+    (db/reorder-item (ensure-ds) item-id new-order)
+    {:status 200 :body {:success true :sort_order new-order}}))
 
 (defroutes api-routes
   (context "/api" []
     (GET "/auth/required" [] password-required-handler)
     (POST "/auth/login" [] login-handler)
     (GET "/items" [] list-items-handler)
-    (POST "/items" [] add-item-handler)))
+    (POST "/items" [] add-item-handler)
+    (PUT "/items/:id" [] update-item-handler)
+    (POST "/items/:id/tag" [] tag-item-handler)
+    (DELETE "/items/:id/tag" [] untag-item-handler)
+    (POST "/items/:id/reorder" [] reorder-item-handler)
+    (GET "/people" [] list-people-handler)
+    (POST "/people" [] add-person-handler)
+    (GET "/places" [] list-places-handler)
+    (POST "/places" [] add-place-handler)
+    (GET "/projects" [] list-projects-handler)
+    (POST "/projects" [] add-project-handler)
+    (GET "/goals" [] list-goals-handler)
+    (POST "/goals" [] add-goal-handler)))
 
 (defn- serve-index [_]
   {:status 200
@@ -115,7 +217,7 @@
       (subs auth-header 7))))
 
 (defn- mutating-request? [req]
-  (= :post (:request-method req)))
+  (#{:post :put :delete} (:request-method req)))
 
 (defn- public-endpoint? [req]
   (let [uri (:uri req)]
@@ -145,7 +247,7 @@
       (wrap-auth)
       (wrap-json-response)
       (wrap-cors :access-control-allow-origin [#".*"]
-                 :access-control-allow-methods [:get :post])
+                 :access-control-allow-methods [:get :post :put :delete])
       (wrap-rate-limit)))
 
 (defn- run-server [port]

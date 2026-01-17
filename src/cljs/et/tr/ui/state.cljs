@@ -19,7 +19,10 @@
                             :logged-in? false
                             :token nil
                             :error nil
-                            :collapsed-filters #{:people :places :projects :goals}}))
+                            :collapsed-filters #{:people :places :projects :goals}
+                            :sort-mode :recent
+                            :drag-item nil
+                            :drag-over-item nil}))
 
 (defn auth-headers []
   (when-let [token (:token @app-state)]
@@ -53,11 +56,12 @@
                       (swap! app-state assoc :error "Invalid password"))}))
 
 (defn fetch-items []
-  (GET "/api/items"
-    {:response-format :json
-     :keywords? true
-     :handler (fn [items]
-                (swap! app-state assoc :items items))}))
+  (let [sort-mode (name (:sort-mode @app-state))]
+    (GET (str "/api/items?sort=" sort-mode)
+      {:response-format :json
+       :keywords? true
+       :handler (fn [items]
+                  (swap! app-state assoc :items items))})))
 
 (defn add-item [title on-success]
   (POST "/api/items"
@@ -264,3 +268,30 @@
       (seq filter-projects) (filter #(matches-any? (:projects %) filter-projects))
       (seq filter-goals) (filter #(matches-any? (:goals %) filter-goals))
       (seq filter-search) (filter #(prefix-matches? (:title %) filter-search)))))
+
+(defn set-sort-mode [mode]
+  (swap! app-state assoc :sort-mode mode)
+  (fetch-items))
+
+(defn set-drag-item [item-id]
+  (swap! app-state assoc :drag-item item-id))
+
+(defn set-drag-over-item [item-id]
+  (swap! app-state assoc :drag-over-item item-id))
+
+(defn clear-drag-state []
+  (swap! app-state assoc :drag-item nil :drag-over-item nil))
+
+(defn reorder-item [item-id target-item-id position]
+  (POST (str "/api/items/" item-id "/reorder")
+    {:params {:target-item-id target-item-id :position position}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [_]
+                (clear-drag-state)
+                (fetch-items))
+     :error-handler (fn [resp]
+                      (clear-drag-state)
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))}))
