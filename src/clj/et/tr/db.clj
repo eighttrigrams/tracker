@@ -39,7 +39,7 @@
                         "ORDER BY sort_order ASC, created_at DESC"
                         "ORDER BY created_at DESC")
          tasks (jdbc/execute! conn
-                 [(str "SELECT id, title, description, created_at, sort_order FROM tasks " order-clause)]
+                 [(str "SELECT id, title, description, created_at, due_date, sort_order FROM tasks " order-clause)]
                  {:builder-fn rs/as-unqualified-maps})
          categories (jdbc/execute! conn
                       ["SELECT task_id, category_type, category_id FROM task_categories"]
@@ -143,3 +143,9 @@
   (jdbc/execute-one! (get-conn ds)
     ["UPDATE tasks SET sort_order = ? WHERE id = ?" new-sort-order task-id])
   {:success true :sort_order new-sort-order})
+
+(defn set-task-due-date [ds task-id due-date]
+  (jdbc/execute-one! (get-conn ds)
+    ["UPDATE tasks SET due_date = ? WHERE id = ? RETURNING id, due_date"
+     due-date task-id]
+    {:builder-fn rs/as-unqualified-maps}))

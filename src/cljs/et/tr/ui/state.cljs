@@ -295,3 +295,20 @@
      :error-handler (fn [resp]
                       (clear-drag-state)
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))}))
+
+(defn set-task-due-date [task-id due-date]
+  (PUT (str "/api/tasks/" task-id "/due-date")
+    {:params {:due-date due-date}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [result]
+                (swap! app-state update :tasks
+                       (fn [tasks]
+                         (mapv #(if (= (:id %) task-id)
+                                  (assoc % :due_date (:due_date result))
+                                  %)
+                               tasks))))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due date")))}))

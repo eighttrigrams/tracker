@@ -296,11 +296,27 @@
               [:div.item-title
                (:title task)
                (when is-expanded
-                 [:button.edit-icon {:on-click (fn [e]
-                                                 (.stopPropagation e)
-                                                 (state/set-editing (:id task)))}
-                  "✎"])]
-              [:div.item-date (:created_at task)]]
+                 [:<>
+                  [:button.edit-icon {:on-click (fn [e]
+                                                  (.stopPropagation e)
+                                                  (state/set-editing (:id task)))}
+                   "✎"]
+                  [:span.date-picker-wrapper
+                   [:input.date-picker-input
+                    {:type "date"
+                     :value (or (:due_date task) "")
+                     :on-click #(.stopPropagation %)
+                     :on-change (fn [e]
+                                  (let [v (.. e -target -value)]
+                                    (state/set-task-due-date (:id task) (when (seq v) v))))}]
+                   [:button.calendar-icon {:on-click (fn [e]
+                                                       (.stopPropagation e)
+                                                       (-> e .-target .-previousSibling .showPicker))}
+                    "📅"]]])]
+              [:div.item-date
+               (when (:due_date task)
+                 [:span.due-date (:due_date task)])
+               [:span (:created_at task)]]]
              (if is-expanded
                [:div.item-details
                 (when (seq (:description task))

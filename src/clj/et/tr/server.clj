@@ -180,6 +180,12 @@
     (db/reorder-task (ensure-ds) task-id new-order)
     {:status 200 :body {:success true :sort_order new-order}}))
 
+(defn set-due-date-handler [req]
+  (let [task-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [due-date]} (:body req)
+        result (db/set-task-due-date (ensure-ds) task-id due-date)]
+    {:status 200 :body result}))
+
 (defroutes api-routes
   (context "/api" []
     (GET "/auth/required" [] password-required-handler)
@@ -190,6 +196,7 @@
     (POST "/tasks/:id/categorize" [] categorize-task-handler)
     (DELETE "/tasks/:id/categorize" [] uncategorize-task-handler)
     (POST "/tasks/:id/reorder" [] reorder-task-handler)
+    (PUT "/tasks/:id/due-date" [] set-due-date-handler)
     (GET "/people" [] list-people-handler)
     (POST "/people" [] add-person-handler)
     (GET "/places" [] list-places-handler)
