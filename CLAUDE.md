@@ -20,3 +20,4 @@ Whenever you are instructed to merge a feature into main/master
 - You do a squash merge of the current feature branch into main
     - See if there are unrelated changes/commits. If yes, cherry-pick them INTO main first.
     - From the squash merge, the PR.md and PR_REVIEW.md should be excluded but contents, specially of PR.md, should go to the extended git commit message
+    - The important bit is that I want to have the feature related work in a single commit, with a single commit message, for future reference
