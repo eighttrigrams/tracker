@@ -48,6 +48,7 @@
 
 (declare fetch-tasks)
 (declare fetch-users)
+(declare fetch-available-users)
 (declare calculate-best-horizon)
 (declare recalculate-today-horizon)
 
