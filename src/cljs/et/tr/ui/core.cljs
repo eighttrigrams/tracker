@@ -512,7 +512,7 @@
                 [:div.item-actions
                  (if (= 1 (:done task))
                    [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} "Undone"]
-                   [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} "Done"])
+                   [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} "Mark task done"])
                  [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} "Delete"]]]
                [task-categories-readonly task])])]))]))
 
