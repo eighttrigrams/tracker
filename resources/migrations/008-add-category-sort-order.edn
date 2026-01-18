@@ -1,0 +1,13 @@
+{:id "008-add-category-sort-order"
+ :up ["ALTER TABLE people ADD COLUMN sort_order REAL"
+      "ALTER TABLE places ADD COLUMN sort_order REAL"
+      "ALTER TABLE projects ADD COLUMN sort_order REAL"
+      "ALTER TABLE goals ADD COLUMN sort_order REAL"
+      "UPDATE people SET sort_order = (SELECT COUNT(*) FROM people p2 WHERE p2.name < people.name AND p2.user_id = people.user_id)"
+      "UPDATE places SET sort_order = (SELECT COUNT(*) FROM places p2 WHERE p2.name < places.name AND p2.user_id = places.user_id)"
+      "UPDATE projects SET sort_order = (SELECT COUNT(*) FROM projects p2 WHERE p2.name < projects.name AND p2.user_id = projects.user_id)"
+      "UPDATE goals SET sort_order = (SELECT COUNT(*) FROM goals g2 WHERE g2.name < goals.name AND g2.user_id = goals.user_id)"]
+ :down ["ALTER TABLE goals DROP COLUMN sort_order"
+        "ALTER TABLE projects DROP COLUMN sort_order"
+        "ALTER TABLE places DROP COLUMN sort_order"
+        "ALTER TABLE people DROP COLUMN sort_order"]}

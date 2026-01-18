@@ -267,6 +267,28 @@
           {:status 200 :body {:success true}}
           {:status 404 :body {:success false :error (str (str/capitalize type) " not found")}})))))
 
+(defn reorder-category-handler [req list-fn table-name]
+  (let [user-id (get-user-id req)
+        category-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [target-category-id position]} (:body req)
+        all-categories (list-fn (ensure-ds) user-id)
+        target-idx (->> all-categories
+                        (map-indexed vector)
+                        (some (fn [[idx cat]] (when (= (:id cat) target-category-id) idx))))
+        target-order (:sort_order (nth all-categories target-idx))
+        neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
+        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-categories)))
+                         (:sort_order (nth all-categories neighbor-idx)))
+        new-order (cond
+                    (nil? neighbor-order)
+                    (if (= position "before")
+                      (- target-order 1.0)
+                      (+ target-order 1.0))
+                    :else
+                    (/ (+ target-order neighbor-order) 2.0))]
+    (db/reorder-category (ensure-ds) user-id category-id new-order table-name)
+    {:status 200 :body {:success true :sort_order new-order}}))
+
 (defn categorize-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -419,15 +441,19 @@
     (GET "/people" [] list-people-handler)
     (POST "/people" [] add-person-handler)
     (PUT "/people/:id" [] update-person-handler)
+    (POST "/people/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-people "people")))
     (GET "/places" [] list-places-handler)
     (POST "/places" [] add-place-handler)
     (PUT "/places/:id" [] update-place-handler)
+    (POST "/places/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-places "places")))
     (GET "/projects" [] list-projects-handler)
     (POST "/projects" [] add-project-handler)
     (PUT "/projects/:id" [] update-project-handler)
+    (POST "/projects/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-projects "projects")))
     (GET "/goals" [] list-goals-handler)
     (POST "/goals" [] add-goal-handler)
     (PUT "/goals/:id" [] update-goal-handler)
+    (POST "/goals/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-goals "goals")))
     (DELETE "/:category/:id" [] delete-category-handler)))
 
 (defroutes app-routes
