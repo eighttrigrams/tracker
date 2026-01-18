@@ -154,7 +154,9 @@
           :type "text"
           :placeholder (t :category/search)
           :value search-term
-          :on-change #(set-search-fn filter-key (-> % .-target .-value))}]
+          :on-change #(set-search-fn filter-key (-> % .-target .-value))
+          :on-key-down #(when (= (.-key %) "Escape")
+                          (toggle-collapsed-fn filter-key))}]
         (doall
          (for [item visible-items]
            ^{:key (:id item)}
