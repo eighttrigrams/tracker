@@ -428,12 +428,18 @@
   (swap! app-state assoc :tasks-page/filter-goals #{}))
 
 (defn toggle-filter-collapsed [filter-key]
-  (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)]
+  (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)
+        all-filters #{:people :places :projects :goals}
+        others-to-collapse (disj all-filters filter-key)]
     (swap! app-state update :tasks-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
-               (disj #{:people :places :projects :goals} filter-key)
+               (disj all-filters filter-key)
                (conj collapsed filter-key))))
+    (when was-collapsed
+      (swap! app-state update :tasks-page/category-search
+             (fn [searches]
+               (reduce #(assoc %1 %2 "") searches others-to-collapse))))
     (js/setTimeout
      (fn []
        (when-let [el (.getElementById js/document
@@ -628,13 +634,18 @@
   (recalculate-today-horizon))
 
 (defn toggle-today-filter-collapsed [filter-key]
-  (let [was-collapsed (contains? (:today-page/collapsed-filters @app-state) filter-key)]
+  (let [was-collapsed (contains? (:today-page/collapsed-filters @app-state) filter-key)
+        all-filters #{:places :projects}
+        others-to-collapse (disj all-filters filter-key)]
     (swap! app-state update :today-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
-               (disj #{:places :projects} filter-key)
+               (disj all-filters filter-key)
                (conj collapsed filter-key))))
     (when was-collapsed
+      (swap! app-state update :today-page/category-search
+             (fn [searches]
+               (reduce #(assoc %1 %2 "") searches others-to-collapse)))
       (js/setTimeout
        (fn []
          (when-let [el (.getElementById js/document (str "today-filter-" (name filter-key)))]
