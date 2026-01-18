@@ -193,6 +193,62 @@
         (catch Exception _
           {:status 409 :body {:success false :error "Goal already exists"}})))))
 
+(defn update-person-handler [req]
+  (let [user-id (get-user-id req)
+        person-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [name description]} (:body req)]
+    (if (str/blank? name)
+      {:status 400 :body {:success false :error "Name is required"}}
+      (try
+        (let [result (db/update-person (ensure-ds) user-id person-id name (or description ""))]
+          (if result
+            {:status 200 :body result}
+            {:status 404 :body {:success false :error "Person not found"}}))
+        (catch Exception _
+          {:status 409 :body {:success false :error "Person with this name already exists"}})))))
+
+(defn update-place-handler [req]
+  (let [user-id (get-user-id req)
+        place-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [name description]} (:body req)]
+    (if (str/blank? name)
+      {:status 400 :body {:success false :error "Name is required"}}
+      (try
+        (let [result (db/update-place (ensure-ds) user-id place-id name (or description ""))]
+          (if result
+            {:status 200 :body result}
+            {:status 404 :body {:success false :error "Place not found"}}))
+        (catch Exception _
+          {:status 409 :body {:success false :error "Place with this name already exists"}})))))
+
+(defn update-project-handler [req]
+  (let [user-id (get-user-id req)
+        project-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [name description]} (:body req)]
+    (if (str/blank? name)
+      {:status 400 :body {:success false :error "Name is required"}}
+      (try
+        (let [result (db/update-project (ensure-ds) user-id project-id name (or description ""))]
+          (if result
+            {:status 200 :body result}
+            {:status 404 :body {:success false :error "Project not found"}}))
+        (catch Exception _
+          {:status 409 :body {:success false :error "Project with this name already exists"}})))))
+
+(defn update-goal-handler [req]
+  (let [user-id (get-user-id req)
+        goal-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [name description]} (:body req)]
+    (if (str/blank? name)
+      {:status 400 :body {:success false :error "Name is required"}}
+      (try
+        (let [result (db/update-goal (ensure-ds) user-id goal-id name (or description ""))]
+          (if result
+            {:status 200 :body result}
+            {:status 404 :body {:success false :error "Goal not found"}}))
+        (catch Exception _
+          {:status 409 :body {:success false :error "Goal with this name already exists"}})))))
+
 (defn categorize-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -310,12 +366,16 @@
     (PUT "/tasks/:id/done" [] set-task-done-handler)
     (GET "/people" [] list-people-handler)
     (POST "/people" [] add-person-handler)
+    (PUT "/people/:id" [] update-person-handler)
     (GET "/places" [] list-places-handler)
     (POST "/places" [] add-place-handler)
+    (PUT "/places/:id" [] update-place-handler)
     (GET "/projects" [] list-projects-handler)
     (POST "/projects" [] add-project-handler)
+    (PUT "/projects/:id" [] update-project-handler)
     (GET "/goals" [] list-goals-handler)
-    (POST "/goals" [] add-goal-handler)))
+    (POST "/goals" [] add-goal-handler)
+    (PUT "/goals/:id" [] update-goal-handler)))
 
 (defroutes app-routes
   api-routes

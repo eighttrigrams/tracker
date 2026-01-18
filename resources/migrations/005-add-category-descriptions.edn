@@ -1,0 +1,9 @@
+{:id "005-add-category-descriptions"
+ :up ["ALTER TABLE people ADD COLUMN description TEXT DEFAULT ''"
+      "ALTER TABLE places ADD COLUMN description TEXT DEFAULT ''"
+      "ALTER TABLE projects ADD COLUMN description TEXT DEFAULT ''"
+      "ALTER TABLE goals ADD COLUMN description TEXT DEFAULT ''"]
+ :down ["ALTER TABLE goals DROP COLUMN description"
+        "ALTER TABLE projects DROP COLUMN description"
+        "ALTER TABLE places DROP COLUMN description"
+        "ALTER TABLE people DROP COLUMN description"]}

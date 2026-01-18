@@ -148,14 +148,14 @@
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [user-id] [])]
     (jdbc/execute! (get-conn ds)
-      (into [(str "SELECT id, name FROM people WHERE " user-filter " ORDER BY name")] query-params)
+      (into [(str "SELECT id, name, description FROM people WHERE " user-filter " ORDER BY name")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn list-places [ds user-id]
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [user-id] [])]
     (jdbc/execute! (get-conn ds)
-      (into [(str "SELECT id, name FROM places WHERE " user-filter " ORDER BY name")] query-params)
+      (into [(str "SELECT id, name, description FROM places WHERE " user-filter " ORDER BY name")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn add-project [ds user-id name]
@@ -172,14 +172,42 @@
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [user-id] [])]
     (jdbc/execute! (get-conn ds)
-      (into [(str "SELECT id, name FROM projects WHERE " user-filter " ORDER BY name")] query-params)
+      (into [(str "SELECT id, name, description FROM projects WHERE " user-filter " ORDER BY name")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn list-goals [ds user-id]
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [user-id] [])]
     (jdbc/execute! (get-conn ds)
-      (into [(str "SELECT id, name FROM goals WHERE " user-filter " ORDER BY name")] query-params)
+      (into [(str "SELECT id, name, description FROM goals WHERE " user-filter " ORDER BY name")] query-params)
+      {:builder-fn rs/as-unqualified-maps})))
+
+(defn update-person [ds user-id person-id name description]
+  (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [name description person-id user-id] [name description person-id])]
+    (jdbc/execute-one! (get-conn ds)
+      (into [(str "UPDATE people SET name = ?, description = ? WHERE id = ? AND " user-filter " RETURNING id, name, description")] query-params)
+      {:builder-fn rs/as-unqualified-maps})))
+
+(defn update-place [ds user-id place-id name description]
+  (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [name description place-id user-id] [name description place-id])]
+    (jdbc/execute-one! (get-conn ds)
+      (into [(str "UPDATE places SET name = ?, description = ? WHERE id = ? AND " user-filter " RETURNING id, name, description")] query-params)
+      {:builder-fn rs/as-unqualified-maps})))
+
+(defn update-project [ds user-id project-id name description]
+  (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [name description project-id user-id] [name description project-id])]
+    (jdbc/execute-one! (get-conn ds)
+      (into [(str "UPDATE projects SET name = ?, description = ? WHERE id = ? AND " user-filter " RETURNING id, name, description")] query-params)
+      {:builder-fn rs/as-unqualified-maps})))
+
+(defn update-goal [ds user-id goal-id name description]
+  (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [name description goal-id user-id] [name description goal-id])]
+    (jdbc/execute-one! (get-conn ds)
+      (into [(str "UPDATE goals SET name = ?, description = ? WHERE id = ? AND " user-filter " RETURNING id, name, description")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn task-owned-by-user? [ds task-id user-id]

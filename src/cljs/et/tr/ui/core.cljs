@@ -305,6 +305,39 @@
                       :clear-fn state/clear-filter-goals
                       :collapsed? (contains? collapsed-filters :goals)}]]))
 
+(defn category-edit-form [item category-type update-fn]
+  (let [name-val (r/atom (:name item))
+        description-val (r/atom (or (:description item) ""))]
+    (fn []
+      [:div.item-edit-form
+       [:input {:type "text"
+                :value @name-val
+                :on-change #(reset! name-val (-> % .-target .-value))
+                :placeholder "Name"}]
+       [:textarea {:value @description-val
+                   :on-change #(reset! description-val (-> % .-target .-value))
+                   :placeholder "Description (optional)"
+                   :rows 3}]
+       [:div.edit-buttons
+        [:button {:on-click (fn []
+                              (update-fn (:id item) @name-val @description-val
+                                         #(state/clear-editing-category)))}
+         "Save"]
+        [:button.cancel {:on-click #(state/clear-editing-category)}
+         "Cancel"]]])))
+
+(defn category-item [item category-type update-fn]
+  (let [editing (:category-page/editing @state/app-state)
+        is-editing (and editing
+                        (= (:type editing) category-type)
+                        (= (:id editing) (:id item)))]
+    (if is-editing
+      [category-edit-form item category-type update-fn]
+      [:li {:on-click #(state/set-editing-category category-type (:id item))}
+       [:span.category-name (:name item)]
+       (when (seq (:description item))
+         [:span.category-description (:description item)])])))
+
 (defn people-places-tab []
   (let [{:keys [people places]} @state/app-state]
     [:div.manage-tab
@@ -314,14 +347,14 @@
       [:ul.entity-list
        (for [person people]
          ^{:key (:id person)}
-         [:li (:name person)])]]
+         [category-item person :person state/update-person])]]
      [:div.manage-section
       [:h3 "Places"]
       [add-entity-form "Add place..." state/add-place]
       [:ul.entity-list
        (for [place places]
          ^{:key (:id place)}
-         [:li (:name place)])]]]))
+         [category-item place :place state/update-place])]]]))
 
 (defn projects-goals-tab []
   (let [{:keys [projects goals]} @state/app-state]
@@ -332,14 +365,14 @@
       [:ul.entity-list
        (for [project projects]
          ^{:key (:id project)}
-         [:li (:name project)])]]
+         [category-item project :project state/update-project])]]
      [:div.manage-section
       [:h3 "Goals"]
       [add-entity-form "Add goal..." state/add-goal]
       [:ul.entity-list
        (for [goal goals]
          ^{:key (:id goal)}
-         [:li (:name goal)])]]]))
+         [category-item goal :goal state/update-goal])]]]))
 
 (defn add-user-form []
   (let [username (r/atom "")

@@ -316,12 +316,26 @@
     }
     .entity-list { list-style: none; padding: 0; margin-top: 12px; }
     .entity-list li {
-      padding: 10px 0;
+      padding: 10px 12px;
       border-bottom: 1px solid rgba(0, 0, 0, 0.06);
       color: var(--text-primary);
       font-size: 0.95em;
+      cursor: pointer;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      transition: background 0.2s ease;
     }
-    .entity-list li:last-child { border-bottom: none; }
+    .entity-list li:hover { background: var(--surface-subtle); }
+    .entity-list li:last-child { border-bottom: none; margin-bottom: 0; }
+    .entity-list .category-name { display: block; font-weight: 500; }
+    .entity-list .category-description {
+      display: block;
+      font-size: 0.85em;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      white-space: pre-wrap;
+    }
+    .entity-list .item-edit-form { cursor: default; }
     .items li.expanded {
       background: rgba(255, 255, 255, 0.85);
       box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);

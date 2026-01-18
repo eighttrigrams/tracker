@@ -19,6 +19,7 @@
                             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
                             :expanded-task nil
                             :editing-task nil
+                            :category-page/editing nil
                             :confirm-delete-task nil
                             :confirm-delete-user nil
                             :pending-new-task nil
@@ -706,3 +707,65 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete user"))
                       (clear-confirm-delete-user))}))
+
+(defn set-editing-category [category-type id]
+  (swap! app-state assoc :category-page/editing {:type category-type :id id}))
+
+(defn clear-editing-category []
+  (swap! app-state assoc :category-page/editing nil))
+
+(defn update-person [id name description on-success]
+  (PUT (str "/api/people/" id)
+    {:params {:name name :description description}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [updated]
+                (swap! app-state update :people
+                       (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+                (when on-success (on-success)))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update person")))}))
+
+(defn update-place [id name description on-success]
+  (PUT (str "/api/places/" id)
+    {:params {:name name :description description}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [updated]
+                (swap! app-state update :places
+                       (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+                (when on-success (on-success)))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update place")))}))
+
+(defn update-project [id name description on-success]
+  (PUT (str "/api/projects/" id)
+    {:params {:name name :description description}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [updated]
+                (swap! app-state update :projects
+                       (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+                (when on-success (on-success)))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update project")))}))
+
+(defn update-goal [id name description on-success]
+  (PUT (str "/api/goals/" id)
+    {:params {:name name :description description}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [updated]
+                (swap! app-state update :goals
+                       (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+                (when on-success (on-success)))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update goal")))}))
