@@ -1,0 +1,3 @@
+{:id "006-add-user-language"
+ :up ["ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'en'"]
+ :down ["ALTER TABLE users DROP COLUMN language"]}

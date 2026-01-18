@@ -1,7 +1,8 @@
 (ns et.tr.ui.state
   (:require [reagent.core :as r]
             [ajax.core :refer [GET POST PUT DELETE]]
-            [et.tr.filters :as filters]))
+            [et.tr.filters :as filters]
+            [et.tr.i18n :as i18n]))
 
 (defonce app-state (r/atom {:tasks []
                             :people []
@@ -69,6 +70,10 @@
     {:token token
      :user (when user-str (js->clj (js/JSON.parse user-str) :keywordize-keys true))}))
 
+(defn- apply-user-language [user]
+  (let [lang (or (:language user) "en")]
+    (i18n/set-language! lang)))
+
 (defn fetch-auth-required []
   (GET "/api/auth/required"
     {:response-format :json
@@ -76,10 +81,11 @@
      :handler (fn [resp]
                 (swap! app-state assoc :auth-required? (:required resp))
                 (if-not (:required resp)
-                  (do
+                  (let [admin-user {:id nil :username "admin" :is_admin true :language "en"}]
                     (swap! app-state assoc
                            :logged-in? true
-                           :current-user {:id nil :username "admin" :is_admin true})
+                           :current-user admin-user)
+                    (apply-user-language admin-user)
                     (fetch-tasks)
                     (fetch-available-users)
                     (fetch-users))
@@ -89,6 +95,7 @@
                              :logged-in? true
                              :token token
                              :current-user user)
+                      (apply-user-language user)
                       (fetch-tasks)
                       (when (:is_admin user)
                         (fetch-users))))))}))
@@ -108,6 +115,7 @@
                          :current-user user
                          :error nil)
                   (save-auth-to-storage token user)
+                  (apply-user-language user)
                   (when on-success (on-success))
                   (when (:is_admin user)
                     (fetch-users))))
@@ -657,6 +665,7 @@
          :goals []
          :upcoming-horizon nil
          :active-tab :today)
+  (apply-user-language user)
   (fetch-tasks)
   (fetch-people)
   (fetch-places)
@@ -769,3 +778,19 @@
                 (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update goal")))}))
+
+(defn update-user-language [language]
+  (PUT "/api/user/language"
+    {:params {:language language}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [result]
+                (i18n/set-language! language)
+                (swap! app-state update :current-user assoc :language language)
+                (let [user (:current-user @app-state)
+                      token (:token @app-state)]
+                  (save-auth-to-storage token user)))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update language")))}))

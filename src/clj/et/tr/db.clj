@@ -22,13 +22,13 @@
 (defn create-user [ds username password]
   (let [hash (hashers/derive password)]
     (jdbc/execute-one! (get-conn ds)
-      ["INSERT INTO users (username, password_hash) VALUES (?, ?) RETURNING id, username, created_at"
+      ["INSERT INTO users (username, password_hash) VALUES (?, ?) RETURNING id, username, language, created_at"
        username hash]
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn get-user-by-username [ds username]
   (jdbc/execute-one! (get-conn ds)
-    ["SELECT id, username, password_hash, created_at FROM users WHERE username = ?" username]
+    ["SELECT id, username, password_hash, language, created_at FROM users WHERE username = ?" username]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn verify-user [ds username password]
@@ -38,7 +38,7 @@
 
 (defn list-users [ds]
   (jdbc/execute! (get-conn ds)
-    ["SELECT id, username, created_at FROM users WHERE username != 'admin' ORDER BY created_at"]
+    ["SELECT id, username, language, created_at FROM users WHERE username != 'admin' ORDER BY created_at"]
     {:builder-fn rs/as-unqualified-maps}))
 
 (defn delete-user [ds user-id]
@@ -277,4 +277,18 @@
         query-params (if user-id [done-val task-id user-id] [done-val task-id])]
     (jdbc/execute-one! (get-conn ds)
       (into [(str "UPDATE tasks SET done = ?, modified_at = datetime('now') WHERE id = ? AND " user-filter " RETURNING id, done, modified_at")] query-params)
+      {:builder-fn rs/as-unqualified-maps})))
+
+(def valid-languages #{"en" "de" "pt"})
+
+(defn get-user-language [ds user-id]
+  (when user-id
+    (:language (jdbc/execute-one! (get-conn ds)
+                 ["SELECT language FROM users WHERE id = ?" user-id]
+                 {:builder-fn rs/as-unqualified-maps}))))
+
+(defn set-user-language [ds user-id language]
+  (when (and user-id (contains? valid-languages language))
+    (jdbc/execute-one! (get-conn ds)
+      ["UPDATE users SET language = ? WHERE id = ? RETURNING id, language" language user-id]
       {:builder-fn rs/as-unqualified-maps})))

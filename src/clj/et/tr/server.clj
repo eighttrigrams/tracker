@@ -89,7 +89,7 @@
   (let [{:keys [username password]} (:body req)]
     (if (allow-skip-logins?)
       (if (= username "admin")
-        {:status 200 :body {:success true :user {:id nil :username "admin" :is_admin true}}}
+        {:status 200 :body {:success true :user {:id nil :username "admin" :is_admin true :language "en"}}}
         (if-let [user (db/get-user-by-username (ensure-ds) username)]
           {:status 200 :body {:success true :user (dissoc user :password_hash)}}
           {:status 401 :body {:success false :error "User not found"}}))
@@ -97,7 +97,7 @@
         (if (= password (admin-password))
           {:status 200 :body {:success true
                               :token (create-token nil "admin" true)
-                              :user {:id nil :username "admin" :is_admin true}}}
+                              :user {:id nil :username "admin" :is_admin true :language "en"}}}
           {:status 401 :body {:success false :error "Invalid credentials"}})
         (if-let [user (db/verify-user (ensure-ds) username password)]
           {:status 200 :body {:success true
@@ -111,7 +111,7 @@
 (defn available-users-handler [_req]
   (if (allow-skip-logins?)
     (let [users (db/list-users (ensure-ds))
-          admin {:id nil :username "admin" :is_admin true}]
+          admin {:id nil :username "admin" :is_admin true :language "en"}]
       {:status 200 :body (cons admin users)})
     {:status 403 :body {:error "Not available in production mode"}}))
 
@@ -342,6 +342,38 @@
         {:status 404 :body {:error "User not found"}}))
     {:status 403 :body {:error "Admin access required"}}))
 
+(def valid-languages #{"en" "de" "pt"})
+
+(defn update-language-handler [req]
+  (let [user-info (get-user-from-request req)
+        user-id (:user-id user-info)
+        {:keys [language]} (:body req)]
+    (cond
+      (:is-admin user-info)
+      {:status 400 :body {:error "Admin language cannot be changed"}}
+
+      (nil? user-id)
+      {:status 400 :body {:error "User not found"}}
+
+      (not (contains? valid-languages language))
+      {:status 400 :body {:error "Invalid language"}}
+
+      :else
+      (if-let [result (db/set-user-language (ensure-ds) user-id language)]
+        {:status 200 :body result}
+        {:status 404 :body {:error "User not found"}}))))
+
+(defonce translations-cache (atom nil))
+
+(defn- load-translations []
+  (when (nil? @translations-cache)
+    (reset! translations-cache
+            (edn/read-string (slurp (io/resource "translations.edn")))))
+  @translations-cache)
+
+(defn translations-handler [_req]
+  {:status 200 :body (load-translations)})
+
 (defn- serve-index [_]
   {:status 200
    :headers {"Content-Type" "text/html"}
@@ -349,9 +381,11 @@
 
 (defroutes api-routes
   (context "/api" []
+    (GET "/translations" [] translations-handler)
     (GET "/auth/required" [] password-required-handler)
     (GET "/auth/available-users" [] available-users-handler)
     (POST "/auth/login" [] login-handler)
+    (PUT "/user/language" [] update-language-handler)
     (GET "/users" [] list-users-handler)
     (POST "/users" [] add-user-handler)
     (DELETE "/users/:id" [] delete-user-handler)

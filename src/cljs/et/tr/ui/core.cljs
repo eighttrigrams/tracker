@@ -1,7 +1,8 @@
 (ns et.tr.ui.core
   (:require [reagent.dom :as rdom]
             [reagent.core :as r]
-            [et.tr.ui.state :as state]))
+            [et.tr.ui.state :as state]
+            [et.tr.i18n :as i18n :refer [t tf]]))
 
 (defn login-form []
   (let [username (r/atom "")
@@ -18,38 +19,38 @@
                                       (state/fetch-projects)
                                       (state/fetch-goals))))]
         [:div.login-form
-         [:h2 "Login"]
+         [:h2 (t :auth/login)]
          (when-let [error (:error @state/app-state)]
            [:div.error error])
          [:input {:type "text"
-                  :placeholder "Username"
+                  :placeholder (t :auth/username)
                   :value @username
                   :on-change #(reset! username (-> % .-target .-value))
                   :on-key-down (fn [e]
                                  (when (= (.-key e) "Enter")
                                    (do-login)))}]
          [:input {:type "password"
-                  :placeholder "Password"
+                  :placeholder (t :auth/password)
                   :value @password
                   :on-change #(reset! password (-> % .-target .-value))
                   :on-key-down (fn [e]
                                  (when (= (.-key e) "Enter")
                                    (do-login)))}]
          [:button {:on-click (fn [_] (do-login))}
-          "Login"]]))))
+          (t :auth/login)]]))))
 
 (defn add-task-form []
   (let [title (r/atom "")]
     (fn []
       [:div.add-form
        [:input {:type "text"
-                :placeholder "Task title"
+                :placeholder (t :tasks/add-placeholder)
                 :value @title
                 :on-change #(reset! title (-> % .-target .-value))
                 :on-key-down #(when (= (.-key %) "Enter")
                                 (state/add-task @title (fn [] (reset! title ""))))}]
        [:button {:on-click #(state/add-task @title (fn [] (reset! title "")))}
-        "Add"]])))
+        (t :tasks/add-button)]])))
 
 (defn add-entity-form [placeholder add-fn]
   (let [name (r/atom "")]
@@ -70,19 +71,19 @@
      [:button.tab
       {:class (when (= active-tab :today) "active")
        :on-click #(state/set-active-tab :today)}
-      "Today"]
+      (t :nav/today)]
      [:button.tab
       {:class (when (= active-tab :tasks) "active")
        :on-click #(state/set-active-tab :tasks)}
-      "Tasks"]
+      (t :nav/tasks)]
      [:button.tab
       {:class (when (= active-tab :people-places) "active")
        :on-click #(state/set-active-tab :people-places)}
-      "People & Places"]
+      (t :nav/people-places)]
      [:button.tab
       {:class (when (= active-tab :projects-goals) "active")
        :on-click #(state/set-active-tab :projects-goals)}
-      "Projects & Goals"]]))
+      (t :nav/projects-goals)]]))
 
 (defn task-category-badges [task]
   (let [all-categories (concat
@@ -106,19 +107,19 @@
 (defn horizon-selector []
   (let [horizon (:upcoming-horizon @state/app-state)]
     [:div.horizon-selector
-     [:span "Show: "]
+     [:span (t :today/show)]
      [:button {:class (when (= horizon :three-days) "active")
-               :on-click #(state/set-upcoming-horizon :three-days)} "3 Days"]
+               :on-click #(state/set-upcoming-horizon :three-days)} (t :today/three-days)]
      [:button {:class (when (= horizon :week) "active")
-               :on-click #(state/set-upcoming-horizon :week)} "Week"]
+               :on-click #(state/set-upcoming-horizon :week)} (t :today/week)]
      [:button {:class (when (= horizon :month) "active")
-               :on-click #(state/set-upcoming-horizon :month)} "Month"]
+               :on-click #(state/set-upcoming-horizon :month)} (t :today/month)]
      [:button {:class (when (= horizon :three-months) "active")
-               :on-click #(state/set-upcoming-horizon :three-months)} "3 Months"]
+               :on-click #(state/set-upcoming-horizon :three-months)} (t :today/three-months)]
      [:button {:class (when (= horizon :year) "active")
-               :on-click #(state/set-upcoming-horizon :year)} "Year"]
+               :on-click #(state/set-upcoming-horizon :year)} (t :today/year)]
      [:button {:class (when (= horizon :eighteen-months) "active")
-               :on-click #(state/set-upcoming-horizon :eighteen-months)} "1.5 Years"]]))
+               :on-click #(state/set-upcoming-horizon :eighteen-months)} (t :today/eighteen-months)]]))
 
 (defn category-filter-section
   [{:keys [title filter-key items marked-ids toggle-fn clear-fn collapsed?
@@ -149,7 +150,7 @@
        [:div.filter-items
         [:input.category-search
          {:type "text"
-          :placeholder "Search..."
+          :placeholder (t :category/search)
           :value search-term
           :on-change #(set-search-fn filter-key (-> % .-target .-value))}]
         (doall
@@ -166,7 +167,7 @@
         excluded-projects (:today-page/excluded-projects @state/app-state)
         collapsed-filters (:today-page/collapsed-filters @state/app-state)]
     [:div.sidebar
-     [category-filter-section {:title "Places"
+     [category-filter-section {:title (t :category/places)
                                :filter-key :places
                                :items places
                                :marked-ids excluded-places
@@ -179,7 +180,7 @@
                                :section-class "exclusion-filter"
                                :item-active-class "excluded"
                                :label-class "excluded"}]
-     [category-filter-section {:title "Projects"
+     [category-filter-section {:title (t :category/projects)
                                :filter-key :projects
                                :items projects
                                :marked-ids excluded-projects
@@ -201,37 +202,37 @@
      [today-sidebar-filters]
      [:div.main-content.today-content
       [:div.today-section.overdue
-       [:h3 "Overdue"]
+       [:h3 (t :today/overdue)]
        (if (seq overdue)
          [:div.task-list
           (for [task overdue]
             ^{:key (:id task)}
             [today-task-item task])]
-         [:p.empty-message "No overdue tasks"])]
+         [:p.empty-message (t :today/no-overdue)])]
       [:div.today-section.today
-       [:h3 "Today"]
+       [:h3 (t :today/today)]
        (if (seq today)
          [:div.task-list
           (for [task today]
             ^{:key (:id task)}
             [today-task-item task])]
-         [:p.empty-message "No tasks for today"])]
+         [:p.empty-message (t :today/no-today)])]
       [:div.today-section.upcoming
        [:div.section-header
-        [:h3 "Upcoming"]
+        [:h3 (t :today/upcoming)]
         [horizon-selector]]
        (if (seq upcoming)
          [:div.task-list
           (for [task upcoming]
             ^{:key (:id task)}
             [today-task-item task])]
-         [:p.empty-message "No upcoming tasks"])]]]))
+         [:p.empty-message (t :today/no-upcoming)])]]]))
 
 (defn search-filter []
   (let [search-term (:tasks-page/filter-search @state/app-state)]
     [:div.search-filter
      [:input {:type "text"
-              :placeholder "Search tasks..."
+              :placeholder (t :tasks/search)
               :value search-term
               :on-change #(state/set-filter-search (-> % .-target .-value))}]
      (when (seq search-term)
@@ -242,16 +243,16 @@
     [:div.sort-toggle
      [:button {:class (when (= sort-mode :manual) "active")
                :on-click #(when (not= sort-mode :manual) (state/set-sort-mode :manual))}
-      "Manual"]
+      (t :tasks/sort-manual)]
      [:button {:class (when (= sort-mode :due-date) "active")
                :on-click #(when (not= sort-mode :due-date) (state/set-sort-mode :due-date))}
-      "Due date"]
+      (t :tasks/sort-due-date)]
      [:button {:class (when (= sort-mode :recent) "active")
                :on-click #(when (not= sort-mode :recent) (state/set-sort-mode :recent))}
-      "Recent"]
+      (t :tasks/sort-recent)]
      [:button {:class (when (= sort-mode :done) "active")
                :on-click #(when (not= sort-mode :done) (state/set-sort-mode :done))}
-      "Done"]]))
+      (t :tasks/sort-done)]]))
 
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
   [category-filter-section {:title title
@@ -276,28 +277,28 @@
         filter-goals (:tasks-page/filter-goals @state/app-state)
         collapsed-filters (:tasks-page/collapsed-filters @state/app-state)]
     [:div.sidebar
-     [filter-section {:title "People"
+     [filter-section {:title (t :category/people)
                       :filter-key :people
                       :items people
                       :selected-ids filter-people
                       :toggle-fn state/toggle-filter-person
                       :clear-fn state/clear-filter-people
                       :collapsed? (contains? collapsed-filters :people)}]
-     [filter-section {:title "Places"
+     [filter-section {:title (t :category/places)
                       :filter-key :places
                       :items places
                       :selected-ids filter-places
                       :toggle-fn state/toggle-filter-place
                       :clear-fn state/clear-filter-places
                       :collapsed? (contains? collapsed-filters :places)}]
-     [filter-section {:title "Projects"
+     [filter-section {:title (t :category/projects)
                       :filter-key :projects
                       :items projects
                       :selected-ids filter-projects
                       :toggle-fn state/toggle-filter-project
                       :clear-fn state/clear-filter-projects
                       :collapsed? (contains? collapsed-filters :projects)}]
-     [filter-section {:title "Goals"
+     [filter-section {:title (t :category/goals)
                       :filter-key :goals
                       :items goals
                       :selected-ids filter-goals
@@ -313,18 +314,18 @@
        [:input {:type "text"
                 :value @name-val
                 :on-change #(reset! name-val (-> % .-target .-value))
-                :placeholder "Name"}]
+                :placeholder (t :category/name-placeholder)}]
        [:textarea {:value @description-val
                    :on-change #(reset! description-val (-> % .-target .-value))
-                   :placeholder "Description (optional)"
+                   :placeholder (t :category/description-placeholder)
                    :rows 3}]
        [:div.edit-buttons
         [:button {:on-click (fn []
                               (update-fn (:id item) @name-val @description-val
                                          #(state/clear-editing-category)))}
-         "Save"]
+         (t :task/save)]
         [:button.cancel {:on-click #(state/clear-editing-category)}
-         "Cancel"]]])))
+         (t :task/cancel)]]])))
 
 (defn category-item [item category-type update-fn]
   (let [editing (:category-page/editing @state/app-state)
@@ -342,15 +343,15 @@
   (let [{:keys [people places]} @state/app-state]
     [:div.manage-tab
      [:div.manage-section
-      [:h3 "People"]
-      [add-entity-form "Add person..." state/add-person]
+      [:h3 (t :category/people)]
+      [add-entity-form (t :category/add-person) state/add-person]
       [:ul.entity-list
        (for [person people]
          ^{:key (:id person)}
          [category-item person :person state/update-person])]]
      [:div.manage-section
-      [:h3 "Places"]
-      [add-entity-form "Add place..." state/add-place]
+      [:h3 (t :category/places)]
+      [add-entity-form (t :category/add-place) state/add-place]
       [:ul.entity-list
        (for [place places]
          ^{:key (:id place)}
@@ -360,15 +361,15 @@
   (let [{:keys [projects goals]} @state/app-state]
     [:div.manage-tab
      [:div.manage-section
-      [:h3 "Projects"]
-      [add-entity-form "Add project..." state/add-project]
+      [:h3 (t :category/projects)]
+      [add-entity-form (t :category/add-project) state/add-project]
       [:ul.entity-list
        (for [project projects]
          ^{:key (:id project)}
          [category-item project :project state/update-project])]]
      [:div.manage-section
-      [:h3 "Goals"]
-      [add-entity-form "Add goal..." state/add-goal]
+      [:h3 (t :category/goals)]
+      [add-entity-form (t :category/add-goal) state/add-goal]
       [:ul.entity-list
        (for [goal goals]
          ^{:key (:id goal)}
@@ -380,11 +381,11 @@
     (fn []
       [:div.add-user-form
        [:input {:type "text"
-                :placeholder "Username"
+                :placeholder (t :auth/username)
                 :value @username
                 :on-change #(reset! username (-> % .-target .-value))}]
        [:input {:type "password"
-                :placeholder "Password"
+                :placeholder (t :auth/password)
                 :value @password
                 :on-change #(reset! password (-> % .-target .-value))
                 :on-key-down #(when (= (.-key %) "Enter")
@@ -396,13 +397,13 @@
                                             (fn []
                                               (reset! username "")
                                               (reset! password "")))}
-        "Add User"]])))
+        (t :users/add-button)]])))
 
 (defn users-tab []
   (let [{:keys [users]} @state/app-state]
     [:div.manage-tab
      [:div.manage-section
-      [:h3 "Users"]
+      [:h3 (t :users/title)]
       [add-user-form]
       [:ul.entity-list.user-list
        (for [user users]
@@ -411,7 +412,7 @@
           [:span.username (:username user)]
           [:button.delete-user-btn
            {:on-click #(state/set-confirm-delete-user user)}
-           "Delete"]])]]]))
+           (t :task/delete)]])]]]))
 
 (defn category-selector [task category-type entities label]
   (let [task-categories (case category-type
@@ -449,18 +450,18 @@
        [:input {:type "text"
                 :value @title
                 :on-change #(reset! title (-> % .-target .-value))
-                :placeholder "Title"}]
+                :placeholder (t :task/title-placeholder)}]
        [:textarea {:value @description
                    :on-change #(reset! description (-> % .-target .-value))
-                   :placeholder "Description (optional)"
+                   :placeholder (t :task/description-placeholder)
                    :rows 3}]
        [:div.edit-buttons
         [:button {:on-click (fn []
                               (state/update-task (:id task) @title @description
                                                  #(state/clear-editing)))}
-         "Save"]
+         (t :task/save)]
         [:button.cancel {:on-click #(state/clear-editing)}
-         "Cancel"]]])))
+         (t :task/cancel)]]])))
 
 (defn task-categories-readonly [task]
   [:div.item-tags-readonly
@@ -538,28 +539,28 @@
                 (when (seq (:description task))
                   [:div.item-description (:description task)])
                 [:div.item-tags
-                 [category-selector task "person" people "Person"]
-                 [category-selector task "place" places "Place"]
-                 [category-selector task "project" projects "Project"]
-                 [category-selector task "goal" goals "Goal"]]
+                 [category-selector task "person" people (t :category/person)]
+                 [category-selector task "place" places (t :category/place)]
+                 [category-selector task "project" projects (t :category/project)]
+                 [category-selector task "goal" goals (t :category/goal)]]
                 [:div.item-actions
                  (if (= 1 (:done task))
-                   [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} "Set task undone"]
-                   [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} "Mark task done"])
-                 [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} "Delete"]]]
+                   [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
+                   [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
+                 [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]]
                [task-categories-readonly task])])]))]))
 
 (defn confirm-delete-modal []
   (when-let [task (:confirm-delete-task @state/app-state)]
     [:div.modal-overlay {:on-click #(state/clear-confirm-delete)}
      [:div.modal {:on-click #(.stopPropagation %)}
-      [:div.modal-header "Delete Task"]
+      [:div.modal-header (t :modal/delete-task)]
       [:div.modal-body
-       [:p "Are you sure you want to delete this task?"]
+       [:p (t :modal/delete-task-confirm)]
        [:p.task-title (:title task)]]
       [:div.modal-footer
-       [:button.cancel {:on-click #(state/clear-confirm-delete)} "Cancel"]
-       [:button.confirm-delete {:on-click #(state/delete-task (:id task))} "Delete"]]]]))
+       [:button.cancel {:on-click #(state/clear-confirm-delete)} (t :modal/cancel)]
+       [:button.confirm-delete {:on-click #(state/delete-task (:id task))} (t :modal/delete)]]]]))
 
 (defn confirm-delete-user-modal []
   (let [confirmation-input (r/atom "")]
@@ -569,21 +570,21 @@
               matches? (= @confirmation-input username)]
           [:div.modal-overlay {:on-click #(do (reset! confirmation-input "") (state/clear-confirm-delete-user))}
            [:div.modal {:on-click #(.stopPropagation %)}
-            [:div.modal-header "Delete User"]
+            [:div.modal-header (t :modal/delete-user)]
             [:div.modal-body
-             [:p "Are you sure you want to delete this user?"]
+             [:p (t :modal/delete-user-confirm)]
              [:p.task-title username]
-             [:p.warning "All tasks and data belonging to this user will be permanently deleted."]
-             [:p {:style {:margin-top "16px"}} (str "Type \"" username "\" to confirm:")]
+             [:p.warning (t :modal/delete-user-warning)]
+             [:p {:style {:margin-top "16px"}} (tf :modal/delete-user-type-confirm username)]
              [:input {:type "text"
                       :value @confirmation-input
                       :on-change #(reset! confirmation-input (-> % .-target .-value))
-                      :placeholder "Enter username"
+                      :placeholder (t :modal/enter-username)
                       :style {:width "100%" :margin-top "8px"}}]]
             [:div.modal-footer
-             [:button.cancel {:on-click #(do (reset! confirmation-input "") (state/clear-confirm-delete-user))} "Cancel"]
+             [:button.cancel {:on-click #(do (reset! confirmation-input "") (state/clear-confirm-delete-user))} (t :modal/cancel)]
              [:button.confirm-delete {:disabled (not matches?)
-                                      :on-click #(do (reset! confirmation-input "") (state/delete-user (:id user)))} "Delete"]]]])))))
+                                      :on-click #(do (reset! confirmation-input "") (state/delete-user (:id user)))} (t :modal/delete)]]]])))))
 
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable
@@ -603,13 +604,13 @@
           selected-goals (or goals #{})]
       [:div.modal-overlay {:on-click #(state/clear-pending-new-task)}
        [:div.modal.pending-task-modal {:on-click #(.stopPropagation %)}
-        [:div.modal-header "Add Task with Categories"]
+        [:div.modal-header (t :modal/add-task-categories)]
         [:div.modal-body
          [:p.task-title title]
-         [:p.modal-instruction "Select which categories to assign:"]
+         [:p.modal-instruction (t :modal/select-categories)]
          (when (seq (:people @state/app-state))
            [:div.category-group
-            [:label "People:"]
+            [:label (str (t :category/people) ":")]
             [:div.category-tags
              (for [p (:people @state/app-state)]
                ^{:key (:id p)}
@@ -618,7 +619,7 @@
                 state/update-pending-category])]])
          (when (seq (:places @state/app-state))
            [:div.category-group
-            [:label "Places:"]
+            [:label (str (t :category/places) ":")]
             [:div.category-tags
              (for [p (:places @state/app-state)]
                ^{:key (:id p)}
@@ -627,7 +628,7 @@
                 state/update-pending-category])]])
          (when (seq (:projects @state/app-state))
            [:div.category-group
-            [:label "Projects:"]
+            [:label (str (t :category/projects) ":")]
             [:div.category-tags
              (for [p (:projects @state/app-state)]
                ^{:key (:id p)}
@@ -636,7 +637,7 @@
                 state/update-pending-category])]])
          (when (seq (:goals @state/app-state))
            [:div.category-group
-            [:label "Goals:"]
+            [:label (str (t :category/goals) ":")]
             [:div.category-tags
              (for [g (:goals @state/app-state)]
                ^{:key (:id g)}
@@ -644,8 +645,8 @@
                 (contains? selected-goals (:id g))
                 state/update-pending-category])]])]
         [:div.modal-footer
-         [:button.cancel {:on-click #(state/clear-pending-new-task)} "Cancel"]
-         [:button.confirm {:on-click #(state/confirm-pending-new-task)} "Add Task"]]]])))
+         [:button.cancel {:on-click #(state/clear-pending-new-task)} (t :modal/cancel)]
+         [:button.confirm {:on-click #(state/confirm-pending-new-task)} (t :modal/add-task)]]]])))
 
 (defn user-switcher-dropdown []
   (let [available-users (:available-users @state/app-state)
@@ -658,17 +659,32 @@
          :on-click #(state/switch-user user)}
         (:username user)])]))
 
+(defn language-selector []
+  (let [current-user (:current-user @state/app-state)
+        current-lang (or (:language current-user) "en")]
+    [:div.settings-item
+     [:span.settings-label (t :settings/language)]
+     [:select.language-select
+      {:value current-lang
+       :on-change #(state/update-user-language (-> % .-target .-value))}
+      [:option {:value "en"} (t :settings/language-en)]
+      [:option {:value "de"} (t :settings/language-de)]
+      [:option {:value "pt"} (t :settings/language-pt)]]]))
+
 (defn settings-tab []
-  (let [current-user (:current-user @state/app-state)]
+  (let [current-user (:current-user @state/app-state)
+        is-admin (:is_admin current-user)]
     [:div.manage-tab
      [:div.manage-section.settings-section
-      [:h3 "Profile"]
+      [:h3 (t :settings/profile)]
       [:div.settings-item
-       [:span.settings-label "Username"]
+       [:span.settings-label (t :settings/username)]
        [:span.settings-value (:username current-user)]]
       [:div.settings-item
-       [:span.settings-label "Role"]
-       [:span.settings-value (if (:is_admin current-user) "Admin" "User")]]]]))
+       [:span.settings-label (t :settings/role)]
+       [:span.settings-value (if is-admin (t :settings/role-admin) (t :settings/role-user))]]
+      (when-not is-admin
+        [language-selector])]]))
 
 (defn user-info []
   (let [current-user (:current-user @state/app-state)
@@ -682,19 +698,19 @@
          [:button.users-btn
           {:class (when (= active-tab :users) "active")
            :on-click #(state/set-active-tab :users)}
-          "Users"])
+          (t :nav/users)])
        (if auth-required?
          [:<>
           [:button.username-btn
            {:class (when (= active-tab :settings) "active")
             :on-click #(state/set-active-tab :settings)}
            (:username current-user)]
-          [:button.logout-btn {:on-click state/logout} "Logout"]]
+          [:button.logout-btn {:on-click state/logout} (t :auth/logout)]]
          [:<>
           [:button.settings-btn
            {:class (when (= active-tab :settings) "active")
             :on-click #(state/set-active-tab :settings)}
-           "Settings"]
+           (t :nav/settings)]
           [:div.user-switcher-wrapper
            [:button.switch-user-btn
             {:on-click state/toggle-user-switcher}
@@ -711,7 +727,7 @@
      [pending-task-modal]
      (cond
        (nil? auth-required?)
-       [:div "Loading..."]
+       [:div (t :auth/loading)]
 
        (and auth-required? (not logged-in?))
        [login-form]
@@ -733,18 +749,20 @@
            [sidebar-filters]
            [:div.main-content
             [:div.tasks-header
-             [:h2 "Tasks"]
+             [:h2 (t :tasks/title)]
              [sort-mode-toggle]]
             [search-filter]
             [add-task-form]
             [tasks-list]]])])]))
 
 (defn init []
-  (state/fetch-auth-required)
-  (state/fetch-people)
-  (state/fetch-places)
-  (state/fetch-projects)
-  (state/fetch-goals)
-  (rdom/render [app] (.getElementById js/document "app"))
-  (when (:logged-in? @state/app-state)
-    (state/fetch-tasks)))
+  (i18n/load-translations!
+   (fn []
+     (state/fetch-auth-required)
+     (state/fetch-people)
+     (state/fetch-places)
+     (state/fetch-projects)
+     (state/fetch-goals)
+     (rdom/render [app] (.getElementById js/document "app"))
+     (when (:logged-in? @state/app-state)
+       (state/fetch-tasks)))))
