@@ -452,11 +452,14 @@
 (defn set-active-tab [tab]
   (swap! app-state assoc :active-tab tab)
   (when (= tab :tasks)
+    (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
     (js/setTimeout
      (fn []
        (when-let [el (.getElementById js/document "tasks-search")]
          (.focus el)))
-     0)))
+     0))
+  (when (= tab :today)
+    (swap! app-state assoc :today-page/collapsed-filters #{:places :projects})))
 
 (defn toggle-expanded [task-id]
   (swap! app-state update :expanded-task #(if (= % task-id) nil task-id)))
