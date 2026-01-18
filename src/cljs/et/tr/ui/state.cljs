@@ -428,11 +428,20 @@
   (swap! app-state assoc :tasks-page/filter-goals #{}))
 
 (defn toggle-filter-collapsed [filter-key]
-  (swap! app-state update :tasks-page/collapsed-filters
-         (fn [collapsed]
-           (if (contains? collapsed filter-key)
-             (disj #{:people :places :projects :goals} filter-key)
-             (conj collapsed filter-key)))))
+  (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)]
+    (swap! app-state update :tasks-page/collapsed-filters
+           (fn [collapsed]
+             (if (contains? collapsed filter-key)
+               (disj #{:people :places :projects :goals} filter-key)
+               (conj collapsed filter-key))))
+    (js/setTimeout
+     (fn []
+       (when-let [el (.getElementById js/document
+                                      (if was-collapsed
+                                        (str "tasks-filter-" (name filter-key))
+                                        "tasks-search"))]
+         (.focus el)))
+     0)))
 
 (defn set-filter-search [search-term]
   (swap! app-state assoc :tasks-page/filter-search search-term))
@@ -441,7 +450,13 @@
   (swap! app-state assoc-in [:tasks-page/category-search category-key] search-term))
 
 (defn set-active-tab [tab]
-  (swap! app-state assoc :active-tab tab))
+  (swap! app-state assoc :active-tab tab)
+  (when (= tab :tasks)
+    (js/setTimeout
+     (fn []
+       (when-let [el (.getElementById js/document "tasks-search")]
+         (.focus el)))
+     0)))
 
 (defn toggle-expanded [task-id]
   (swap! app-state update :expanded-task #(if (= % task-id) nil task-id)))
@@ -610,11 +625,18 @@
   (recalculate-today-horizon))
 
 (defn toggle-today-filter-collapsed [filter-key]
-  (swap! app-state update :today-page/collapsed-filters
-         (fn [collapsed]
-           (if (contains? collapsed filter-key)
-             (disj #{:places :projects} filter-key)
-             (conj collapsed filter-key)))))
+  (let [was-collapsed (contains? (:today-page/collapsed-filters @app-state) filter-key)]
+    (swap! app-state update :today-page/collapsed-filters
+           (fn [collapsed]
+             (if (contains? collapsed filter-key)
+               (disj #{:places :projects} filter-key)
+               (conj collapsed filter-key))))
+    (when was-collapsed
+      (js/setTimeout
+       (fn []
+         (when-let [el (.getElementById js/document (str "today-filter-" (name filter-key)))]
+           (.focus el)))
+       0))))
 
 (defn set-today-category-search [category-key search-term]
   (swap! app-state assoc-in [:today-page/category-search category-key] search-term))

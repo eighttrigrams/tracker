@@ -124,12 +124,13 @@
 (defn category-filter-section
   [{:keys [title filter-key items marked-ids toggle-fn clear-fn collapsed?
            toggle-collapsed-fn set-search-fn search-state-path
-           section-class item-active-class label-class]}]
+           section-class item-active-class label-class page-prefix]}]
   (let [marked-items (filter #(contains? marked-ids (:id %)) items)
         search-term (get-in @state/app-state search-state-path "")
         visible-items (if (seq search-term)
                         (filter #(state/prefix-matches? (:name %) search-term) items)
-                        items)]
+                        items)
+        input-id (str (or page-prefix "tasks") "-filter-" (name filter-key))]
     [:div.filter-section {:class section-class}
      [:div.filter-header
       [:button.collapse-toggle
@@ -149,7 +150,8 @@
               [:button.remove-item {:on-click #(toggle-fn (:id item))} "x"]]))])
        [:div.filter-items
         [:input.category-search
-         {:type "text"
+         {:id input-id
+          :type "text"
           :placeholder (t :category/search)
           :value search-term
           :on-change #(set-search-fn filter-key (-> % .-target .-value))}]
@@ -179,7 +181,8 @@
                                :search-state-path [:today-page/category-search :places]
                                :section-class "exclusion-filter"
                                :item-active-class "excluded"
-                               :label-class "excluded"}]
+                               :label-class "excluded"
+                               :page-prefix "today"}]
      [category-filter-section {:title (t :category/projects)
                                :filter-key :projects
                                :items projects
@@ -192,7 +195,8 @@
                                :search-state-path [:today-page/category-search :projects]
                                :section-class "exclusion-filter"
                                :item-active-class "excluded"
-                               :label-class "excluded"}]]))
+                               :label-class "excluded"
+                               :page-prefix "today"}]]))
 
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
@@ -231,10 +235,10 @@
 (defn search-filter []
   (let [search-term (:tasks-page/filter-search @state/app-state)]
     [:div.search-filter
-     [:input {:type "text"
-              :placeholder (t :tasks/search)
-              :value search-term
-              :on-change #(state/set-filter-search (-> % .-target .-value))}]
+     [:input#tasks-search {:type "text"
+                           :placeholder (t :tasks/search)
+                           :value search-term
+                           :on-change #(state/set-filter-search (-> % .-target .-value))}]
      (when (seq search-term)
        [:button.clear-search {:on-click #(state/set-filter-search "")} "x"])]))
 
