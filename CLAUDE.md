@@ -1,4 +1,6 @@
-Whenever you are instructed to work on a new feature, make sure we do this in a dedicated branch.
+Whenever you are instructed to work on a new feature, 
+- make sure we do this in a dedicated branch.
+- make sure you have a browser open such that you can see the feature for yourself, as the human would, (make use of playwright)
 
 Whenever you are instructed to do a PR review of the current feature, 
 - invoke a reviewer agent and tell it 
