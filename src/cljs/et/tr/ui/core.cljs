@@ -325,7 +325,9 @@
                                          #(state/clear-editing-category)))}
          (t :task/save)]
         [:button.cancel {:on-click #(state/clear-editing-category)}
-         (t :task/cancel)]]])))
+         (t :task/cancel)]
+        [:button.delete-btn {:on-click #(state/set-confirm-delete-category category-type item)}
+         (t :category/delete)]]])))
 
 (defn category-item [item category-type update-fn]
   (let [editing (:category-page/editing @state/app-state)
@@ -586,6 +588,30 @@
              [:button.confirm-delete {:disabled (not matches?)
                                       :on-click #(do (reset! confirmation-input "") (state/delete-user (:id user)))} (t :modal/delete)]]]])))))
 
+(defn confirm-delete-category-modal []
+  (when-let [{:keys [type category]} (:confirm-delete-category @state/app-state)]
+    (let [type-label (case type
+                       :person (t :category/person)
+                       :place (t :category/place)
+                       :project (t :category/project)
+                       :goal (t :category/goal)
+                       type)
+          delete-fn (case type
+                      :person state/delete-person
+                      :place state/delete-place
+                      :project state/delete-project
+                      :goal state/delete-goal)]
+      [:div.modal-overlay {:on-click #(state/clear-confirm-delete-category)}
+       [:div.modal {:on-click #(.stopPropagation %)}
+        [:div.modal-header (tf :modal/delete-category type-label)]
+        [:div.modal-body
+         [:p (tf :modal/delete-category-confirm type-label)]
+         [:p.task-title (:name category)]
+         [:p.warning (tf :modal/delete-category-warning type-label)]]
+        [:div.modal-footer
+         [:button.cancel {:on-click #(state/clear-confirm-delete-category)} (t :modal/cancel)]
+         [:button.confirm-delete {:on-click #(delete-fn (:id category))} (t :modal/delete)]]]])))
+
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable
    {:class (str category-type (when selected? " selected"))
@@ -724,6 +750,7 @@
     [:div
      [confirm-delete-modal]
      [confirm-delete-user-modal]
+     [confirm-delete-category-modal]
      [pending-task-modal]
      (cond
        (nil? auth-required?)

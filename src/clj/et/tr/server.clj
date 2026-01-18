@@ -249,6 +249,24 @@
         (catch Exception _
           {:status 409 :body {:success false :error "Goal with this name already exists"}})))))
 
+(def category-config
+  {"people" {:type "person" :table "people"}
+   "places" {:type "place" :table "places"}
+   "projects" {:type "project" :table "projects"}
+   "goals" {:type "goal" :table "goals"}})
+
+(defn delete-category-handler [req]
+  (let [user-id (get-user-id req)
+        category-id (Integer/parseInt (get-in req [:params :id]))
+        category-key (get-in req [:params :category])
+        {:keys [type table]} (get category-config category-key)]
+    (if-not type
+      {:status 400 :body {:success false :error "Invalid category type"}}
+      (let [result (db/delete-category (ensure-ds) user-id category-id type table)]
+        (if (:success result)
+          {:status 200 :body {:success true}}
+          {:status 404 :body {:success false :error (str (str/capitalize type) " not found")}})))))
+
 (defn categorize-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -409,7 +427,8 @@
     (PUT "/projects/:id" [] update-project-handler)
     (GET "/goals" [] list-goals-handler)
     (POST "/goals" [] add-goal-handler)
-    (PUT "/goals/:id" [] update-goal-handler)))
+    (PUT "/goals/:id" [] update-goal-handler)
+    (DELETE "/:category/:id" [] delete-category-handler)))
 
 (defroutes app-routes
   api-routes

@@ -783,6 +783,72 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update goal")))}))
 
+(defn set-confirm-delete-category [category-type category]
+  (swap! app-state assoc :confirm-delete-category {:type category-type :category category}))
+
+(defn clear-confirm-delete-category []
+  (swap! app-state assoc :confirm-delete-category nil))
+
+(defn delete-person [id]
+  (DELETE (str "/api/people/" id)
+    {:format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [_]
+                (swap! app-state update :people
+                       (fn [items] (filterv #(not= (:id %) id) items)))
+                (fetch-tasks)
+                (clear-confirm-delete-category))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete person"))
+                      (clear-confirm-delete-category))}))
+
+(defn delete-place [id]
+  (DELETE (str "/api/places/" id)
+    {:format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [_]
+                (swap! app-state update :places
+                       (fn [items] (filterv #(not= (:id %) id) items)))
+                (fetch-tasks)
+                (clear-confirm-delete-category))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete place"))
+                      (clear-confirm-delete-category))}))
+
+(defn delete-project [id]
+  (DELETE (str "/api/projects/" id)
+    {:format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [_]
+                (swap! app-state update :projects
+                       (fn [items] (filterv #(not= (:id %) id) items)))
+                (fetch-tasks)
+                (clear-confirm-delete-category))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete project"))
+                      (clear-confirm-delete-category))}))
+
+(defn delete-goal [id]
+  (DELETE (str "/api/goals/" id)
+    {:format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [_]
+                (swap! app-state update :goals
+                       (fn [items] (filterv #(not= (:id %) id) items)))
+                (fetch-tasks)
+                (clear-confirm-delete-category))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete goal"))
+                      (clear-confirm-delete-category))}))
+
 (defn update-user-language [language]
   (PUT "/api/user/language"
     {:params {:language language}

@@ -210,6 +210,23 @@
       (into [(str "UPDATE goals SET name = ?, description = ? WHERE id = ? AND " user-filter " RETURNING id, name, description")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
+(defn delete-category [ds user-id category-id category-type table-name]
+  (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [category-id user-id] [category-id])
+        conn (get-conn ds)]
+    (jdbc/with-transaction [tx conn]
+      (jdbc/execute-one! tx
+        (if user-id
+          [(str "DELETE FROM task_categories WHERE category_type = ? AND category_id = ? "
+                "AND task_id IN (SELECT id FROM tasks WHERE user_id = ?)") 
+           category-type category-id user-id]
+          [(str "DELETE FROM task_categories WHERE category_type = ? AND category_id = ? "
+                "AND task_id IN (SELECT id FROM tasks WHERE user_id IS NULL)") 
+           category-type category-id]))
+      (let [result (jdbc/execute-one! tx
+                     (into [(str "DELETE FROM " table-name " WHERE id = ? AND " user-filter)] query-params))]
+        {:success (pos? (:next.jdbc/update-count result))}))))
+
 (defn task-owned-by-user? [ds task-id user-id]
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [task-id user-id] [task-id])]
