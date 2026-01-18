@@ -51,6 +51,10 @@
 (declare fetch-tasks)
 (declare fetch-users)
 (declare fetch-available-users)
+(declare fetch-people)
+(declare fetch-places)
+(declare fetch-projects)
+(declare fetch-goals)
 (declare calculate-best-horizon)
 (declare recalculate-today-horizon)
 
@@ -87,6 +91,10 @@
                            :current-user admin-user)
                     (apply-user-language admin-user)
                     (fetch-tasks)
+                    (fetch-people)
+                    (fetch-places)
+                    (fetch-projects)
+                    (fetch-goals)
                     (fetch-available-users)
                     (fetch-users))
                   (let [{:keys [token user]} (load-auth-from-storage)]
@@ -97,6 +105,10 @@
                              :current-user user)
                       (apply-user-language user)
                       (fetch-tasks)
+                      (fetch-people)
+                      (fetch-places)
+                      (fetch-projects)
+                      (fetch-goals)
                       (when (:is_admin user)
                         (fetch-users))))))}))
 

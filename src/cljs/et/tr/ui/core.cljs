@@ -786,10 +786,4 @@
   (i18n/load-translations!
    (fn []
      (state/fetch-auth-required)
-     (state/fetch-people)
-     (state/fetch-places)
-     (state/fetch-projects)
-     (state/fetch-goals)
-     (rdom/render [app] (.getElementById js/document "app"))
-     (when (:logged-in? @state/app-state)
-       (state/fetch-tasks)))))
+     (rdom/render [app] (.getElementById js/document "app")))))
