@@ -511,7 +511,7 @@
                  [category-selector task "goal" goals "Goal"]]
                 [:div.item-actions
                  (if (= 1 (:done task))
-                   [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} "Undone"]
+                   [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} "Set task undone"]
                    [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} "Mark task done"])
                  [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} "Delete"]]]
                [task-categories-readonly task])])]))]))
