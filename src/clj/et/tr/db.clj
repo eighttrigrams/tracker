@@ -135,51 +135,83 @@
            tasks))))
 
 (defn add-person [ds user-id name]
-  (jdbc/execute-one! (get-conn ds)
-    ["INSERT INTO people (name, user_id) VALUES (?, ?) RETURNING id, name" name user-id]
-    {:builder-fn rs/as-unqualified-maps}))
+  (let [conn (get-conn ds)
+        user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [user-id] [])
+        max-order (or (:max_order (jdbc/execute-one! conn
+                                    (into [(str "SELECT MAX(sort_order) as max_order FROM people WHERE " user-filter)] query-params)
+                                    {:builder-fn rs/as-unqualified-maps}))
+                      0)
+        new-order (+ max-order 1.0)]
+    (jdbc/execute-one! conn
+      ["INSERT INTO people (name, user_id, sort_order) VALUES (?, ?, ?) RETURNING id, name, sort_order" name user-id new-order]
+      {:builder-fn rs/as-unqualified-maps})))
 
 (defn add-place [ds user-id name]
-  (jdbc/execute-one! (get-conn ds)
-    ["INSERT INTO places (name, user_id) VALUES (?, ?) RETURNING id, name" name user-id]
-    {:builder-fn rs/as-unqualified-maps}))
+  (let [conn (get-conn ds)
+        user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [user-id] [])
+        max-order (or (:max_order (jdbc/execute-one! conn
+                                    (into [(str "SELECT MAX(sort_order) as max_order FROM places WHERE " user-filter)] query-params)
+                                    {:builder-fn rs/as-unqualified-maps}))
+                      0)
+        new-order (+ max-order 1.0)]
+    (jdbc/execute-one! conn
+      ["INSERT INTO places (name, user_id, sort_order) VALUES (?, ?, ?) RETURNING id, name, sort_order" name user-id new-order]
+      {:builder-fn rs/as-unqualified-maps})))
 
 (defn list-people [ds user-id]
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [user-id] [])]
     (jdbc/execute! (get-conn ds)
-      (into [(str "SELECT id, name, description FROM people WHERE " user-filter " ORDER BY name")] query-params)
+      (into [(str "SELECT id, name, description, sort_order FROM people WHERE " user-filter " ORDER BY sort_order ASC, name ASC")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn list-places [ds user-id]
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [user-id] [])]
     (jdbc/execute! (get-conn ds)
-      (into [(str "SELECT id, name, description FROM places WHERE " user-filter " ORDER BY name")] query-params)
+      (into [(str "SELECT id, name, description, sort_order FROM places WHERE " user-filter " ORDER BY sort_order ASC, name ASC")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn add-project [ds user-id name]
-  (jdbc/execute-one! (get-conn ds)
-    ["INSERT INTO projects (name, user_id) VALUES (?, ?) RETURNING id, name" name user-id]
-    {:builder-fn rs/as-unqualified-maps}))
+  (let [conn (get-conn ds)
+        user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [user-id] [])
+        max-order (or (:max_order (jdbc/execute-one! conn
+                                    (into [(str "SELECT MAX(sort_order) as max_order FROM projects WHERE " user-filter)] query-params)
+                                    {:builder-fn rs/as-unqualified-maps}))
+                      0)
+        new-order (+ max-order 1.0)]
+    (jdbc/execute-one! conn
+      ["INSERT INTO projects (name, user_id, sort_order) VALUES (?, ?, ?) RETURNING id, name, sort_order" name user-id new-order]
+      {:builder-fn rs/as-unqualified-maps})))
 
 (defn add-goal [ds user-id name]
-  (jdbc/execute-one! (get-conn ds)
-    ["INSERT INTO goals (name, user_id) VALUES (?, ?) RETURNING id, name" name user-id]
-    {:builder-fn rs/as-unqualified-maps}))
+  (let [conn (get-conn ds)
+        user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [user-id] [])
+        max-order (or (:max_order (jdbc/execute-one! conn
+                                    (into [(str "SELECT MAX(sort_order) as max_order FROM goals WHERE " user-filter)] query-params)
+                                    {:builder-fn rs/as-unqualified-maps}))
+                      0)
+        new-order (+ max-order 1.0)]
+    (jdbc/execute-one! conn
+      ["INSERT INTO goals (name, user_id, sort_order) VALUES (?, ?, ?) RETURNING id, name, sort_order" name user-id new-order]
+      {:builder-fn rs/as-unqualified-maps})))
 
 (defn list-projects [ds user-id]
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [user-id] [])]
     (jdbc/execute! (get-conn ds)
-      (into [(str "SELECT id, name, description FROM projects WHERE " user-filter " ORDER BY name")] query-params)
+      (into [(str "SELECT id, name, description, sort_order FROM projects WHERE " user-filter " ORDER BY sort_order ASC, name ASC")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn list-goals [ds user-id]
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [user-id] [])]
     (jdbc/execute! (get-conn ds)
-      (into [(str "SELECT id, name, description FROM goals WHERE " user-filter " ORDER BY name")] query-params)
+      (into [(str "SELECT id, name, description, sort_order FROM goals WHERE " user-filter " ORDER BY sort_order ASC, name ASC")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn update-person [ds user-id person-id name description]
@@ -210,7 +242,14 @@
       (into [(str "UPDATE goals SET name = ?, description = ? WHERE id = ? AND " user-filter " RETURNING id, name, description")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
+(def ^:private valid-category-tables #{"people" "places" "projects" "goals"})
+
+(defn- validate-table-name! [table-name]
+  (when-not (contains? valid-category-tables table-name)
+    (throw (ex-info "Invalid table name" {:table-name table-name}))))
+
 (defn delete-category [ds user-id category-id category-type table-name]
+  (validate-table-name! table-name)
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [category-id user-id] [category-id])
         conn (get-conn ds)]
@@ -271,6 +310,22 @@
         query-params (if user-id [new-sort-order task-id user-id] [new-sort-order task-id])]
     (jdbc/execute-one! (get-conn ds)
       (into [(str "UPDATE tasks SET sort_order = ? WHERE id = ? AND " user-filter)] query-params))
+    {:success true :sort_order new-sort-order}))
+
+(defn get-category-sort-order [ds user-id category-id table-name]
+  (validate-table-name! table-name)
+  (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [category-id user-id] [category-id])]
+    (:sort_order (jdbc/execute-one! (get-conn ds)
+                   (into [(str "SELECT sort_order FROM " table-name " WHERE id = ? AND " user-filter)] query-params)
+                   {:builder-fn rs/as-unqualified-maps}))))
+
+(defn reorder-category [ds user-id category-id new-sort-order table-name]
+  (validate-table-name! table-name)
+  (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [new-sort-order category-id user-id] [new-sort-order category-id])]
+    (jdbc/execute-one! (get-conn ds)
+      (into [(str "UPDATE " table-name " SET sort_order = ? WHERE id = ? AND " user-filter)] query-params))
     {:success true :sort_order new-sort-order}))
 
 (defn set-task-due-date [ds user-id task-id due-date]

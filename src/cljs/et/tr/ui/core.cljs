@@ -329,14 +329,48 @@
         [:button.delete-btn {:on-click #(state/set-confirm-delete-category category-type item)}
          (t :category/delete)]]])))
 
-(defn category-item [item category-type update-fn]
+(defn category-item [item category-type update-fn state-key]
   (let [editing (:category-page/editing @state/app-state)
         is-editing (and editing
                         (= (:type editing) category-type)
-                        (= (:id editing) (:id item)))]
+                        (= (:id editing) (:id item)))
+        drag-cat (:drag-category @state/app-state)
+        drag-over-cat (:drag-over-category @state/app-state)
+        is-dragging (and drag-cat
+                         (= (:type drag-cat) state-key)
+                         (= (:id drag-cat) (:id item)))
+        is-drag-over (and drag-over-cat
+                          (= (:type drag-over-cat) state-key)
+                          (= (:id drag-over-cat) (:id item)))]
     (if is-editing
       [category-edit-form item category-type update-fn]
-      [:li {:on-click #(state/set-editing-category category-type (:id item))}
+      [:li {:class (str (when is-dragging "dragging")
+                        (when is-drag-over " drag-over"))
+            :draggable (not is-editing)
+            :on-click #(state/set-editing-category category-type (:id item))
+            :on-drag-start (fn [e]
+                             (.setData (.-dataTransfer e) "text/plain" (str (:id item)))
+                             (state/set-drag-category state-key (:id item)))
+            :on-drag-end (fn [_]
+                           (state/clear-category-drag-state))
+            :on-drag-over (fn [e]
+                            (.preventDefault e)
+                            (state/set-drag-over-category state-key (:id item)))
+            :on-drag-leave (fn [_]
+                             (when (and drag-over-cat
+                                        (= (:type drag-over-cat) state-key)
+                                        (= (:id drag-over-cat) (:id item)))
+                               (state/set-drag-over-category nil nil)))
+            :on-drop (fn [e]
+                       (.preventDefault e)
+                       (when (and drag-cat
+                                  (= (:type drag-cat) state-key)
+                                  (not= (:id drag-cat) (:id item)))
+                         (let [rect (.getBoundingClientRect (.-currentTarget e))
+                               y (.-clientY e)
+                               mid-y (+ (.-top rect) (/ (.-height rect) 2))
+                               position (if (< y mid-y) "before" "after")]
+                           (state/reorder-category state-key (:id drag-cat) (:id item) position))))}
        [:span.category-name (:name item)]
        (when (seq (:description item))
          [:span.category-description (:description item)])])))
@@ -350,14 +384,14 @@
       [:ul.entity-list
        (for [person people]
          ^{:key (:id person)}
-         [category-item person :person state/update-person])]]
+         [category-item person :person state/update-person :people])]]
      [:div.manage-section
       [:h3 (t :category/places)]
       [add-entity-form (t :category/add-place) state/add-place]
       [:ul.entity-list
        (for [place places]
          ^{:key (:id place)}
-         [category-item place :place state/update-place])]]]))
+         [category-item place :place state/update-place :places])]]]))
 
 (defn projects-goals-tab []
   (let [{:keys [projects goals]} @state/app-state]
@@ -368,14 +402,14 @@
       [:ul.entity-list
        (for [project projects]
          ^{:key (:id project)}
-         [category-item project :project state/update-project])]]
+         [category-item project :project state/update-project :projects])]]
      [:div.manage-section
       [:h3 (t :category/goals)]
       [add-entity-form (t :category/add-goal) state/add-goal]
       [:ul.entity-list
        (for [goal goals]
          ^{:key (:id goal)}
-         [category-item goal :goal state/update-goal])]]]))
+         [category-item goal :goal state/update-goal :goals])]]]))
 
 (defn add-user-form []
   (let [username (r/atom "")

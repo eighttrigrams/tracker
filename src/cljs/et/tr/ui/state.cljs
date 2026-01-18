@@ -35,6 +35,8 @@
                             :sort-mode :manual
                             :drag-task nil
                             :drag-over-task nil
+                            :drag-category nil
+                            :drag-over-category nil
                             :upcoming-horizon nil
                             :today-page/excluded-places #{}
                             :today-page/excluded-projects #{}
@@ -498,6 +500,39 @@
      :error-handler (fn [resp]
                       (clear-drag-state)
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))}))
+
+(defn set-drag-category [category-type category-id]
+  (swap! app-state assoc :drag-category {:type category-type :id category-id}))
+
+(defn set-drag-over-category [category-type category-id]
+  (swap! app-state assoc :drag-over-category {:type category-type :id category-id}))
+
+(defn clear-category-drag-state []
+  (swap! app-state assoc :drag-category nil :drag-over-category nil))
+
+(defn reorder-category [category-type category-id target-category-id position]
+  (let [endpoint (case category-type
+                   :people "/api/people/"
+                   :places "/api/places/"
+                   :projects "/api/projects/"
+                   :goals "/api/goals/")
+        fetch-fn (case category-type
+                   :people fetch-people
+                   :places fetch-places
+                   :projects fetch-projects
+                   :goals fetch-goals)]
+    (POST (str endpoint category-id "/reorder")
+      {:params {:target-category-id target-category-id :position position}
+       :format :json
+       :response-format :json
+       :keywords? true
+       :headers (auth-headers)
+       :handler (fn [_]
+                  (clear-category-drag-state)
+                  (fetch-fn))
+       :error-handler (fn [resp]
+                        (clear-category-drag-state)
+                        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))})))
 
 (defn set-task-due-date [task-id due-date]
   (PUT (str "/api/tasks/" task-id "/due-date")
