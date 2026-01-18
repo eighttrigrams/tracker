@@ -776,7 +776,7 @@
            [sidebar-filters]
            [:div.main-content
             [:div.tasks-header
-             [:h2 (t :tasks/title)]
+             [:h2 {:title (t :tasks/title-tooltip)} (t :tasks/title)]
              [sort-mode-toggle]]
             [search-filter]
             [add-task-form]

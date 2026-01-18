@@ -27,6 +27,7 @@
   :today/no-upcoming "No upcoming tasks"
 
   :tasks/title "Tasks"
+  :tasks/title-tooltip "A task is something concrete you must do, which can be completed in one unbroken session (1 minute to 8 hours)."
   :tasks/search "Search tasks..."
   :tasks/add-placeholder "Task title"
   :tasks/add-button "Add"
@@ -118,6 +119,7 @@
   :today/no-upcoming "Keine anstehenden Aufgaben"
 
   :tasks/title "Aufgaben"
+  :tasks/title-tooltip "Eine Aufgabe ist etwas Konkretes, das erledigt werden muss und in einer ununterbrochenen Sitzung abgeschlossen werden kann (1 Minute bis 8 Stunden)."
   :tasks/search "Aufgaben suchen..."
   :tasks/add-placeholder "Aufgabentitel"
   :tasks/add-button "Hinzufügen"
@@ -209,6 +211,7 @@
   :today/no-upcoming "Sem tarefas próximas"
 
   :tasks/title "Tarefas"
+  :tasks/title-tooltip "Uma tarefa é algo concreto que deve ser feito, que pode ser concluído numa sessão ininterrupta (1 minuto a 8 horas)."
   :tasks/search "Pesquisar tarefas..."
   :tasks/add-placeholder "Título da tarefa"
   :tasks/add-button "Adicionar"
