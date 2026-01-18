@@ -1,6 +1,7 @@
 (ns et.tr.ui.state
   (:require [reagent.core :as r]
-            [ajax.core :refer [GET POST PUT DELETE]]))
+            [ajax.core :refer [GET POST PUT DELETE]]
+            [et.tr.filters :as filters]))
 
 (defonce app-state (r/atom {:tasks []
                             :people []
@@ -10,12 +11,12 @@
                             :users []
                             :available-users []
                             :show-user-switcher false
-                            :filter-people #{}
-                            :filter-places #{}
-                            :filter-projects #{}
-                            :filter-goals #{}
-                            :filter-search ""
-                            :category-search {:people "" :places "" :projects "" :goals ""}
+                            :tasks-page/filter-people #{}
+                            :tasks-page/filter-places #{}
+                            :tasks-page/filter-projects #{}
+                            :tasks-page/filter-goals #{}
+                            :tasks-page/filter-search ""
+                            :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
                             :expanded-task nil
                             :editing-task nil
                             :confirm-delete-task nil
@@ -27,11 +28,15 @@
                             :token nil
                             :current-user nil
                             :error nil
-                            :collapsed-filters #{:people :places :projects :goals}
+                            :tasks-page/collapsed-filters #{:people :places :projects :goals}
                             :sort-mode :manual
                             :drag-task nil
                             :drag-over-task nil
-                            :upcoming-horizon nil}))
+                            :upcoming-horizon nil
+                            :today-page/excluded-places #{}
+                            :today-page/excluded-projects #{}
+                            :today-page/collapsed-filters #{:places :projects}
+                            :today-page/category-search {:places "" :projects ""}}))
 
 (defn auth-headers []
   (let [token (:token @app-state)
@@ -44,6 +49,7 @@
 (declare fetch-tasks)
 (declare fetch-users)
 (declare calculate-best-horizon)
+(declare recalculate-today-horizon)
 
 (defn- save-auth-to-storage [token user]
   (when token
@@ -131,7 +137,10 @@
                     (swap! app-state assoc :upcoming-horizon (calculate-best-horizon tasks))))})))
 
 (defn has-active-filters? []
-  (let [{:keys [filter-people filter-places filter-projects filter-goals]} @app-state]
+  (let [filter-people (:tasks-page/filter-people @app-state)
+        filter-places (:tasks-page/filter-places @app-state)
+        filter-projects (:tasks-page/filter-projects @app-state)
+        filter-goals (:tasks-page/filter-goals @app-state)]
     (or (seq filter-people) (seq filter-places) (seq filter-projects) (seq filter-goals))))
 
 (defn add-task-with-categories [title categories on-success]
@@ -185,7 +194,10 @@
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))
 
 (defn set-pending-new-task [title on-success]
-  (let [{:keys [filter-people filter-places filter-projects filter-goals]} @app-state]
+  (let [filter-people (:tasks-page/filter-people @app-state)
+        filter-places (:tasks-page/filter-places @app-state)
+        filter-projects (:tasks-page/filter-projects @app-state)
+        filter-goals (:tasks-page/filter-goals @app-state)]
     (swap! app-state assoc :pending-new-task
            {:title title
             :on-success on-success
@@ -350,53 +362,53 @@
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))}))
 
 (defn toggle-filter-person [person-id]
-  (swap! app-state update :filter-people
+  (swap! app-state update :tasks-page/filter-people
          #(if (contains? % person-id)
             (disj % person-id)
             (conj % person-id))))
 
 (defn toggle-filter-place [place-id]
-  (swap! app-state update :filter-places
+  (swap! app-state update :tasks-page/filter-places
          #(if (contains? % place-id)
             (disj % place-id)
             (conj % place-id))))
 
 (defn toggle-filter-project [project-id]
-  (swap! app-state update :filter-projects
+  (swap! app-state update :tasks-page/filter-projects
          #(if (contains? % project-id)
             (disj % project-id)
             (conj % project-id))))
 
 (defn toggle-filter-goal [goal-id]
-  (swap! app-state update :filter-goals
+  (swap! app-state update :tasks-page/filter-goals
          #(if (contains? % goal-id)
             (disj % goal-id)
             (conj % goal-id))))
 
 (defn clear-filter-people []
-  (swap! app-state assoc :filter-people #{}))
+  (swap! app-state assoc :tasks-page/filter-people #{}))
 
 (defn clear-filter-places []
-  (swap! app-state assoc :filter-places #{}))
+  (swap! app-state assoc :tasks-page/filter-places #{}))
 
 (defn clear-filter-projects []
-  (swap! app-state assoc :filter-projects #{}))
+  (swap! app-state assoc :tasks-page/filter-projects #{}))
 
 (defn clear-filter-goals []
-  (swap! app-state assoc :filter-goals #{}))
+  (swap! app-state assoc :tasks-page/filter-goals #{}))
 
 (defn toggle-filter-collapsed [filter-key]
-  (swap! app-state update :collapsed-filters
+  (swap! app-state update :tasks-page/collapsed-filters
          (fn [collapsed]
            (if (contains? collapsed filter-key)
              (disj #{:people :places :projects :goals} filter-key)
              (conj collapsed filter-key)))))
 
 (defn set-filter-search [search-term]
-  (swap! app-state assoc :filter-search search-term))
+  (swap! app-state assoc :tasks-page/filter-search search-term))
 
 (defn set-category-search [category-key search-term]
-  (swap! app-state assoc-in [:category-search category-key] search-term))
+  (swap! app-state assoc-in [:tasks-page/category-search category-key] search-term))
 
 (defn set-active-tab [tab]
   (swap! app-state assoc :active-tab tab))
@@ -417,7 +429,12 @@
     (some #(.startsWith % search-lower) words)))
 
 (defn filtered-tasks []
-  (let [{:keys [tasks filter-people filter-places filter-projects filter-goals filter-search]} @app-state
+  (let [tasks (:tasks @app-state)
+        filter-people (:tasks-page/filter-people @app-state)
+        filter-places (:tasks-page/filter-places @app-state)
+        filter-projects (:tasks-page/filter-projects @app-state)
+        filter-goals (:tasks-page/filter-goals @app-state)
+        filter-search (:tasks-page/filter-search @app-state)
         matches-any? (fn [task-categories filter-ids]
                        (some #(contains? filter-ids (:id %)) task-categories))]
     (cond->> tasks
@@ -494,6 +511,43 @@
 (defn set-upcoming-horizon [horizon]
   (swap! app-state assoc :upcoming-horizon horizon))
 
+(defn toggle-today-excluded-place [place-id]
+  (swap! app-state update :today-page/excluded-places
+         #(if (contains? % place-id)
+            (disj % place-id)
+            (conj % place-id)))
+  (recalculate-today-horizon))
+
+(defn toggle-today-excluded-project [project-id]
+  (swap! app-state update :today-page/excluded-projects
+         #(if (contains? % project-id)
+            (disj % project-id)
+            (conj % project-id)))
+  (recalculate-today-horizon))
+
+(defn clear-today-excluded-places []
+  (swap! app-state assoc :today-page/excluded-places #{})
+  (recalculate-today-horizon))
+
+(defn clear-today-excluded-projects []
+  (swap! app-state assoc :today-page/excluded-projects #{})
+  (recalculate-today-horizon))
+
+(defn toggle-today-filter-collapsed [filter-key]
+  (swap! app-state update :today-page/collapsed-filters
+         (fn [collapsed]
+           (if (contains? collapsed filter-key)
+             (disj #{:places :projects} filter-key)
+             (conj collapsed filter-key)))))
+
+(defn set-today-category-search [category-key search-term]
+  (swap! app-state assoc-in [:today-page/category-search category-key] search-term))
+
+(defn- apply-today-exclusion-filter [tasks]
+  (filters/apply-exclusion-filter tasks
+                                  (:today-page/excluded-places @app-state)
+                                  (:today-page/excluded-projects @app-state)))
+
 (defn today-str []
   (.substring (.toISOString (js/Date.)) 0 10))
 
@@ -525,20 +579,27 @@
                    tasks))))
 
 (defn calculate-best-horizon [tasks]
-  (or (first (filter #(>= (count-upcoming-tasks-for-horizon tasks %) 10) horizon-order))
+  (or (first (filter #(>= (count-upcoming-tasks-for-horizon tasks %) filters/target-upcoming-tasks-count) horizon-order))
       :eighteen-months))
+
+(defn- recalculate-today-horizon []
+  (let [tasks (:tasks @app-state)
+        filtered-tasks (apply-today-exclusion-filter tasks)]
+    (swap! app-state assoc :upcoming-horizon (calculate-best-horizon filtered-tasks))))
 
 (defn overdue-tasks []
   (let [today (today-str)]
     (->> (:tasks @app-state)
          (filter #(and (:due_date %)
                        (< (:due_date %) today)))
+         (apply-today-exclusion-filter)
          (sort-by :due_date))))
 
 (defn today-tasks []
   (let [today (today-str)]
     (->> (:tasks @app-state)
          (filter #(= (:due_date %) today))
+         (apply-today-exclusion-filter)
          (sort-by :due_date))))
 
 (defn upcoming-tasks []
@@ -549,6 +610,7 @@
          (filter #(and (:due_date %)
                        (> (:due_date %) today)
                        (<= (:due_date %) end-date)))
+         (apply-today-exclusion-filter)
          (sort-by :due_date))))
 
 (defn is-admin? []

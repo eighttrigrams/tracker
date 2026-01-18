@@ -84,9 +84,23 @@
        :on-click #(state/set-active-tab :projects-goals)}
       "Projects & Goals"]]))
 
+(defn task-category-badges [task]
+  (let [all-categories (concat
+                        (map #(assoc % :type "person") (:people task))
+                        (map #(assoc % :type "place") (:places task))
+                        (map #(assoc % :type "project") (:projects task))
+                        (map #(assoc % :type "goal") (:goals task)))]
+    (when (seq all-categories)
+      [:div.task-badges
+       (for [category all-categories]
+         ^{:key (str (:type category) "-" (:id category))}
+         [:span.tag {:class (:type category)} (:name category)])])))
+
 (defn today-task-item [task]
   [:div.today-task-item
-   [:span.task-title (:title task)]
+   [:div.today-task-content
+    [:span.task-title (:title task)]
+    [task-category-badges task]]
    [:span.task-date (:due_date task)]])
 
 (defn horizon-selector []
@@ -106,40 +120,115 @@
      [:button {:class (when (= horizon :eighteen-months) "active")
                :on-click #(state/set-upcoming-horizon :eighteen-months)} "1.5 Years"]]))
 
+(defn category-filter-section
+  [{:keys [title filter-key items marked-ids toggle-fn clear-fn collapsed?
+           toggle-collapsed-fn set-search-fn search-state-path
+           section-class item-active-class label-class]}]
+  (let [marked-items (filter #(contains? marked-ids (:id %)) items)
+        search-term (get-in @state/app-state search-state-path "")
+        visible-items (if (seq search-term)
+                        (filter #(state/prefix-matches? (:name %) search-term) items)
+                        items)]
+    [:div.filter-section {:class section-class}
+     [:div.filter-header
+      [:button.collapse-toggle
+       {:on-click #(toggle-collapsed-fn filter-key)}
+       (if collapsed? ">" "v")]
+      title
+      (when (seq marked-ids)
+        [:button.clear-filter {:on-click clear-fn} "x"])]
+     (if collapsed?
+       (when (seq marked-items)
+         [:div.filter-items.collapsed
+          (doall
+           (for [item marked-items]
+             ^{:key (:id item)}
+             [:span.filter-item-label {:class label-class}
+              (:name item)
+              [:button.remove-item {:on-click #(toggle-fn (:id item))} "x"]]))])
+       [:div.filter-items
+        [:input.category-search
+         {:type "text"
+          :placeholder "Search..."
+          :value search-term
+          :on-change #(set-search-fn filter-key (-> % .-target .-value))}]
+        (doall
+         (for [item visible-items]
+           ^{:key (:id item)}
+           [:button.filter-item
+            {:class (when (contains? marked-ids (:id item)) item-active-class)
+             :on-click #(toggle-fn (:id item))}
+            (:name item)]))])]))
+
+(defn today-sidebar-filters []
+  (let [{:keys [places projects]} @state/app-state
+        excluded-places (:today-page/excluded-places @state/app-state)
+        excluded-projects (:today-page/excluded-projects @state/app-state)
+        collapsed-filters (:today-page/collapsed-filters @state/app-state)]
+    [:div.sidebar
+     [category-filter-section {:title "Places"
+                               :filter-key :places
+                               :items places
+                               :marked-ids excluded-places
+                               :toggle-fn state/toggle-today-excluded-place
+                               :clear-fn state/clear-today-excluded-places
+                               :collapsed? (contains? collapsed-filters :places)
+                               :toggle-collapsed-fn state/toggle-today-filter-collapsed
+                               :set-search-fn state/set-today-category-search
+                               :search-state-path [:today-page/category-search :places]
+                               :section-class "exclusion-filter"
+                               :item-active-class "excluded"
+                               :label-class "excluded"}]
+     [category-filter-section {:title "Projects"
+                               :filter-key :projects
+                               :items projects
+                               :marked-ids excluded-projects
+                               :toggle-fn state/toggle-today-excluded-project
+                               :clear-fn state/clear-today-excluded-projects
+                               :collapsed? (contains? collapsed-filters :projects)
+                               :toggle-collapsed-fn state/toggle-today-filter-collapsed
+                               :set-search-fn state/set-today-category-search
+                               :search-state-path [:today-page/category-search :projects]
+                               :section-class "exclusion-filter"
+                               :item-active-class "excluded"
+                               :label-class "excluded"}]]))
+
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
         today (state/today-tasks)
         upcoming (state/upcoming-tasks)]
-    [:div.today-tab
-     [:div.today-section.overdue
-      [:h3 "Overdue"]
-      (if (seq overdue)
-        [:div.task-list
-         (for [task overdue]
-           ^{:key (:id task)}
-           [today-task-item task])]
-        [:p.empty-message "No overdue tasks"])]
-     [:div.today-section.today
-      [:h3 "Today"]
-      (if (seq today)
-        [:div.task-list
-         (for [task today]
-           ^{:key (:id task)}
-           [today-task-item task])]
-        [:p.empty-message "No tasks for today"])]
-     [:div.today-section.upcoming
-      [:div.section-header
-       [:h3 "Upcoming"]
-       [horizon-selector]]
-      (if (seq upcoming)
-        [:div.task-list
-         (for [task upcoming]
-           ^{:key (:id task)}
-           [today-task-item task])]
-        [:p.empty-message "No upcoming tasks"])]]))
+    [:div.main-layout
+     [today-sidebar-filters]
+     [:div.main-content.today-content
+      [:div.today-section.overdue
+       [:h3 "Overdue"]
+       (if (seq overdue)
+         [:div.task-list
+          (for [task overdue]
+            ^{:key (:id task)}
+            [today-task-item task])]
+         [:p.empty-message "No overdue tasks"])]
+      [:div.today-section.today
+       [:h3 "Today"]
+       (if (seq today)
+         [:div.task-list
+          (for [task today]
+            ^{:key (:id task)}
+            [today-task-item task])]
+         [:p.empty-message "No tasks for today"])]
+      [:div.today-section.upcoming
+       [:div.section-header
+        [:h3 "Upcoming"]
+        [horizon-selector]]
+       (if (seq upcoming)
+         [:div.task-list
+          (for [task upcoming]
+            ^{:key (:id task)}
+            [today-task-item task])]
+         [:p.empty-message "No upcoming tasks"])]]]))
 
 (defn search-filter []
-  (let [search-term (:filter-search @state/app-state)]
+  (let [search-term (:tasks-page/filter-search @state/app-state)]
     [:div.search-filter
      [:input {:type "text"
               :placeholder "Search tasks..."
@@ -162,44 +251,27 @@
       "Recent"]]))
 
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
-  (let [selected-items (filter #(contains? selected-ids (:id %)) items)
-        search-term (get-in @state/app-state [:category-search filter-key] "")
-        visible-items (if (seq search-term)
-                        (filter #(state/prefix-matches? (:name %) search-term) items)
-                        items)]
-    [:div.filter-section
-     [:div.filter-header
-      [:button.collapse-toggle
-       {:on-click #(state/toggle-filter-collapsed filter-key)}
-       (if collapsed? ">" "v")]
-      title
-      (when (seq selected-ids)
-        [:button.clear-filter {:on-click clear-fn} "x"])]
-     (if collapsed?
-       (when (seq selected-items)
-         [:div.filter-items.collapsed
-          (doall
-           (for [item selected-items]
-             ^{:key (:id item)}
-             [:span.filter-item-label
-              (:name item)
-              [:button.remove-item {:on-click #(toggle-fn (:id item))} "x"]]))])
-       [:div.filter-items
-        [:input.category-search
-         {:type "text"
-          :placeholder "Search..."
-          :value search-term
-          :on-change #(state/set-category-search filter-key (-> % .-target .-value))}]
-        (doall
-         (for [item visible-items]
-           ^{:key (:id item)}
-           [:button.filter-item
-            {:class (when (contains? selected-ids (:id item)) "active")
-             :on-click #(toggle-fn (:id item))}
-            (:name item)]))])]))
+  [category-filter-section {:title title
+                            :filter-key filter-key
+                            :items items
+                            :marked-ids selected-ids
+                            :toggle-fn toggle-fn
+                            :clear-fn clear-fn
+                            :collapsed? collapsed?
+                            :toggle-collapsed-fn state/toggle-filter-collapsed
+                            :set-search-fn state/set-category-search
+                            :search-state-path [:tasks-page/category-search filter-key]
+                            :section-class nil
+                            :item-active-class "active"
+                            :label-class nil}])
 
 (defn sidebar-filters []
-  (let [{:keys [people places projects goals filter-people filter-places filter-projects filter-goals collapsed-filters]} @state/app-state]
+  (let [{:keys [people places projects goals]} @state/app-state
+        filter-people (:tasks-page/filter-people @state/app-state)
+        filter-places (:tasks-page/filter-places @state/app-state)
+        filter-projects (:tasks-page/filter-projects @state/app-state)
+        filter-goals (:tasks-page/filter-goals @state/app-state)
+        collapsed-filters (:tasks-page/collapsed-filters @state/app-state)]
     [:div.sidebar
      [filter-section {:title "People"
                       :filter-key :people
@@ -355,16 +427,8 @@
          "Cancel"]]])))
 
 (defn task-categories-readonly [task]
-  (let [all-categories (concat
-                         (map #(assoc % :type "person") (:people task))
-                         (map #(assoc % :type "place") (:places task))
-                         (map #(assoc % :type "project") (:projects task))
-                         (map #(assoc % :type "goal") (:goals task)))]
-    (when (seq all-categories)
-      [:div.item-tags-readonly
-       (for [category all-categories]
-         ^{:key (str (:type category) "-" (:id category))}
-         [:span.tag {:class (:type category)} (:name category)])])))
+  [:div.item-tags-readonly
+   [task-category-badges task]])
 
 (defn tasks-list []
   (let [{:keys [people places projects goals expanded-task editing-task sort-mode drag-task drag-over-task]} @state/app-state
