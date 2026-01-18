@@ -21,7 +21,7 @@
         [:div.login-form
          [:h2 (t :auth/login)]
          (when-let [error (:error @state/app-state)]
-           [:div.error error])
+           [:div.error error [:button.error-dismiss {:on-click state/clear-error} "×"]])
          [:input {:type "text"
                   :placeholder (t :auth/username)
                   :value @username
@@ -762,7 +762,7 @@
        :else
        [:div
         (when-let [error (:error @state/app-state)]
-          [:div.error error])
+          [:div.error error [:button.error-dismiss {:on-click state/clear-error} "×"]])
         [:div.top-bar
          [tabs]
          [user-info]]

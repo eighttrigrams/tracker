@@ -1,6 +1,7 @@
 (ns et.tr.ui.state
   (:require [reagent.core :as r]
             [ajax.core :refer [GET POST PUT DELETE]]
+            [clojure.string :as str]
             [et.tr.filters :as filters]
             [et.tr.i18n :as i18n]))
 
@@ -147,6 +148,9 @@
          :goals []
          :users []))
 
+(defn clear-error []
+  (swap! app-state assoc :error nil))
+
 (defn fetch-tasks []
   (let [sort-mode (name (:sort-mode @app-state))]
     (GET (str "/api/tasks?sort=" sort-mode)
@@ -247,19 +251,21 @@
     (clear-pending-new-task)))
 
 (defn add-task [title on-success]
-  (if (has-active-filters?)
-    (set-pending-new-task title on-success)
-    (POST "/api/tasks"
-      {:params {:title title}
-       :format :json
-       :response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [task]
-                  (swap! app-state update :tasks #(cons task %))
-                  (when on-success (on-success)))
-       :error-handler (fn [resp]
-                        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))})))
+  (if (str/blank? title)
+    (swap! app-state assoc :error "Title is required")
+    (if (has-active-filters?)
+      (set-pending-new-task title on-success)
+      (POST "/api/tasks"
+        {:params {:title title}
+         :format :json
+         :response-format :json
+         :keywords? true
+         :headers (auth-headers)
+         :handler (fn [task]
+                    (swap! app-state update :tasks #(cons task %))
+                    (when on-success (on-success)))
+         :error-handler (fn [resp]
+                          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))))
 
 (defn fetch-people []
   (GET "/api/people"
