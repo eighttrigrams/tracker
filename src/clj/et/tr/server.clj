@@ -236,6 +236,17 @@
         result (db/set-task-due-date (ensure-ds) user-id task-id due-date)]
     {:status 200 :body result}))
 
+(defn set-task-done-handler [req]
+  (if-not (contains? (:body req) :done)
+    {:status 400 :body {:error "Missing required field: done"}}
+    (let [user-id (get-user-id req)
+          task-id (Integer/parseInt (get-in req [:params :id]))
+          done? (boolean (get-in req [:body :done]))
+          result (db/set-task-done (ensure-ds) user-id task-id done?)]
+      (if result
+        {:status 200 :body result}
+        {:status 404 :body {:error "Task not found"}}))))
+
 (defn delete-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -296,6 +307,7 @@
     (DELETE "/tasks/:id/categorize" [] uncategorize-task-handler)
     (POST "/tasks/:id/reorder" [] reorder-task-handler)
     (PUT "/tasks/:id/due-date" [] set-due-date-handler)
+    (PUT "/tasks/:id/done" [] set-task-done-handler)
     (GET "/people" [] list-people-handler)
     (POST "/people" [] add-person-handler)
     (GET "/places" [] list-places-handler)

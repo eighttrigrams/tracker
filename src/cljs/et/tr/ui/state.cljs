@@ -483,7 +483,7 @@
                 (swap! app-state update :tasks
                        (fn [tasks]
                          (mapv #(if (= (:id %) task-id)
-                                  (assoc % :due_date (:due_date result))
+                                  (assoc % :due_date (:due_date result) :modified_at (:modified_at result))
                                   %)
                                tasks))))
      :error-handler (fn [resp]
@@ -508,6 +508,19 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete task"))
                       (clear-confirm-delete))}))
+
+(defn set-task-done [task-id done?]
+  (PUT (str "/api/tasks/" task-id "/done")
+    {:params {:done done?}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [_]
+                (swap! app-state assoc :expanded-task nil)
+                (fetch-tasks))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))}))
 
 (defn set-upcoming-horizon [horizon]
   (swap! app-state assoc :upcoming-horizon horizon))

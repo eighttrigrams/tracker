@@ -267,3 +267,53 @@
       (is (= 0 (count (db/list-projects *ds* user-id))))
       (is (= 0 (count (db/list-goals *ds* user-id))))
       (is (nil? (db/get-user-by-username *ds* "testuser"))))))
+
+(deftest set-task-done-test
+  (testing "marks task as done"
+    (let [task (db/add-task *ds* nil "Task to complete")
+          result (db/set-task-done *ds* nil (:id task) true)]
+      (is (= 1 (:done result)))
+      (is (some? (:modified_at result)))))
+
+  (testing "can unmark task as done"
+    (let [task (db/add-task *ds* nil "Task to undo")
+          _ (db/set-task-done *ds* nil (:id task) true)
+          result (db/set-task-done *ds* nil (:id task) false)]
+      (is (= 0 (:done result))))))
+
+(deftest list-tasks-filters-done-test
+  (testing "done tasks are hidden from manual, recent, and due-date modes"
+    (let [task1 (db/add-task *ds* nil "Active task")
+          task2 (db/add-task *ds* nil "Done task")
+          task3 (db/add-task *ds* nil "Task with due")]
+      (db/set-task-done *ds* nil (:id task2) true)
+      (db/set-task-due-date *ds* nil (:id task1) "2026-02-01")
+      (db/set-task-due-date *ds* nil (:id task3) "2026-03-01")
+      (is (= 2 (count (db/list-tasks *ds* nil :manual))))
+      (is (= 2 (count (db/list-tasks *ds* nil :recent))))
+      (is (= 2 (count (db/list-tasks *ds* nil :due-date))))
+      (is (not (some #(= "Done task" (:title %)) (db/list-tasks *ds* nil :manual))))
+      (is (not (some #(= "Done task" (:title %)) (db/list-tasks *ds* nil :recent)))))))
+
+(deftest list-tasks-done-mode-test
+  (testing ":done mode shows only done tasks"
+    (let [task1 (db/add-task *ds* nil "First done")
+          task2 (db/add-task *ds* nil "Second done")
+          _task3 (db/add-task *ds* nil "Not done")]
+      (db/set-task-done *ds* nil (:id task1) true)
+      (db/set-task-done *ds* nil (:id task2) true)
+      (let [tasks (db/list-tasks *ds* nil :done)]
+        (is (= 2 (count tasks)))
+        (is (= #{"First done" "Second done"} (set (map :title tasks))))))))
+
+(deftest update-task-updates-modified-at-test
+  (testing "updating task returns modified_at"
+    (let [task (db/add-task *ds* nil "Original")
+          updated (db/update-task *ds* nil (:id task) "Updated" "Desc")]
+      (is (some? (:modified_at updated))))))
+
+(deftest set-due-date-updates-modified-at-test
+  (testing "setting due date returns modified_at"
+    (let [task (db/add-task *ds* nil "Task")
+          result (db/set-task-due-date *ds* nil (:id task) "2026-05-01")]
+      (is (some? (:modified_at result))))))

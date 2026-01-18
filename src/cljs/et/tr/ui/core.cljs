@@ -248,7 +248,10 @@
       "Due date"]
      [:button {:class (when (= sort-mode :recent) "active")
                :on-click #(when (not= sort-mode :recent) (state/set-sort-mode :recent))}
-      "Recent"]]))
+      "Recent"]
+     [:button {:class (when (= sort-mode :done) "active")
+               :on-click #(when (not= sort-mode :done) (state/set-sort-mode :done))}
+      "Done"]]))
 
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
   [category-filter-section {:title title
@@ -496,7 +499,7 @@
                  (let [today (.toISOString (js/Date.))
                        overdue? (< (:due_date task) (.substring today 0 10))]
                    [:span.due-date {:class (when overdue? "overdue")} (:due_date task)]))
-               [:span (:created_at task)]]]
+               [:span (:modified_at task)]]]
              (if is-expanded
                [:div.item-details
                 (when (seq (:description task))
@@ -507,6 +510,9 @@
                  [category-selector task "project" projects "Project"]
                  [category-selector task "goal" goals "Goal"]]
                 [:div.item-actions
+                 (if (= 1 (:done task))
+                   [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} "Undone"]
+                   [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} "Done"])
                  [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} "Delete"]]]
                [task-categories-readonly task])])]))]))
 
