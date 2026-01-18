@@ -625,6 +625,18 @@
          :on-click #(state/switch-user user)}
         (:username user)])]))
 
+(defn settings-tab []
+  (let [current-user (:current-user @state/app-state)]
+    [:div.manage-tab
+     [:div.manage-section.settings-section
+      [:h3 "Profile"]
+      [:div.settings-item
+       [:span.settings-label "Username"]
+       [:span.settings-value (:username current-user)]]
+      [:div.settings-item
+       [:span.settings-label "Role"]
+       [:span.settings-value (if (:is_admin current-user) "Admin" "User")]]]]))
+
 (defn user-info []
   (let [current-user (:current-user @state/app-state)
         active-tab (:active-tab @state/app-state)
@@ -640,15 +652,23 @@
           "Users"])
        (if auth-required?
          [:<>
-          [:span.current-user (:username current-user)]
+          [:button.username-btn
+           {:class (when (= active-tab :settings) "active")
+            :on-click #(state/set-active-tab :settings)}
+           (:username current-user)]
           [:button.logout-btn {:on-click state/logout} "Logout"]]
-         [:div.user-switcher-wrapper
-          [:button.switch-user-btn
-           {:on-click state/toggle-user-switcher}
-           [:span.current-user (:username current-user)]
-           [:span.dropdown-arrow (if show-switcher "▲" "▼")]]
-          (when show-switcher
-            [user-switcher-dropdown])])])))
+         [:<>
+          [:button.settings-btn
+           {:class (when (= active-tab :settings) "active")
+            :on-click #(state/set-active-tab :settings)}
+           "Settings"]
+          [:div.user-switcher-wrapper
+           [:button.switch-user-btn
+            {:on-click state/toggle-user-switcher}
+            [:span.current-user (:username current-user)]
+            [:span.dropdown-arrow (if show-switcher "▲" "▼")]]
+           (when show-switcher
+             [user-switcher-dropdown])]])])))
 
 (defn app []
   (let [{:keys [auth-required? logged-in? active-tab]} @state/app-state]
@@ -675,6 +695,7 @@
           :people-places [people-places-tab]
           :projects-goals [projects-goals-tab]
           :users [users-tab]
+          :settings [settings-tab]
           [:div.main-layout
            [sidebar-filters]
            [:div.main-content

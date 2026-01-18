@@ -824,6 +824,47 @@
     .login-form button {
       width: 100%;
     }
+    .username-btn, .settings-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.9em;
+      font-weight: 500;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+    .username-btn:hover, .settings-btn:hover {
+      color: var(--text-primary);
+      background: var(--surface-subtle);
+      transform: none;
+    }
+    .username-btn.active, .settings-btn.active {
+      color: white;
+      background: var(--accent);
+    }
+    .settings-section {
+      max-width: 400px;
+    }
+    .settings-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .settings-item:last-child {
+      border-bottom: none;
+    }
+    .settings-label {
+      font-size: 0.9em;
+      color: var(--text-secondary);
+    }
+    .settings-value {
+      font-size: 0.9em;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
   </style>
 </head>
 <body>
