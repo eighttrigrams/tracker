@@ -733,6 +733,7 @@
      :handler (fn [updated]
                 (swap! app-state update :people
                        (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+                (fetch-tasks)
                 (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update person")))}))
@@ -747,6 +748,7 @@
      :handler (fn [updated]
                 (swap! app-state update :places
                        (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+                (fetch-tasks)
                 (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update place")))}))
@@ -761,6 +763,7 @@
      :handler (fn [updated]
                 (swap! app-state update :projects
                        (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+                (fetch-tasks)
                 (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update project")))}))
@@ -775,6 +778,7 @@
      :handler (fn [updated]
                 (swap! app-state update :goals
                        (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+                (fetch-tasks)
                 (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update goal")))}))
