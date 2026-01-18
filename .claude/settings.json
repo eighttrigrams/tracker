@@ -11,7 +11,14 @@
       "mcp__playwright__browser_take_screenshot",
       "Bash(clojure -M:test:*)",
       "Bash(make stop:*)",
-      "Bash(fly logs:*)"
+      "Bash(fly logs:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh issue list:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)"
     ]
   }
 }
