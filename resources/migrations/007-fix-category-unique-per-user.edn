@@ -1,0 +1,84 @@
+{:id "007-fix-category-unique-per-user"
+ :up ["CREATE TABLE people_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         user_id INTEGER REFERENCES users(id),
+         description TEXT DEFAULT '',
+         UNIQUE(name, user_id)
+       )"
+      "INSERT INTO people_new (id, name, user_id, description) SELECT id, name, user_id, description FROM people"
+      "DROP TABLE people"
+      "ALTER TABLE people_new RENAME TO people"
+
+      "CREATE TABLE places_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         user_id INTEGER REFERENCES users(id),
+         description TEXT DEFAULT '',
+         UNIQUE(name, user_id)
+       )"
+      "INSERT INTO places_new (id, name, user_id, description) SELECT id, name, user_id, description FROM places"
+      "DROP TABLE places"
+      "ALTER TABLE places_new RENAME TO places"
+
+      "CREATE TABLE projects_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         user_id INTEGER REFERENCES users(id),
+         description TEXT DEFAULT '',
+         UNIQUE(name, user_id)
+       )"
+      "INSERT INTO projects_new (id, name, user_id, description) SELECT id, name, user_id, description FROM projects"
+      "DROP TABLE projects"
+      "ALTER TABLE projects_new RENAME TO projects"
+
+      "CREATE TABLE goals_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         user_id INTEGER REFERENCES users(id),
+         description TEXT DEFAULT '',
+         UNIQUE(name, user_id)
+       )"
+      "INSERT INTO goals_new (id, name, user_id, description) SELECT id, name, user_id, description FROM goals"
+      "DROP TABLE goals"
+      "ALTER TABLE goals_new RENAME TO goals"]
+ :down ["CREATE TABLE people_new (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           name TEXT NOT NULL UNIQUE,
+           user_id INTEGER REFERENCES users(id),
+           description TEXT DEFAULT ''
+         )"
+        "INSERT INTO people_new (id, name, user_id, description) SELECT id, name, user_id, description FROM people"
+        "DROP TABLE people"
+        "ALTER TABLE people_new RENAME TO people"
+
+        "CREATE TABLE places_new (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           name TEXT NOT NULL UNIQUE,
+           user_id INTEGER REFERENCES users(id),
+           description TEXT DEFAULT ''
+         )"
+        "INSERT INTO places_new (id, name, user_id, description) SELECT id, name, user_id, description FROM places"
+        "DROP TABLE places"
+        "ALTER TABLE places_new RENAME TO places"
+
+        "CREATE TABLE projects_new (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           name TEXT NOT NULL UNIQUE,
+           user_id INTEGER REFERENCES users(id),
+           description TEXT DEFAULT ''
+         )"
+        "INSERT INTO projects_new (id, name, user_id, description) SELECT id, name, user_id, description FROM projects"
+        "DROP TABLE projects"
+        "ALTER TABLE projects_new RENAME TO projects"
+
+        "CREATE TABLE goals_new (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           name TEXT NOT NULL UNIQUE,
+           user_id INTEGER REFERENCES users(id),
+           description TEXT DEFAULT ''
+         )"
+        "INSERT INTO goals_new (id, name, user_id, description) SELECT id, name, user_id, description FROM goals"
+        "DROP TABLE goals"
+        "ALTER TABLE goals_new RENAME TO goals"]
+ :transactions false}

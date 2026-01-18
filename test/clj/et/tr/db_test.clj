@@ -317,3 +317,32 @@
     (let [task (db/add-task *ds* nil "Task")
           result (db/set-task-due-date *ds* nil (:id task) "2026-05-01")]
       (is (some? (:modified_at result))))))
+
+(deftest category-name-unique-per-user-test
+  (testing "different users can have categories with the same name"
+    (let [user1 (db/create-user *ds* "user1" "pass1")
+          user2 (db/create-user *ds* "user2" "pass2")
+          user1-id (:id user1)
+          user2-id (:id user2)]
+      (db/add-person *ds* user1-id "John")
+      (db/add-person *ds* user2-id "John")
+      (db/add-place *ds* user1-id "Office")
+      (db/add-place *ds* user2-id "Office")
+      (db/add-project *ds* user1-id "Alpha")
+      (db/add-project *ds* user2-id "Alpha")
+      (db/add-goal *ds* user1-id "Launch")
+      (db/add-goal *ds* user2-id "Launch")
+      (is (= ["John"] (map :name (db/list-people *ds* user1-id))))
+      (is (= ["John"] (map :name (db/list-people *ds* user2-id))))
+      (is (= ["Office"] (map :name (db/list-places *ds* user1-id))))
+      (is (= ["Office"] (map :name (db/list-places *ds* user2-id))))
+      (is (= ["Alpha"] (map :name (db/list-projects *ds* user1-id))))
+      (is (= ["Alpha"] (map :name (db/list-projects *ds* user2-id))))
+      (is (= ["Launch"] (map :name (db/list-goals *ds* user1-id))))
+      (is (= ["Launch"] (map :name (db/list-goals *ds* user2-id))))))
+
+  (testing "same user cannot have duplicate category names"
+    (let [user (db/create-user *ds* "testuser" "pass")
+          user-id (:id user)]
+      (db/add-person *ds* user-id "Alice")
+      (is (thrown? Exception (db/add-person *ds* user-id "Alice"))))))
