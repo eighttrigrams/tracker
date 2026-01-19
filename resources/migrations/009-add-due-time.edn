@@ -1,0 +1,3 @@
+{:id "009-add-due-time"
+ :up ["ALTER TABLE tasks ADD COLUMN due_time TEXT"]
+ :down ["ALTER TABLE tasks DROP COLUMN due_time"]}

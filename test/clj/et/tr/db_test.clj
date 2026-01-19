@@ -318,6 +318,59 @@
           result (db/set-task-due-date *ds* nil (:id task) "2026-05-01")]
       (is (some? (:modified_at result))))))
 
+(deftest set-task-due-time-test
+  (testing "sets due time on task"
+    (let [task (db/add-task *ds* nil "Task with due time")]
+      (db/set-task-due-date *ds* nil (:id task) "2026-01-15")
+      (let [result (db/set-task-due-time *ds* nil (:id task) "14:30")]
+        (is (= (:id task) (:id result)))
+        (is (= "14:30" (:due_time result)))
+        (is (= "2026-01-15" (:due_date result))))))
+
+  (testing "clears due time when nil"
+    (let [task (db/add-task *ds* nil "Another task")]
+      (db/set-task-due-date *ds* nil (:id task) "2026-01-20")
+      (db/set-task-due-time *ds* nil (:id task) "09:00")
+      (let [result (db/set-task-due-time *ds* nil (:id task) nil)]
+        (is (nil? (:due_time result)))
+        (is (= "2026-01-20" (:due_date result))))))
+
+  (testing "updates modified_at"
+    (let [task (db/add-task *ds* nil "Task")]
+      (db/set-task-due-date *ds* nil (:id task) "2026-01-15")
+      (let [result (db/set-task-due-time *ds* nil (:id task) "10:00")]
+        (is (some? (:modified_at result)))))))
+
+(deftest set-due-date-clears-time-when-nil-test
+  (testing "clearing due date also clears due time (prevents orphaned times)"
+    (let [task (db/add-task *ds* nil "Task with date and time")]
+      (db/set-task-due-date *ds* nil (:id task) "2026-01-15")
+      (db/set-task-due-time *ds* nil (:id task) "14:30")
+      (let [with-time (first (db/list-tasks *ds* nil))]
+        (is (= "14:30" (:due_time with-time)))
+        (is (= "2026-01-15" (:due_date with-time))))
+      (let [result (db/set-task-due-date *ds* nil (:id task) nil)]
+        (is (nil? (:due_date result)))
+        (is (nil? (:due_time result))))))
+
+  (testing "setting a new due date preserves existing time"
+    (let [task (db/add-task *ds* nil "Task")]
+      (db/set-task-due-date *ds* nil (:id task) "2026-01-15")
+      (db/set-task-due-time *ds* nil (:id task) "14:30")
+      (let [result (db/set-task-due-date *ds* nil (:id task) "2026-02-20")]
+        (is (= "2026-02-20" (:due_date result)))
+        (is (= "14:30" (:due_time result)))))))
+
+(deftest list-tasks-includes-due-time-test
+  (testing "list-tasks returns due_time field"
+    (let [task (db/add-task *ds* nil "Task with time")]
+      (db/set-task-due-date *ds* nil (:id task) "2026-01-15")
+      (db/set-task-due-time *ds* nil (:id task) "09:30")
+      (let [tasks (db/list-tasks *ds* nil)
+            retrieved (first tasks)]
+        (is (= "09:30" (:due_time retrieved)))
+        (is (= "2026-01-15" (:due_date retrieved)))))))
+
 (deftest category-name-unique-per-user-test
   (testing "different users can have categories with the same name"
     (let [user1 (db/create-user *ds* "user1" "pass1")

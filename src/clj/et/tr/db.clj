@@ -91,7 +91,7 @@
                         "ORDER BY modified_at DESC")
          query-params (if user-id [user-id] [])
          tasks (jdbc/execute! conn
-                 (into [(str "SELECT id, title, description, created_at, modified_at, due_date, sort_order, done FROM tasks " where-clause " " order-clause)] query-params)
+                 (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done FROM tasks " where-clause " " order-clause)] query-params)
                  {:builder-fn rs/as-unqualified-maps})
          task-ids (mapv :id tasks)
          categories (when (seq task-ids)
@@ -330,9 +330,19 @@
 
 (defn set-task-due-date [ds user-id task-id due-date]
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        update-clause (if (nil? due-date)
+                        "UPDATE tasks SET due_date = ?, due_time = NULL, modified_at = datetime('now')"
+                        "UPDATE tasks SET due_date = ?, modified_at = datetime('now')")
         query-params (if user-id [due-date task-id user-id] [due-date task-id])]
     (jdbc/execute-one! (get-conn ds)
-      (into [(str "UPDATE tasks SET due_date = ?, modified_at = datetime('now') WHERE id = ? AND " user-filter " RETURNING id, due_date, modified_at")] query-params)
+      (into [(str update-clause " WHERE id = ? AND " user-filter " RETURNING id, due_date, due_time, modified_at")] query-params)
+      {:builder-fn rs/as-unqualified-maps})))
+
+(defn set-task-due-time [ds user-id task-id due-time]
+  (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [due-time task-id user-id] [due-time task-id])]
+    (jdbc/execute-one! (get-conn ds)
+      (into [(str "UPDATE tasks SET due_time = ?, modified_at = datetime('now') WHERE id = ? AND " user-filter " RETURNING id, due_date, due_time, modified_at")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn delete-task [ds user-id task-id]

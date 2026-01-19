@@ -198,19 +198,28 @@
       border-radius: 4px;
       opacity: 0.6;
     }
-    .edit-icon:hover, .calendar-icon:hover { opacity: 1; background: var(--surface-subtle); transform: none; }
-    .date-picker-wrapper {
+    .edit-icon:hover, .calendar-icon:hover, .clock-icon:hover { opacity: 1; background: var(--surface-subtle); transform: none; }
+    .date-picker-wrapper, .time-picker-wrapper {
       display: inline-flex;
       align-items: center;
       position: relative;
     }
-    .date-picker-input {
+    .date-picker-input, .time-picker-input {
       position: absolute;
       opacity: 0;
       width: 1px;
       height: 1px;
       pointer-events: none;
       padding: 0;
+    }
+    .clock-icon {
+      padding: 2px 6px;
+      font-size: 0.85em;
+      background: transparent;
+      color: var(--text-secondary);
+      border: none;
+      border-radius: 4px;
+      opacity: 0.6;
     }
     .due-date {
       color: var(--accent);
@@ -465,6 +474,10 @@
     .today-task-item .task-title {
       font-weight: 500;
       color: var(--text-primary);
+    }
+    .task-time {
+      color: var(--accent);
+      margin-right: 8px;
     }
     .today-task-item .task-date {
       font-size: 0.85em;

@@ -100,11 +100,15 @@
 (defn today-task-item [task & {:keys [show-day-of-week] :or {show-day-of-week false}}]
   [:div.today-task-item
    [:div.today-task-content
-    [:span.task-title (:title task)]
+    [:span.task-title
+     (when (seq (:due_time task))
+       [:span.task-time (:due_time task)])
+     (:title task)]
     [task-category-badges task]]
-   [:span.task-date (if show-day-of-week
-                      (state/format-date-with-day (:due_date task))
-                      (:due_date task))]])
+   [:span.task-date
+    (if show-day-of-week
+      (state/format-date-with-day (:due_date task))
+      (:due_date task))]])
 
 (defn horizon-selector []
   (let [horizon (:upcoming-horizon @state/app-state)]
@@ -553,6 +557,8 @@
              [:div.item-header
               {:on-click #(state/toggle-expanded (:id task))}
               [:div.item-title
+               (when (seq (:due_time task))
+                 [:span.task-time (:due_time task)])
                (:title task)
                (when is-expanded
                  [:<>
@@ -571,7 +577,20 @@
                    [:button.calendar-icon {:on-click (fn [e]
                                                        (.stopPropagation e)
                                                        (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-                    "📅"]]])]
+                    "📅"]]
+                  (when (:due_date task)
+                    [:span.time-picker-wrapper
+                     {:on-click #(.stopPropagation %)}
+                     [:input.time-picker-input
+                      {:type "time"
+                       :value (or (:due_time task) "")
+                       :on-change (fn [e]
+                                    (let [v (.. e -target -value)]
+                                      (state/set-task-due-time (:id task) (when (seq v) v))))}]
+                     [:button.clock-icon {:on-click (fn [e]
+                                                      (.stopPropagation e)
+                                                      (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+                      "🕐"]])])]
               [:div.item-date
                (when (:due_date task)
                  (let [today (state/today-str)

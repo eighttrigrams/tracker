@@ -569,11 +569,28 @@
                 (swap! app-state update :tasks
                        (fn [tasks]
                          (mapv #(if (= (:id %) task-id)
-                                  (assoc % :due_date (:due_date result) :modified_at (:modified_at result))
+                                  (assoc % :due_date (:due_date result) :due_time (:due_time result) :modified_at (:modified_at result))
                                   %)
                                tasks))))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due date")))}))
+
+(defn set-task-due-time [task-id due-time]
+  (PUT (str "/api/tasks/" task-id "/due-time")
+    {:params {:due-time due-time}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [result]
+                (swap! app-state update :tasks
+                       (fn [tasks]
+                         (mapv #(if (= (:id %) task-id)
+                                  (assoc % :due_date (:due_date result) :due_time (:due_time result) :modified_at (:modified_at result))
+                                  %)
+                               tasks))))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due time")))}))
 
 (defn set-confirm-delete-task [task]
   (swap! app-state assoc :confirm-delete-task task))
