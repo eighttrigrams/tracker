@@ -332,6 +332,20 @@
         result (db/set-task-due-date (ensure-ds) user-id task-id due-date)]
     {:status 200 :body result}))
 
+(defn valid-time-format? [time-str]
+  (or (nil? time-str)
+      (empty? time-str)
+      (re-matches #"^([01]\d|2[0-3]):([0-5]\d)$" time-str)))
+
+(defn set-due-time-handler [req]
+  (let [user-id (get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [due-time]} (:body req)]
+    (if (valid-time-format? due-time)
+      (let [result (db/set-task-due-time (ensure-ds) user-id task-id due-time)]
+        {:status 200 :body result})
+      {:status 400 :body {:error "Invalid time format. Use HH:MM (24-hour format)"}})))
+
 (defn set-task-done-handler [req]
   (if-not (contains? (:body req) :done)
     {:status 400 :body {:error "Missing required field: done"}}
@@ -437,6 +451,7 @@
     (DELETE "/tasks/:id/categorize" [] uncategorize-task-handler)
     (POST "/tasks/:id/reorder" [] reorder-task-handler)
     (PUT "/tasks/:id/due-date" [] set-due-date-handler)
+    (PUT "/tasks/:id/due-time" [] set-due-time-handler)
     (PUT "/tasks/:id/done" [] set-task-done-handler)
     (GET "/people" [] list-people-handler)
     (POST "/people" [] add-person-handler)
