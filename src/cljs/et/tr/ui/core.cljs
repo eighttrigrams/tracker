@@ -518,7 +518,9 @@
 (defn tasks-list []
   (let [{:keys [people places projects goals expanded-task editing-task sort-mode drag-task drag-over-task]} @state/app-state
         tasks (state/filtered-tasks)
-        manual-mode? (= sort-mode :manual)]
+        manual-mode? (= sort-mode :manual)
+        due-date-mode? (= sort-mode :due-date)
+        done-mode? (= sort-mode :done)]
     [:ul.items
      (for [task tasks]
        (let [is-expanded (= expanded-task (:id task))
@@ -592,11 +594,12 @@
                                                       (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
                       "🕐"]])])]
               [:div.item-date
-               (when (:due_date task)
+               (when (and (:due_date task) (not done-mode?))
                  (let [today (state/today-str)
                        overdue? (< (:due_date task) today)]
                    [:span.due-date {:class (when overdue? "overdue")} (state/format-date-with-day (:due_date task))]))
-               [:span (:modified_at task)]]]
+               (when-not due-date-mode?
+                 [:span (:modified_at task)])]]
              (if is-expanded
                [:div.item-details
                 (when (seq (:description task))
