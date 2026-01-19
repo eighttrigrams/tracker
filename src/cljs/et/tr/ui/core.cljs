@@ -793,7 +793,12 @@
        [:span.settings-label (t :settings/role)]
        [:span.settings-value (if is-admin (t :settings/role-admin) (t :settings/role-user))]]
       (when-not is-admin
-        [language-selector])]]))
+        [language-selector])]
+     [:div.manage-section.settings-section
+      [:h3 (t :settings/data)]
+      [:div.settings-item
+       [:button.export-btn {:on-click #(state/export-data)}
+        (t :settings/export-data)]]]]))
 
 (defn user-info []
   (let [current-user (:current-user @state/app-state)

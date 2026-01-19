@@ -375,3 +375,78 @@
     (jdbc/execute-one! (get-conn ds)
       ["UPDATE users SET language = ? WHERE id = ? RETURNING id, language" language user-id]
       {:builder-fn rs/as-unqualified-maps})))
+
+(defn- query-categories-chunked [conn task-ids]
+  (if (empty? task-ids)
+    []
+    (let [chunk-size 500
+          chunks (partition-all chunk-size task-ids)]
+      (mapcat (fn [chunk]
+                (jdbc/execute! conn
+                  (into [(str "SELECT task_id, category_type, category_id FROM task_categories WHERE task_id IN ("
+                              (clojure.string/join "," (repeat (count chunk) "?"))
+                              ")")] chunk)
+                  {:builder-fn rs/as-unqualified-maps}))
+              chunks))))
+
+(defn- normalize-task [task]
+  (-> task
+      (update :description #(or % ""))
+      (update :sort_order #(or % 0.0))
+      (update :due_time #(when (and % (not= % "")) %))))
+
+(defn export-all-data [ds user-id]
+  (let [conn (get-conn ds)
+        user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        query-params (if user-id [user-id] [])
+        tasks (jdbc/execute! conn
+                (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done FROM tasks WHERE " user-filter " ORDER BY created_at")] query-params)
+                {:builder-fn rs/as-unqualified-maps})
+        task-ids (mapv :id tasks)
+        categories (query-categories-chunked conn task-ids)
+        people (jdbc/execute! conn
+                 (into [(str "SELECT id, name, description, sort_order FROM people WHERE " user-filter " ORDER BY sort_order ASC, name ASC")] query-params)
+                 {:builder-fn rs/as-unqualified-maps})
+        places (jdbc/execute! conn
+                 (into [(str "SELECT id, name, description, sort_order FROM places WHERE " user-filter " ORDER BY sort_order ASC, name ASC")] query-params)
+                 {:builder-fn rs/as-unqualified-maps})
+        projects (jdbc/execute! conn
+                   (into [(str "SELECT id, name, description, sort_order FROM projects WHERE " user-filter " ORDER BY sort_order ASC, name ASC")] query-params)
+                   {:builder-fn rs/as-unqualified-maps})
+        goals (jdbc/execute! conn
+                (into [(str "SELECT id, name, description, sort_order FROM goals WHERE " user-filter " ORDER BY sort_order ASC, name ASC")] query-params)
+                {:builder-fn rs/as-unqualified-maps})
+        people-by-id (into {} (map (juxt :id identity) people))
+        places-by-id (into {} (map (juxt :id identity) places))
+        projects-by-id (into {} (map (juxt :id identity) projects))
+        goals-by-id (into {} (map (juxt :id identity) goals))
+        categories-by-task (group-by :task_id categories)
+        tasks-with-categories (mapv (fn [task]
+                                      (let [task-categories (get categories-by-task (:id task) [])
+                                            task-people (->> task-categories
+                                                             (filter #(= (:category_type %) "person"))
+                                                             (keep #(when-let [p (people-by-id (:category_id %))]
+                                                                      {:id (:id p) :name (:name p)})))
+                                            task-places (->> task-categories
+                                                             (filter #(= (:category_type %) "place"))
+                                                             (keep #(when-let [p (places-by-id (:category_id %))]
+                                                                      {:id (:id p) :name (:name p)})))
+                                            task-projects (->> task-categories
+                                                               (filter #(= (:category_type %) "project"))
+                                                               (keep #(when-let [p (projects-by-id (:category_id %))]
+                                                                        {:id (:id p) :name (:name p)})))
+                                            task-goals (->> task-categories
+                                                            (filter #(= (:category_type %) "goal"))
+                                                            (keep #(when-let [p (goals-by-id (:category_id %))]
+                                                                     {:id (:id p) :name (:name p)})))]
+                                        (-> (normalize-task task)
+                                            (assoc :people (vec task-people)
+                                                   :places (vec task-places)
+                                                   :projects (vec task-projects)
+                                                   :goals (vec task-goals)))))
+                                    tasks)]
+    {:tasks tasks-with-categories
+     :people people
+     :places places
+     :projects projects
+     :goals goals}))

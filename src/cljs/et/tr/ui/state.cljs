@@ -1019,3 +1019,26 @@
                   (save-auth-to-storage token user)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update language")))}))
+
+(defn export-data []
+  (let [headers (auth-headers)
+        url "/api/export"]
+    (-> (js/fetch url (clj->js {:method "GET"
+                                 :headers headers}))
+        (.then (fn [response]
+                 (if (.-ok response)
+                   (-> (.blob response)
+                       (.then (fn [blob]
+                                (let [content-disposition (or (.get (.-headers response) "content-disposition") "")
+                                      filename (if-let [match (re-find #"filename=\"([^\"]+)\"" content-disposition)]
+                                                 (second match)
+                                                 "export.zip")
+                                      url (js/URL.createObjectURL blob)
+                                      a (.createElement js/document "a")]
+                                  (set! (.-href a) url)
+                                  (set! (.-download a) filename)
+                                  (.click a)
+                                  (js/URL.revokeObjectURL url)))))
+                   (swap! app-state assoc :error "Failed to export data"))))
+        (.catch (fn [_]
+                  (swap! app-state assoc :error "Failed to export data"))))))
