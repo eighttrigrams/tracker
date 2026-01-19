@@ -96,7 +96,9 @@
   :settings/language "Language"
   :settings/language-en "English"
   :settings/language-de "German"
-  :settings/language-pt "Portuguese"}
+  :settings/language-pt "Portuguese"
+  :settings/data "Data"
+  :settings/export-data "Export All Data"}
 
  :de
  {:date/sunday "Sonntag"
@@ -196,7 +198,9 @@
   :settings/language "Sprache"
   :settings/language-en "Englisch"
   :settings/language-de "Deutsch"
-  :settings/language-pt "Portugiesisch"}
+  :settings/language-pt "Portugiesisch"
+  :settings/data "Daten"
+  :settings/export-data "Alle Daten exportieren"}
 
  :pt
  {:date/sunday "Domingo"
@@ -296,4 +300,6 @@
   :settings/language "Idioma"
   :settings/language-en "Inglês"
   :settings/language-de "Alemão"
-  :settings/language-pt "Português"}}
+  :settings/language-pt "Português"
+  :settings/data "Dados"
+  :settings/export-data "Exportar todos os dados"}}
