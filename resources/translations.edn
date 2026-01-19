@@ -1,5 +1,13 @@
 {:en
- {:nav/today "Today"
+ {:date/sunday "Sunday"
+  :date/monday "Monday"
+  :date/tuesday "Tuesday"
+  :date/wednesday "Wednesday"
+  :date/thursday "Thursday"
+  :date/friday "Friday"
+  :date/saturday "Saturday"
+
+  :nav/today "Today"
   :nav/tasks "Tasks"
   :nav/people-places "People & Places"
   :nav/projects-goals "Projects & Goals"
@@ -91,7 +99,15 @@
   :settings/language-pt "Portuguese"}
 
  :de
- {:nav/today "Heute"
+ {:date/sunday "Sonntag"
+  :date/monday "Montag"
+  :date/tuesday "Dienstag"
+  :date/wednesday "Mittwoch"
+  :date/thursday "Donnerstag"
+  :date/friday "Freitag"
+  :date/saturday "Samstag"
+
+  :nav/today "Heute"
   :nav/tasks "Aufgaben"
   :nav/people-places "Personen & Orte"
   :nav/projects-goals "Projekte & Ziele"
@@ -183,7 +199,15 @@
   :settings/language-pt "Portugiesisch"}
 
  :pt
- {:nav/today "Hoje"
+ {:date/sunday "Domingo"
+  :date/monday "Segunda-feira"
+  :date/tuesday "Terça-feira"
+  :date/wednesday "Quarta-feira"
+  :date/thursday "Quinta-feira"
+  :date/friday "Sexta-feira"
+  :date/saturday "Sábado"
+
+  :nav/today "Hoje"
   :nav/tasks "Tarefas"
   :nav/people-places "Pessoas e Lugares"
   :nav/projects-goals "Projetos e Objetivos"

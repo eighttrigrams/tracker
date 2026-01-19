@@ -664,9 +664,35 @@
   (.substring (.toISOString (js/Date.)) 0 10))
 
 (defn add-days [date-str days]
-  (let [d (js/Date. date-str)]
+  (let [d (js/Date. (str date-str "T12:00:00"))]
     (.setDate d (+ (.getDate d) days))
     (.substring (.toISOString d) 0 10)))
+
+(defn day-of-week [date-str]
+  (let [d (js/Date. (str date-str "T12:00:00"))]
+    (.getDay d)))
+
+(defn- day-number->translation-key [day-num]
+  (case day-num
+    0 :date/sunday
+    1 :date/monday
+    2 :date/tuesday
+    3 :date/wednesday
+    4 :date/thursday
+    5 :date/friday
+    6 :date/saturday
+    nil))
+
+(defn format-date-with-day [date-str]
+  (when date-str
+    (if-let [day-key (day-number->translation-key (day-of-week date-str))]
+      (str date-str ", " (i18n/t day-key))
+      date-str)))
+
+(defn today-formatted []
+  (let [today (today-str)
+        day-key (day-number->translation-key (day-of-week today))]
+    (str (i18n/t :today/today) ", " today ", " (i18n/t day-key))))
 
 (def horizon-order [:three-days :week :month :three-months :year :eighteen-months])
 

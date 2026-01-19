@@ -97,12 +97,14 @@
          ^{:key (str (:type category) "-" (:id category))}
          [:span.tag {:class (:type category)} (:name category)])])))
 
-(defn today-task-item [task]
+(defn today-task-item [task & {:keys [show-day-of-week] :or {show-day-of-week false}}]
   [:div.today-task-item
    [:div.today-task-content
     [:span.task-title (:title task)]
     [task-category-badges task]]
-   [:span.task-date (:due_date task)]])
+   [:span.task-date (if show-day-of-week
+                      (state/format-date-with-day (:due_date task))
+                      (:due_date task))]])
 
 (defn horizon-selector []
   (let [horizon (:upcoming-horizon @state/app-state)]
@@ -216,7 +218,7 @@
             [today-task-item task])]
          [:p.empty-message (t :today/no-overdue)])]
       [:div.today-section.today
-       [:h3 (t :today/today)]
+       [:h3 (state/today-formatted)]
        (if (seq today)
          [:div.task-list
           (for [task today]
@@ -231,7 +233,7 @@
          [:div.task-list
           (for [task upcoming]
             ^{:key (:id task)}
-            [today-task-item task])]
+            [today-task-item task :show-day-of-week true])]
          [:p.empty-message (t :today/no-upcoming)])]]]))
 
 (defn search-filter []
