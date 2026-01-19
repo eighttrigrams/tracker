@@ -709,7 +709,7 @@
 (defn today-formatted []
   (let [today (today-str)
         day-key (day-number->translation-key (day-of-week today))]
-    (str (i18n/t :today/today) ", " today ", " (i18n/t day-key))))
+    (str (i18n/t :today/today) ", " (i18n/t day-key) ", " today)))
 
 (def horizon-order [:three-days :week :month :three-months :year :eighteen-months])
 
