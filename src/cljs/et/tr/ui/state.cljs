@@ -706,6 +706,18 @@
       (str date-str ", " (i18n/t day-key))
       date-str)))
 
+(defn get-day-name [date-str]
+  (when date-str
+    (when-let [day-key (day-number->translation-key (day-of-week date-str))]
+      (i18n/t day-key))))
+
+(defn within-days? [date-str days]
+  (when date-str
+    (let [today (today-str)
+          end-date (add-days today days)]
+      (and (> date-str today)
+           (<= date-str end-date)))))
+
 (defn today-formatted []
   (let [today (today-str)
         day-key (day-number->translation-key (day-of-week today))]

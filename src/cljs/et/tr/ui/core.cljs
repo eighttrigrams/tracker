@@ -97,18 +97,22 @@
          ^{:key (str (:type category) "-" (:id category))}
          [:span.tag {:class (:type category)} (:name category)])])))
 
-(defn today-task-item [task & {:keys [show-day-of-week] :or {show-day-of-week false}}]
-  [:div.today-task-item
-   [:div.today-task-content
-    [:span.task-title
-     (when (seq (:due_time task))
-       [:span.task-time (:due_time task)])
-     (:title task)]
-    [task-category-badges task]]
-   [:span.task-date
-    (if show-day-of-week
-      (state/format-date-with-day (:due_date task))
-      (:due_date task))]])
+(defn today-task-item [task & {:keys [show-day-of-week show-day-prefix] :or {show-day-of-week false show-day-prefix false}}]
+  (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))]
+    [:div.today-task-item
+     [:div.today-task-content
+      [:span.task-title
+       (when show-prefix?
+         [:span.task-day-prefix (state/get-day-name (:due_date task))])
+       (when (seq (:due_time task))
+         [:span.task-time (:due_time task)])
+       (:title task)]
+      [task-category-badges task]]
+     [:span.task-date
+      (cond
+        show-prefix? (:due_date task)
+        show-day-of-week (state/format-date-with-day (:due_date task))
+        :else (:due_date task))]]))
 
 (defn horizon-selector []
   (let [horizon (:upcoming-horizon @state/app-state)]
@@ -237,7 +241,7 @@
          [:div.task-list
           (for [task upcoming]
             ^{:key (:id task)}
-            [today-task-item task :show-day-of-week true])]
+            [today-task-item task :show-day-of-week true :show-day-prefix true])]
          [:p.empty-message (t :today/no-upcoming)])]]]))
 
 (defn search-filter []
