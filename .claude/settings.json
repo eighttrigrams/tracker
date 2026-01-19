@@ -16,7 +16,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(gh issue list:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Skill(architecture-review)",
+      "Skill(data-consistency-review)",
+      "Skill(security-review)"
     ],
     "ask": [
       "Bash(git push:*)"

@@ -340,7 +340,8 @@
 
 (defn set-task-due-time [ds user-id task-id due-time]
   (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
-        query-params (if user-id [due-time task-id user-id] [due-time task-id])]
+        normalized-time (if (empty? due-time) nil due-time)
+        query-params (if user-id [normalized-time task-id user-id] [normalized-time task-id])]
     (jdbc/execute-one! (get-conn ds)
       (into [(str "UPDATE tasks SET due_time = ?, modified_at = datetime('now') WHERE id = ? AND " user-filter " RETURNING id, due_date, due_time, modified_at")] query-params)
       {:builder-fn rs/as-unqualified-maps})))

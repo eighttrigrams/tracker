@@ -757,6 +757,10 @@
 (defn- sort-by-date-and-time [tasks]
   (sort-by (juxt :due_date #(if (:due_time %) 1 0) :due_time) tasks))
 
+;; Note: Backend also sorts by date+time in :due-date mode (db.clj).
+;; Frontend re-sorts because Today view applies exclusion filters after fetch,
+;; and we need consistent ordering regardless of how tasks arrived in state.
+
 (defn overdue-tasks []
   (let [today (today-str)]
     (->> (:tasks @app-state)
