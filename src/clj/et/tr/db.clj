@@ -86,7 +86,7 @@
                         (str "WHERE " user-filter " AND done = 0"))
          order-clause (case sort-mode
                         :manual "ORDER BY sort_order ASC, created_at DESC"
-                        :due-date "ORDER BY due_date ASC"
+                        :due-date "ORDER BY due_date ASC, due_time IS NOT NULL, due_time ASC"
                         :done "ORDER BY modified_at DESC"
                         "ORDER BY modified_at DESC")
          query-params (if user-id [user-id] [])

@@ -754,20 +754,23 @@
         filtered-tasks (apply-today-exclusion-filter tasks)]
     (swap! app-state assoc :upcoming-horizon (calculate-best-horizon filtered-tasks))))
 
+(defn- sort-by-date-and-time [tasks]
+  (sort-by (juxt :due_date #(if (:due_time %) 1 0) :due_time) tasks))
+
 (defn overdue-tasks []
   (let [today (today-str)]
     (->> (:tasks @app-state)
          (filter #(and (:due_date %)
                        (< (:due_date %) today)))
          (apply-today-exclusion-filter)
-         (sort-by :due_date))))
+         (sort-by-date-and-time))))
 
 (defn today-tasks []
   (let [today (today-str)]
     (->> (:tasks @app-state)
          (filter #(= (:due_date %) today))
          (apply-today-exclusion-filter)
-         (sort-by :due_date))))
+         (sort-by-date-and-time))))
 
 (defn upcoming-tasks []
   (let [today (today-str)
@@ -778,7 +781,7 @@
                        (> (:due_date %) today)
                        (<= (:due_date %) end-date)))
          (apply-today-exclusion-filter)
-         (sort-by :due_date))))
+         (sort-by-date-and-time))))
 
 (defn is-admin? []
   (true? (get-in @app-state [:current-user :is_admin])))
