@@ -19,9 +19,15 @@
         true)
       false)))
 
+(defn- env-int [name default]
+  (if-let [v (System/getenv name)]
+    (try (Integer/parseInt v) (catch Exception _ default))
+    default))
+
 (defn wrap-rate-limit
   ([handler]
-   (wrap-rate-limit handler {:max-requests 60 :window-seconds 60}))
+   (wrap-rate-limit handler {:max-requests (env-int "RATE_LIMIT_MAX_REQUESTS" 60)
+                             :window-seconds (env-int "RATE_LIMIT_WINDOW_SECONDS" 60)}))
   ([handler {:keys [max-requests window-seconds]}]
    (let [window-ms (* window-seconds 1000)]
      (fn [request]
