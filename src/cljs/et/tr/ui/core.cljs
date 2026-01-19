@@ -574,9 +574,9 @@
                     "📅"]]])]
               [:div.item-date
                (when (:due_date task)
-                 (let [today (.toISOString (js/Date.))
-                       overdue? (< (:due_date task) (.substring today 0 10))]
-                   [:span.due-date {:class (when overdue? "overdue")} (:due_date task)]))
+                 (let [today (state/today-str)
+                       overdue? (< (:due_date task) today)]
+                   [:span.due-date {:class (when overdue? "overdue")} (state/format-date-with-day (:due_date task))]))
                [:span (:modified_at task)]]]
              (if is-expanded
                [:div.item-details
