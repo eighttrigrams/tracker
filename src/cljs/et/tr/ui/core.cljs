@@ -810,7 +810,7 @@
              [user-switcher-dropdown])]])])))
 
 (defn app []
-  (let [{:keys [auth-required? logged-in? active-tab]} @state/app-state]
+  (let [{:keys [auth-required? logged-in? active-tab sort-mode]} @state/app-state]
     [:div
      [confirm-delete-modal]
      [confirm-delete-user-modal]
@@ -843,7 +843,8 @@
              [:h2 {:title (t :tasks/title-tooltip)} (t :tasks/title)]
              [sort-mode-toggle]]
             [search-filter]
-            [add-task-form]
+            (when-not (= sort-mode :done)
+              [add-task-form])
             [tasks-list]]])])]))
 
 (defn init []
