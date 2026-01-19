@@ -41,7 +41,8 @@
                             :today-page/excluded-places #{}
                             :today-page/excluded-projects #{}
                             :today-page/collapsed-filters #{:places :projects}
-                            :today-page/category-search {:places "" :projects ""}}))
+                            :today-page/category-search {:places "" :projects ""}
+                            :today-page/expanded-task nil}))
 
 (defn auth-headers []
   (let [token (:token @app-state)
@@ -469,6 +470,9 @@
 
 (defn toggle-expanded [task-id]
   (swap! app-state update :expanded-task #(if (= % task-id) nil task-id)))
+
+(defn toggle-today-expanded [task-id]
+  (swap! app-state update :today-page/expanded-task #(if (= % task-id) nil task-id)))
 
 (defn set-editing [task-id]
   (swap! app-state assoc :editing-task task-id))

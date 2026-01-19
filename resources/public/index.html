@@ -457,20 +457,43 @@
     }
     .today-section .section-header h3 { margin: 0; }
     .today-task-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
       padding: 10px 12px;
       background: rgba(255, 255, 255, 0.5);
       border-radius: 8px;
       margin-bottom: 6px;
+      transition: all 0.2s ease;
     }
     .today-task-item:last-child { margin-bottom: 0; }
+    .today-task-item.expanded {
+      background: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+    .today-task-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      cursor: pointer;
+    }
+    .today-task-header:hover { opacity: 0.85; }
     .today-task-content {
       display: flex;
       flex-direction: column;
       gap: 6px;
       flex: 1;
+    }
+    .today-task-details {
+      margin-top: 12px;
+    }
+    .today-task-details .item-description {
+      margin-bottom: 12px;
+    }
+    .today-task-details .task-badges {
+      margin-bottom: 12px;
+    }
+    .today-task-details .item-actions {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
     }
     .today-task-item .task-title {
       font-weight: 500;

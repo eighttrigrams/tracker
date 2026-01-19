@@ -98,21 +98,36 @@
          [:span.tag {:class (:type category)} (:name category)])])))
 
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix] :or {show-day-of-week false show-day-prefix false}}]
-  (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))]
-    [:div.today-task-item
-     [:div.today-task-content
-      [:span.task-title
-       (when show-prefix?
-         [:span.task-day-prefix (state/get-day-name (:due_date task))])
-       (when (seq (:due_time task))
-         [:span.task-time (:due_time task)])
-       (:title task)]
-      [task-category-badges task]]
-     [:span.task-date
-      (cond
-        show-prefix? (:due_date task)
-        show-day-of-week (state/format-date-with-day (:due_date task))
-        :else (:due_date task))]]))
+  (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
+        expanded-task (:today-page/expanded-task @state/app-state)
+        is-expanded (= expanded-task (:id task))]
+    [:div.today-task-item {:class (when is-expanded "expanded")}
+     [:div.today-task-header
+      {:on-click #(state/toggle-today-expanded (:id task))}
+      [:div.today-task-content
+       [:span.task-title
+        (when show-prefix?
+          [:span.task-day-prefix (state/get-day-name (:due_date task))])
+        (when (seq (:due_time task))
+          [:span.task-time (:due_time task)])
+        (:title task)]
+       (when-not is-expanded
+         [task-category-badges task])]
+      [:span.task-date
+       (cond
+         show-prefix? (:due_date task)
+         show-day-of-week (state/format-date-with-day (:due_date task))
+         :else (:due_date task))]]
+     (when is-expanded
+       [:div.today-task-details
+        (when (seq (:description task))
+          [:div.item-description (:description task)])
+        [task-category-badges task]
+        [:div.item-actions
+         (if (= 1 (:done task))
+           [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
+           [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
+         [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])]))
 
 (defn horizon-selector []
   (let [horizon (:upcoming-horizon @state/app-state)]
