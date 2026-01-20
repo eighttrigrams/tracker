@@ -720,7 +720,7 @@
                    [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
                    [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
                  [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]]
-               [task-categories-readonly task])]))))))
+               [task-categories-readonly task])])))))
 
 (defn confirm-delete-modal []
   (when-let [task (:confirm-delete-task @state/app-state)]
