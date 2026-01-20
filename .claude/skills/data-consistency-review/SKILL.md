@@ -5,7 +5,13 @@ description: Data consistency review guidance. Use when reviewing database chang
 
 # Data Consistency Review
 
-## Focus Areas
+## Exports
+
+- User self serviced Backups (export functionality) breaks older backups?
+
+## DB
+
+### Focus Areas
 
 - Migration safety and reversibility
 - Schema soundness and normalization
@@ -14,7 +20,7 @@ description: Data consistency review guidance. Use when reviewing database chang
 - Production data impact assessment
 - Transaction boundaries and atomicity
 
-## Process
+### Process
 
 1. Identify all schema changes and migrations
 2. Assess impact on existing production data
@@ -23,9 +29,9 @@ description: Data consistency review guidance. Use when reviewing database chang
 5. Review rollback strategy
 6. Validate constraint additions against existing data
 
-# Migration Safety
+### Migration Safety
 
-## Before Deploying
+#### Before Deploying
 
 - Can the migration run on production data without failing?
 - Are there NULL values that would violate new NOT NULL constraints?
@@ -33,7 +39,7 @@ description: Data consistency review guidance. Use when reviewing database chang
 - Will foreign key additions find orphaned records?
 - Is the migration small enough to complete without locking issues?
 
-## Destructive Changes
+#### Destructive Changes
 
 Flag these as high-risk:
 
@@ -43,21 +49,21 @@ Flag these as high-risk:
 - Removing or modifying constraints
 - Renaming columns/tables (breaks existing queries)
 
-## Safe Patterns
+#### Safe Patterns
 
 - Add columns as nullable first, backfill, then add constraint
 - Create new table, migrate data, swap references, drop old
 - Use feature flags to decouple deploy from migration
 
-# Schema Soundness
+### Schema Soundness
 
-## Normalization
+### Normalization
 
 - Avoid redundant data that can become inconsistent
 - Use foreign keys to enforce relationships
 - Consider denormalization only with clear justification
 
-## Constraints
+#### Constraints
 
 - Primary keys on all tables
 - Foreign keys for relationships
@@ -65,29 +71,29 @@ Flag these as high-risk:
 - CHECK constraints for domain validation
 - UNIQUE constraints for natural keys
 
-## Indexing
+#### Indexing
 
 - Indexes on foreign keys
 - Indexes on frequently queried columns
 - Composite indexes match query patterns
 - Avoid over-indexing (write performance)
 
-# Production Data Concerns
+### Production Data Concerns
 
-## Data Volume
+#### Data Volume
 
 - Will queries still perform with 10x/100x data?
 - Are there full table scans in migrations?
 - Index creation on large tables may lock
 
-## Edge Cases
+#### Edge Cases
 
 - Empty strings vs NULL handling
 - Zero values vs NULL for numbers
 - Timezone handling for dates
 - Unicode and special characters
 
-## Rollback Strategy
+#### Rollback Strategy
 
 - Can we revert the migration?
 - Is there data loss on rollback?
