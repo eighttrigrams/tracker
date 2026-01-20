@@ -2,7 +2,12 @@
   (:require [reagent.dom :as rdom]
             [reagent.core :as r]
             [et.tr.ui.state :as state]
-            [et.tr.i18n :as i18n :refer [t tf]]))
+            [et.tr.i18n :as i18n :refer [t tf]]
+            ["marked" :refer [marked]]))
+
+(defn- markdown [text]
+  [:div.markdown-content
+   {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
 
 (def ^:private tasks-category-shortcut-keys
   {"Digit1" :people
@@ -109,9 +114,10 @@
                         (map #(assoc % :type "goal") (:goals task)))]
     (when (seq all-categories)
       [:div.task-badges
-       (for [category all-categories]
-         ^{:key (str (:type category) "-" (:id category))}
-         [:span.tag {:class (:type category)} (:name category)])])))
+       (doall
+        (for [category all-categories]
+          ^{:key (str (:type category) "-" (:id category))}
+          [:span.tag {:class (:type category)} (:name category)]))])))
 
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix] :or {show-day-of-week false show-day-prefix false}}]
   (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
@@ -137,7 +143,7 @@
      (when is-expanded
        [:div.today-task-details
         (when (seq (:description task))
-          [:div.item-description (:description task)])
+          [:div.item-description [markdown (:description task)]])
         [task-category-badges task]
         [:div.item-actions
          (if (= 1 (:done task))
@@ -255,16 +261,18 @@
         [:div.today-section.overdue
          [:h3 (t :today/overdue)]
          [:div.task-list
-          (for [task overdue]
-            ^{:key (:id task)}
-            [today-task-item task])]])
+          (doall
+           (for [task overdue]
+             ^{:key (:id task)}
+             [today-task-item task]))]])
       [:div.today-section.today
        [:h3 (state/today-formatted)]
        (if (seq today)
          [:div.task-list
-          (for [task today]
-            ^{:key (:id task)}
-            [today-task-item task])]
+          (doall
+           (for [task today]
+             ^{:key (:id task)}
+             [today-task-item task]))]
          [:p.empty-message (t :today/no-today)])]
       [:div.today-section.upcoming
        [:div.section-header
@@ -272,9 +280,10 @@
         [horizon-selector]]
        (if (seq upcoming)
          [:div.task-list
-          (for [task upcoming]
-            ^{:key (:id task)}
-            [today-task-item task :show-day-of-week true :show-day-prefix true])]
+          (doall
+           (for [task upcoming]
+             ^{:key (:id task)}
+             [today-task-item task :show-day-of-week true :show-day-prefix true]))]
          [:p.empty-message (t :today/no-upcoming)])]]]))
 
 (defn search-filter []
@@ -429,7 +438,7 @@
                            (state/reorder-category state-key (:id drag-cat) (:id item) position))))}
        [:span.category-name (:name item)]
        (when (seq (:description item))
-         [:span.category-description (:description item)])])))
+         [:span.category-description [markdown (:description item)]])])))
 
 (defn people-places-tab []
   (let [{:keys [people places]} @state/app-state]
@@ -438,16 +447,18 @@
       [:h3 (t :category/people)]
       [add-entity-form (t :category/add-person) state/add-person]
       [:ul.entity-list
-       (for [person people]
-         ^{:key (:id person)}
-         [category-item person :person state/update-person :people])]]
+       (doall
+        (for [person people]
+          ^{:key (:id person)}
+          [category-item person :person state/update-person :people]))]]
      [:div.manage-section
       [:h3 (t :category/places)]
       [add-entity-form (t :category/add-place) state/add-place]
       [:ul.entity-list
-       (for [place places]
-         ^{:key (:id place)}
-         [category-item place :place state/update-place :places])]]]))
+       (doall
+        (for [place places]
+          ^{:key (:id place)}
+          [category-item place :place state/update-place :places]))]]]))
 
 (defn projects-goals-tab []
   (let [{:keys [projects goals]} @state/app-state]
@@ -456,16 +467,18 @@
       [:h3 (t :category/projects)]
       [add-entity-form (t :category/add-project) state/add-project]
       [:ul.entity-list
-       (for [project projects]
-         ^{:key (:id project)}
-         [category-item project :project state/update-project :projects])]]
+       (doall
+        (for [project projects]
+          ^{:key (:id project)}
+          [category-item project :project state/update-project :projects]))]]
      [:div.manage-section
       [:h3 (t :category/goals)]
       [add-entity-form (t :category/add-goal) state/add-goal]
       [:ul.entity-list
-       (for [goal goals]
-         ^{:key (:id goal)}
-         [category-item goal :goal state/update-goal :goals])]]]))
+       (doall
+        (for [goal goals]
+          ^{:key (:id goal)}
+          [category-item goal :goal state/update-goal :goals]))]]]))
 
 (defn add-user-form []
   (let [username (r/atom "")
@@ -498,13 +511,14 @@
       [:h3 (t :users/title)]
       [add-user-form]
       [:ul.entity-list.user-list
-       (for [user users]
-         ^{:key (:id user)}
-         [:li
-          [:span.username (:username user)]
-          [:button.delete-user-btn
-           {:on-click #(state/set-confirm-delete-user user)}
-           (t :task/delete)]])]]]))
+       (doall
+        (for [user users]
+          ^{:key (:id user)}
+          [:li
+           [:span.username (:username user)]
+           [:button.delete-user-btn
+            {:on-click #(state/set-confirm-delete-user user)}
+            (t :task/delete)]]))]]]))
 
 (defn category-selector [task category-type entities label]
   (let [selector-id (str (:id task) "-" category-type)
@@ -572,14 +586,15 @@
                                  (state/focus-tasks-search))}
                     (:name entity)]))
                 [:div.category-selector-empty (t :category/no-results)])]])]
-         (for [category task-categories]
-           ^{:key (str category-type "-" (:id category))}
-           [:span.tag
-            {:class category-type}
-            (:name category)
-            [:button.remove-tag
-             {:on-click #(state/uncategorize-task (:id task) category-type (:id category))}
-             "x"]])]))))
+         (doall
+          (for [category task-categories]
+            ^{:key (str category-type "-" (:id category))}
+            [:span.tag
+             {:class category-type}
+             (:name category)
+             [:button.remove-tag
+              {:on-click #(state/uncategorize-task (:id task) category-type (:id category))}
+              "x"]]))]))))
 
 (defn task-edit-form [task]
   (let [title (r/atom (:title task))
@@ -612,8 +627,8 @@
         manual-mode? (= sort-mode :manual)
         due-date-mode? (= sort-mode :due-date)
         done-mode? (= sort-mode :done)]
-    [:ul.items
-     (for [task tasks]
+    (into [:ul.items]
+      (for [task tasks]
        (let [is-expanded (= expanded-task (:id task))
              is-editing (= editing-task (:id task))
              is-dragging (= drag-task (:id task))
@@ -694,7 +709,7 @@
              (if is-expanded
                [:div.item-details
                 (when (seq (:description task))
-                  [:div.item-description (:description task)])
+                  [:div.item-description [markdown (:description task)]])
                 [:div.item-tags
                  [category-selector task "person" people (t :category/person)]
                  [category-selector task "place" places (t :category/place)]
@@ -705,7 +720,7 @@
                    [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
                    [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
                  [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]]
-               [task-categories-readonly task])])]))]))
+               [task-categories-readonly task])])))))
 
 (defn confirm-delete-modal []
   (when-let [task (:confirm-delete-task @state/app-state)]
@@ -793,38 +808,42 @@
            [:div.category-group
             [:label (str (t :category/people) ":")]
             [:div.category-tags
-             (for [p (:people @state/app-state)]
-               ^{:key (:id p)}
-               [category-tag-item "person" (:id p) (:name p)
-                (contains? selected-people (:id p))
-                state/update-pending-category])]])
+             (doall
+              (for [p (:people @state/app-state)]
+                ^{:key (:id p)}
+                [category-tag-item "person" (:id p) (:name p)
+                 (contains? selected-people (:id p))
+                 state/update-pending-category]))]])
          (when (seq (:places @state/app-state))
            [:div.category-group
             [:label (str (t :category/places) ":")]
             [:div.category-tags
-             (for [p (:places @state/app-state)]
-               ^{:key (:id p)}
-               [category-tag-item "place" (:id p) (:name p)
-                (contains? selected-places (:id p))
-                state/update-pending-category])]])
+             (doall
+              (for [p (:places @state/app-state)]
+                ^{:key (:id p)}
+                [category-tag-item "place" (:id p) (:name p)
+                 (contains? selected-places (:id p))
+                 state/update-pending-category]))]])
          (when (seq (:projects @state/app-state))
            [:div.category-group
             [:label (str (t :category/projects) ":")]
             [:div.category-tags
-             (for [p (:projects @state/app-state)]
-               ^{:key (:id p)}
-               [category-tag-item "project" (:id p) (:name p)
-                (contains? selected-projects (:id p))
-                state/update-pending-category])]])
+             (doall
+              (for [p (:projects @state/app-state)]
+                ^{:key (:id p)}
+                [category-tag-item "project" (:id p) (:name p)
+                 (contains? selected-projects (:id p))
+                 state/update-pending-category]))]])
          (when (seq (:goals @state/app-state))
            [:div.category-group
             [:label (str (t :category/goals) ":")]
             [:div.category-tags
-             (for [g (:goals @state/app-state)]
-               ^{:key (:id g)}
-               [category-tag-item "goal" (:id g) (:name g)
-                (contains? selected-goals (:id g))
-                state/update-pending-category])]])]
+             (doall
+              (for [g (:goals @state/app-state)]
+                ^{:key (:id g)}
+                [category-tag-item "goal" (:id g) (:name g)
+                 (contains? selected-goals (:id g))
+                 state/update-pending-category]))]])]
         [:div.modal-footer
          [:button.cancel {:on-click #(state/clear-pending-new-task)} (t :modal/cancel)]
          [:button.confirm {:on-click #(state/confirm-pending-new-task)} (t :modal/add-task)]]]])))
@@ -833,12 +852,13 @@
   (let [available-users (:available-users @state/app-state)
         current-user (:current-user @state/app-state)]
     [:div.user-switcher-dropdown
-     (for [user available-users]
-       ^{:key (or (:id user) "admin")}
-       [:div.user-switcher-item
-        {:class (when (= (:id user) (:id current-user)) "active")
-         :on-click #(state/switch-user user)}
-        (:username user)])]))
+     (doall
+      (for [user available-users]
+        ^{:key (or (:id user) "admin")}
+        [:div.user-switcher-item
+         {:class (when (= (:id user) (:id current-user)) "active")
+          :on-click #(state/switch-user user)}
+         (:username user)]))]))
 
 (defn language-selector []
   (let [current-user (:current-user @state/app-state)
