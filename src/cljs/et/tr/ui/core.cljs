@@ -170,10 +170,8 @@
       [:button.collapse-toggle
        {:on-click #(toggle-collapsed-fn filter-key)}
        (if collapsed? ">" "v")]
-      (when shortcut-number
-        [:span.shortcut-number {:title (str "Press Option+" shortcut-number " to toggle")}
-         shortcut-number])
-      (str " " title)
+      [:span.filter-title (when shortcut-number {:title (str "Press Option+" shortcut-number " to toggle")})
+       (if shortcut-number (str shortcut-number " " title) title)]
       (when (seq marked-ids)
         [:button.clear-filter {:on-click clear-fn} "x"])]
      (if collapsed?
