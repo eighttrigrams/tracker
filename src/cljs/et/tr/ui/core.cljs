@@ -4,6 +4,15 @@
             [et.tr.ui.state :as state]
             [et.tr.i18n :as i18n :refer [t tf]]))
 
+(def ^:private category-shortcut-keys
+  {"Digit1" :people
+   "Digit2" :places
+   "Digit3" :projects
+   "Digit4" :goals})
+
+(def ^:private category-shortcut-numbers
+  (into {} (map (fn [[k v]] [v (subs k 5)]) category-shortcut-keys)))
+
 (defn login-form []
   (let [username (r/atom "")
         password (r/atom "")]
@@ -286,8 +295,8 @@
                :on-click #(when (not= sort-mode :done) (state/set-sort-mode :done))}
       (t :tasks/sort-done)]]))
 
-(defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
-  [category-filter-section {:title title
+(defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed? number]}]
+  [category-filter-section {:title (if number (str number " " title) title)
                             :filter-key filter-key
                             :items items
                             :marked-ids selected-ids
@@ -315,28 +324,32 @@
                       :selected-ids filter-people
                       :toggle-fn state/toggle-filter-person
                       :clear-fn state/clear-filter-people
-                      :collapsed? (contains? collapsed-filters :people)}]
+                      :collapsed? (contains? collapsed-filters :people)
+                      :number (category-shortcut-numbers :people)}]
      [filter-section {:title (t :category/places)
                       :filter-key :places
                       :items places
                       :selected-ids filter-places
                       :toggle-fn state/toggle-filter-place
                       :clear-fn state/clear-filter-places
-                      :collapsed? (contains? collapsed-filters :places)}]
+                      :collapsed? (contains? collapsed-filters :places)
+                      :number (category-shortcut-numbers :places)}]
      [filter-section {:title (t :category/projects)
                       :filter-key :projects
                       :items projects
                       :selected-ids filter-projects
                       :toggle-fn state/toggle-filter-project
                       :clear-fn state/clear-filter-projects
-                      :collapsed? (contains? collapsed-filters :projects)}]
+                      :collapsed? (contains? collapsed-filters :projects)
+                      :number (category-shortcut-numbers :projects)}]
      [filter-section {:title (t :category/goals)
                       :filter-key :goals
                       :items goals
                       :selected-ids filter-goals
                       :toggle-fn state/toggle-filter-goal
                       :clear-fn state/clear-filter-goals
-                      :collapsed? (contains? collapsed-filters :goals)}]]))
+                      :collapsed? (contains? collapsed-filters :goals)
+                      :number (category-shortcut-numbers :goals)}]]))
 
 (defn category-edit-form [item category-type update-fn]
   (let [name-val (r/atom (:name item))
@@ -920,6 +933,13 @@
               [add-task-form])
             [tasks-list]]])])]))
 
+(defn- handle-category-shortcut [e]
+  (when (and (.-altKey e)
+             (= :tasks (:active-tab @state/app-state)))
+    (when-let [filter-key (category-shortcut-keys (.-code e))]
+      (.preventDefault e)
+      (state/toggle-filter-collapsed filter-key))))
+
 (defn init []
   (i18n/load-translations!
    (fn []
@@ -928,4 +948,6 @@
                         (fn [_]
                           (when (:category-selector/open @state/app-state)
                             (state/close-category-selector))))
+     (.removeEventListener js/document "keydown" handle-category-shortcut)
+     (.addEventListener js/document "keydown" handle-category-shortcut)
      (rdom/render [app] (.getElementById js/document "app")))))
