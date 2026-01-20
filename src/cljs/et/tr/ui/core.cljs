@@ -264,7 +264,9 @@
      [:input#tasks-search {:type "text"
                            :placeholder (t :tasks/search)
                            :value search-term
-                           :on-change #(state/set-filter-search (-> % .-target .-value))}]
+                           :on-change #(state/set-filter-search (-> % .-target .-value))
+                           :on-key-down #(when (= (.-key %) "Escape")
+                                           (state/set-filter-search ""))}]
      (when (seq search-term)
        [:button.clear-search {:on-click #(state/set-filter-search "")} "x"])]))
 
@@ -913,7 +915,8 @@
              [:h2 {:title (t :tasks/title-tooltip)} (t :tasks/title)]
              [sort-mode-toggle]]
             [search-filter]
-            (when-not (= sort-mode :done)
+            (when (and (not= sort-mode :done)
+                       (empty? (:tasks-page/filter-search @state/app-state)))
               [add-task-form])
             [tasks-list]]])])]))
 
