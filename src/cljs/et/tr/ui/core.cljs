@@ -621,6 +621,74 @@
   [:div.item-tags-readonly
    [task-category-badges task]])
 
+(defn- task-expanded-details [task people places projects goals]
+  [:div.item-details
+   (when (seq (:description task))
+     [:div.item-description [markdown (:description task)]])
+   [:div.item-tags
+    [category-selector task "person" people (t :category/person)]
+    [category-selector task "place" places (t :category/place)]
+    [category-selector task "project" projects (t :category/project)]
+    [category-selector task "goal" goals (t :category/goal)]]
+   [:div.item-actions
+    (if (= 1 (:done task))
+      [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
+      [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
+    [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])
+
+(defn- task-header [task is-expanded done-mode? due-date-mode?]
+  [:div.item-header
+   {:on-click #(state/toggle-expanded (:id task))}
+   [:div.item-title
+    (when (seq (:due_time task))
+      [:span.task-time (:due_time task)])
+    (:title task)
+    (when is-expanded
+      [:<>
+       [:button.edit-icon {:on-click (fn [e]
+                                       (.stopPropagation e)
+                                       (state/set-editing (:id task)))}
+        "✎"]
+       [:span.date-picker-wrapper
+        {:on-click #(.stopPropagation %)}
+        [:input.date-picker-input
+         {:type "date"
+          :value (or (:due_date task) "")
+          :on-change (fn [e]
+                       (let [v (.. e -target -value)]
+                         (state/set-task-due-date (:id task) (when (seq v) v))))}]
+        [:button.calendar-icon {:on-click (fn [e]
+                                            (.stopPropagation e)
+                                            (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+         "📅"]]
+       (when (:due_date task)
+         [:span.time-picker-wrapper
+          {:on-click #(.stopPropagation %)}
+          [:input.time-picker-input
+           {:type "time"
+            :value (or (:due_time task) "")
+            :on-change (fn [e]
+                         (let [v (.. e -target -value)]
+                           (state/set-task-due-time (:id task) (when (seq v) v))))}]
+          [:button.clock-icon {:on-click (fn [e]
+                                           (.stopPropagation e)
+                                           (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+           "🕐"]])])]
+   [:div.item-date
+    (when (and (:due_date task) (not done-mode?))
+      (let [today (state/today-str)
+            overdue? (< (:due_date task) today)]
+        [:span.due-date {:class (when overdue? "overdue")} (state/format-date-with-day (:due_date task))]))
+    (when-not due-date-mode?
+      [:span (:modified_at task)])]])
+
+(defn- task-item-content [task is-expanded people places projects goals done-mode? due-date-mode?]
+  [:div
+   [task-header task is-expanded done-mode? due-date-mode?]
+   (if is-expanded
+     [task-expanded-details task people places projects goals]
+     [task-categories-readonly task])])
+
 (defn tasks-list []
   (let [{:keys [people places projects goals expanded-task editing-task sort-mode drag-task drag-over-task]} @state/app-state
         tasks (state/filtered-tasks)
@@ -629,98 +697,39 @@
         done-mode? (= sort-mode :done)]
     (into [:ul.items]
       (for [task tasks]
-       (let [is-expanded (= expanded-task (:id task))
-             is-editing (= editing-task (:id task))
-             is-dragging (= drag-task (:id task))
-             is-drag-over (= drag-over-task (:id task))]
-         ^{:key (:id task)}
-         [:li {:class (str (when is-expanded "expanded")
-                           (when is-dragging " dragging")
-                           (when is-drag-over " drag-over"))
-               :draggable (and manual-mode? (not is-editing))
-               :on-drag-start (fn [e]
+        (let [is-expanded (= expanded-task (:id task))
+              is-editing (= editing-task (:id task))
+              is-dragging (= drag-task (:id task))
+              is-drag-over (= drag-over-task (:id task))]
+          ^{:key (:id task)}
+          [:li {:class (str (when is-expanded "expanded")
+                            (when is-dragging " dragging")
+                            (when is-drag-over " drag-over"))
+                :draggable (and manual-mode? (not is-editing))
+                :on-drag-start (fn [e]
+                                 (when manual-mode?
+                                   (.setData (.-dataTransfer e) "text/plain" (str (:id task)))
+                                   (state/set-drag-task (:id task))))
+                :on-drag-end (fn [_]
+                               (state/clear-drag-state))
+                :on-drag-over (fn [e]
                                 (when manual-mode?
-                                  (.setData (.-dataTransfer e) "text/plain" (str (:id task)))
-                                  (state/set-drag-task (:id task))))
-               :on-drag-end (fn [_]
-                              (state/clear-drag-state))
-               :on-drag-over (fn [e]
-                               (when manual-mode?
-                                 (.preventDefault e)
-                                 (state/set-drag-over-task (:id task))))
-               :on-drag-leave (fn [_]
-                                (when (= drag-over-task (:id task))
-                                  (state/set-drag-over-task nil)))
-               :on-drop (fn [e]
-                          (.preventDefault e)
-                          (when (and manual-mode? drag-task (not= drag-task (:id task)))
-                            (let [rect (.getBoundingClientRect (.-currentTarget e))
-                                  y (.-clientY e)
-                                  mid-y (+ (.-top rect) (/ (.-height rect) 2))
-                                  position (if (< y mid-y) "before" "after")]
-                              (state/reorder-task drag-task (:id task) position))))}
-          (if is-editing
-            [task-edit-form task]
-            [:div
-             [:div.item-header
-              {:on-click #(state/toggle-expanded (:id task))}
-              [:div.item-title
-               (when (seq (:due_time task))
-                 [:span.task-time (:due_time task)])
-               (:title task)
-               (when is-expanded
-                 [:<>
-                  [:button.edit-icon {:on-click (fn [e]
-                                                  (.stopPropagation e)
-                                                  (state/set-editing (:id task)))}
-                   "✎"]
-                  [:span.date-picker-wrapper
-                   {:on-click #(.stopPropagation %)}
-                   [:input.date-picker-input
-                    {:type "date"
-                     :value (or (:due_date task) "")
-                     :on-change (fn [e]
-                                  (let [v (.. e -target -value)]
-                                    (state/set-task-due-date (:id task) (when (seq v) v))))}]
-                   [:button.calendar-icon {:on-click (fn [e]
-                                                       (.stopPropagation e)
-                                                       (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-                    "📅"]]
-                  (when (:due_date task)
-                    [:span.time-picker-wrapper
-                     {:on-click #(.stopPropagation %)}
-                     [:input.time-picker-input
-                      {:type "time"
-                       :value (or (:due_time task) "")
-                       :on-change (fn [e]
-                                    (let [v (.. e -target -value)]
-                                      (state/set-task-due-time (:id task) (when (seq v) v))))}]
-                     [:button.clock-icon {:on-click (fn [e]
-                                                      (.stopPropagation e)
-                                                      (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-                      "🕐"]])])]
-              [:div.item-date
-               (when (and (:due_date task) (not done-mode?))
-                 (let [today (state/today-str)
-                       overdue? (< (:due_date task) today)]
-                   [:span.due-date {:class (when overdue? "overdue")} (state/format-date-with-day (:due_date task))]))
-               (when-not due-date-mode?
-                 [:span (:modified_at task)])]]
-             (if is-expanded
-               [:div.item-details
-                (when (seq (:description task))
-                  [:div.item-description [markdown (:description task)]])
-                [:div.item-tags
-                 [category-selector task "person" people (t :category/person)]
-                 [category-selector task "place" places (t :category/place)]
-                 [category-selector task "project" projects (t :category/project)]
-                 [category-selector task "goal" goals (t :category/goal)]]
-                [:div.item-actions
-                 (if (= 1 (:done task))
-                   [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
-                   [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
-                 [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]]
-               [task-categories-readonly task])])))))
+                                  (.preventDefault e)
+                                  (state/set-drag-over-task (:id task))))
+                :on-drag-leave (fn [_]
+                                 (when (= drag-over-task (:id task))
+                                   (state/set-drag-over-task nil)))
+                :on-drop (fn [e]
+                           (.preventDefault e)
+                           (when (and manual-mode? drag-task (not= drag-task (:id task)))
+                             (let [rect (.getBoundingClientRect (.-currentTarget e))
+                                   y (.-clientY e)
+                                   mid-y (+ (.-top rect) (/ (.-height rect) 2))
+                                   position (if (< y mid-y) "before" "after")]
+                               (state/reorder-task drag-task (:id task) position))))}
+           (if is-editing
+             [task-edit-form task]
+             [task-item-content task is-expanded people places projects goals done-mode? due-date-mode?])])))))
 
 (defn confirm-delete-modal []
   (when-let [task (:confirm-delete-task @state/app-state)]
