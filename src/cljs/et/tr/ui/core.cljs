@@ -156,7 +156,7 @@
                :on-click #(state/set-upcoming-horizon :eighteen-months)} (t :today/eighteen-months)]]))
 
 (defn category-filter-section
-  [{:keys [title filter-key items marked-ids toggle-fn clear-fn collapsed?
+  [{:keys [title shortcut-number filter-key items marked-ids toggle-fn clear-fn collapsed?
            toggle-collapsed-fn set-search-fn search-state-path
            section-class item-active-class label-class page-prefix]}]
   (let [marked-items (filter #(contains? marked-ids (:id %)) items)
@@ -170,7 +170,10 @@
       [:button.collapse-toggle
        {:on-click #(toggle-collapsed-fn filter-key)}
        (if collapsed? ">" "v")]
-      title
+      (when shortcut-number
+        [:span.shortcut-number {:title (str "Press Option+" shortcut-number " to toggle")}
+         shortcut-number])
+      (str " " title)
       (when (seq marked-ids)
         [:button.clear-filter {:on-click clear-fn} "x"])]
      (if collapsed?
@@ -296,7 +299,8 @@
       (t :tasks/sort-done)]]))
 
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed? number]}]
-  [category-filter-section {:title (if number (str number " " title) title)
+  [category-filter-section {:title title
+                            :shortcut-number number
                             :filter-key filter-key
                             :items items
                             :marked-ids selected-ids
