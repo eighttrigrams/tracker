@@ -232,14 +232,13 @@
     [:div.main-layout
      [today-sidebar-filters]
      [:div.main-content.today-content
-      [:div.today-section.overdue
-       [:h3 (t :today/overdue)]
-       (if (seq overdue)
+      (when (seq overdue)
+        [:div.today-section.overdue
+         [:h3 (t :today/overdue)]
          [:div.task-list
           (for [task overdue]
             ^{:key (:id task)}
-            [today-task-item task])]
-         [:p.empty-message (t :today/no-overdue)])]
+            [today-task-item task])]])
       [:div.today-section.today
        [:h3 (state/today-formatted)]
        (if (seq today)
