@@ -1025,17 +1025,18 @@
 
 (defn- handle-keyboard-shortcuts [e]
   (let [code (.-code e)
-        active-tab (:active-tab @state/app-state)]
-    (cond
-      (= "ArrowLeft" code)
-      (do
-        (.preventDefault e)
-        (navigate-tab -1))
+        {:keys [active-tab editing-task]} @state/app-state]
+    (when-not editing-task
+      (cond
+        (= "ArrowLeft" code)
+        (do
+          (.preventDefault e)
+          (navigate-tab -1))
 
-      (= "ArrowRight" code)
-      (do
-        (.preventDefault e)
-        (navigate-tab 1)))
+        (= "ArrowRight" code)
+        (do
+          (.preventDefault e)
+          (navigate-tab 1))))
     (when (.-altKey e)
       (cond
         (= "KeyT" code)
