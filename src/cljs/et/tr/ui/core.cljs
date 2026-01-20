@@ -4,14 +4,21 @@
             [et.tr.ui.state :as state]
             [et.tr.i18n :as i18n :refer [t tf]]))
 
-(def ^:private category-shortcut-keys
+(def ^:private tasks-category-shortcut-keys
   {"Digit1" :people
    "Digit2" :places
    "Digit3" :projects
    "Digit4" :goals})
 
-(def ^:private category-shortcut-numbers
-  (into {} (map (fn [[k v]] [v (subs k 5)]) category-shortcut-keys)))
+(def ^:private tasks-category-shortcut-numbers
+  (into {} (map (fn [[k v]] [v (subs k 5)]) tasks-category-shortcut-keys)))
+
+(def ^:private today-category-shortcut-keys
+  {"Digit1" :places
+   "Digit2" :projects})
+
+(def ^:private today-category-shortcut-numbers
+  (into {} (map (fn [[k v]] [v (subs k 5)]) today-category-shortcut-keys)))
 
 (defn login-form []
   (let [username (r/atom "")
@@ -207,6 +214,7 @@
         collapsed-filters (:today-page/collapsed-filters @state/app-state)]
     [:div.sidebar
      [category-filter-section {:title (t :category/places)
+                               :shortcut-number (today-category-shortcut-numbers :places)
                                :filter-key :places
                                :items places
                                :marked-ids excluded-places
@@ -221,6 +229,7 @@
                                :label-class "excluded"
                                :page-prefix "today"}]
      [category-filter-section {:title (t :category/projects)
+                               :shortcut-number (today-category-shortcut-numbers :projects)
                                :filter-key :projects
                                :items projects
                                :marked-ids excluded-projects
@@ -327,7 +336,7 @@
                       :toggle-fn state/toggle-filter-person
                       :clear-fn state/clear-filter-people
                       :collapsed? (contains? collapsed-filters :people)
-                      :number (category-shortcut-numbers :people)}]
+                      :number (tasks-category-shortcut-numbers :people)}]
      [filter-section {:title (t :category/places)
                       :filter-key :places
                       :items places
@@ -335,7 +344,7 @@
                       :toggle-fn state/toggle-filter-place
                       :clear-fn state/clear-filter-places
                       :collapsed? (contains? collapsed-filters :places)
-                      :number (category-shortcut-numbers :places)}]
+                      :number (tasks-category-shortcut-numbers :places)}]
      [filter-section {:title (t :category/projects)
                       :filter-key :projects
                       :items projects
@@ -343,7 +352,7 @@
                       :toggle-fn state/toggle-filter-project
                       :clear-fn state/clear-filter-projects
                       :collapsed? (contains? collapsed-filters :projects)
-                      :number (category-shortcut-numbers :projects)}]
+                      :number (tasks-category-shortcut-numbers :projects)}]
      [filter-section {:title (t :category/goals)
                       :filter-key :goals
                       :items goals
@@ -351,7 +360,7 @@
                       :toggle-fn state/toggle-filter-goal
                       :clear-fn state/clear-filter-goals
                       :collapsed? (contains? collapsed-filters :goals)
-                      :number (category-shortcut-numbers :goals)}]]))
+                      :number (tasks-category-shortcut-numbers :goals)}]]))
 
 (defn category-edit-form [item category-type update-fn]
   (let [name-val (r/atom (:name item))
@@ -846,22 +855,59 @@
 (defn settings-tab []
   (let [current-user (:current-user @state/app-state)
         is-admin (:is_admin current-user)]
-    [:div.manage-tab
-     [:div.manage-section.settings-section
-      [:h3 (t :settings/profile)]
-      [:div.settings-item
-       [:span.settings-label (t :settings/username)]
-       [:span.settings-value (:username current-user)]]
-      [:div.settings-item
-       [:span.settings-label (t :settings/role)]
-       [:span.settings-value (if is-admin (t :settings/role-admin) (t :settings/role-user))]]
-      (when-not is-admin
-        [language-selector])]
-     [:div.manage-section.settings-section
-      [:h3 (t :settings/data)]
-      [:div.settings-item
-       [:button.export-btn {:on-click #(state/export-data)}
-        (t :settings/export-data)]]]]))
+    [:div.settings-page
+     [:div.manage-tab
+      [:div.manage-section.settings-section
+       [:h3 (t :settings/profile)]
+       [:div.settings-item
+        [:span.settings-label (t :settings/username)]
+        [:span.settings-value (:username current-user)]]
+       [:div.settings-item
+        [:span.settings-label (t :settings/role)]
+        [:span.settings-value (if is-admin (t :settings/role-admin) (t :settings/role-user))]]
+       (when-not is-admin
+         [language-selector])]
+      [:div.manage-section.settings-section
+       [:h3 (t :settings/data)]
+       [:div.settings-item
+        [:button.export-btn {:on-click #(state/export-data)}
+         (t :settings/export-data)]]]]
+     [:hr.settings-separator]
+     [:div.shortcuts-section
+      [:h3 (t :settings/shortcuts)]
+      [:div.shortcuts-subsection
+       [:h4 (t :settings/shortcuts-navigation)]
+       [:div.shortcuts-list
+        [:div.shortcut-item
+         [:span.shortcut-key "←"]
+         [:span.shortcut-desc (t :settings/shortcut-arrow-left)]]
+        [:div.shortcut-item
+         [:span.shortcut-key "→"]
+         [:span.shortcut-desc (t :settings/shortcut-arrow-right)]]
+        [:div.shortcut-item
+         [:span.shortcut-key "Option+T"]
+         [:span.shortcut-desc (t :settings/shortcut-toggle-today-tasks)]]]]
+      [:div.shortcuts-subsection
+       [:h4 (t :settings/shortcuts-filters)]
+       [:div.shortcuts-list
+        [:div.shortcut-item
+         [:span.shortcut-key "Option+1"]
+         [:span.shortcut-desc (t :settings/shortcut-today-places)]]
+        [:div.shortcut-item
+         [:span.shortcut-key "Option+2"]
+         [:span.shortcut-desc (t :settings/shortcut-today-projects)]]
+        [:div.shortcut-item
+         [:span.shortcut-key "Option+1"]
+         [:span.shortcut-desc (t :settings/shortcut-tasks-people)]]
+        [:div.shortcut-item
+         [:span.shortcut-key "Option+2"]
+         [:span.shortcut-desc (t :settings/shortcut-tasks-places)]]
+        [:div.shortcut-item
+         [:span.shortcut-key "Option+3"]
+         [:span.shortcut-desc (t :settings/shortcut-tasks-projects)]]
+        [:div.shortcut-item
+         [:span.shortcut-key "Option+4"]
+         [:span.shortcut-desc (t :settings/shortcut-tasks-goals)]]]]]]))
 
 (defn user-info []
   (let [current-user (:current-user @state/app-state)
@@ -935,12 +981,50 @@
               [add-task-form])
             [tasks-list]]])])]))
 
-(defn- handle-category-shortcut [e]
-  (when (and (.-altKey e)
-             (= :tasks (:active-tab @state/app-state)))
-    (when-let [filter-key (category-shortcut-keys (.-code e))]
-      (.preventDefault e)
-      (state/toggle-filter-collapsed filter-key))))
+(defn- get-available-tabs []
+  (let [is-admin (state/is-admin?)]
+    (cond-> [:today :tasks :people-places :projects-goals]
+      is-admin (conj :users)
+      true (conj :settings))))
+
+(defn- navigate-tab [direction]
+  (let [tabs (get-available-tabs)
+        current (:active-tab @state/app-state)
+        current-idx (.indexOf tabs current)
+        next-idx (mod (+ current-idx direction) (count tabs))]
+    (state/set-active-tab (nth tabs next-idx))))
+
+(defn- handle-keyboard-shortcuts [e]
+  (let [code (.-code e)
+        active-tab (:active-tab @state/app-state)]
+    (cond
+      (= "ArrowLeft" code)
+      (do
+        (.preventDefault e)
+        (navigate-tab -1))
+
+      (= "ArrowRight" code)
+      (do
+        (.preventDefault e)
+        (navigate-tab 1)))
+    (when (.-altKey e)
+      (cond
+        (= "KeyT" code)
+        (do
+          (.preventDefault e)
+          (if (= :today active-tab)
+            (state/set-active-tab :tasks)
+            (state/set-active-tab :today)))
+
+        (= :tasks active-tab)
+        (when-let [filter-key (tasks-category-shortcut-keys code)]
+          (.preventDefault e)
+          (state/toggle-filter-collapsed filter-key))
+
+        (= :today active-tab)
+        (when-let [filter-key (today-category-shortcut-keys code)]
+          (.preventDefault e)
+          (state/toggle-today-filter-collapsed filter-key))))))
 
 (defn init []
   (i18n/load-translations!
@@ -950,6 +1034,6 @@
                         (fn [_]
                           (when (:category-selector/open @state/app-state)
                             (state/close-category-selector))))
-     (.removeEventListener js/document "keydown" handle-category-shortcut)
-     (.addEventListener js/document "keydown" handle-category-shortcut)
+     (.removeEventListener js/document "keydown" handle-keyboard-shortcuts)
+     (.addEventListener js/document "keydown" handle-keyboard-shortcuts)
      (rdom/render [app] (.getElementById js/document "app")))))
