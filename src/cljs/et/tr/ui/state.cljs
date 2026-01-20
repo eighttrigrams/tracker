@@ -42,7 +42,9 @@
                             :today-page/excluded-projects #{}
                             :today-page/collapsed-filters #{:places :projects}
                             :today-page/category-search {:places "" :projects ""}
-                            :today-page/expanded-task nil}))
+                            :today-page/expanded-task nil
+                            :category-selector/open nil
+                            :category-selector/search ""}))
 
 (defn auth-headers []
   (let [token (:token @app-state)
@@ -456,20 +458,40 @@
 (defn set-category-search [category-key search-term]
   (swap! app-state assoc-in [:tasks-page/category-search category-key] search-term))
 
+(defn open-category-selector [selector-id]
+  (swap! app-state assoc
+         :category-selector/open selector-id
+         :category-selector/search ""))
+
+(defn close-category-selector []
+  (swap! app-state assoc
+         :category-selector/open nil
+         :category-selector/search ""))
+
+(defn set-category-selector-search [search-term]
+  (swap! app-state assoc :category-selector/search search-term))
+
+(defn focus-tasks-search []
+  (js/setTimeout #(when-let [el (.getElementById js/document "tasks-search")]
+                    (.focus el)) 0))
+
 (defn set-active-tab [tab]
   (swap! app-state assoc :active-tab tab)
+  (when (not= tab :tasks)
+    (swap! app-state assoc
+           :category-selector/open nil
+           :category-selector/search ""))
   (when (= tab :tasks)
     (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
-    (js/setTimeout
-     (fn []
-       (when-let [el (.getElementById js/document "tasks-search")]
-         (.focus el)))
-     0))
+    (focus-tasks-search))
   (when (= tab :today)
     (swap! app-state assoc :today-page/collapsed-filters #{:places :projects})))
 
 (defn toggle-expanded [task-id]
-  (swap! app-state update :expanded-task #(if (= % task-id) nil task-id)))
+  (swap! app-state assoc
+         :expanded-task (if (= (:expanded-task @app-state) task-id) nil task-id)
+         :category-selector/open nil
+         :category-selector/search ""))
 
 (defn toggle-today-expanded [task-id]
   (swap! app-state update :today-page/expanded-task #(if (= % task-id) nil task-id)))
