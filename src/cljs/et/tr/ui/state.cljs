@@ -476,11 +476,12 @@
                     (.focus el)) 0))
 
 (defn set-active-tab [tab]
-  (swap! app-state assoc :active-tab tab)
-  (when (not= tab :tasks)
-    (swap! app-state assoc
-           :category-selector/open nil
-           :category-selector/search ""))
+  (swap! app-state assoc
+         :active-tab tab
+         :category-selector/open nil
+         :category-selector/search ""
+         :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
+         :today-page/category-search {:places "" :projects ""})
   (when (= tab :tasks)
     (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
     (focus-tasks-search))

@@ -129,7 +129,8 @@
       [:div.today-task-content
        [:span.task-title
         (when show-prefix?
-          [:span.task-day-prefix (state/get-day-name (:due_date task))])
+          [:span.task-day-prefix (str (state/get-day-name (:due_date task))
+                                      (when (seq (:due_time task)) ","))])
         (when (seq (:due_time task))
           [:span.task-time (:due_time task)])
         (:title task)]
@@ -908,10 +909,10 @@
        [:h4 (t :settings/shortcuts-navigation)]
        [:div.shortcuts-list
         [:div.shortcut-item
-         [:span.shortcut-key "←"]
+         [:span.shortcut-key "Shift+←"]
          [:span.shortcut-desc (t :settings/shortcut-arrow-left)]]
         [:div.shortcut-item
-         [:span.shortcut-key "→"]
+         [:span.shortcut-key "Shift+→"]
          [:span.shortcut-desc (t :settings/shortcut-arrow-right)]]
         [:div.shortcut-item
          [:span.shortcut-key "Option+T"]
@@ -1025,8 +1026,8 @@
 
 (defn- handle-keyboard-shortcuts [e]
   (let [code (.-code e)
-        {:keys [active-tab editing-task]} @state/app-state]
-    (when-not editing-task
+        {:keys [active-tab]} @state/app-state]
+    (when (.-shiftKey e)
       (cond
         (= "ArrowLeft" code)
         (do
