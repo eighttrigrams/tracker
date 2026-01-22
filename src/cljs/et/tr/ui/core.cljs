@@ -204,8 +204,14 @@
           :placeholder (t :category/search)
           :value search-term
           :on-change #(set-search-fn filter-key (-> % .-target .-value))
-          :on-key-down #(when (= (.-key %) "Escape")
-                          (toggle-collapsed-fn filter-key))}]
+          :on-key-down (fn [e]
+                         (when (= (.-key e) "Escape")
+                           (if (.-altKey e)
+                             (do
+                               (clear-fn)
+                               (set-search-fn filter-key "")
+                               (toggle-collapsed-fn filter-key))
+                             (toggle-collapsed-fn filter-key))))}]
         (doall
          (for [item visible-items]
            ^{:key (:id item)}
