@@ -119,7 +119,7 @@
           ^{:key (str (:type category) "-" (:id category))}
           [:span.tag {:class (:type category)} (:name category)]))])))
 
-(defn today-task-item [task & {:keys [show-day-of-week show-day-prefix] :or {show-day-of-week false show-day-prefix false}}]
+(defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
   (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/app-state)
         is-expanded (= expanded-task (:id task))]
@@ -132,7 +132,7 @@
           [:span.task-day-prefix (str (state/get-day-name (:due_date task))
                                       (when (seq (:due_time task)) ","))])
         (when (seq (:due_time task))
-          [:span.task-time (:due_time task)])
+          [:span.task-time {:class (when overdue? "overdue-time")} (:due_time task)])
         (:title task)]
        (when-not is-expanded
          [task-category-badges task])]
@@ -283,7 +283,7 @@
           (doall
            (for [task overdue]
              ^{:key (:id task)}
-             [today-task-item task]))]])
+             [today-task-item task :overdue? true]))]])
       [:div.today-section.today
        [:h3 (state/today-formatted)]
        (if (seq today)
