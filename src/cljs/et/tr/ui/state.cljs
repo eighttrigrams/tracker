@@ -434,15 +434,23 @@
   (let [collapsed (:tasks-page/collapsed-filters @app-state)
         all-filters #{:people :places :projects :goals}
         uncollapsed (clojure.set/difference all-filters collapsed)]
-    (doseq [filter-key uncollapsed]
-      (case filter-key
-        :people (swap! app-state assoc :tasks-page/filter-people #{})
-        :places (swap! app-state assoc :tasks-page/filter-places #{})
-        :projects (swap! app-state assoc :tasks-page/filter-projects #{})
-        :goals (swap! app-state assoc :tasks-page/filter-goals #{})))
-    (swap! app-state assoc
-           :tasks-page/collapsed-filters all-filters
-           :tasks-page/category-search {:people "" :places "" :projects "" :goals ""})))
+    (if (empty? uncollapsed)
+      (swap! app-state assoc
+             :tasks-page/filter-people #{}
+             :tasks-page/filter-places #{}
+             :tasks-page/filter-projects #{}
+             :tasks-page/filter-goals #{}
+             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""})
+      (do
+        (doseq [filter-key uncollapsed]
+          (case filter-key
+            :people (swap! app-state assoc :tasks-page/filter-people #{})
+            :places (swap! app-state assoc :tasks-page/filter-places #{})
+            :projects (swap! app-state assoc :tasks-page/filter-projects #{})
+            :goals (swap! app-state assoc :tasks-page/filter-goals #{})))
+        (swap! app-state assoc
+               :tasks-page/collapsed-filters all-filters
+               :tasks-page/category-search {:people "" :places "" :projects "" :goals ""})))))
 
 (defn toggle-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)
@@ -456,7 +464,7 @@
     (when was-collapsed
       (swap! app-state update :tasks-page/category-search
              (fn [searches]
-               (reduce #(assoc %1 %2 "") searches others-to-collapse))))
+               (reduce #(assoc %1 %2 "") searches all-filters))))
     (js/setTimeout
      (fn []
        (when-let [el (.getElementById js/document
@@ -695,19 +703,26 @@
   (let [collapsed (:today-page/collapsed-filters @app-state)
         all-filters #{:places :projects}
         uncollapsed (clojure.set/difference all-filters collapsed)]
-    (doseq [filter-key uncollapsed]
-      (case filter-key
-        :places (swap! app-state assoc :today-page/excluded-places #{})
-        :projects (swap! app-state assoc :today-page/excluded-projects #{})))
-    (swap! app-state assoc
-           :today-page/collapsed-filters all-filters
-           :today-page/category-search {:places "" :projects ""})
-    (recalculate-today-horizon)))
+    (if (empty? uncollapsed)
+      (do
+        (swap! app-state assoc
+               :today-page/excluded-places #{}
+               :today-page/excluded-projects #{}
+               :today-page/category-search {:places "" :projects ""})
+        (recalculate-today-horizon))
+      (do
+        (doseq [filter-key uncollapsed]
+          (case filter-key
+            :places (swap! app-state assoc :today-page/excluded-places #{})
+            :projects (swap! app-state assoc :today-page/excluded-projects #{})))
+        (swap! app-state assoc
+               :today-page/collapsed-filters all-filters
+               :today-page/category-search {:places "" :projects ""})
+        (recalculate-today-horizon)))))
 
 (defn toggle-today-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:today-page/collapsed-filters @app-state) filter-key)
-        all-filters #{:places :projects}
-        others-to-collapse (disj all-filters filter-key)]
+        all-filters #{:places :projects}]
     (swap! app-state update :today-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
@@ -716,7 +731,7 @@
     (when was-collapsed
       (swap! app-state update :today-page/category-search
              (fn [searches]
-               (reduce #(assoc %1 %2 "") searches others-to-collapse)))
+               (reduce #(assoc %1 %2 "") searches all-filters)))
       (js/setTimeout
        (fn []
          (when-let [el (.getElementById js/document (str "today-filter-" (name filter-key)))]

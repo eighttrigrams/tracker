@@ -205,13 +205,20 @@
           :value search-term
           :on-change #(set-search-fn filter-key (-> % .-target .-value))
           :on-key-down (fn [e]
-                         (when (= (.-key e) "Escape")
+                         (cond
+                           (= (.-key e) "Escape")
                            (if (.-altKey e)
                              (do
+                               (.stopPropagation e)
                                (clear-fn)
                                (set-search-fn filter-key "")
                                (toggle-collapsed-fn filter-key))
-                             (toggle-collapsed-fn filter-key))))}]
+                             (toggle-collapsed-fn filter-key))
+
+                           (= (.-key e) "Enter")
+                           (when-let [first-item (first visible-items)]
+                             (.preventDefault e)
+                             (toggle-fn (:id first-item)))))}]
         (doall
          (for [item visible-items]
            ^{:key (:id item)}
