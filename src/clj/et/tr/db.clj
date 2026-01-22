@@ -59,19 +59,27 @@
     (let [result (jdbc/execute-one! conn ["DELETE FROM users WHERE id = ?" user-id])]
       {:success (pos? (:next.jdbc/update-count result))})))
 
-(defn add-task [ds user-id title]
-  (let [conn (get-conn ds)
-        min-order (or (:min_order (jdbc/execute-one! conn
-                                    ["SELECT MIN(sort_order) as min_order FROM tasks WHERE user_id = ? OR (user_id IS NULL AND ? IS NULL)"
-                                     user-id user-id]
-                                    {:builder-fn rs/as-unqualified-maps}))
-                      1.0)
-        new-order (- min-order 1.0)
-        result (jdbc/execute-one! conn
-                 ["INSERT INTO tasks (title, sort_order, user_id, modified_at) VALUES (?, ?, ?, datetime('now')) RETURNING id, title, description, created_at, modified_at, sort_order, user_id, done"
-                  title new-order user-id]
-                 {:builder-fn rs/as-unqualified-maps})]
-    result))
+(def valid-scopes #{"private" "both" "work"})
+
+(defn- normalize-scope [scope]
+  (if (contains? valid-scopes scope) scope "both"))
+
+(defn add-task
+  ([ds user-id title] (add-task ds user-id title "both"))
+  ([ds user-id title scope]
+   (let [conn (get-conn ds)
+         valid-scope (normalize-scope scope)
+         min-order (or (:min_order (jdbc/execute-one! conn
+                                     ["SELECT MIN(sort_order) as min_order FROM tasks WHERE user_id = ? OR (user_id IS NULL AND ? IS NULL)"
+                                      user-id user-id]
+                                     {:builder-fn rs/as-unqualified-maps}))
+                       1.0)
+         new-order (- min-order 1.0)
+         result (jdbc/execute-one! conn
+                  ["INSERT INTO tasks (title, sort_order, user_id, modified_at, scope) VALUES (?, ?, ?, datetime('now'), ?) RETURNING id, title, description, created_at, modified_at, sort_order, user_id, done, scope"
+                   title new-order user-id valid-scope]
+                  {:builder-fn rs/as-unqualified-maps})]
+     result)))
 
 (defn list-tasks
   ([ds user-id] (list-tasks ds user-id :recent))
@@ -91,7 +99,7 @@
                         "ORDER BY modified_at DESC")
          query-params (if user-id [user-id] [])
          tasks (jdbc/execute! conn
-                 (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done FROM tasks " where-clause " " order-clause)] query-params)
+                 (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope FROM tasks " where-clause " " order-clause)] query-params)
                  {:builder-fn rs/as-unqualified-maps})
          task-ids (mapv :id tasks)
          categories (when (seq task-ids)
@@ -362,6 +370,14 @@
       (into [(str "UPDATE tasks SET done = ?, modified_at = datetime('now') WHERE id = ? AND " user-filter " RETURNING id, done, modified_at")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
+(defn set-task-scope [ds user-id task-id scope]
+  (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        valid-scope (normalize-scope scope)
+        query-params (if user-id [valid-scope task-id user-id] [valid-scope task-id])]
+    (jdbc/execute-one! (get-conn ds)
+      (into [(str "UPDATE tasks SET scope = ?, modified_at = datetime('now') WHERE id = ? AND " user-filter " RETURNING id, scope, modified_at")] query-params)
+      {:builder-fn rs/as-unqualified-maps})))
+
 (def valid-languages #{"en" "de" "pt"})
 
 (defn get-user-language [ds user-id]
@@ -400,7 +416,7 @@
         user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [user-id] [])
         tasks (jdbc/execute! conn
-                (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done FROM tasks WHERE " user-filter " ORDER BY created_at")] query-params)
+                (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope FROM tasks WHERE " user-filter " ORDER BY created_at")] query-params)
                 {:builder-fn rs/as-unqualified-maps})
         task-ids (mapv :id tasks)
         categories (query-categories-chunked conn task-ids)

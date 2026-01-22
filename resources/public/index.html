@@ -1143,6 +1143,67 @@
       padding-left: 1em;
       color: var(--text-secondary);
     }
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .work-private-toggle {
+      display: flex;
+      gap: 0;
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+    }
+    .work-private-toggle .toggle-option {
+      padding: 6px 12px;
+      font-size: 0.8em;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      border-radius: 6px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    .work-private-toggle .toggle-option.active {
+      background: var(--accent);
+      color: white;
+    }
+    .work-private-toggle .toggle-option:hover:not(.active) {
+      background: var(--surface-subtle);
+      transform: none;
+    }
+    .task-scope-selector {
+      display: flex;
+      gap: 0;
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      padding: 2px;
+      border-radius: 6px;
+      border: 1px solid var(--glass-border);
+    }
+    .task-scope-selector .toggle-option {
+      padding: 4px 10px;
+      font-size: 0.75em;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      border-radius: 4px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .task-scope-selector .toggle-option.active {
+      background: var(--accent);
+      color: white;
+    }
+    .task-scope-selector .toggle-option:hover:not(.active) {
+      background: var(--surface-subtle);
+    }
   </style>
 </head>
 <body>

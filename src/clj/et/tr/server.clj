@@ -126,10 +126,10 @@
 
 (defn add-task-handler [req]
   (let [user-id (get-user-id req)
-        {:keys [title]} (:body req)]
+        {:keys [title scope]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [task (db/add-task (ensure-ds) user-id title)]
+      (let [task (db/add-task (ensure-ds) user-id title (or scope "both"))]
         {:status 201 :body (assoc task :people [] :places [] :projects [] :goals [])}))))
 
 (defn update-task-handler [req]
@@ -361,6 +361,17 @@
         {:status 200 :body result}
         {:status 404 :body {:error "Task not found"}}))))
 
+(defn set-task-scope-handler [req]
+  (let [scope (get-in req [:body :scope])]
+    (if-not (contains? db/valid-scopes scope)
+      {:status 400 :body {:error "Invalid scope. Must be 'private', 'both', or 'work'"}}
+      (let [user-id (get-user-id req)
+            task-id (Integer/parseInt (get-in req [:params :id]))
+            result (db/set-task-scope (ensure-ds) user-id task-id scope)]
+        (if result
+          {:status 200 :body result}
+          {:status 404 :body {:error "Task not found"}})))))
+
 (defn delete-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -540,6 +551,7 @@
     (PUT "/tasks/:id/due-date" [] set-due-date-handler)
     (PUT "/tasks/:id/due-time" [] set-due-time-handler)
     (PUT "/tasks/:id/done" [] set-task-done-handler)
+    (PUT "/tasks/:id/scope" [] set-task-scope-handler)
     (GET "/people" [] list-people-handler)
     (POST "/people" [] add-person-handler)
     (PUT "/people/:id" [] update-person-handler)

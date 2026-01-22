@@ -108,7 +108,11 @@
   :settings/shortcut-toggle-today-tasks "Toggle between Today and Tasks"
   :settings/shortcut-toggle-filter "Toggle nth filter in sidebar"
   :settings/shortcut-clear-uncollapsed "Clear filter selections (expanded filter or all if none expanded)"
-  :settings/shortcut-enter-filter "Toggle first item in expanded filter"}
+  :settings/shortcut-enter-filter "Toggle first item in expanded filter"
+
+  :toggle/private "Private"
+  :toggle/both "Both"
+  :toggle/work "Work"}
 
  :de
  {:date/sunday "Sonntag"
@@ -220,7 +224,11 @@
   :settings/shortcut-toggle-today-tasks "Zwischen Heute und Aufgaben wechseln"
   :settings/shortcut-toggle-filter "n-ten Filter in Seitenleiste umschalten"
   :settings/shortcut-clear-uncollapsed "Filter-Auswahl löschen (erweiterter Filter oder alle, wenn keiner erweitert)"
-  :settings/shortcut-enter-filter "Erstes Element im erweiterten Filter umschalten"}
+  :settings/shortcut-enter-filter "Erstes Element im erweiterten Filter umschalten"
+
+  :toggle/private "Privat"
+  :toggle/both "Beide"
+  :toggle/work "Arbeit"}
 
  :pt
  {:date/sunday "Domingo"
@@ -332,4 +340,8 @@
   :settings/shortcut-toggle-today-tasks "Alternar entre Hoje e Tarefas"
   :settings/shortcut-toggle-filter "Alternar n-ésimo filtro na barra lateral"
   :settings/shortcut-clear-uncollapsed "Limpar seleções do filtro (filtro expandido ou todos se nenhum expandido)"
-  :settings/shortcut-enter-filter "Alternar primeiro item no filtro expandido"}}
+  :settings/shortcut-enter-filter "Alternar primeiro item no filtro expandido"
+
+  :toggle/private "Privado"
+  :toggle/both "Ambos"
+  :toggle/work "Trabalho"}}

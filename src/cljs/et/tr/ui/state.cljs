@@ -44,7 +44,8 @@
                             :today-page/category-search {:places "" :projects ""}
                             :today-page/expanded-task nil
                             :category-selector/open nil
-                            :category-selector/search ""}))
+                            :category-selector/search ""
+                            :work-private-mode :both}))
 
 (defn auth-headers []
   (let [token (:token @app-state)
@@ -174,9 +175,12 @@
         filter-goals (:tasks-page/filter-goals @app-state)]
     (or (seq filter-people) (seq filter-places) (seq filter-projects) (seq filter-goals))))
 
+(defn- current-scope []
+  (name (:work-private-mode @app-state)))
+
 (defn add-task-with-categories [title categories on-success]
   (POST "/api/tasks"
-    {:params {:title title}
+    {:params {:title title :scope (current-scope)}
      :format :json
      :response-format :json
      :keywords? true
@@ -261,7 +265,7 @@
     (if (has-active-filters?)
       (set-pending-new-task title on-success)
       (POST "/api/tasks"
-        {:params {:title title}
+        {:params {:title title :scope (current-scope)}
          :format :json
          :response-format :json
          :keywords? true
@@ -531,8 +535,20 @@
         words (.split title-lower #"\s+")]
     (some #(.startsWith % search-lower) words)))
 
+(defn- matches-scope? [task]
+  (let [mode (:work-private-mode @app-state)
+        task-scope (or (:scope task) "both")]
+    (case mode
+      :private (contains? #{"private" "both"} task-scope)
+      :work (contains? #{"work" "both"} task-scope)
+      :both true
+      true)))
+
+(defn- scope-filtered-tasks []
+  (filter matches-scope? (:tasks @app-state)))
+
 (defn filtered-tasks []
-  (let [tasks (:tasks @app-state)
+  (let [tasks (scope-filtered-tasks)
         filter-people (:tasks-page/filter-people @app-state)
         filter-places (:tasks-page/filter-places @app-state)
         filter-projects (:tasks-page/filter-projects @app-state)
@@ -832,7 +848,7 @@
 
 (defn overdue-tasks []
   (let [today (today-str)]
-    (->> (:tasks @app-state)
+    (->> (scope-filtered-tasks)
          (filter #(and (:due_date %)
                        (< (:due_date %) today)))
          (apply-today-exclusion-filter)
@@ -840,7 +856,7 @@
 
 (defn today-tasks []
   (let [today (today-str)]
-    (->> (:tasks @app-state)
+    (->> (scope-filtered-tasks)
          (filter #(= (:due_date %) today))
          (apply-today-exclusion-filter)
          (sort-by-date-and-time))))
@@ -849,7 +865,7 @@
   (let [today (today-str)
         horizon (:upcoming-horizon @app-state)
         end-date (horizon-end-date horizon)]
-    (->> (:tasks @app-state)
+    (->> (scope-filtered-tasks)
          (filter #(and (:due_date %)
                        (> (:due_date %) today)
                        (<= (:due_date %) end-date)))
@@ -1084,6 +1100,26 @@
                   (save-auth-to-storage token user)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update language")))}))
+
+(defn set-work-private-mode [mode]
+  (swap! app-state assoc :work-private-mode mode))
+
+(defn set-task-scope [task-id scope]
+  (PUT (str "/api/tasks/" task-id "/scope")
+    {:params {:scope scope}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [result]
+                (swap! app-state update :tasks
+                       (fn [tasks]
+                         (mapv #(if (= (:id %) task-id)
+                                  (assoc % :scope (:scope result) :modified_at (:modified_at result))
+                                  %)
+                               tasks))))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))}))
 
 (defn export-data []
   (let [headers (auth-headers)

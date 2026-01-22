@@ -1,0 +1,2 @@
+{:up ["ALTER TABLE tasks ADD COLUMN scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work'))"]
+ :down ["ALTER TABLE tasks DROP COLUMN scope"]}
