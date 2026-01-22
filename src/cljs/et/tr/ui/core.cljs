@@ -217,7 +217,12 @@
            ^{:key (:id item)}
            [:button.filter-item
             {:class (when (contains? marked-ids (:id item)) item-active-class)
-             :on-click #(toggle-fn (:id item))}
+             :on-click (fn []
+                         (toggle-fn (:id item))
+                         (js/setTimeout #(when-let [el (.getElementById js/document input-id)]
+                                           (.focus el)
+                                           (let [len (.-length (.-value el))]
+                                             (.setSelectionRange el len len))) 0))}
             (:name item)]))])]))
 
 (defn today-sidebar-filters []
