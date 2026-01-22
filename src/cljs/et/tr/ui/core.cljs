@@ -939,26 +939,14 @@
        [:h4 (t :settings/shortcuts-filters)]
        [:div.shortcuts-list
         [:div.shortcut-item
-         [:span.shortcut-key "Option+1"]
-         [:span.shortcut-desc (t :settings/shortcut-today-places)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+2"]
-         [:span.shortcut-desc (t :settings/shortcut-today-projects)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+1"]
-         [:span.shortcut-desc (t :settings/shortcut-tasks-people)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+2"]
-         [:span.shortcut-desc (t :settings/shortcut-tasks-places)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+3"]
-         [:span.shortcut-desc (t :settings/shortcut-tasks-projects)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+4"]
-         [:span.shortcut-desc (t :settings/shortcut-tasks-goals)]]
+         [:span.shortcut-key "Option+<n>"]
+         [:span.shortcut-desc (t :settings/shortcut-toggle-filter)]]
         [:div.shortcut-item
          [:span.shortcut-key "Option+Esc"]
-         [:span.shortcut-desc (t :settings/shortcut-clear-uncollapsed)]]]]]]))
+         [:span.shortcut-desc (t :settings/shortcut-clear-uncollapsed)]]
+        [:div.shortcut-item
+         [:span.shortcut-key "Enter"]
+         [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]]]]]))
 
 (defn user-info []
   (let [current-user (:current-user @state/app-state)

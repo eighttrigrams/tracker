@@ -106,13 +106,9 @@
   :settings/shortcut-arrow-left "Previous tab"
   :settings/shortcut-arrow-right "Next tab"
   :settings/shortcut-toggle-today-tasks "Toggle between Today and Tasks"
-  :settings/shortcut-today-places "Toggle Places filter (Today page)"
-  :settings/shortcut-today-projects "Toggle Projects filter (Today page)"
-  :settings/shortcut-tasks-people "Toggle People filter (Tasks page)"
-  :settings/shortcut-tasks-places "Toggle Places filter (Tasks page)"
-  :settings/shortcut-tasks-projects "Toggle Projects filter (Tasks page)"
-  :settings/shortcut-tasks-goals "Toggle Goals filter (Tasks page)"
-  :settings/shortcut-clear-uncollapsed "Clear expanded filter selections"}
+  :settings/shortcut-toggle-filter "Toggle nth filter in sidebar"
+  :settings/shortcut-clear-uncollapsed "Clear filter selections (expanded filter or all if none expanded)"
+  :settings/shortcut-enter-filter "Toggle first item in expanded filter"}
 
  :de
  {:date/sunday "Sonntag"
@@ -222,13 +218,9 @@
   :settings/shortcut-arrow-left "Vorheriger Tab"
   :settings/shortcut-arrow-right "Nächster Tab"
   :settings/shortcut-toggle-today-tasks "Zwischen Heute und Aufgaben wechseln"
-  :settings/shortcut-today-places "Orte-Filter umschalten (Heute-Seite)"
-  :settings/shortcut-today-projects "Projekte-Filter umschalten (Heute-Seite)"
-  :settings/shortcut-tasks-people "Personen-Filter umschalten (Aufgaben-Seite)"
-  :settings/shortcut-tasks-places "Orte-Filter umschalten (Aufgaben-Seite)"
-  :settings/shortcut-tasks-projects "Projekte-Filter umschalten (Aufgaben-Seite)"
-  :settings/shortcut-tasks-goals "Ziele-Filter umschalten (Aufgaben-Seite)"
-  :settings/shortcut-clear-uncollapsed "Auswahl der erweiterten Filter löschen"}
+  :settings/shortcut-toggle-filter "n-ten Filter in Seitenleiste umschalten"
+  :settings/shortcut-clear-uncollapsed "Filter-Auswahl löschen (erweiterter Filter oder alle, wenn keiner erweitert)"
+  :settings/shortcut-enter-filter "Erstes Element im erweiterten Filter umschalten"}
 
  :pt
  {:date/sunday "Domingo"
@@ -338,10 +330,6 @@
   :settings/shortcut-arrow-left "Separador anterior"
   :settings/shortcut-arrow-right "Próximo separador"
   :settings/shortcut-toggle-today-tasks "Alternar entre Hoje e Tarefas"
-  :settings/shortcut-today-places "Alternar filtro Lugares (página Hoje)"
-  :settings/shortcut-today-projects "Alternar filtro Projetos (página Hoje)"
-  :settings/shortcut-tasks-people "Alternar filtro Pessoas (página Tarefas)"
-  :settings/shortcut-tasks-places "Alternar filtro Lugares (página Tarefas)"
-  :settings/shortcut-tasks-projects "Alternar filtro Projetos (página Tarefas)"
-  :settings/shortcut-tasks-goals "Alternar filtro Objetivos (página Tarefas)"
-  :settings/shortcut-clear-uncollapsed "Limpar seleções dos filtros expandidos"}}
+  :settings/shortcut-toggle-filter "Alternar n-ésimo filtro na barra lateral"
+  :settings/shortcut-clear-uncollapsed "Limpar seleções do filtro (filtro expandido ou todos se nenhum expandido)"
+  :settings/shortcut-enter-filter "Alternar primeiro item no filtro expandido"}}
