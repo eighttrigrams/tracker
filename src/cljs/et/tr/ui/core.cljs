@@ -73,18 +73,23 @@
        [:button {:on-click #(state/add-task @title (fn [] (reset! title "")))}
         (t :tasks/add-button)]])))
 
-(defn add-entity-form [placeholder add-fn]
-  (let [name (r/atom "")]
-    (fn []
-      [:div.add-entity-form
-       [:input {:type "text"
-                :placeholder placeholder
-                :value @name
-                :on-change #(reset! name (-> % .-target .-value))
-                :on-key-down #(when (= (.-key %) "Enter")
-                                (add-fn @name (fn [] (reset! name ""))))}]
-       [:button {:on-click #(add-fn @name (fn [] (reset! name "")))}
-        "+"]])))
+(defn add-entity-form [placeholder add-fn name-atom]
+  (fn []
+    [:div.add-entity-form
+     [:input {:type "text"
+              :placeholder placeholder
+              :value @name-atom
+              :on-change #(reset! name-atom (-> % .-target .-value))
+              :on-key-down #(when (= (.-key %) "Enter")
+                              (add-fn @name-atom (fn [] (reset! name-atom ""))))}]
+     [:button {:on-click #(add-fn @name-atom (fn [] (reset! name-atom "")))}
+      "+"]]))
+
+(defn- filter-by-name [items filter-text]
+  (if (empty? filter-text)
+    items
+    (let [lower-filter (clojure.string/lower-case filter-text)]
+      (filter #(clojure.string/includes? (clojure.string/lower-case (:name %)) lower-filter) items))))
 
 (defn tabs []
   (let [active-tab (:active-tab @state/app-state)]
@@ -476,44 +481,54 @@
          [:span.category-description [markdown (:description item)]])])))
 
 (defn people-places-tab []
-  (let [{:keys [people places]} @state/app-state]
-    [:div.manage-tab
-     [:div.manage-section
-      [:h3 (t :category/people)]
-      [add-entity-form (t :category/add-person) state/add-person]
-      [:ul.entity-list
-       (doall
-        (for [person people]
-          ^{:key (:id person)}
-          [category-item person :person state/update-person :people]))]]
-     [:div.manage-section
-      [:h3 (t :category/places)]
-      [add-entity-form (t :category/add-place) state/add-place]
-      [:ul.entity-list
-       (doall
-        (for [place places]
-          ^{:key (:id place)}
-          [category-item place :place state/update-place :places]))]]]))
+  (let [person-name (r/atom "")
+        place-name (r/atom "")]
+    (fn []
+      (let [{:keys [people places]} @state/app-state
+            filtered-people (filter-by-name people @person-name)
+            filtered-places (filter-by-name places @place-name)]
+        [:div.manage-tab
+         [:div.manage-section
+          [:h3 (t :category/people)]
+          [add-entity-form (t :category/add-person) state/add-person person-name]
+          [:ul.entity-list
+           (doall
+            (for [person filtered-people]
+              ^{:key (:id person)}
+              [category-item person :person state/update-person :people]))]]
+         [:div.manage-section
+          [:h3 (t :category/places)]
+          [add-entity-form (t :category/add-place) state/add-place place-name]
+          [:ul.entity-list
+           (doall
+            (for [place filtered-places]
+              ^{:key (:id place)}
+              [category-item place :place state/update-place :places]))]]]))))
 
 (defn projects-goals-tab []
-  (let [{:keys [projects goals]} @state/app-state]
-    [:div.manage-tab
-     [:div.manage-section
-      [:h3 (t :category/projects)]
-      [add-entity-form (t :category/add-project) state/add-project]
-      [:ul.entity-list
-       (doall
-        (for [project projects]
-          ^{:key (:id project)}
-          [category-item project :project state/update-project :projects]))]]
-     [:div.manage-section
-      [:h3 (t :category/goals)]
-      [add-entity-form (t :category/add-goal) state/add-goal]
-      [:ul.entity-list
-       (doall
-        (for [goal goals]
-          ^{:key (:id goal)}
-          [category-item goal :goal state/update-goal :goals]))]]]))
+  (let [project-name (r/atom "")
+        goal-name (r/atom "")]
+    (fn []
+      (let [{:keys [projects goals]} @state/app-state
+            filtered-projects (filter-by-name projects @project-name)
+            filtered-goals (filter-by-name goals @goal-name)]
+        [:div.manage-tab
+         [:div.manage-section
+          [:h3 (t :category/projects)]
+          [add-entity-form (t :category/add-project) state/add-project project-name]
+          [:ul.entity-list
+           (doall
+            (for [project filtered-projects]
+              ^{:key (:id project)}
+              [category-item project :project state/update-project :projects]))]]
+         [:div.manage-section
+          [:h3 (t :category/goals)]
+          [add-entity-form (t :category/add-goal) state/add-goal goal-name]
+          [:ul.entity-list
+           (doall
+            (for [goal filtered-goals]
+              ^{:key (:id goal)}
+              [category-item goal :goal state/update-goal :goals]))]]]))))
 
 (defn add-user-form []
   (let [username (r/atom "")
