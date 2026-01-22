@@ -937,7 +937,10 @@
          [:span.shortcut-desc (t :settings/shortcut-tasks-projects)]]
         [:div.shortcut-item
          [:span.shortcut-key "Option+4"]
-         [:span.shortcut-desc (t :settings/shortcut-tasks-goals)]]]]]]))
+         [:span.shortcut-desc (t :settings/shortcut-tasks-goals)]]
+        [:div.shortcut-item
+         [:span.shortcut-key "Option+Esc"]
+         [:span.shortcut-desc (t :settings/shortcut-clear-uncollapsed)]]]]]]))
 
 (defn user-info []
   (let [current-user (:current-user @state/app-state)
@@ -1046,6 +1049,13 @@
           (if (= :today active-tab)
             (state/set-active-tab :tasks)
             (state/set-active-tab :today)))
+
+        (= "Escape" code)
+        (do
+          (.preventDefault e)
+          (cond
+            (= :tasks active-tab) (state/clear-uncollapsed-task-filters)
+            (= :today active-tab) (state/clear-uncollapsed-today-filters)))
 
         (= :tasks active-tab)
         (when-let [filter-key (tasks-category-shortcut-keys code)]

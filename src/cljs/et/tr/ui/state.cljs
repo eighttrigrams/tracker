@@ -430,6 +430,20 @@
 (defn clear-filter-goals []
   (swap! app-state assoc :tasks-page/filter-goals #{}))
 
+(defn clear-uncollapsed-task-filters []
+  (let [collapsed (:tasks-page/collapsed-filters @app-state)
+        all-filters #{:people :places :projects :goals}
+        uncollapsed (clojure.set/difference all-filters collapsed)]
+    (doseq [filter-key uncollapsed]
+      (case filter-key
+        :people (swap! app-state assoc :tasks-page/filter-people #{})
+        :places (swap! app-state assoc :tasks-page/filter-places #{})
+        :projects (swap! app-state assoc :tasks-page/filter-projects #{})
+        :goals (swap! app-state assoc :tasks-page/filter-goals #{})))
+    (swap! app-state assoc
+           :tasks-page/collapsed-filters all-filters
+           :tasks-page/category-search {:people "" :places "" :projects "" :goals ""})))
+
 (defn toggle-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)
         all-filters #{:people :places :projects :goals}
@@ -676,6 +690,19 @@
 (defn clear-today-excluded-projects []
   (swap! app-state assoc :today-page/excluded-projects #{})
   (recalculate-today-horizon))
+
+(defn clear-uncollapsed-today-filters []
+  (let [collapsed (:today-page/collapsed-filters @app-state)
+        all-filters #{:places :projects}
+        uncollapsed (clojure.set/difference all-filters collapsed)]
+    (doseq [filter-key uncollapsed]
+      (case filter-key
+        :places (swap! app-state assoc :today-page/excluded-places #{})
+        :projects (swap! app-state assoc :today-page/excluded-projects #{})))
+    (swap! app-state assoc
+           :today-page/collapsed-filters all-filters
+           :today-page/category-search {:places "" :projects ""})
+    (recalculate-today-horizon)))
 
 (defn toggle-today-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:today-page/collapsed-filters @app-state) filter-key)

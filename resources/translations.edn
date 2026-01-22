@@ -111,7 +111,8 @@
   :settings/shortcut-tasks-people "Toggle People filter (Tasks page)"
   :settings/shortcut-tasks-places "Toggle Places filter (Tasks page)"
   :settings/shortcut-tasks-projects "Toggle Projects filter (Tasks page)"
-  :settings/shortcut-tasks-goals "Toggle Goals filter (Tasks page)"}
+  :settings/shortcut-tasks-goals "Toggle Goals filter (Tasks page)"
+  :settings/shortcut-clear-uncollapsed "Clear expanded filter selections"}
 
  :de
  {:date/sunday "Sonntag"
@@ -226,7 +227,8 @@
   :settings/shortcut-tasks-people "Personen-Filter umschalten (Aufgaben-Seite)"
   :settings/shortcut-tasks-places "Orte-Filter umschalten (Aufgaben-Seite)"
   :settings/shortcut-tasks-projects "Projekte-Filter umschalten (Aufgaben-Seite)"
-  :settings/shortcut-tasks-goals "Ziele-Filter umschalten (Aufgaben-Seite)"}
+  :settings/shortcut-tasks-goals "Ziele-Filter umschalten (Aufgaben-Seite)"
+  :settings/shortcut-clear-uncollapsed "Auswahl der erweiterten Filter löschen"}
 
  :pt
  {:date/sunday "Domingo"
@@ -341,4 +343,5 @@
   :settings/shortcut-tasks-people "Alternar filtro Pessoas (página Tarefas)"
   :settings/shortcut-tasks-places "Alternar filtro Lugares (página Tarefas)"
   :settings/shortcut-tasks-projects "Alternar filtro Projetos (página Tarefas)"
-  :settings/shortcut-tasks-goals "Alternar filtro Objetivos (página Tarefas)"}}
+  :settings/shortcut-tasks-goals "Alternar filtro Objetivos (página Tarefas)"
+  :settings/shortcut-clear-uncollapsed "Limpar seleções dos filtros expandidos"}}
