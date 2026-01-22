@@ -119,6 +119,21 @@
           ^{:key (str (:type category) "-" (:id category))}
           [:span.tag {:class (:type category)} (:name category)]))])))
 
+(defn- scope-toggle [css-class current-value on-change]
+  (into [:div {:class css-class}]
+        (for [scope ["private" "both" "work"]]
+          [:button.toggle-option
+           {:key scope
+            :class (when (= current-value scope) "active")
+            :on-click (fn [e]
+                        (.stopPropagation e)
+                        (on-change scope))}
+           (t (keyword "toggle" scope))])))
+
+(defn task-scope-selector [task]
+  (let [scope (or (:scope task) "both")]
+    [scope-toggle "task-scope-selector" scope #(state/set-task-scope (:id task) %)]))
+
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
   (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/app-state)
@@ -150,6 +165,7 @@
          (if (= 1 (:done task))
            [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
            [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
+         [task-scope-selector task]
          [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])]))
 
 (defn horizon-selector []
@@ -653,6 +669,7 @@
     (if (= 1 (:done task))
       [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
       [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
+    [task-scope-selector task]
     [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])
 
 (defn- task-header [task is-expanded done-mode? due-date-mode?]
@@ -948,6 +965,10 @@
          [:span.shortcut-key "Enter"]
          [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]]]]]))
 
+(defn work-private-toggle []
+  (let [mode (name (:work-private-mode @state/app-state))]
+    [scope-toggle "work-private-toggle" mode #(state/set-work-private-mode (keyword %))]))
+
 (defn user-info []
   (let [current-user (:current-user @state/app-state)
         active-tab (:active-tab @state/app-state)
@@ -1001,7 +1022,10 @@
           [:div.error error [:button.error-dismiss {:on-click state/clear-error} "×"]])
         [:div.top-bar
          [tabs]
-         [user-info]]
+         [:div.top-bar-right
+          (when (contains? #{:today :tasks} active-tab)
+            [work-private-toggle])
+          [user-info]]]
         (case active-tab
           :today [today-tab]
           :people-places [people-places-tab]
