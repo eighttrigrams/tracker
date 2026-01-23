@@ -23,14 +23,16 @@ claude -p "$(cat <<EOF
 
 Start three code reviewer subagents, to look at the current diff against master.
 
-1. Does an architecture revie; results go to PR_ARCHITECTURE_REVIEW_RESULT.md
+1. Does an architecture review; results go to PR_ARCHITECTURE_REVIEW_RESULT.md
 # SKIP 2. Does a security review; results go to PR_SECURITY_REVIEW_RESULT.md
 # SKIP 3. Does a data consistency review; results go to PR_DATA_CONSISTENCY_REVIEW_RESULT.md    
 
 EOF
 )" --allowedTools "Write"
 
+cp NEXT_FEATURE_JUSTIFICATION.md /tmp/NEXT_FEATURE_JUSTIFICATION.md.bak
 git revert HEAD --no-edit
+cp /tmp/NEXT_FEATURE_JUSTIFICATION.md.bak NEXT_FEATURE_JUSTIFICATION.md
 
 ## By now, we have two new commits in our branch, and some unstaged PR files
 
@@ -51,3 +53,9 @@ EOF
 
 rm NEXT_FEATURE_JUSTIFICATION.md
 rm PR_*_RESULT.md
+
+read -p "Type 'continue' to proceed: " input
+if [ "$input" != "continue" ]; then
+    echo "Aborted."
+    exit 1
+fi
