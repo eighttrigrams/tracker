@@ -18,6 +18,11 @@ If it doesnt exist or we are not in it, create a new branch feature/$1 and switc
 EOF
 )" --allowedTools "Write"
 
+if ! clj -X:test; then
+    echo "Unit tests failed. Aborting."
+    exit 1
+fi
+
 git add . && git commit -m "$1 - stage 1"
 
 claude -p "$(cat <<EOF
@@ -68,6 +73,8 @@ claude -p "$(cat <<EOF
 Read
 - NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
 - make sure tests run (`clj -X:test`)
+
+Now implement the feature properly, according to that new plan!
 
 Report what you did in NEXT_FEATURE_JUSTIFICATION.md
 
