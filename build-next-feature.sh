@@ -6,6 +6,7 @@ if [ -z "$1" ]; then
 fi
 
 make stop
+# TODO maybe remove screenshots dir
 
 claude -p "$(cat <<EOF
 
@@ -13,8 +14,15 @@ We are building a new feature $1.
 If it doesnt exist or we are not in it, create a new branch feature/$1 and switch to it.
 
 1. Read the description what to build from NEXT_FEATURE.md.
-2. Implement the feature. (if it involves UI, make sure to test it in the open browser via playwright (app start via make start))
-3. Explain how what you have done matches what was asked of you. Write this to NEXT_FEATURE_JUSTIFICATION.md
+2. Implement the feature.
+  - if it involves UI
+    - make sure to test it in the open browser via playwright
+        - app start via `make start`
+        - app should run in localhost:3027
+        - take screenshots for proof of important key aspects
+3. Explain how what you have done matches what was asked of you. 
+    - Write this to NEXT_FEATURE_JUSTIFICATION.md
+        - If you have taken screenshots, list names of screenshots in this doc
 4. Make sure you get the unit tests running (`clj -X:test`)
 
 EOF
