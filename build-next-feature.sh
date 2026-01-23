@@ -62,19 +62,28 @@ EOF
 rm NEXT_FEATURE_JUSTIFICATION.md
 rm PR_*_RESULT.md
 
-read -p "Type 'continue' to proceed: " input
-if [ "$input" != "continue" ]; then
-    echo "Aborted."
-    exit 1
-fi
+echo "Please human, add your verdict in HUMAN_OPINION.md"
+
+while true; do
+    read -p "Type 'ok' to proceed: " input
+    if [ "$input" = "ok" ]; then
+        if [ -f "HUMAN_OPINION.md" ]; then
+            break
+        else
+            echo "HUMAN_OPINION.md not found. Please create it first."
+        fi
+    fi
+done
 
 claude -p "$(cat <<EOF
 
 Read
 - NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
-- make sure tests run (`clj -X:test`)
+- HUMAN_OPINION.md
 
 Now implement the feature properly, according to that new plan!
+
+Make sure tests run (`clj -X:test`)
 
 Report what you did in NEXT_FEATURE_JUSTIFICATION.md
 
