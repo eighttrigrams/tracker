@@ -13,6 +13,7 @@ If it doesnt exist or we are not in it, create a new branch feature/$1 and switc
 1. Read the description what to build from NEXT_FEATURE.md.
 2. Implement the feature.
 3. Explain how what you have done matches what was asked of you. Write this to NEXT_FEATURE_JUSTIFICATION.md
+4. Make sure you get the unit tests running (`clj -X:tests`)
 
 EOF
 )" --allowedTools "Write"
@@ -41,12 +42,14 @@ claude -p "$(cat <<EOF
 Read
 - NEXT_FEATURE.md
 - NEXT_FEATURE_JUSTIFICATION.md
-- READ PR_ARCHITECTURE_REVIEW_RESULT.md
+- PR_ARCHITECTURE_REVIEW_RESULT.md
 
 Then look at the previous to last commit (against master). Its name is "$1 - stage 1"
 
 From the reviews, and all what you know NOW, write a new NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md.
-Pick mostly high and medium issues from the todos.
+
+- Pick mostly high and medium issues from the todos. 
+- Be specific which files the implementer should touch on this next, better attempt
 
 EOF
 )" --allowedTools "Write"
@@ -59,3 +62,14 @@ if [ "$input" != "continue" ]; then
     echo "Aborted."
     exit 1
 fi
+
+claude -p "$(cat <<EOF
+
+Read
+- NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
+- make sure tests run (`clj -X:test`)
+
+Report what you did in NEXT_FEATURE_JUSTIFICATION.md
+
+EOF
+)" --allowedTools "Write"
