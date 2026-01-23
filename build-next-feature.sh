@@ -10,7 +10,7 @@ If it doesnt exist or we are not in it, create a new branch feature/$1 and switc
 3. Explain how what you have done matches what was asked of you. Write this to NEXT_FEATURE_JUSTIFICATION.md
 
 EOF
-)"
+)" --allowedTools "Write"
 
 git add . && git commit -m "$1 - stage 1"
 
@@ -25,4 +25,6 @@ Start three code reviewer subagents, to look at the current diff against master.
 EOF
 )" --allowedTools "Write"
 
-git revert HEAD
+git revert HEAD --no-edit
+
+## By now, we have two new commits in our branch, and some unstaged PR files
