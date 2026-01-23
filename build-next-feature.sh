@@ -43,7 +43,8 @@ Read
 
 Then look at the previous to last commit (against master). Its name is "$1 - stage 1"
 
-From the reviews, and all what you know NOW, write a new NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
+From the reviews, and all what you know NOW, write a new NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md.
+Pick mostly high and medium issues from the todos.
 
 EOF
 )" --allowedTools "Write"
