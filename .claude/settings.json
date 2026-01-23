@@ -19,7 +19,13 @@
       "Bash(ls:*)",
       "Skill(architecture-review)",
       "Skill(data-consistency-review)",
-      "Skill(security-review)"
+      "Skill(security-review)",
+      "Edit(resources/**)",
+      "Write(resources/**)",
+      "Edit(src/**)",
+      "Write(src/**)",
+      "Edit(test/**)",
+      "Write(test/**)"
     ],
     "ask": [
       "Bash(git push:*)"
