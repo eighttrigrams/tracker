@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ -z "$1" ]; then
+  echo "Usage: $0 <feature-name>"
+  exit 1
+fi
+
 claude -p "$(cat <<EOF
 
 We are building a new feature $1.
