@@ -45,7 +45,7 @@ We are building a new feature $1.
 4. Now that you have an implementation which matches the specification of the new feature handed to you, consider the following: What things did you encounter which caused
   you extra work which wouldnt otherwise have occurred where the code structured in a cleaner way? 
   - Write the cleaner ways down in a build-next-feature/BOYSCOUT_OBSERVATIONS.md 
-    - Make sure nothing specifically pertaining to the new feature goes here. For the purpose of that report, we care about the state of the codebase we found, pretending we dont know what we build next.
+    - Make sure absolutely nothing specifically pertaining to the new feature goes here. For the purpose of that report, we care about the state of the codebase we found, pretending we dont know what we build next.
 5. Explain how what you have done matches what was asked of you. 
     - Write this to build-next-feature/EXPLORATORY_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md
         - If you have taken screenshots, list names of screenshots in this doc (prefix the names with where they are stored, namely .playwright-mcp/)    
@@ -102,6 +102,8 @@ echo "### Coming up with a better plan now ..." >> hooks.log
 
 claude -p "$(cat <<EOF
 
+## Preparation
+
 Read
 - build-next-feature/BOYSCOUT_OBSERVATIONS.md
 - build-next-feature/NEXT_FEATURE.md
@@ -112,6 +114,8 @@ Read
 
 Then look at the previous to last commit (against master). Its name is "feature/$1 - Exploratory implementation"
 
+## High level - what we gonna do
+
 From the reviews, and all what you know NOW, write
 - build-next-feature/BOYSCOUT_PLAN.md
 - build-next-feature/IMPLEMENTATION_PLAN.md.
@@ -120,12 +124,19 @@ We will execute the new implementation in two phases,
 1. the cleanup phase done by a boyscout, 
 2. and then the proper implementation.
 
+## Info on the plan files to write
+
+### Boyscout plan
+
 Note that soon we will revert the last commit in which we did our exploration.
 So the cleanup will be performed against the sources as they appeared in main branch.
 Dont put anything specific to our feature in the preparatory boyscout plan. Just make it
-nicer for the things which go to the proper implementation.
+nicer for the things which go to the proper implementation. I repeat: Absolutely **nothing
+pertaining to the feature** we are about to build goes into the BOYSCOUT_PLAN.md.
 
-For the proper implementation
+### Implementation plan
+
+For the proper implementation, then
 - Pick mostly high and medium issues from the todos. 
 - Be specific which files the implementer should touch on this next, better attempt
 
