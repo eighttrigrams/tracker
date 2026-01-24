@@ -177,6 +177,23 @@ echo "##### Starting boyscout refactoring now" >> hooks.log
 
 ## Boyscout phase now
 
+required_files=(
+    "build-next-feature/BOYSCOUT_PLAN.md"
+    # "build-next-feature/HUMAN_OPINION.md" # could be only 1 line
+)
+## TODO remove duplication here, put this block into a function
+for file in "${required_files[@]}"; do
+    if [ ! -f "$file" ]; then
+        echo "Error: Review file $file not found. Aborting."
+        exit 1
+    fi
+    line_count=$(wc -l < "$file" | tr -d ' ')
+    if [ "$line_count" -le 1 ]; then
+        echo "Error: Review file $file is empty or has only one line. Aborting."
+        exit 1
+    fi
+done
+
 claude -p "$(cat <<EOF
 
 Read
@@ -202,6 +219,25 @@ rm build-next-feature/BOYSCOUT_PLAN.md
 git add .
 git reset HEAD -- build-next-feature/ 2>/dev/null || true
 git commit -m "feature/$1 - Preparatory refactoring"
+
+required_files=(
+    "build-next-feature/NEXT_FEATURE.md"
+    "build-next-feature/BOYSCOUT_REPORT.md"
+    "build-next-feature/IMPLEMENTATION_PLAN.md"
+    # "build-next-feature/HUMAN_OPINION.md" # could be only 1 line
+)
+## TODO remove duplication here, put this block into a function
+for file in "${required_files[@]}"; do
+    if [ ! -f "$file" ]; then
+        echo "Error: Review file $file not found. Aborting."
+        exit 1
+    fi
+    line_count=$(wc -l < "$file" | tr -d ' ')
+    if [ "$line_count" -le 1 ]; then
+        echo "Error: Review file $file is empty or has only one line. Aborting."
+        exit 1
+    fi
+done
 
 echo "Starting implentation phase now"
 echo "##### Implementation phase starting" >> hooks.log
