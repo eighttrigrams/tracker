@@ -50,12 +50,11 @@ claude -p "$(cat <<EOF
 Start three code reviewer subagents, to look at the current diff against master.
 
 1. Does an architecture review; results go to PR_ARCHITECTURE_REVIEW_RESULT.md
+2. Does an data consistency review; results go to PR_DATA_CONSISTENCY_REVIEW_RESULT.md
+3. Does an security review; results go to PR_SECURITY_REVIEW_RESULT.md
 
 EOF
 )" --allowedTools "Write"
-
-# SKIP 2. Does a security review; results go to PR_SECURITY_REVIEW_RESULT.md
-# SKIP 3. Does a data consistency review; results go to PR_DATA_CONSISTENCY_REVIEW_RESULT.md
 
 ## By now, we have two new commits in our branch, and some unstaged PR files
 
@@ -66,6 +65,8 @@ Read
 - NEXT_FEATURE.md
 - NEXT_FEATURE_JUSTIFICATION.md
 - PR_ARCHITECTURE_REVIEW_RESULT.md
+- PR_SECURITY_REVIEW_RESULT.md
+- PR_DATA_CONSISTENCY_REVIEW_RESULT.md
 
 Then look at the previous to last commit (against master). Its name is "$1 - stage 1"
 
