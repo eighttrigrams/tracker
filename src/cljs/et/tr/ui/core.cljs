@@ -116,9 +116,16 @@
                         (map #(assoc % :type "person") (:people task))
                         (map #(assoc % :type "place") (:places task))
                         (map #(assoc % :type "project") (:projects task))
-                        (map #(assoc % :type "goal") (:goals task)))]
-    (when (seq all-categories)
+                        (map #(assoc % :type "goal") (:goals task)))
+        importance (:importance task)
+        importance-stars (case importance
+                           "important" "★"
+                           "critical" "★★"
+                           nil)]
+    (when (or importance-stars (seq all-categories))
       [:div.task-badges
+       (when importance-stars
+         [:span.importance-badge {:class importance} importance-stars])
        (doall
         (for [category all-categories]
           ^{:key (str (:type category) "-" (:id category))}
