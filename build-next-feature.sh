@@ -86,6 +86,9 @@ rm BOYSCOUT_OBSERVATIONS.md
 rm NEXT_FEATURE_JUSTIFICATION.md
 rm PR_*_RESULT.md
 
+make stop
+make start
+
 if [ ! -f "HUMAN_OPINION.md" ]; then
     read -p "HUMAN_OPINION.md not found. Create it? (y|n): " create_input
     if [ "$create_input" = "y" ]; then
@@ -94,7 +97,7 @@ if [ ! -f "HUMAN_OPINION.md" ]; then
     fi
 fi
 
-echo "Please human, add your verdict in HUMAN_OPINION.md"
+echo "Please human, add your verdict in HUMAN_OPINION.md (note that the app is up at 3027)"
 
 while true; do
     read -p "Type 'ok' to proceed: " input
@@ -102,6 +105,8 @@ while true; do
         break
     fi
 done
+
+make stop
 
 ## Boyscout phase now
 
