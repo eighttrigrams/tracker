@@ -23,7 +23,9 @@ If it doesnt exist or we are not in it, create a new branch feature/$1 and switc
     - take screenshots for proof of important key aspects
 3. Make sure you get the unit tests running (`clj -X:test`)    
 4. Now that you have an implementation which matches the specification of the new feature handed to you, consider the following: What things did you encounter which caused
-  you extra work which wouldnt otherwise have occurred where the code structured in a cleaner way? Write the cleaner ways down in a BOYSCOUT_OBSERVATIONS.md 
+  you extra work which wouldnt otherwise have occurred where the code structured in a cleaner way? 
+  - Write the cleaner ways down in a BOYSCOUT_OBSERVATIONS.md 
+    - Make sure nothing specifically pertaining to the new feature goes here. For the purpose of that report, we care about the state of the codebase we found, pretending we don't know what we build next.
 5. Explain how what you have done matches what was asked of you. 
     - Write this to NEXT_FEATURE_JUSTIFICATION.md
         - If you have taken screenshots, list names of screenshots in this doc (prefix the names with where they are stored, namely .playwright-mcp/)    
