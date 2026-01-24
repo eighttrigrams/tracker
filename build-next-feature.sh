@@ -36,7 +36,7 @@ claude -p "$(cat <<EOF
 
 We are building a new feature $1.
 
-1. Read the description what to build from NEXT_FEATURE.md.
+1. Read the description what to build from build-next-feature/NEXT_FEATURE.md.
 2. Implement the feature.
   - if it touches the user interface (which is almost always the case)
     - use a skill
@@ -44,10 +44,10 @@ We are building a new feature $1.
 3. Make sure you get the unit tests running (`clj -X:test`)    
 4. Now that you have an implementation which matches the specification of the new feature handed to you, consider the following: What things did you encounter which caused
   you extra work which wouldnt otherwise have occurred where the code structured in a cleaner way? 
-  - Write the cleaner ways down in a BOYSCOUT_OBSERVATIONS.md 
+  - Write the cleaner ways down in a build-next-feature/BOYSCOUT_OBSERVATIONS.md 
     - Make sure nothing specifically pertaining to the new feature goes here. For the purpose of that report, we care about the state of the codebase we found, pretending we dont know what we build next.
 5. Explain how what you have done matches what was asked of you. 
-    - Write this to NEXT_FEATURE_JUSTIFICATION.md
+    - Write this to build-next-feature/NEXT_FEATURE_JUSTIFICATION.md
         - If you have taken screenshots, list names of screenshots in this doc (prefix the names with where they are stored, namely .playwright-mcp/)    
 
 EOF
@@ -59,7 +59,7 @@ if ! clj -X:test; then
 fi
 
 git add . 
-git reset HEAD -- BOYSCOUT_OBSERVATIONS.md NEXT_FEATURE_JUSTIFICATION.md 2>/dev/null || true
+git reset HEAD -- build-next-feature/ 2>/dev/null || true
 git commit -m "feature/$1 - Exploratory implementation"
 
 echo "Pre-implementation phase done. Now doing reviews ..."
@@ -69,9 +69,9 @@ claude -p "$(cat <<EOF
 
 Start three code reviewer subagents, to look at the current diff against master.
 
-1. Does an architecture review; results go to PR_ARCHITECTURE_REVIEW_RESULT.md
-2. Does an data consistency review; results go to PR_DATA_CONSISTENCY_REVIEW_RESULT.md
-3. Does an security review; results go to PR_SECURITY_REVIEW_RESULT.md
+1. Does an architecture review; results go to build-next-feature/PR_ARCHITECTURE_REVIEW_RESULT.md
+2. Does an data consistency review; results go to build-next-feature/PR_DATA_CONSISTENCY_REVIEW_RESULT.md
+3. Does an security review; results go to build-next-feature/PR_SECURITY_REVIEW_RESULT.md
 
 EOF
 )" --allowedTools "Write"
@@ -81,18 +81,18 @@ EOF
 claude -p "$(cat <<EOF
 
 Read
-- BOYSCOUT_OBSERVATIONS.md
-- NEXT_FEATURE.md
-- NEXT_FEATURE_JUSTIFICATION.md
-- PR_ARCHITECTURE_REVIEW_RESULT.md
-- PR_SECURITY_REVIEW_RESULT.md
-- PR_DATA_CONSISTENCY_REVIEW_RESULT.md
+- build-next-feature/BOYSCOUT_OBSERVATIONS.md
+- build-next-feature/NEXT_FEATURE.md
+- build-next-feature/NEXT_FEATURE_JUSTIFICATION.md
+- build-next-feature/PR_ARCHITECTURE_REVIEW_RESULT.md
+- build-next-feature/PR_SECURITY_REVIEW_RESULT.md
+- build-next-feature/PR_DATA_CONSISTENCY_REVIEW_RESULT.md
 
 Then look at the previous to last commit (against master). Its name is "$1 - stage 1"
 
 From the reviews, and all what you know NOW, write
-- NEXT_FEATURE_BOYSCOUT_PLAN.md
-- NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md.
+- build-next-feature/NEXT_FEATURE_BOYSCOUT_PLAN.md
+- build-next-feature/NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md.
 
 We will execute the new implementation in two phases,
 1. the cleanup phase done by a boyscout, 
@@ -110,24 +110,24 @@ For the proper implementation
 EOF
 )" --allowedTools "Write"
 
-rm BOYSCOUT_OBSERVATIONS.md
-rm NEXT_FEATURE_JUSTIFICATION.md
-rm PR_*_RESULT.md
+rm build-next-feature/BOYSCOUT_OBSERVATIONS.md
+rm build-next-feature/NEXT_FEATURE_JUSTIFICATION.md
+rm build-next-feature/PR_*_RESULT.md
 
 make stop
 nohup make start &
 sleep 2
 say "Tracker needs your attention now. Please human, give your opinion."
 
-if [ ! -f "HUMAN_OPINION.md" ]; then
-    read -p "HUMAN_OPINION.md not found. Create it? (y|n): " create_input
+if [ ! -f "build-next-feature/HUMAN_OPINION.md" ]; then
+    read -p "build-next-feature/HUMAN_OPINION.md not found. Create it? (y|n): " create_input
     if [ "$create_input" = "y" ]; then
-        touch HUMAN_OPINION.md
-        $FAVORITE_EDITOR_CMD HUMAN_OPINION.md
+        touch build-next-feature/HUMAN_OPINION.md
+        $FAVORITE_EDITOR_CMD build-next-feature/HUMAN_OPINION.md
     fi
 fi
 
-echo "Please human, add your verdict in HUMAN_OPINION.md (note that the app is up at 3027)"
+echo "Please human, add your verdict in build-next-feature/HUMAN_OPINION.md (note that the app is up at 3027)"
 
 while true; do
     read -p "Type 'ok' to proceed: " input
@@ -147,14 +147,14 @@ echo "##### Starting boyscout refactoring now" >> hooks.log
 claude -p "$(cat <<EOF
 
 Read
-- NEXT_FEATURE_BOYSCOUT_PLAN.md
-- HUMAN_OPINION.md
+- build-next-feature/NEXT_FEATURE_BOYSCOUT_PLAN.md
+- build-next-feature/HUMAN_OPINION.md
 
 Now implement the feature properly, according to that new plan!
 
 Make sure tests run (`clj -X:test`)
 
-Report what you did in NEXT_FEATURE_BOYSCOUT_HANDOVER.md
+Report what you did in build-next-feature/NEXT_FEATURE_BOYSCOUT_HANDOVER.md
 
 EOF
 )" --allowedTools "Write"
@@ -164,10 +164,10 @@ if ! clj -X:test; then
     exit 1
 fi
 
-rm NEXT_FEATURE_BOYSCOUT_PLAN.md
+rm build-next-feature/NEXT_FEATURE_BOYSCOUT_PLAN.md
 
 git add .
-git reset HEAD -- HUMAN_OPINION.md NEXT_FEATURE_BOYSCOUT_HANDOVER.md NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md 2>/dev/null || true
+git reset HEAD -- build-next-feature/ 2>/dev/null || true
 git commit -m "feature/$1 - Preparatory refactoring"
 
 echo "Starting implentation phase now"
@@ -176,15 +176,15 @@ echo "##### Implementation phase starting" >> hooks.log
 claude -p "$(cat <<EOF
 
 Read
-- NEXT_FEATURE_BOYSCOUT_HANDOVER.md
-- NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
-- HUMAN_OPINION.md
+- build-next-feature/NEXT_FEATURE_BOYSCOUT_HANDOVER.md
+- build-next-feature/NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
+- build-next-feature/HUMAN_OPINION.md
 
 Now implement the feature properly, according to that new plan!
 
 Make sure tests run (`clj -X:test`)
 
-Report what you did in NEXT_FEATURE_PROPER_IMPLEMENTATION_JUSTIFICATION.md
+Report what you did in build-next-feature/NEXT_FEATURE_PROPER_IMPLEMENTATION_JUSTIFICATION.md
 
 EOF
 )" --allowedTools "Write"
@@ -194,9 +194,9 @@ if ! clj -X:test; then
     exit 1
 fi
 
-rm NEXT_FEATURE_BOYSCOUT_HANDOVER.md
-rm NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
-rm HUMAN_OPINION.md
+rm build-next-feature/NEXT_FEATURE_BOYSCOUT_HANDOVER.md
+rm build-next-feature/NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
+rm build-next-feature/HUMAN_OPINION.md
 
 make stop
 nohup make start &
@@ -211,7 +211,7 @@ while true; do
     fi
 done
 
-echo "" >> NEXT_FEATURE.md
+echo "" >> build-next-feature/NEXT_FEATURE.md
 git add .
 git commit -m "feature/$1 - Implementation"
 

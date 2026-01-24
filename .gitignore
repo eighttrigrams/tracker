@@ -18,3 +18,5 @@ data/
 volume*.tar.gz
 hooks.log
 nohup.out
+build-next-feature/
+!build-next-feature/NEXT_FEATURE.md
