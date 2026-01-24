@@ -29,6 +29,9 @@ make stop
 rm -r .playwright-mcp
 rm hooks.log
 
+echo "Start building ..."
+echo "###### Start building ..." >> hooks.log
+
 claude -p "$(cat <<EOF
 
 We are building a new feature $1.
@@ -59,8 +62,8 @@ git add .
 git reset HEAD -- BOYSCOUT_OBSERVATIONS.md NEXT_FEATURE_JUSTIFICATION.md 2>/dev/null || true
 git commit -m "$1 - stage 1"
 
-echo "Pre-implementation phase done"
-echo "####### Pre-implementation phase done. #####" >> hooks.log
+echo "Pre-implementation phase done. Now doing reviews ..."
+echo "####### Pre-implementation phase done. Doing reviews now. #####" >> hooks.log
 
 claude -p "$(cat <<EOF
 
@@ -105,6 +108,8 @@ rm PR_*_RESULT.md
 
 make stop
 nohup make start &
+sleep 2
+say "Tracker needs your attention now. Please human, give your opinion."
 
 if [ ! -f "HUMAN_OPINION.md" ]; then
     read -p "HUMAN_OPINION.md not found. Create it? (y|n): " create_input
@@ -183,6 +188,7 @@ rm HUMAN_OPINION.md
 make stop
 nohup make start &
 
+say "Tracker needs your attention now. We are done. Please human, give your opinion."
 echo "Human, please visit the app in a browser, and also check the changes. Everything ok?"
 
 while true; do

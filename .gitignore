@@ -17,3 +17,4 @@ data/
 .playwright-mcp
 volume*.tar.gz
 hooks.log
+nohup.out
