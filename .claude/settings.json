@@ -9,6 +9,24 @@
             "command": "./pre-tool-use-hook.sh"
           }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./pre-tool-use-hook.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./pre-tool-use-hook.sh"
+          }
+        ]
       }
     ]
   },
