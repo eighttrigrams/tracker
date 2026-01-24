@@ -463,6 +463,7 @@
                          (when (:due_date task) (str "due_date: \"" (:due_date task) "\"\n"))
                          (when (:due_time task) (str "due_time: \"" (:due_time task) "\"\n"))
                          "done: " (if (= 1 (:done task)) "true" "false") "\n"
+                         "scope: \"" (:scope task) "\"\n"
                          "sort_order: " (:sort_order task) "\n"
                          (when (seq (:people task)) (str "people: " (pr-str (:people task)) "\n"))
                          (when (seq (:places task)) (str "places: " (pr-str (:places task)) "\n"))
