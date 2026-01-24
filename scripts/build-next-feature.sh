@@ -47,7 +47,7 @@ We are building a new feature $1.
   - Write the cleaner ways down in a build-next-feature/BOYSCOUT_OBSERVATIONS.md 
     - Make sure nothing specifically pertaining to the new feature goes here. For the purpose of that report, we care about the state of the codebase we found, pretending we dont know what we build next.
 5. Explain how what you have done matches what was asked of you. 
-    - Write this to build-next-feature/NEXT_FEATURE_JUSTIFICATION.md
+    - Write this to build-next-feature/EXPLORATORY_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md
         - If you have taken screenshots, list names of screenshots in this doc (prefix the names with where they are stored, namely .playwright-mcp/)    
 
 EOF
@@ -83,16 +83,16 @@ claude -p "$(cat <<EOF
 Read
 - build-next-feature/BOYSCOUT_OBSERVATIONS.md
 - build-next-feature/NEXT_FEATURE.md
-- build-next-feature/NEXT_FEATURE_JUSTIFICATION.md
+- build-next-feature/EXPLORATORY_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md
 - build-next-feature/PR_ARCHITECTURE_REVIEW_RESULT.md
 - build-next-feature/PR_SECURITY_REVIEW_RESULT.md
 - build-next-feature/PR_DATA_CONSISTENCY_REVIEW_RESULT.md
 
-Then look at the previous to last commit (against master). Its name is "$1 - stage 1"
+Then look at the previous to last commit (against master). Its name is "feature/$1 - Exploratory implementation"
 
 From the reviews, and all what you know NOW, write
-- build-next-feature/NEXT_FEATURE_BOYSCOUT_PLAN.md
-- build-next-feature/NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md.
+- build-next-feature/BOYSCOUT_PLAN.md
+- build-next-feature/IMPLEMENTATION_PLAN.md.
 
 We will execute the new implementation in two phases,
 1. the cleanup phase done by a boyscout, 
@@ -111,7 +111,7 @@ EOF
 )" --allowedTools "Write"
 
 rm build-next-feature/BOYSCOUT_OBSERVATIONS.md
-rm build-next-feature/NEXT_FEATURE_JUSTIFICATION.md
+rm build-next-feature/EXPLORATORY_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md
 rm build-next-feature/PR_*_RESULT.md
 
 make stop
@@ -147,14 +147,14 @@ echo "##### Starting boyscout refactoring now" >> hooks.log
 claude -p "$(cat <<EOF
 
 Read
-- build-next-feature/NEXT_FEATURE_BOYSCOUT_PLAN.md
+- build-next-feature/BOYSCOUT_PLAN.md
 - build-next-feature/HUMAN_OPINION.md
 
 Now implement the feature properly, according to that new plan!
 
 Make sure tests run (`clj -X:test`)
 
-Report what you did in build-next-feature/NEXT_FEATURE_BOYSCOUT_HANDOVER.md
+Report what you did in build-next-feature/BOYSCOUT_REPORT.md
 
 EOF
 )" --allowedTools "Write"
@@ -164,7 +164,7 @@ if ! clj -X:test; then
     exit 1
 fi
 
-rm build-next-feature/NEXT_FEATURE_BOYSCOUT_PLAN.md
+rm build-next-feature/BOYSCOUT_PLAN.md
 
 git add .
 git reset HEAD -- build-next-feature/ 2>/dev/null || true
@@ -176,15 +176,17 @@ echo "##### Implementation phase starting" >> hooks.log
 claude -p "$(cat <<EOF
 
 Read
-- build-next-feature/NEXT_FEATURE_BOYSCOUT_HANDOVER.md
-- build-next-feature/NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
+- build-next-feature/NEXT_FEATURE.md
+- build-next-feature/BOYSCOUT_REPORT.md
+- build-next-feature/IMPLEMENTATION_PLAN.md
 - build-next-feature/HUMAN_OPINION.md
 
 Now implement the feature properly, according to that new plan!
+Make sure to use the UI skill to watch your implementation results live in the browser.
 
 Make sure tests run (`clj -X:test`)
 
-Report what you did in build-next-feature/NEXT_FEATURE_PROPER_IMPLEMENTATION_JUSTIFICATION.md
+Report what you did in build-next-feature/FEATURE_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md
 
 EOF
 )" --allowedTools "Write"
@@ -194,8 +196,8 @@ if ! clj -X:test; then
     exit 1
 fi
 
-rm build-next-feature/NEXT_FEATURE_BOYSCOUT_HANDOVER.md
-rm build-next-feature/NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
+rm build-next-feature/BOYSCOUT_REPORT.md
+rm build-next-feature/IMPLEMENTATION_PLAN.md
 rm build-next-feature/HUMAN_OPINION.md
 
 make stop
@@ -213,9 +215,33 @@ done
 
 make stop
 
-echo "" > build-next-feature/NEXT_FEATURE.md
 git add .
 git commit -m "feature/$1 - Implementation"
+
+echo "Synthesizing commit message now"
+
+claude -p "$(cat <<EOF
+
+Read
+- build-next-feature/NEXT_FEATURE.md
+- build-next-feature/FEATURE_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md
+
+Write a commit message body summarizing what was done and why.
+Output ONLY the commit message body (no subject line, no markdown fences).
+Write the result to build-next-feature/COMMIT_MESSAGE_BODY.txt
+
+EOF
+)"
+
+git commit --amend -m "feature/$1 - Implementation" -m "$(cat build-next-feature/COMMIT_MESSAGE_BODY.txt)"
+rm build-next-feature/COMMIT_MESSAGE_BODY.txt
+rm build-next-feature/FEATURE_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md
+
+echo "" > build-next-feature/NEXT_FEATURE.md
+git add .
+git commit --amend --no-edit
+
+echo "Switching back to main now"
 
 git switch main
 commit1=$(git rev-parse feature/$1~1)
