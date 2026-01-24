@@ -125,8 +125,10 @@ if ! clj -X:test; then
     exit 1
 fi
 
+rm NEXT_FEATURE_BOYSCOUT_PLAN.md
+
 git add .
-git reset HEAD -- HUMAN_OPINION.md NEXT_FEATURE_BOYSCOUT_PLAN.md NEXT_FEATURE_BOYSCOUT_HANDOVER.md NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md 2>/dev/null || true
+git reset HEAD -- HUMAN_OPINION.md NEXT_FEATURE_BOYSCOUT_HANDOVER.md NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md 2>/dev/null || true
 git commit -m "$1 - boyscout"
 
 ## Implementation phase ##
