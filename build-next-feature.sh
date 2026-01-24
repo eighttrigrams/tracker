@@ -149,3 +149,21 @@ if ! clj -X:test; then
     echo "Unit tests failed. Aborting."
     exit 1
 fi
+
+rm NEXT_FEATURE_BOYSCOUT_HANDOVER.md
+rm NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
+rm HUMAN_OPINION.md
+
+make stop
+make start
+
+echo "Human, please visit the app in a browser, and also check the changes. Everything ok?"
+
+while true; do
+    read -p "Type 'ok' to proceed: " input
+    if [ "$input" = "ok" ]; then
+        break
+    fi
+done
+
+## TODO commit and merge etc
