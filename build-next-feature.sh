@@ -1,5 +1,7 @@
 #!/bin/bash
 
+FAVORITE_EDITOR_CMD="code"
+
 if [ -z "$1" ]; then
   echo "Usage: $0 <feature-name>"
   exit 1
@@ -71,6 +73,14 @@ EOF
 
 rm NEXT_FEATURE_JUSTIFICATION.md
 rm PR_*_RESULT.md
+
+if [ ! -f "HUMAN_OPINION.md" ]; then
+    read -p "HUMAN_OPINION.md not found. Create it? (y|n): " create_input
+    if [ "$create_input" = "y" ]; then
+        touch HUMAN_OPINION.md
+        $FAVORITE_EDITOR_CMD HUMAN_OPINION.md
+    fi
+fi
 
 echo "Please human, add your verdict in HUMAN_OPINION.md"
 
