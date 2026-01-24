@@ -100,7 +100,7 @@ We will execute the new implementation in two phases,
 
 Note that soon we will revert the last commit in which we did our exploration.
 So the cleanup will be performed against the sources as they appeared in main branch.
-Don't put anything specific to our feature in the preparatory boyscout plan. Just make it
+Dont put anything specific to our feature in the preparatory boyscout plan. Just make it
 nicer for the things which go to the proper implementation.
 
 For the proper implementation
