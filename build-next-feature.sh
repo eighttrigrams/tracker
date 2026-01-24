@@ -87,7 +87,7 @@ rm NEXT_FEATURE_JUSTIFICATION.md
 rm PR_*_RESULT.md
 
 make stop
-make start
+nohup make start &
 
 if [ ! -f "HUMAN_OPINION.md" ]; then
     read -p "HUMAN_OPINION.md not found. Create it? (y|n): " create_input
@@ -164,7 +164,7 @@ rm NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
 rm HUMAN_OPINION.md
 
 make stop
-make start
+nohup make start &
 
 echo "Human, please visit the app in a browser, and also check the changes. Everything ok?"
 
