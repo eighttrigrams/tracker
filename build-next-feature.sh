@@ -7,6 +7,24 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
+current_branch=$(git branch --show-current)
+if [ "$current_branch" != "main" ]; then
+  echo "Error: Must be on main branch. Currently on: $current_branch"
+  exit 1
+fi
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Error: Untracked or modified files present. Please clean up first."
+  exit 1
+fi
+
+if git show-ref --verify --quiet "refs/heads/feature/$1"; then
+  echo "Error: Branch feature/$1 already exists."
+  exit 1
+fi
+
+git checkout -b "feature/$1"
+
 make stop
 rm -r .playwright-mcp
 rm hooks.log
@@ -14,7 +32,6 @@ rm hooks.log
 claude -p "$(cat <<EOF
 
 We are building a new feature $1.
-If it doesnt exist or we are not in it, create a new branch feature/$1 and switch to it.
 
 1. Read the description what to build from NEXT_FEATURE.md.
 2. Implement the feature.
