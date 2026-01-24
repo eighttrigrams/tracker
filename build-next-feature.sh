@@ -60,7 +60,7 @@ fi
 
 git add . 
 git reset HEAD -- BOYSCOUT_OBSERVATIONS.md NEXT_FEATURE_JUSTIFICATION.md 2>/dev/null || true
-git commit -m "$1 - stage 1"
+git commit -m "feature/$1 - Exploratory implementation"
 
 echo "Pre-implementation phase done. Now doing reviews ..."
 echo "####### Pre-implementation phase done. Doing reviews now. #####" >> hooks.log
@@ -139,12 +139,7 @@ done
 make stop
 git revert --no-edit HEAD
 
-## TODO remove this section
-echo "About to start boyscout refactoring now. Ready?"
-echo "OK? Press enter"
-read
-###
-
+echo "Starting boyscout refactoring now"
 echo "##### Starting boyscout refactoring now" >> hooks.log
 
 ## Boyscout phase now
@@ -173,9 +168,10 @@ rm NEXT_FEATURE_BOYSCOUT_PLAN.md
 
 git add .
 git reset HEAD -- HUMAN_OPINION.md NEXT_FEATURE_BOYSCOUT_HANDOVER.md NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md 2>/dev/null || true
-git commit -m "$1 - boyscout"
+git commit -m "feature/$1 - Preparatory refactoring"
 
-## Implementation phase ##
+echo "Starting implentation phase now"
+echo "##### Implementation phase starting" >> hooks.log
 
 claude -p "$(cat <<EOF
 
@@ -217,6 +213,6 @@ done
 
 echo "" >> NEXT_FEATURE.md
 git add .
-git commit -m "Feature done"
+git commit -m "feature/$1 - Implementation"
 
 ## TODO commit and merge etc
