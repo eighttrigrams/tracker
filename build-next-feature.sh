@@ -198,4 +198,8 @@ while true; do
     fi
 done
 
+echo "" >> NEXT_FEATURE.md
+git add .
+git commit -m "Feature done"
+
 ## TODO commit and merge etc
