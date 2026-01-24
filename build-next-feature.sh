@@ -9,6 +9,7 @@ fi
 
 make stop
 rm -r .playwright-mcp
+rm hooks.log
 
 claude -p "$(cat <<EOF
 
@@ -22,11 +23,10 @@ If it doesnt exist or we are not in it, create a new branch feature/$1 and switc
     - take screenshots for proof of important key aspects
 3. Make sure you get the unit tests running (`clj -X:test`)    
 4. Now that you have an implementation which matches the specification of the new feature handed to you, consider the following: What things did you encounter which caused
-  you extra work which wouldnt otherwise have occurred where the code structured in a cleaner way? Write the cleaner ways down in a BOYSCOUT1.md 
+  you extra work which wouldnt otherwise have occurred where the code structured in a cleaner way? Write the cleaner ways down in a BOYSCOUT_OBSERVATIONS.md 
 5. Explain how what you have done matches what was asked of you. 
     - Write this to NEXT_FEATURE_JUSTIFICATION.md
         - If you have taken screenshots, list names of screenshots in this doc (prefix the names with where they are stored, namely .playwright-mcp/)    
-
 
 EOF
 )" --allowedTools "Write"
@@ -36,7 +36,12 @@ if ! clj -X:test; then
     exit 1
 fi
 
-git add . && git commit -m "$1 - stage 1"
+git add . 
+git reset HEAD -- BOYSCOUT_OBSERVATIONS.md NEXT_FEATURE_JUSTIFICATION.md 2>/dev/null || true
+git commit -m "$1 - stage 1"
+
+echo "Pre-implementation phase done. Press enter to continue"
+read
 
 claude -p "$(cat <<EOF
 
@@ -48,13 +53,6 @@ Start three code reviewer subagents, to look at the current diff against master.
 
 EOF
 )" --allowedTools "Write"
-
-cp NEXT_FEATURE_JUSTIFICATION.md /tmp/NEXT_FEATURE_JUSTIFICATION.md.bak
-git revert HEAD --no-edit
-cp /tmp/NEXT_FEATURE_JUSTIFICATION.md.bak NEXT_FEATURE_JUSTIFICATION.md
-cp BOYSCOUT1.md /tmp/BOYSCOUT1.md.bak
-git revert HEAD --no-edit
-cp /tmp/BOYSCOUT1.md.bak BOYSCOUT1.md
 
 ## By now, we have two new commits in our branch, and some unstaged PR files
 
@@ -68,9 +66,12 @@ Read
 
 Then look at the previous to last commit (against master). Its name is "$1 - stage 1"
 
-From the reviews, and all what you know NOW, write a new NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md.
+From the reviews, and all what you know NOW, write
+- NEXT_FEATURE_BOYSCOUT_PLAN.md
+- NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md.
 
-- At the start of the implemtation, consider escecially the things from BOYSCOUT1.md, if you agree, or similar upfront cleanup things, to make work easy.
+We will execute the new implementation in two phases, the cleanup phase done by a boyscout, and then the proper implementation.
+
 - Pick mostly high and medium issues from the todos. 
 - Be specific which files the implementer should touch on this next, better attempt
 
@@ -98,9 +99,38 @@ while true; do
     fi
 done
 
+## Boyscout phase now
+
 claude -p "$(cat <<EOF
 
 Read
+- NEXT_FEATURE_BOYSCOUT_PLAN.md
+- HUMAN_OPINION.md
+
+Now implement the feature properly, according to that new plan!
+
+Make sure tests run (`clj -X:test`)
+
+Report what you did in NEXT_FEATURE_BOYSCOUT_HANDOVER.md
+
+EOF
+)" --allowedTools "Write"
+
+if ! clj -X:test; then
+    echo "Unit tests failed. Aborting."
+    exit 1
+fi
+
+git add .
+git reset HEAD -- HUMAN_OPINION.md NEXT_FEATURE_BOYSCOUT_PLAN.md NEXT_FEATURE_BOYSCOUT_HANDOVER.md NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md 2>/dev/null || true
+git commit -m "$1 - boyscout"
+
+## Implementation phase ##
+
+claude -p "$(cat <<EOF
+
+Read
+- NEXT_FEATURE_BOYSCOUT_HANDOVER.md
 - NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md
 - HUMAN_OPINION.md
 
@@ -108,7 +138,7 @@ Now implement the feature properly, according to that new plan!
 
 Make sure tests run (`clj -X:test`)
 
-Report what you did in NEXT_FEATURE_JUSTIFICATION.md
+Report what you did in NEXT_FEATURE_PROPER_IMPLEMENTATION_JUSTIFICATION.md
 
 EOF
 )" --allowedTools "Write"
