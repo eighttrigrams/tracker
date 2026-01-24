@@ -20,10 +20,13 @@ If it doesnt exist or we are not in it, create a new branch feature/$1 and switc
   - if it touches the user interface (which is almost always the case)
     - use a skill
     - take screenshots for proof of important key aspects
-3. Explain how what you have done matches what was asked of you. 
+3. Make sure you get the unit tests running (`clj -X:test`)    
+4. Now that you have an implementation which matches the specification of the new feature handed to you, consider the following: What things did you encounter which caused
+  you extra work which woulnd't otherwise have not occurred where the code structured in a cleaner way? Write the cleaner ways down in a BOYSCOUT1.md 
+5. Explain how what you have done matches what was asked of you. 
     - Write this to NEXT_FEATURE_JUSTIFICATION.md
-        - If you have taken screenshots, list names of screenshots in this doc (prefix the names with where they are stored, namely .playwright-mcp/)
-4. Make sure you get the unit tests running (`clj -X:test`)
+        - If you have taken screenshots, list names of screenshots in this doc (prefix the names with where they are stored, namely .playwright-mcp/)    
+
 
 EOF
 )" --allowedTools "Write"
@@ -49,12 +52,16 @@ EOF
 cp NEXT_FEATURE_JUSTIFICATION.md /tmp/NEXT_FEATURE_JUSTIFICATION.md.bak
 git revert HEAD --no-edit
 cp /tmp/NEXT_FEATURE_JUSTIFICATION.md.bak NEXT_FEATURE_JUSTIFICATION.md
+cp BOYSCOUT1.md /tmp/BOYSCOUT1.md.bak
+git revert HEAD --no-edit
+cp /tmp/BOYSCOUT1.md.bak BOYSCOUT1.md
 
 ## By now, we have two new commits in our branch, and some unstaged PR files
 
 claude -p "$(cat <<EOF
 
 Read
+- BOYSCOUT1.md
 - NEXT_FEATURE.md
 - NEXT_FEATURE_JUSTIFICATION.md
 - PR_ARCHITECTURE_REVIEW_RESULT.md
@@ -63,12 +70,14 @@ Then look at the previous to last commit (against master). Its name is "$1 - sta
 
 From the reviews, and all what you know NOW, write a new NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md.
 
+- At the start of the implemtation, consider escecially the things from BOYSCOUT1.md, if you agree, or similar upfront cleanup things, to make work easy.
 - Pick mostly high and medium issues from the todos. 
 - Be specific which files the implementer should touch on this next, better attempt
 
 EOF
 )" --allowedTools "Write"
 
+rm BOYSCOUT1.md
 rm NEXT_FEATURE_JUSTIFICATION.md
 rm PR_*_RESULT.md
 
