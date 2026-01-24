@@ -8,20 +8,19 @@
     (jdbc/with-options conn-or-ds {})
     conn-or-ds))
 
+(defn- silent-reporter [& _])
+
 (defn- migration-config [connectable]
   {:datastore (ragtime-jdbc/sql-database (wrap-connectable connectable))
-   :migrations (ragtime-jdbc/load-resources "migrations")})
+   :migrations (ragtime-jdbc/load-resources "migrations")
+   :reporter silent-reporter})
 
 (defn migrate!
   [connectable]
-  (prn "Running database migrations...")
   (let [config (migration-config connectable)]
-    (repl/migrate config)
-    (prn "Migrations completed")))
+    (repl/migrate config)))
 
 (defn rollback!
   [connectable]
-  (prn "Rolling back last migration...")
   (let [config (migration-config connectable)]
-    (repl/rollback config)
-    (prn "Rollback completed")))
+    (repl/rollback config)))
