@@ -42,19 +42,20 @@ git add .
 git reset HEAD -- BOYSCOUT_OBSERVATIONS.md NEXT_FEATURE_JUSTIFICATION.md 2>/dev/null || true
 git commit -m "$1 - stage 1"
 
-echo "Pre-implementation phase done. Press enter to continue"
-read
+echo "Pre-implementation phase done"
+echo "####### Pre-implementation phase done. #####" >> hooks.log
 
 claude -p "$(cat <<EOF
 
 Start three code reviewer subagents, to look at the current diff against master.
 
 1. Does an architecture review; results go to PR_ARCHITECTURE_REVIEW_RESULT.md
-# SKIP 2. Does a security review; results go to PR_SECURITY_REVIEW_RESULT.md
-# SKIP 3. Does a data consistency review; results go to PR_DATA_CONSISTENCY_REVIEW_RESULT.md    
 
 EOF
 )" --allowedTools "Write"
+
+# SKIP 2. Does a security review; results go to PR_SECURITY_REVIEW_RESULT.md
+# SKIP 3. Does a data consistency review; results go to PR_DATA_CONSISTENCY_REVIEW_RESULT.md
 
 ## By now, we have two new commits in our branch, and some unstaged PR files
 
