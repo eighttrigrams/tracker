@@ -16,3 +16,4 @@ data/
 .claude/settings.local.json
 .playwright-mcp
 volume*.tar.gz
+hooks.log
