@@ -143,10 +143,6 @@ For the proper implementation, then
 EOF
 )" --allowedTools "Write"
 
-rm build-next-feature/BOYSCOUT_OBSERVATIONS.md
-rm build-next-feature/EXPLORATORY_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md
-rm build-next-feature/PR_*_RESULT.md
-
 make stop
 nohup make start &
 sleep 2
@@ -168,6 +164,10 @@ while true; do
         break
     fi
 done
+
+rm build-next-feature/BOYSCOUT_OBSERVATIONS.md
+rm build-next-feature/EXPLORATORY_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md
+rm build-next-feature/PR_*_RESULT.md
 
 make stop
 git revert --no-edit HEAD
