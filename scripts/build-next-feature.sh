@@ -126,6 +126,9 @@ We will execute the new implementation in two phases,
 
 ## Info on the plan files to write
 
+We dont want to repeat things, so any item goes either to the boyscout plan
+or to to the implementation plan but not to both.
+
 ### Boyscout plan
 
 Note that soon we will revert the last commit in which we did our exploration.
