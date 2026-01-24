@@ -19,6 +19,7 @@
                             :tasks-page/filter-goals #{}
                             :tasks-page/filter-search ""
                             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
+                            :tasks-page/importance-filter nil
                             :expanded-task nil
                             :editing-task nil
                             :category-page/editing nil
@@ -435,6 +436,12 @@
 (defn clear-filter-goals []
   (swap! app-state assoc :tasks-page/filter-goals #{}))
 
+(defn set-importance-filter [level]
+  (swap! app-state assoc :tasks-page/importance-filter level))
+
+(defn clear-importance-filter []
+  (swap! app-state assoc :tasks-page/importance-filter nil))
+
 (defn clear-uncollapsed-task-filters []
   (let [collapsed (:tasks-page/collapsed-filters @app-state)
         all-filters #{:people :places :projects :goals}
@@ -445,7 +452,8 @@
              :tasks-page/filter-places #{}
              :tasks-page/filter-projects #{}
              :tasks-page/filter-goals #{}
-             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""})
+             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
+             :tasks-page/importance-filter nil)
       (do
         (doseq [filter-key uncollapsed]
           (case filter-key
@@ -455,7 +463,8 @@
             :goals (swap! app-state assoc :tasks-page/filter-goals #{})))
         (swap! app-state assoc
                :tasks-page/collapsed-filters all-filters
-               :tasks-page/category-search {:people "" :places "" :projects "" :goals ""})))))
+               :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
+               :tasks-page/importance-filter nil)))))
 
 (defn toggle-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)
@@ -548,6 +557,12 @@
 (defn- scope-filtered-tasks []
   (filter matches-scope? (:tasks @app-state)))
 
+(defn- matches-importance-filter? [task importance-filter]
+  (case importance-filter
+    :important (contains? #{"important" "critical"} (:importance task))
+    :critical (= "critical" (:importance task))
+    true))
+
 (defn filtered-tasks []
   (let [tasks (scope-filtered-tasks)
         filter-people (:tasks-page/filter-people @app-state)
@@ -555,6 +570,7 @@
         filter-projects (:tasks-page/filter-projects @app-state)
         filter-goals (:tasks-page/filter-goals @app-state)
         filter-search (:tasks-page/filter-search @app-state)
+        importance-filter (:tasks-page/importance-filter @app-state)
         matches-any? (fn [task-categories filter-ids]
                        (some #(contains? filter-ids (:id %)) task-categories))]
     (cond->> tasks
@@ -562,7 +578,8 @@
       (seq filter-places) (filter #(matches-any? (:places %) filter-places))
       (seq filter-projects) (filter #(matches-any? (:projects %) filter-projects))
       (seq filter-goals) (filter #(matches-any? (:goals %) filter-goals))
-      (seq filter-search) (filter #(prefix-matches? (:title %) filter-search)))))
+      (seq filter-search) (filter #(prefix-matches? (:title %) filter-search))
+      importance-filter (filter #(matches-importance-filter? % importance-filter)))))
 
 (defn set-sort-mode [mode]
   (swap! app-state assoc :sort-mode mode)
@@ -1154,3 +1171,20 @@
                    (swap! app-state assoc :error "Failed to export data"))))
         (.catch (fn [_]
                   (swap! app-state assoc :error "Failed to export data"))))))
+
+(defn set-task-importance [task-id importance]
+  (PUT (str "/api/tasks/" task-id "/importance")
+    {:params {:importance importance}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [result]
+                (swap! app-state update :tasks
+                       (fn [tasks]
+                         (mapv #(if (= (:id %) task-id)
+                                  (assoc % :importance (:importance result) :modified_at (:modified_at result))
+                                  %)
+                               tasks))))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))}))

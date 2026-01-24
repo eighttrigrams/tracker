@@ -112,7 +112,14 @@
 
   :toggle/private "Private"
   :toggle/both "Both"
-  :toggle/work "Work"}
+  :toggle/work "Work"
+
+  :importance/normal "Normal"
+  :importance/important "Important"
+  :importance/critical "Critical"
+  :importance/filter-off "Show all tasks"
+  :importance/filter-important "Show important and critical tasks"
+  :importance/filter-critical "Show critical tasks only"}
 
  :de
  {:date/sunday "Sonntag"
@@ -228,7 +235,14 @@
 
   :toggle/private "Privat"
   :toggle/both "Beide"
-  :toggle/work "Arbeit"}
+  :toggle/work "Arbeit"
+
+  :importance/normal "Normal"
+  :importance/important "Wichtig"
+  :importance/critical "Kritisch"
+  :importance/filter-off "Alle Aufgaben anzeigen"
+  :importance/filter-important "Wichtige und kritische Aufgaben anzeigen"
+  :importance/filter-critical "Nur kritische Aufgaben anzeigen"}
 
  :pt
  {:date/sunday "Domingo"
@@ -344,4 +358,11 @@
 
   :toggle/private "Privado"
   :toggle/both "Ambos"
-  :toggle/work "Trabalho"}}
+  :toggle/work "Trabalho"
+
+  :importance/normal "Normal"
+  :importance/important "Importante"
+  :importance/critical "Crítico"
+  :importance/filter-off "Mostrar todas as tarefas"
+  :importance/filter-important "Mostrar tarefas importantes e críticas"
+  :importance/filter-critical "Mostrar apenas tarefas críticas"}}

@@ -1217,6 +1217,75 @@
     .task-scope-selector .toggle-option:hover:not(.active) {
       background: var(--surface-subtle);
     }
+    .importance-filter-toggle {
+      display: flex;
+      gap: 0;
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+      margin-right: 8px;
+    }
+    .importance-filter-toggle button {
+      padding: 6px 10px;
+      font-size: 0.8em;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      border-radius: 6px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .importance-filter-toggle button.active {
+      background: var(--accent);
+      color: white;
+    }
+    .importance-filter-toggle button.important.active {
+      background: #ff9500;
+    }
+    .importance-filter-toggle button.critical.active {
+      background: #ff3b30;
+    }
+    .importance-filter-toggle button:hover:not(.active) {
+      background: var(--surface-subtle);
+      transform: none;
+    }
+    .task-importance-selector {
+      display: flex;
+      gap: 0;
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      padding: 2px;
+      border-radius: 6px;
+      border: 1px solid var(--glass-border);
+    }
+    .task-importance-selector .toggle-option {
+      padding: 4px 10px;
+      font-size: 0.75em;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      border-radius: 4px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .task-importance-selector .toggle-option.active {
+      background: var(--accent);
+      color: white;
+    }
+    .task-importance-selector .toggle-option.important.active {
+      background: #ff9500;
+    }
+    .task-importance-selector .toggle-option.critical.active {
+      background: #ff3b30;
+    }
+    .task-importance-selector .toggle-option:hover:not(.active) {
+      background: var(--surface-subtle);
+    }
     .dark-mode-toggle {
       display: flex;
       align-items: center;

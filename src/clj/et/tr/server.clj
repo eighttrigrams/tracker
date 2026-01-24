@@ -372,6 +372,17 @@
           {:status 200 :body result}
           {:status 404 :body {:error "Task not found"}})))))
 
+(defn set-task-importance-handler [req]
+  (let [importance (get-in req [:body :importance])]
+    (if-not (contains? db/valid-importances importance)
+      {:status 400 :body {:error "Invalid importance. Must be 'normal', 'important', or 'critical'"}}
+      (let [user-id (get-user-id req)
+            task-id (Integer/parseInt (get-in req [:params :id]))
+            result (db/set-task-importance (ensure-ds) user-id task-id importance)]
+        (if result
+          {:status 200 :body result}
+          {:status 404 :body {:error "Task not found"}})))))
+
 (defn delete-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -464,6 +475,7 @@
                          (when (:due_time task) (str "due_time: \"" (:due_time task) "\"\n"))
                          "done: " (if (= 1 (:done task)) "true" "false") "\n"
                          "scope: \"" (:scope task) "\"\n"
+                         "importance: \"" (:importance task) "\"\n"
                          "sort_order: " (:sort_order task) "\n"
                          (when (seq (:people task)) (str "people: " (pr-str (:people task)) "\n"))
                          (when (seq (:places task)) (str "places: " (pr-str (:places task)) "\n"))
@@ -553,6 +565,7 @@
     (PUT "/tasks/:id/due-time" [] set-due-time-handler)
     (PUT "/tasks/:id/done" [] set-task-done-handler)
     (PUT "/tasks/:id/scope" [] set-task-scope-handler)
+    (PUT "/tasks/:id/importance" [] set-task-importance-handler)
     (GET "/people" [] list-people-handler)
     (POST "/people" [] add-person-handler)
     (PUT "/people/:id" [] update-person-handler)

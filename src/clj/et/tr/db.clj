@@ -64,6 +64,11 @@
 (defn- normalize-scope [scope]
   (if (contains? valid-scopes scope) scope "both"))
 
+(def valid-importances #{"normal" "important" "critical"})
+
+(defn- normalize-importance [importance]
+  (if (contains? valid-importances importance) importance "normal"))
+
 (defn add-task
   ([ds user-id title] (add-task ds user-id title "both"))
   ([ds user-id title scope]
@@ -76,7 +81,7 @@
                        1.0)
          new-order (- min-order 1.0)
          result (jdbc/execute-one! conn
-                  ["INSERT INTO tasks (title, sort_order, user_id, modified_at, scope) VALUES (?, ?, ?, datetime('now'), ?) RETURNING id, title, description, created_at, modified_at, sort_order, user_id, done, scope"
+                  ["INSERT INTO tasks (title, sort_order, user_id, modified_at, scope) VALUES (?, ?, ?, datetime('now'), ?) RETURNING id, title, description, created_at, modified_at, sort_order, user_id, done, scope, importance"
                    title new-order user-id valid-scope]
                   {:builder-fn rs/as-unqualified-maps})]
      result)))
@@ -99,7 +104,7 @@
                         "ORDER BY modified_at DESC")
          query-params (if user-id [user-id] [])
          tasks (jdbc/execute! conn
-                 (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope FROM tasks " where-clause " " order-clause)] query-params)
+                 (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope, importance FROM tasks " where-clause " " order-clause)] query-params)
                  {:builder-fn rs/as-unqualified-maps})
          task-ids (mapv :id tasks)
          categories (when (seq task-ids)
@@ -378,6 +383,14 @@
       (into [(str "UPDATE tasks SET scope = ?, modified_at = datetime('now') WHERE id = ? AND " user-filter " RETURNING id, scope, modified_at")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
+(defn set-task-importance [ds user-id task-id importance]
+  (let [user-filter (if user-id "user_id = ?" "user_id IS NULL")
+        valid-importance (normalize-importance importance)
+        query-params (if user-id [valid-importance task-id user-id] [valid-importance task-id])]
+    (jdbc/execute-one! (get-conn ds)
+      (into [(str "UPDATE tasks SET importance = ?, modified_at = datetime('now') WHERE id = ? AND " user-filter " RETURNING id, importance, modified_at")] query-params)
+      {:builder-fn rs/as-unqualified-maps})))
+
 (def valid-languages #{"en" "de" "pt"})
 
 (defn get-user-language [ds user-id]
@@ -416,7 +429,7 @@
         user-filter (if user-id "user_id = ?" "user_id IS NULL")
         query-params (if user-id [user-id] [])
         tasks (jdbc/execute! conn
-                (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope FROM tasks WHERE " user-filter " ORDER BY created_at")] query-params)
+                (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope, importance FROM tasks WHERE " user-filter " ORDER BY created_at")] query-params)
                 {:builder-fn rs/as-unqualified-maps})
         task-ids (mapv :id tasks)
         categories (query-categories-chunked conn task-ids)

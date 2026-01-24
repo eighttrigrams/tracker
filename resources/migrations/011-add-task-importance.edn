@@ -1,0 +1,2 @@
+{:up ["ALTER TABLE tasks ADD COLUMN importance TEXT NOT NULL DEFAULT 'normal' CHECK (importance IN ('normal', 'important', 'critical'))"]
+ :down ["ALTER TABLE tasks DROP COLUMN importance"]}

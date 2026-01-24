@@ -139,6 +139,18 @@
   (let [scope (or (:scope task) "both")]
     [scope-toggle "task-scope-selector" scope #(state/set-task-scope (:id task) %)]))
 
+(defn task-importance-selector [task]
+  (let [importance (or (:importance task) "normal")]
+    [:div.task-importance-selector
+     (for [level ["normal" "important" "critical"]]
+       ^{:key level}
+       [:button.toggle-option
+        {:class (str level (when (= importance level) " active"))
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-task-importance (:id task) level))}
+        (t (keyword "importance" level))])]))
+
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
   (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/app-state)
@@ -171,6 +183,7 @@
            [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
            [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
          [task-scope-selector task]
+         [task-importance-selector task]
          [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])]))
 
 (defn horizon-selector []
@@ -353,6 +366,22 @@
      [:button {:class (when (= sort-mode :done) "active")
                :on-click #(when (not= sort-mode :done) (state/set-sort-mode :done))}
       (t :tasks/sort-done)]]))
+
+(defn importance-filter-toggle []
+  (let [importance-filter (:tasks-page/importance-filter @state/app-state)]
+    [:div.importance-filter-toggle
+     [:button {:class (when (nil? importance-filter) "active")
+               :on-click #(state/set-importance-filter nil)
+               :title (t :importance/filter-off)}
+      "-"]
+     [:button {:class (str "important" (when (= importance-filter :important) " active"))
+               :on-click #(state/set-importance-filter :important)
+               :title (t :importance/filter-important)}
+      "!"]
+     [:button {:class (str "critical" (when (= importance-filter :critical) " active"))
+               :on-click #(state/set-importance-filter :critical)
+               :title (t :importance/filter-critical)}
+      "!!"]]))
 
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed? number]}]
   [category-filter-section {:title title
@@ -685,6 +714,7 @@
       [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
       [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
     [task-scope-selector task]
+    [task-importance-selector task]
     [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])
 
 (defn- task-header [task is-expanded done-mode? due-date-mode?]
@@ -1059,6 +1089,7 @@
            [:div.main-content
             [:div.tasks-header
              [:h2 {:title (t :tasks/title-tooltip)} (t :tasks/title)]
+             [importance-filter-toggle]
              [sort-mode-toggle]]
             [search-filter]
             (when (and (not= sort-mode :done)
