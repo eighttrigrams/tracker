@@ -94,8 +94,16 @@ From the reviews, and all what you know NOW, write
 - NEXT_FEATURE_BOYSCOUT_PLAN.md
 - NEXT_FEATURE_PROPER_IMPLEMENTATION_PLAN.md.
 
-We will execute the new implementation in two phases, the cleanup phase done by a boyscout, and then the proper implementation.
+We will execute the new implementation in two phases,
+1. the cleanup phase done by a boyscout, 
+2. and then the proper implementation.
 
+Note that soon we will revert the last commit in which we did our exploration.
+So the cleanup will be performed against the sources as they appeared in main branch.
+Don't put anything specific to our feature in the preparatory boyscout plan. Just make it
+nicer for the things which go to the proper implementation.
+
+For the proper implementation
 - Pick mostly high and medium issues from the todos. 
 - Be specific which files the implementer should touch on this next, better attempt
 
@@ -129,6 +137,15 @@ while true; do
 done
 
 make stop
+git revert --no-edit HEAD
+
+## TODO remove this section
+echo "About to start boyscout refactoring now. Ready?"
+echo "OK? Press enter"
+read
+###
+
+echo "##### Starting boyscout refactoring now" >> hooks.log
 
 ## Boyscout phase now
 
