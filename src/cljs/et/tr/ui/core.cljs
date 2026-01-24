@@ -140,7 +140,8 @@
     [scope-toggle "task-scope-selector" scope #(state/set-task-scope (:id task) %)]))
 
 (defn task-importance-selector [task]
-  (let [importance (or (:importance task) "normal")]
+  (let [importance (or (:importance task) "normal")
+        labels {"normal" "○" "important" "★" "critical" "★★"}]
     [:div.task-importance-selector
      (for [level ["normal" "important" "critical"]]
        ^{:key level}
@@ -149,7 +150,7 @@
          :on-click (fn [e]
                      (.stopPropagation e)
                      (state/set-task-importance (:id task) level))}
-        (t (keyword "importance" level))])]))
+        (labels level)])]))
 
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
   (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
@@ -373,15 +374,15 @@
      [:button {:class (when (nil? importance-filter) "active")
                :on-click #(state/set-importance-filter nil)
                :title (t :importance/filter-off)}
-      "-"]
+      "○"]
      [:button {:class (str "important" (when (= importance-filter :important) " active"))
                :on-click #(state/set-importance-filter :important)
                :title (t :importance/filter-important)}
-      "!"]
+      "★"]
      [:button {:class (str "critical" (when (= importance-filter :critical) " active"))
                :on-click #(state/set-importance-filter :critical)
                :title (t :importance/filter-critical)}
-      "!!"]]))
+      "★★"]]))
 
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed? number]}]
   [category-filter-section {:title title
