@@ -211,8 +211,13 @@ while true; do
     fi
 done
 
-echo "" >> build-next-feature/NEXT_FEATURE.md
+make stop
+
+echo "" > build-next-feature/NEXT_FEATURE.md
 git add .
 git commit -m "feature/$1 - Implementation"
 
-## TODO commit and merge etc
+git switch main
+commit1=$(git rev-parse feature/$1~1)
+commit2=$(git rev-parse feature/$1)
+git cherry-pick $commit1 $commit2
