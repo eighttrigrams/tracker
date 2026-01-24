@@ -59,7 +59,7 @@ EOF
 claude -p "$(cat <<EOF
 
 Read
-- BOYSCOUT1.md
+- BOYSCOUT_OBSERVATIONS.md
 - NEXT_FEATURE.md
 - NEXT_FEATURE_JUSTIFICATION.md
 - PR_ARCHITECTURE_REVIEW_RESULT.md
@@ -78,7 +78,7 @@ We will execute the new implementation in two phases, the cleanup phase done by 
 EOF
 )" --allowedTools "Write"
 
-rm BOYSCOUT1.md
+rm BOYSCOUT_OBSERVATIONS.md
 rm NEXT_FEATURE_JUSTIFICATION.md
 rm PR_*_RESULT.md
 
