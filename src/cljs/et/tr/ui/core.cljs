@@ -984,6 +984,12 @@
   (let [mode (name (:work-private-mode @state/app-state))]
     [scope-toggle "work-private-toggle" mode #(state/set-work-private-mode (keyword %))]))
 
+(defn dark-mode-toggle []
+  (let [dark-mode (:dark-mode @state/app-state)]
+    [:button.dark-mode-toggle
+     {:on-click state/toggle-dark-mode}
+     (if dark-mode "\u2600" "\u263E")]))
+
 (defn user-info []
   (let [current-user (:current-user @state/app-state)
         active-tab (:active-tab @state/app-state)
@@ -1040,6 +1046,7 @@
          [:div.top-bar-right
           (when (contains? #{:today :tasks} active-tab)
             [work-private-toggle])
+          [dark-mode-toggle]
           [user-info]]]
         (case active-tab
           :today [today-tab]

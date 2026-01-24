@@ -45,7 +45,8 @@
                             :today-page/expanded-task nil
                             :category-selector/open nil
                             :category-selector/search ""
-                            :work-private-mode :both}))
+                            :work-private-mode :both
+                            :dark-mode false}))
 
 (defn auth-headers []
   (let [token (:token @app-state)
@@ -1103,6 +1104,16 @@
 
 (defn set-work-private-mode [mode]
   (swap! app-state assoc :work-private-mode mode))
+
+(defn toggle-dark-mode []
+  (swap! app-state update :dark-mode not))
+
+(add-watch app-state :dark-mode-sync
+  (fn [_ _ old-state new-state]
+    (when (not= (:dark-mode old-state) (:dark-mode new-state))
+      (if (:dark-mode new-state)
+        (.add (.-classList (.-documentElement js/document)) "dark-mode")
+        (.remove (.-classList (.-documentElement js/document)) "dark-mode")))))
 
 (defn set-task-scope [task-id scope]
   (PUT (str "/api/tasks/" task-id "/scope")
