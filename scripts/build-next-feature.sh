@@ -76,7 +76,29 @@ Start three code reviewer subagents, to look at the current diff against master.
 EOF
 )" --allowedTools "Write"
 
-## By now, we have two new commits in our branch, and some unstaged PR files
+required_files=(
+    "build-next-feature/BOYSCOUT_OBSERVATIONS.md"
+    "build-next-feature/NEXT_FEATURE.md"
+    "build-next-feature/EXPLORATORY_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md"
+    "build-next-feature/PR_ARCHITECTURE_REVIEW_RESULT.md"
+    "build-next-feature/PR_DATA_CONSISTENCY_REVIEW_RESULT.md"
+    "build-next-feature/PR_SECURITY_REVIEW_RESULT.md"
+)
+
+for file in "${required_files[@]}"; do
+    if [ ! -f "$file" ]; then
+        echo "Error: Review file $file not found. Aborting."
+        exit 1
+    fi
+    line_count=$(wc -l < "$file" | tr -d ' ')
+    if [ "$line_count" -le 1 ]; then
+        echo "Error: Review file $file is empty or has only one line. Aborting."
+        exit 1
+    fi
+done
+
+echo "Coming up with a better plan now ..."
+echo "### Coming up with a better plan now ..." >> hooks.log
 
 claude -p "$(cat <<EOF
 
@@ -231,7 +253,7 @@ Output ONLY the commit message body (no subject line, no markdown fences).
 Write the result to build-next-feature/COMMIT_MESSAGE_BODY.txt
 
 EOF
-)"
+)" --allowedTools "Write"
 
 git commit --amend -m "feature/$1 - Implementation" -m "$(cat build-next-feature/COMMIT_MESSAGE_BODY.txt)"
 rm build-next-feature/COMMIT_MESSAGE_BODY.txt
