@@ -11,6 +11,7 @@
       --glass-bg: rgba(255, 255, 255, 0.72);
       --glass-bg-subtle: rgba(255, 255, 255, 0.5);
       --glass-bg-elevated: rgba(255, 255, 255, 0.85);
+      --glass-bg-description: rgba(255, 255, 255, 0.5);
       --glass-border: rgba(255, 255, 255, 0.2);
       --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
       --glass-blur: 16px;
@@ -23,8 +24,9 @@
     }
     html.dark-mode {
       --glass-bg: rgba(30, 30, 32, 0.85);
-      --glass-bg-subtle: rgba(40, 40, 44, 0.6);
-      --glass-bg-elevated: rgba(50, 50, 54, 0.9);
+      --glass-bg-subtle: rgba(50, 50, 52, 0.7);
+      --glass-bg-elevated: rgba(50, 50, 52, 0.95);
+      --glass-bg-description: rgba(200, 200, 200, 0.15);
       --glass-border: rgba(255, 255, 255, 0.08);
       --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
       --accent: #0a84ff;
@@ -466,7 +468,7 @@
       white-space: pre-wrap;
       line-height: 1.5;
       padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.5);
+      background: var(--glass-bg-description);
       border-radius: 8px;
       margin-bottom: 12px;
       font-size: 0.9em;
