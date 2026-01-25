@@ -418,6 +418,35 @@ button:active { transform: translateY(0); }
   color: white;
   background: var(--accent);
 }
+.categories-page {
+  padding: 1rem;
+}
+.categories-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.subtab {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: var(--glass-bg);
+  cursor: pointer;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.subtab:hover {
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  transform: none;
+}
+.subtab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
 .manage-tab { display: flex; gap: 40px; padding: 24px 0; }
 .manage-section {
   flex: 1;

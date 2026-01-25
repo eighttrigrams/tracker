@@ -9,6 +9,7 @@
 
   :nav/today "Today"
   :nav/tasks "Tasks"
+  :nav/categories "Categories"
   :nav/people-places "People & Places"
   :nav/projects-goals "Projects & Goals"
   :nav/users "Users"
@@ -133,6 +134,7 @@
 
   :nav/today "Heute"
   :nav/tasks "Aufgaben"
+  :nav/categories "Kategorien"
   :nav/people-places "Personen & Orte"
   :nav/projects-goals "Projekte & Ziele"
   :nav/users "Benutzer"
@@ -257,6 +259,7 @@
 
   :nav/today "Hoje"
   :nav/tasks "Tarefas"
+  :nav/categories "Categorias"
   :nav/people-places "Pessoas e Lugares"
   :nav/projects-goals "Projetos e Objetivos"
   :nav/users "Utilizadores"

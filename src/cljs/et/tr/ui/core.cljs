@@ -92,26 +92,31 @@
       (filter #(clojure.string/includes? (clojure.string/lower-case (:name %)) lower-filter) items))))
 
 (def ^:private tab-config
-  [{:key :today          :translation :nav/today}
-   {:key :tasks          :translation :nav/tasks}
-   {:key :people-places  :translation :nav/people-places}
-   {:key :projects-goals :translation :nav/projects-goals}
-   {:key :users          :translation :nav/users          :admin-only true}
-   {:key :settings       :translation :nav/settings}])
+  [{:key :today      :translation :nav/today}
+   {:key :tasks      :translation :nav/tasks}
+   {:key :categories :translation :nav/categories :children [:people-places :projects-goals]}
+   {:key :users      :translation :nav/users      :admin-only true}
+   {:key :settings   :translation :nav/settings}])
 
-(defn- tab-button [active-tab tab-key translation-key]
-  [:button.tab
-   {:class (when (= active-tab tab-key) "active")
-    :on-click #(state/set-active-tab tab-key)}
-   (t translation-key)])
+(defn- tab-button
+  ([active-tab tab-key translation-key]
+   (tab-button active-tab tab-key translation-key nil))
+  ([active-tab tab-key translation-key active-check]
+   [:button.tab
+    {:class (when (if active-check
+                    (active-check active-tab)
+                    (= active-tab tab-key))
+              "active")
+     :on-click #(state/set-active-tab tab-key)}
+    (t translation-key)]))
 
 (defn tabs []
   (let [active-tab (:active-tab @state/app-state)]
     [:div.tabs
      [tab-button active-tab :today :nav/today]
      [tab-button active-tab :tasks :nav/tasks]
-     [tab-button active-tab :people-places :nav/people-places]
-     [tab-button active-tab :projects-goals :nav/projects-goals]]))
+     [tab-button active-tab :categories :nav/categories
+      #(contains? #{:categories :people-places :projects-goals} %)]]))
 
 (defn task-category-badges [task]
   (let [all-categories (concat
@@ -540,6 +545,18 @@
        (when (seq (:description item))
          [:span.category-description [markdown (:description item)]])])))
 
+(defn- subtab-button [active-tab tab-key translation-key]
+  [:button.subtab
+   {:class (when (= active-tab tab-key) "active")
+    :on-click #(state/set-active-tab tab-key)}
+   (t translation-key)])
+
+(defn- categories-subtabs []
+  (let [active-tab (:active-tab @state/app-state)]
+    [:div.categories-subtabs
+     [subtab-button active-tab :people-places :nav/people-places]
+     [subtab-button active-tab :projects-goals :nav/projects-goals]]))
+
 (defn people-places-tab []
   (let [person-name (r/atom "")
         place-name (r/atom "")]
@@ -589,6 +606,14 @@
             (for [goal filtered-goals]
               ^{:key (:id goal)}
               [category-item goal :goal state/update-goal :goals]))]]]))))
+
+(defn categories-tab []
+  (let [active-tab (:active-tab @state/app-state)]
+    [:div.categories-page
+     [categories-subtabs]
+     (case active-tab
+       :projects-goals [projects-goals-tab]
+       [people-places-tab])]))
 
 (defn add-user-form []
   (let [username (r/atom "")
@@ -1107,8 +1132,9 @@
           [user-info]]]
         (case active-tab
           :today [today-tab]
-          :people-places [people-places-tab]
-          :projects-goals [projects-goals-tab]
+          :categories [categories-tab]
+          :people-places [categories-tab]
+          :projects-goals [categories-tab]
           :users [users-tab]
           :settings [settings-tab]
           [:div.main-layout
@@ -1133,7 +1159,10 @@
 (defn- navigate-tab [direction]
   (let [tabs (get-available-tabs)
         current (:active-tab @state/app-state)
-        current-idx (.indexOf tabs current)
+        effective-current (if (contains? #{:people-places :projects-goals} current)
+                            :categories
+                            current)
+        current-idx (.indexOf tabs effective-current)
         next-idx (mod (+ current-idx direction) (count tabs))]
     (state/set-active-tab (nth tabs next-idx))))
 
