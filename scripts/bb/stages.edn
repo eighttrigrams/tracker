@@ -1,0 +1,142 @@
+{:docs-dir "build-next-feature"
+
+ :documents
+ {:next-feature                    "NEXT_FEATURE.md"
+  :boyscout-observations           "BOYSCOUT_OBSERVATIONS.md"
+  :exploratory-justification       "EXPLORATORY_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md"
+  :pr-architecture-review          "PR_ARCHITECTURE_REVIEW_RESULT.md"
+  :pr-data-consistency-review      "PR_DATA_CONSISTENCY_REVIEW_RESULT.md"
+  :pr-security-review              "PR_SECURITY_REVIEW_RESULT.md"
+  :boyscout-plan                   "BOYSCOUT_PLAN.md"
+  :implementation-plan             "IMPLEMENTATION_PLAN.md"
+  :human-opinion                   "HUMAN_OPINION.md"
+  :boyscout-report                 "BOYSCOUT_REPORT.md"
+  :feature-justification           "FEATURE_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md"
+  :commit-message-body             "COMMIT_MESSAGE_BODY.txt"}
+
+ :stages
+ [{:id :exploratory-implementation
+   :requires [:next-feature]
+   :produces [:boyscout-observations :exploratory-justification]
+   :run-tests? true
+   :commit {:message "Exploratory implementation"}
+   :prompt "We are building a new feature {{feature-name}}.
+
+1. Implement the feature.
+  - if it touches the user interface (which is almost always the case)
+    - use a skill
+    - take screenshots for proof of important key aspects
+2. Make sure you get the unit tests running (`clj -X:test`)
+3. Now that you have an implementation which matches the specification of the new feature handed to you, consider the following: What things did you encounter which caused
+  you extra work which wouldnt otherwise have occurred where the code structured in a cleaner way?
+  - Write the cleaner ways down in {{boyscout-observations}}
+    - Make sure absolutely nothing specifically pertaining to the new feature goes here. For the purpose of that report, we care about the state of the codebase we found, pretending we dont know what we build next.
+4. Explain how what you have done matches what was asked of you.
+    - Write this to {{exploratory-justification}}
+        - If you have taken screenshots, list names of screenshots in this doc (prefix the names with where they are stored, namely .playwright-mcp/)"}
+
+  {:id :code-review
+   :requires [:boyscout-observations :exploratory-justification]
+   :produces [:pr-architecture-review :pr-data-consistency-review :pr-security-review]
+   :prompt "Start three code reviewer subagents, to look at the current diff against master.
+
+1. Does an architecture review; results go to {{pr-architecture-review}}
+2. Does an data consistency review; results go to {{pr-data-consistency-review}}
+3. Does an security review; results go to {{pr-security-review}}"}
+
+  {:id :planning
+   :requires [:boyscout-observations
+              :next-feature
+              :exploratory-justification
+              :pr-architecture-review
+              :pr-security-review
+              :pr-data-consistency-review]
+   :produces [:boyscout-plan :implementation-plan]
+   :prompt "Then look at the previous to last commit (against master). Its name is \"feature/{{feature-name}} - Exploratory implementation\"
+
+## High level - what we gonna do
+
+From the reviews, and all what you know NOW, write
+- {{boyscout-plan}}
+- {{implementation-plan}}.
+
+We will execute the new implementation in two phases,
+1. the cleanup phase done by a boyscout,
+2. and then the proper implementation.
+
+## Info on the plan files to write
+
+We dont want to repeat things, so any item goes either to the boyscout plan
+or to to the implementation plan but not to both.
+
+### Boyscout plan
+
+Note that soon we will revert the last commit in which we did our exploration.
+So the cleanup will be performed against the sources as they appeared in main branch.
+Dont put anything specific to our feature in the preparatory boyscout plan. Just make it
+nicer for the things which go to the proper implementation. I repeat: Absolutely **nothing
+pertaining to the feature** we are about to build goes into the BOYSCOUT_PLAN.md.
+
+### Implementation plan
+
+For the proper implementation, then
+- Pick mostly high and medium issues from the todos.
+- Be specific which files the implementer should touch on this next, better attempt"}
+
+  {:id :human-review
+   :requires [:boyscout-plan :implementation-plan]
+   :produces [:human-opinion]
+   :human-input? true
+   :start-app? true
+   :message "Please human, add your verdict in {{human-opinion}} (note that the app is up at 3027)"}
+
+  {:id :revert
+   :cleanup [:boyscout-observations :exploratory-justification
+             :pr-architecture-review :pr-data-consistency-review :pr-security-review]
+   :git-revert? true}
+
+  {:id :boyscout-refactoring
+   :requires [:boyscout-plan :human-opinion]
+   :produces [:boyscout-report]
+   :run-tests? true
+   :commit {:message "Preparatory refactoring"}
+   :cleanup-after [:boyscout-plan]
+   :prompt "Now implement the boyscout plan!
+
+Make sure tests run (`clj -X:test`)
+
+Report what you did in {{boyscout-report}}"}
+
+  {:id :implementation
+   :requires [:next-feature :boyscout-report :implementation-plan :human-opinion]
+   :produces [:feature-justification]
+   :run-tests? true
+   :cleanup-after [:boyscout-report :implementation-plan :human-opinion]
+   :prompt "Now implement the feature properly, according to the implementation plan!
+Make sure to use the UI skill to watch your implementation results live in the browser.
+
+Make sure tests run (`clj -X:test`)
+
+Report what you did in {{feature-justification}}"}
+
+  {:id :final-review
+   :requires [:feature-justification]
+   :human-input? true
+   :start-app? true
+   :message "Human, please visit the app in a browser, and also check the changes. Everything ok?"}
+
+  {:id :commit-implementation
+   :commit {:message "Implementation"}
+   :stop-app? true}
+
+  {:id :synthesize-commit
+   :requires [:next-feature :feature-justification]
+   :produces [:commit-message-body]
+   :prompt "Write a commit message body summarizing what was done and why.
+Output ONLY the commit message body (no subject line, no markdown fences).
+Write the result to {{commit-message-body}}"}
+
+  {:id :finalize
+   :amend-commit? true
+   :cleanup-after [:commit-message-body :feature-justification]
+   :clear-next-feature? true}]}
