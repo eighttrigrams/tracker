@@ -512,6 +512,13 @@
   (js/setTimeout #(when-let [el (.getElementById js/document "tasks-search")]
                     (.focus el)) 0))
 
+(def tab-initializers
+  {:tasks (fn []
+            (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
+            (focus-tasks-search))
+   :today (fn []
+            (swap! app-state assoc :today-page/collapsed-filters #{:places :projects}))})
+
 (defn set-active-tab [tab]
   (swap! app-state assoc
          :active-tab tab
@@ -519,11 +526,8 @@
          :category-selector/search ""
          :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
          :today-page/category-search {:places "" :projects ""})
-  (when (= tab :tasks)
-    (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
-    (focus-tasks-search))
-  (when (= tab :today)
-    (swap! app-state assoc :today-page/collapsed-filters #{:places :projects})))
+  (when-let [init-fn (get tab-initializers tab)]
+    (init-fn)))
 
 (defn toggle-expanded [task-id]
   (swap! app-state assoc
