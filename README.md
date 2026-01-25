@@ -69,4 +69,21 @@ curl -X POST http://localhost:3027/api/messages \
   -d '{"sender": "John", "title": "Hello", "description": "Message body"}'
 ```
 
-The `X-User-Id: null` header indicates the admin user. Messages are visible in the Mail tab (admin only).
+The `X-User-Id: null` header indicates the admin user (dev mode only). Messages are visible in the Mail tab (admin only).
+
+### Sending messages in production
+
+Create a `.credentials` file (gitignored):
+
+```
+TRACKER_USERNAME=admin
+TRACKER_PASSWORD=your-admin-password
+TRACKER_API_URL=https://your-prod-url.fly.dev
+```
+
+Then use the script:
+
+```bash
+./scripts/send-message.sh "Title" "Message body"
+./scripts/send-message.sh "Title" "Message body" "CustomSender"
+```

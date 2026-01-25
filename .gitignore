@@ -14,6 +14,7 @@ data/
 .clj-kondo
 .editor-layouts.json
 .claude/settings.local.json
+.credentials
 .playwright-mcp
 volume*.tar.gz
 hooks.log
