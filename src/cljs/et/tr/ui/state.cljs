@@ -3,7 +3,8 @@
             [ajax.core :refer [GET POST PUT DELETE]]
             [clojure.string :as str]
             [et.tr.filters :as filters]
-            [et.tr.i18n :as i18n]))
+            [et.tr.i18n :as i18n]
+            [et.tr.ui.date :as date]))
 
 (def initial-collection-state
   {:tasks []
@@ -203,6 +204,16 @@
 (defn- current-scope []
   (name (:work-private-mode @app-state)))
 
+(defn- categorize-task-batch [task-id category-type ids]
+  (doseq [id ids]
+    (POST (str "/api/tasks/" task-id "/categorize")
+      {:params {:category-type category-type :category-id id}
+       :format :json
+       :response-format :json
+       :keywords? true
+       :headers (auth-headers)
+       :handler (fn [_])})))
+
 (defn add-task-with-categories [title categories on-success]
   (POST "/api/tasks"
     {:params {:title title :scope (current-scope)}
@@ -212,43 +223,13 @@
      :headers (auth-headers)
      :handler (fn [task]
                 (let [task-id (:id task)
-                      {:keys [people places projects goals]} categories
-                      categorize-all (fn []
-                                       (doseq [id people]
-                                         (POST (str "/api/tasks/" task-id "/categorize")
-                                           {:params {:category-type "person" :category-id id}
-                                            :format :json
-                                            :response-format :json
-                                            :keywords? true
-                                            :headers (auth-headers)
-                                            :handler (fn [_])}))
-                                       (doseq [id places]
-                                         (POST (str "/api/tasks/" task-id "/categorize")
-                                           {:params {:category-type "place" :category-id id}
-                                            :format :json
-                                            :response-format :json
-                                            :keywords? true
-                                            :headers (auth-headers)
-                                            :handler (fn [_])}))
-                                       (doseq [id projects]
-                                         (POST (str "/api/tasks/" task-id "/categorize")
-                                           {:params {:category-type "project" :category-id id}
-                                            :format :json
-                                            :response-format :json
-                                            :keywords? true
-                                            :headers (auth-headers)
-                                            :handler (fn [_])}))
-                                       (doseq [id goals]
-                                         (POST (str "/api/tasks/" task-id "/categorize")
-                                           {:params {:category-type "goal" :category-id id}
-                                            :format :json
-                                            :response-format :json
-                                            :keywords? true
-                                            :headers (auth-headers)
-                                            :handler (fn [_])}))
-                                       (js/setTimeout fetch-tasks 500))]
+                      {:keys [people places projects goals]} categories]
+                  (categorize-task-batch task-id "person" people)
+                  (categorize-task-batch task-id "place" places)
+                  (categorize-task-batch task-id "project" projects)
+                  (categorize-task-batch task-id "goal" goals)
+                  (js/setTimeout fetch-tasks 500)
                   (swap! app-state update :tasks #(cons task %))
-                  (categorize-all)
                   (when on-success (on-success))))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))
@@ -786,64 +767,15 @@
                                   (:today-page/excluded-places @app-state)
                                   (:today-page/excluded-projects @app-state)))
 
-(defn today-str []
-  (.substring (.toISOString (js/Date.)) 0 10))
-
-(defn add-days [date-str days]
-  (let [d (js/Date. (str date-str "T12:00:00"))]
-    (.setDate d (+ (.getDate d) days))
-    (.substring (.toISOString d) 0 10)))
-
-(defn day-of-week [date-str]
-  (let [d (js/Date. (str date-str "T12:00:00"))]
-    (.getDay d)))
-
-(defn- day-number->translation-key [day-num]
-  (case day-num
-    0 :date/sunday
-    1 :date/monday
-    2 :date/tuesday
-    3 :date/wednesday
-    4 :date/thursday
-    5 :date/friday
-    6 :date/saturday
-    nil))
-
-(defn format-date-with-day [date-str]
-  (when date-str
-    (if-let [day-key (day-number->translation-key (day-of-week date-str))]
-      (str date-str ", " (i18n/t day-key))
-      date-str)))
-
-(defn get-day-name [date-str]
-  (when date-str
-    (when-let [day-key (day-number->translation-key (day-of-week date-str))]
-      (i18n/t day-key))))
-
-(defn within-days? [date-str days]
-  (when date-str
-    (let [today (today-str)
-          end-date (add-days today days)]
-      (and (> date-str today)
-           (<= date-str end-date)))))
-
-(defn today-formatted []
-  (let [today (today-str)
-        day-key (day-number->translation-key (day-of-week today))]
-    (str (i18n/t :today/today) ", " (i18n/t day-key) ", " today)))
-
-(def horizon-order [:three-days :week :month :three-months :year :eighteen-months])
-
-(defn horizon-end-date [horizon]
-  (let [today (today-str)]
-    (case horizon
-      :three-days (add-days today 3)
-      :week (add-days today 7)
-      :month (add-days today 30)
-      :three-months (add-days today 90)
-      :year (add-days today 365)
-      :eighteen-months (add-days today 548)
-      (add-days today 7))))
+(def today-str date/today-str)
+(def add-days date/add-days)
+(def day-of-week date/day-of-week)
+(def format-date-with-day date/format-date-with-day)
+(def get-day-name date/get-day-name)
+(def within-days? date/within-days?)
+(def today-formatted date/today-formatted)
+(def horizon-order date/horizon-order)
+(def horizon-end-date date/horizon-end-date)
 
 (defn count-upcoming-tasks-for-horizon [tasks horizon]
   (let [today (today-str)
@@ -895,9 +827,6 @@
                        (<= (:due_date %) end-date)))
          (apply-today-exclusion-filter)
          (sort-by-date-and-time))))
-
-(defn is-admin? []
-  (true? (get-in @app-state [:current-user :is_admin])))
 
 (defn fetch-available-users []
   (GET "/api/auth/available-users"
