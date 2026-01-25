@@ -19,20 +19,12 @@
         true)
       false)))
 
-(defn- env-int [name default]
-  (if-let [v (System/getenv name)]
-    (try (Integer/parseInt v) (catch Exception _ default))
-    default))
-
 (defn wrap-rate-limit
-  ([handler]
-   (wrap-rate-limit handler {:max-requests (env-int "RATE_LIMIT_MAX_REQUESTS" 360)
-                             :window-seconds (env-int "RATE_LIMIT_WINDOW_SECONDS" 60)}))
-  ([handler {:keys [max-requests window-seconds]}]
-   (let [window-ms (* window-seconds 1000)]
-     (fn [request]
-       (if (allowed? max-requests window-ms)
-         (handler request)
-         {:status 429
-          :headers {"Content-Length" "0"}
-          :body ""})))))
+  [handler max-requests window-seconds]
+  (let [window-ms (* window-seconds 1000)]
+    (fn [request]
+      (if (allowed? max-requests window-ms)
+        (handler request)
+        {:status 429
+         :headers {"Content-Length" "0"}
+         :body ""}))))

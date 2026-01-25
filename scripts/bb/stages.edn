@@ -40,8 +40,14 @@
    :produces [:boyscout-observations]
    :prompt "Look at the diff between HEAD and master (`git diff master...HEAD`).
   
-  For each changed file, also look at surrounding context (the full functions/namespaces that were touched).
+  For each changed file, also look at surrounding context 
+  - the function which was touched
+  - if not too big, the namespace which was touched
+  - caller functions of the function touched
+  - called function from the function touched
   
+  ## What to look for
+            
   Identify code smells such as:
   - Long functions (more than ~15 lines)
   - Long require/import lists
@@ -49,6 +55,15 @@
   - Duplicated code patterns
   - Poor naming
   - Missing abstractions
+
+  ## Clojure specific things
+
+  In Clojure, calling a private function inside a namespace needs the called function to be defined
+  above the call-site inside the sourcefile. Try to optimize a little for defining private functions
+  as close as possible to the call-site. Here, one cannot \"jump\" over another function which also uses
+  the same function (which is why I said as close \"as possible\").
+
+  # Important          
   
   Focus ONLY on the areas touched by the diff, not the entire codebase.
   Do NOT include anything specific to the new feature - only pre-existing smells that were exposed.

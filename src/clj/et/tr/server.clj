@@ -39,7 +39,12 @@
       (reset! ds conn)))
   @ds)
 
-(defn- prod-mode? []
+(defn- env-int [name default]
+  (if-let [v (System/getenv name)]
+    (try (Integer/parseInt v) (catch Exception _ default))
+    default))
+
+(defn prod-mode? []
   (let [on-fly? (some? (System/getenv "FLY_APP_NAME"))
         dev-mode? (= "true" (System/getenv "DEV"))
         admin-pw (System/getenv "ADMIN_PASSWORD")]
@@ -622,7 +627,8 @@
       (wrap-json-response)
       (wrap-cors :access-control-allow-origin [#".*"]
                  :access-control-allow-methods [:get :post :put :delete])
-      (wrap-rate-limit)))
+      (wrap-rate-limit (env-int "RATE_LIMIT_MAX_REQUESTS" (if (prod-mode?) 180 360))
+                       (env-int "RATE_LIMIT_WINDOW_SECONDS" 60))))
 
 (defn- run-server [port]
   (let [host (or (System/getenv "HOST") "127.0.0.1")]
