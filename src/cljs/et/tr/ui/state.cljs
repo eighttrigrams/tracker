@@ -61,7 +61,8 @@
                             :strict-mode false
                             :dark-mode false
                             :mail-page/sort-mode :recent
-                            :mail-page/expanded-message nil}))
+                            :mail-page/expanded-message nil
+                            :mail-page/fetch-request-id 0}))
 
 (defn auth-headers []
   (let [token (:token @app-state)
@@ -81,6 +82,7 @@
 (declare fetch-messages)
 (declare calculate-best-horizon)
 (declare recalculate-today-horizon)
+(declare is-admin?)
 
 (defn- fetch-collection [endpoint state-key]
   (GET endpoint
@@ -517,7 +519,10 @@
             (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
             (focus-tasks-search))
    :today (fn []
-            (swap! app-state assoc :today-page/collapsed-filters #{:places :projects}))})
+            (swap! app-state assoc :today-page/collapsed-filters #{:places :projects}))
+   :mail (fn []
+           (when (is-admin?)
+             (fetch-messages)))})
 
 (defn set-active-tab [tab]
   (swap! app-state assoc
@@ -1157,13 +1162,18 @@
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))}))
 
 (defn fetch-messages []
-  (let [sort-mode (name (:mail-page/sort-mode @app-state))]
+  (let [request-id (:mail-page/fetch-request-id (swap! app-state update :mail-page/fetch-request-id inc))
+        sort-mode (name (:mail-page/sort-mode @app-state))]
     (GET (str "/api/messages?sort=" sort-mode)
       {:response-format :json
        :keywords? true
        :headers (auth-headers)
-       :handler #(swap! app-state assoc :messages %)
-       :error-handler (fn [_] (swap! app-state assoc :messages []))})))
+       :handler (fn [messages]
+                  (when (= request-id (:mail-page/fetch-request-id @app-state))
+                    (swap! app-state assoc :messages messages)))
+       :error-handler (fn [_]
+                        (when (= request-id (:mail-page/fetch-request-id @app-state))
+                          (swap! app-state assoc :messages [])))})))
 
 (defn set-mail-sort-mode [mode]
   (swap! app-state assoc :mail-page/sort-mode mode)
