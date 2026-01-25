@@ -115,7 +115,8 @@ For the proper implementation, then
 
   {:id :revert
    :cleanup [:exploratory-implementers-complaints :exploratory-justification
-             :pr-architecture-review :pr-data-consistency-review :pr-security-review]
+             :pr-architecture-review :pr-data-consistency-review :pr-security-review
+             :boyscout-observations]
    :git-revert? true}
 
   {:id :boyscout-refactoring
