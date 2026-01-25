@@ -60,7 +60,7 @@
    :produces [:pr-architecture-review :pr-data-consistency-review :pr-security-review]
    :prompt "Start three code reviewer subagents, to look at the current diff against master.
 
-1. Does an architecture review; results go to {{pr-architecture-review}} (you don't need to mention again anything already mentioned in {{boyscout-observations}})
+1. Does an architecture review; results go to {{pr-architecture-review}} (you don't need to mention again anything already mentioned in {{boyscout-observations}} or {{exploratory-implementers-complaints}})
 2. Does an data consistency review; results go to {{pr-data-consistency-review}}
 3. Does an security review; results go to {{pr-security-review}}"} 
 
