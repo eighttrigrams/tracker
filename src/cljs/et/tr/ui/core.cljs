@@ -95,6 +95,7 @@
   [{:key :today      :translation :nav/today}
    {:key :tasks      :translation :nav/tasks}
    {:key :categories :translation :nav/categories :children [:people-places :projects-goals]}
+   {:key :mail       :translation :nav/mail       :admin-only true}
    {:key :users      :translation :nav/users      :admin-only true}
    {:key :settings   :translation :nav/settings}])
 
@@ -116,7 +117,9 @@
      [tab-button active-tab :today :nav/today]
      [tab-button active-tab :tasks :nav/tasks]
      [tab-button active-tab :categories :nav/categories
-      #(contains? #{:categories :people-places :projects-goals} %)]]))
+      #(contains? #{:categories :people-places :projects-goals} %)]
+     (when (state/is-admin?)
+       [tab-button active-tab :mail :nav/mail])]))
 
 (defn task-category-badges [task]
   (let [all-categories (concat
@@ -926,6 +929,66 @@
         :on-cancel state/clear-confirm-delete-category
         :on-confirm #(delete-fn (:id category))}])))
 
+(defn confirm-delete-message-modal []
+  (when-let [message (:confirm-delete-message @state/app-state)]
+    [generic-confirm-modal
+     {:header (t :modal/delete-message)
+      :body-paragraphs [{:text (t :modal/delete-message-confirm)}
+                        {:text (:title message) :class "task-title"}]
+      :on-cancel state/clear-confirm-delete-message
+      :on-confirm #(state/delete-message (:id message))}]))
+
+(defn- format-message-date [date-str]
+  (when date-str
+    (let [date (js/Date. date-str)]
+      (.toLocaleDateString date js/undefined #js {:year "numeric" :month "short" :day "numeric"}))))
+
+(defn mail-message-item [message]
+  (let [{:keys [id sender title description created_at done]} message
+        expanded-id (:mail-page/expanded-message @state/app-state)
+        expanded? (= expanded-id id)]
+    [:li {:class (when expanded? "expanded")}
+     [:div.item-header {:on-click #(state/set-expanded-message (when-not expanded? id))}
+      [:span.item-title
+       [:span.mail-sender sender]
+       [:span.mail-title title]]
+      [:span.item-date (format-message-date created_at)]]
+     (when expanded?
+       [:div.item-details
+        (when (not (empty? description))
+          [:div.item-description description])
+        [:div.item-actions
+         (if (= done 1)
+           [:button.undone-btn {:on-click #(state/set-message-done id false)}
+            (t :mail/set-unarchived)]
+           [:button.done-btn {:on-click #(state/set-message-done id true)}
+            (t :mail/archive)])
+         [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
+          (t :task/delete)]]])]))
+
+(defn mail-sort-toggle []
+  (let [sort-mode (:mail-page/sort-mode @state/app-state)]
+    [:div.sort-toggle
+     [:button {:class (when (= sort-mode :recent) "active")
+               :on-click #(state/set-mail-sort-mode :recent)}
+      (t :mail/sort-recent)]
+     [:button {:class (when (= sort-mode :done) "active")
+               :on-click #(state/set-mail-sort-mode :done)}
+      (t :mail/sort-archived)]]))
+
+(defn mail-page []
+  (let [messages (:messages @state/app-state)]
+    [:div.mail-page
+     [:div.tasks-header
+      [:h2 (t :nav/mail)]
+      [mail-sort-toggle]]
+     (if (empty? messages)
+       [:p.empty-message (t :mail/no-messages)]
+       [:ul.items
+        (for [message messages]
+          ^{:key (:id message)}
+          [mail-message-item message])])]))
+
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable
    {:class (str category-type (when selected? " selected"))
@@ -1120,6 +1183,7 @@
      [confirm-delete-modal]
      [confirm-delete-user-modal]
      [confirm-delete-category-modal]
+     [confirm-delete-message-modal]
      [pending-task-modal]
      (cond
        (nil? auth-required?)
@@ -1144,6 +1208,7 @@
           :categories [categories-tab]
           :people-places [categories-tab]
           :projects-goals [categories-tab]
+          :mail [mail-page]
           :users [users-tab]
           :settings [settings-tab]
           [:div.main-layout

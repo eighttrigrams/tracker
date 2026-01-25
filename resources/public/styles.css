@@ -1385,6 +1385,21 @@ button:active { transform: translateY(0); }
   background: var(--surface-subtle);
   transform: scale(1.05);
 }
+.mail-page {
+  padding: 24px 0;
+}
+.mail-page .items li {
+  cursor: default;
+}
+.mail-sender {
+  font-weight: 600;
+  color: var(--accent);
+  margin-right: 8px;
+}
+.mail-title {
+  font-weight: 500;
+  color: var(--text-primary);
+}
 *, *::before, *::after {
   transition: background-color 2s ease, border-color 2s ease, color 2s ease, box-shadow 2s ease;
 }

@@ -448,6 +448,52 @@
         {:status 200 :body result}
         {:status 404 :body {:error "User not found"}}))))
 
+(defn list-messages-handler [req]
+  (if (is-admin? req)
+    (let [user-id (get-user-id req)
+          sort-mode (keyword (get-in req [:params "sort"] "recent"))]
+      {:status 200 :body (db/list-messages (ensure-ds) user-id sort-mode)})
+    {:status 403 :body {:error "Admin access required"}}))
+
+(defn add-message-handler [req]
+  (if (is-admin? req)
+    (let [user-id (get-user-id req)
+          {:keys [sender title description]} (:body req)]
+      (cond
+        (str/blank? sender)
+        {:status 400 :body {:success false :error "Sender is required"}}
+
+        (str/blank? title)
+        {:status 400 :body {:success false :error "Title is required"}}
+
+        :else
+        (let [message (db/add-message (ensure-ds) user-id sender title description)]
+          {:status 201 :body message})))
+    {:status 403 :body {:error "Admin access required"}}))
+
+(defn set-message-done-handler [req]
+  (if (is-admin? req)
+    (if-not (contains? (:body req) :done)
+      {:status 400 :body {:error "Missing required field: done"}}
+      (let [user-id (get-user-id req)
+            message-id (Integer/parseInt (get-in req [:params :id]))
+            done? (boolean (get-in req [:body :done]))
+            result (db/set-message-done (ensure-ds) user-id message-id done?)]
+        (if result
+          {:status 200 :body result}
+          {:status 404 :body {:error "Message not found"}})))
+    {:status 403 :body {:error "Admin access required"}}))
+
+(defn delete-message-handler [req]
+  (if (is-admin? req)
+    (let [user-id (get-user-id req)
+          message-id (Integer/parseInt (get-in req [:params :id]))
+          result (db/delete-message (ensure-ds) user-id message-id)]
+      (if (:success result)
+        {:status 200 :body {:success true}}
+        {:status 404 :body {:success false :error "Message not found"}}))
+    {:status 403 :body {:error "Admin access required"}}))
+
 (defonce translations-cache (atom nil))
 
 (defn- load-translations []
@@ -603,6 +649,12 @@
       (POST "/" [] add-goal-handler)
       (PUT "/:id" [] update-goal-handler)
       (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-goals "goals"))))
+
+    (context "/messages" []
+      (GET "/" [] list-messages-handler)
+      (POST "/" [] add-message-handler)
+      (PUT "/:id/done" [] set-message-done-handler)
+      (DELETE "/:id" [] delete-message-handler))
 
     (DELETE "/:category/:id" [] delete-category-handler)))
 

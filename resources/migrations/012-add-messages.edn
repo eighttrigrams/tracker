@@ -1,0 +1,12 @@
+{:up ["CREATE TABLE messages (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         sender TEXT NOT NULL,
+         title TEXT NOT NULL,
+         description TEXT DEFAULT '',
+         created_at DATETIME DEFAULT (datetime('now')),
+         done INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0, 1)),
+         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+       )"
+       "CREATE INDEX idx_messages_user_done_created ON messages (user_id, done, created_at)"]
+ :down ["DROP INDEX IF EXISTS idx_messages_user_done_created"
+        "DROP TABLE IF EXISTS messages"]}

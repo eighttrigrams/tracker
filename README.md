@@ -1,4 +1,4 @@
-# Tracker 
+# Tracker
 
 Task Tracker | Scheduler | Planner
 
@@ -55,3 +55,18 @@ $ make start-prod
 ```bash
 $ make deploy
 ```
+
+## API
+
+### Sending messages (Admin only)
+
+Messages can be sent to the app via the API using admin credentials:
+
+```bash
+curl -X POST http://localhost:3027/api/messages \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: null" \
+  -d '{"sender": "John", "title": "Hello", "description": "Message body"}'
+```
+
+The `X-User-Id: null` header indicates the admin user. Messages are visible in the Mail tab (admin only).

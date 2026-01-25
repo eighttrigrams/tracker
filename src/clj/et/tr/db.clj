@@ -52,6 +52,7 @@
                     (clojure.string/join "," (repeat (count task-ids) "?"))
                     ")")] task-ids)))
     (jdbc/execute-one! conn ["DELETE FROM tasks WHERE user_id = ?" user-id])
+    (jdbc/execute-one! conn ["DELETE FROM messages WHERE user_id = ?" user-id])
     (jdbc/execute-one! conn ["DELETE FROM people WHERE user_id = ?" user-id])
     (jdbc/execute-one! conn ["DELETE FROM places WHERE user_id = ?" user-id])
     (jdbc/execute-one! conn ["DELETE FROM projects WHERE user_id = ?" user-id])
@@ -467,3 +468,44 @@
      :places places
      :projects projects
      :goals goals}))
+
+(defn add-message [ds user-id sender title description]
+  (jdbc/execute-one! (get-conn ds)
+    ["INSERT INTO messages (sender, title, description, user_id) VALUES (?, ?, ?, ?) RETURNING id, sender, title, description, created_at, done, user_id"
+     sender title (or description "") user-id]
+    {:builder-fn rs/as-unqualified-maps}))
+
+(defn list-messages
+  ([ds user-id] (list-messages ds user-id :recent))
+  ([ds user-id sort-mode]
+   (let [{:keys [clause params]} (user-id-clause user-id)
+         where-clause (case sort-mode
+                        :done (str "WHERE " clause " AND done = 1")
+                        (str "WHERE " clause " AND done = 0"))
+         order-clause (case sort-mode
+                        :done "ORDER BY created_at DESC"
+                        "ORDER BY created_at DESC")]
+     (jdbc/execute! (get-conn ds)
+       (into [(str "SELECT id, sender, title, description, created_at, done FROM messages " where-clause " " order-clause)] params)
+       {:builder-fn rs/as-unqualified-maps}))))
+
+(defn message-owned-by-user? [ds message-id user-id]
+  (let [{:keys [clause params]} (user-id-clause user-id)
+        query-params (concat [message-id] params)]
+    (some? (jdbc/execute-one! (get-conn ds)
+             (into [(str "SELECT id FROM messages WHERE id = ? AND " clause)] query-params)
+             {:builder-fn rs/as-unqualified-maps}))))
+
+(defn set-message-done [ds user-id message-id done?]
+  (let [{:keys [clause params]} (user-id-clause user-id)
+        done-val (if done? 1 0)
+        query-params (concat [done-val message-id] params)]
+    (jdbc/execute-one! (get-conn ds)
+      (into [(str "UPDATE messages SET done = ? WHERE id = ? AND " clause " RETURNING id, done")] query-params)
+      {:builder-fn rs/as-unqualified-maps})))
+
+(defn delete-message [ds user-id message-id]
+  (when (message-owned-by-user? ds message-id user-id)
+    (let [result (jdbc/execute-one! (get-conn ds)
+                   ["DELETE FROM messages WHERE id = ?" message-id])]
+      {:success (pos? (:next.jdbc/update-count result))})))

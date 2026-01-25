@@ -11,6 +11,7 @@
    :places []
    :projects []
    :goals []
+   :messages []
    :upcoming-horizon nil})
 
 (defonce app-state (r/atom {:tasks []
@@ -18,6 +19,7 @@
                             :places []
                             :projects []
                             :goals []
+                            :messages []
                             :users []
                             :available-users []
                             :show-user-switcher false
@@ -33,6 +35,7 @@
                             :category-page/editing nil
                             :confirm-delete-task nil
                             :confirm-delete-user nil
+                            :confirm-delete-message nil
                             :pending-new-task nil
                             :active-tab :today
                             :auth-required? nil
@@ -56,7 +59,9 @@
                             :category-selector/search ""
                             :work-private-mode :both
                             :strict-mode false
-                            :dark-mode false}))
+                            :dark-mode false
+                            :mail-page/sort-mode :recent
+                            :mail-page/expanded-message nil}))
 
 (defn auth-headers []
   (let [token (:token @app-state)
@@ -73,6 +78,7 @@
 (declare fetch-places)
 (declare fetch-projects)
 (declare fetch-goals)
+(declare fetch-messages)
 (declare calculate-best-horizon)
 (declare recalculate-today-horizon)
 
@@ -120,6 +126,7 @@
                     (fetch-places)
                     (fetch-projects)
                     (fetch-goals)
+                    (fetch-messages)
                     (fetch-available-users)
                     (fetch-users))
                   (let [{:keys [token user]} (load-auth-from-storage)]
@@ -135,6 +142,7 @@
                       (fetch-projects)
                       (fetch-goals)
                       (when (:is_admin user)
+                        (fetch-messages)
                         (fetch-users))))))}))
 
 (defn login [username password on-success]
@@ -155,6 +163,7 @@
                   (apply-user-language user)
                   (when on-success (on-success))
                   (when (:is_admin user)
+                    (fetch-messages)
                     (fetch-users))))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Invalid credentials")))}))
@@ -909,6 +918,7 @@
   (fetch-projects)
   (fetch-goals)
   (when (:is_admin user)
+    (fetch-messages)
     (fetch-users)))
 
 (defn fetch-users []
@@ -1141,3 +1151,55 @@
                                tasks))))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))}))
+
+(defn fetch-messages []
+  (let [sort-mode (name (:mail-page/sort-mode @app-state))]
+    (GET (str "/api/messages?sort=" sort-mode)
+      {:response-format :json
+       :keywords? true
+       :headers (auth-headers)
+       :handler #(swap! app-state assoc :messages %)
+       :error-handler (fn [_] (swap! app-state assoc :messages []))})))
+
+(defn set-mail-sort-mode [mode]
+  (swap! app-state assoc :mail-page/sort-mode mode)
+  (fetch-messages))
+
+(defn set-expanded-message [id]
+  (swap! app-state assoc :mail-page/expanded-message id))
+
+(defn set-message-done [message-id done?]
+  (PUT (str "/api/messages/" message-id "/done")
+    {:params {:done done?}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [_] (fetch-messages))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message")))}))
+
+(defn set-confirm-delete-message [message]
+  (swap! app-state assoc :confirm-delete-message message))
+
+(defn clear-confirm-delete-message []
+  (swap! app-state assoc :confirm-delete-message nil))
+
+(defn delete-message [message-id]
+  (DELETE (str "/api/messages/" message-id)
+    {:format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [_]
+                (swap! app-state update :messages
+                       (fn [messages] (filterv #(not= (:id %) message-id) messages)))
+                (clear-confirm-delete-message))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete message"))
+                      (clear-confirm-delete-message))}))
+
+(defn is-admin? []
+  (let [current-user (:current-user @app-state)]
+    (or (nil? (:id current-user))
+        (:is_admin current-user))))
