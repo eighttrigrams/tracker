@@ -545,9 +545,8 @@
         words (.split title-lower #"\s+")]
     (some #(.startsWith % search-lower) words)))
 
-(defn- matches-scope? [task]
-  (let [mode (:work-private-mode @app-state)
-        task-scope (or (:scope task) "both")]
+(defn- matches-scope? [task mode]
+  (let [task-scope (or (:scope task) "both")]
     (case mode
       :private (contains? #{"private" "both"} task-scope)
       :work (contains? #{"work" "both"} task-scope)
@@ -555,7 +554,8 @@
       true)))
 
 (defn- scope-filtered-tasks []
-  (filter matches-scope? (:tasks @app-state)))
+  (let [mode (:work-private-mode @app-state)]
+    (filter #(matches-scope? % mode) (:tasks @app-state))))
 
 (defn- matches-importance-filter? [task importance-filter]
   (case importance-filter
