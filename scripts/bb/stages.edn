@@ -1,18 +1,18 @@
 {:docs-dir "build-next-feature"
 
  :documents
- {:next-feature                    "NEXT_FEATURE.md"
-  :boyscout-observations           "BOYSCOUT_OBSERVATIONS.md"
-  :exploratory-justification       "EXPLORATORY_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md"
-  :pr-architecture-review          "PR_ARCHITECTURE_REVIEW_RESULT.md"
-  :pr-data-consistency-review      "PR_DATA_CONSISTENCY_REVIEW_RESULT.md"
-  :pr-security-review              "PR_SECURITY_REVIEW_RESULT.md"
-  :boyscout-plan                   "BOYSCOUT_PLAN.md"
-  :implementation-plan             "IMPLEMENTATION_PLAN.md"
-  :human-opinion                   "HUMAN_OPINION.md"
-  :boyscout-report                 "BOYSCOUT_REPORT.md"
-  :feature-justification           "FEATURE_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md"
-  :commit-message-body             "COMMIT_MESSAGE_BODY.txt"}
+ {:next-feature                    {:file "NEXT_FEATURE.md"}
+  :boyscout-observations           {:file "BOYSCOUT_OBSERVATIONS.md"}
+  :exploratory-justification       {:file "EXPLORATORY_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md"}
+  :pr-architecture-review          {:file "PR_ARCHITECTURE_REVIEW_RESULT.md"}
+  :pr-data-consistency-review      {:file "PR_DATA_CONSISTENCY_REVIEW_RESULT.md"}
+  :pr-security-review              {:file "PR_SECURITY_REVIEW_RESULT.md"}
+  :boyscout-plan                   {:file "BOYSCOUT_PLAN.md"}
+  :implementation-plan             {:file "IMPLEMENTATION_PLAN.md"}
+  :human-opinion                   {:file "HUMAN_OPINION.md" :allow-single-line? true}
+  :boyscout-report                 {:file "BOYSCOUT_REPORT.md"}
+  :feature-justification           {:file "FEATURE_IMPLEMENTATION_DECISIONS_JUSTIFICATION.md"}
+  :commit-message-body             {:file "COMMIT_MESSAGE_BODY.txt"}}
 
  :stages
  [{:id :exploratory-implementation

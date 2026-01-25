@@ -13,7 +13,10 @@
 (defn documents [] (:documents *config*))
 
 (defn doc-path [doc-key]
-  (str (docs-dir) "/" (get (documents) doc-key)))
+  (str (docs-dir) "/" (:file (get (documents) doc-key))))
+
+(defn doc-allow-single-line? [doc-key]
+  (:allow-single-line? (get (documents) doc-key)))
 
 (defn interpolate [template ctx]
   (reduce-kv
@@ -23,23 +26,30 @@
    (merge ctx
           (into {} (map (fn [[k _]] [k (doc-path k)]) (documents))))))
 
-(defn file-valid? [path]
-  (and (fs/exists? path)
-       (> (count (str/split-lines (slurp path))) 1)))
+(defn file-valid?
+  ([path] (file-valid? path false))
+  ([path allow-single-line?]
+   (and (fs/exists? path)
+        (let [lines (count (str/split-lines (slurp path)))]
+          (if allow-single-line?
+            (>= lines 1)
+            (> lines 1))))))
 
 (defn check-requires [{:keys [requires]} ctx]
   (when requires
     (doseq [doc-key requires]
-      (let [path (doc-path doc-key)]
-        (when-not (file-valid? path)
+      (let [path (doc-path doc-key)
+            allow-single? (doc-allow-single-line? doc-key)]
+        (when-not (file-valid? path allow-single?)
           (println "Error: Required document" path "not found or empty.")
           (System/exit 1))))))
 
 (defn check-produces [{:keys [produces]} ctx]
   (when produces
     (doseq [doc-key produces]
-      (let [path (doc-path doc-key)]
-        (when-not (file-valid? path)
+      (let [path (doc-path doc-key)
+            allow-single? (doc-allow-single-line? doc-key)]
+        (when-not (file-valid? path allow-single?)
           (println "Error: Expected output" path "not found or empty.")
           (System/exit 1))))))
 
@@ -84,15 +94,6 @@
   (println "Stopping app...")
   (shell "make" "stop"))
 
-(defn wait-for-human [message]
-  (println message)
-  (shell "say" "Tracker needs your attention now.")
-  (loop []
-    (print "Type 'ok' to proceed: ")
-    (flush)
-    (when (not= "ok" (str/trim (read-line)))
-      (recur))))
-
 (defn create-human-opinion-if-missing []
   (let [path (doc-path :human-opinion)]
     (when-not (fs/exists? path)
@@ -101,6 +102,16 @@
       (when (= "y" (str/trim (read-line)))
         (spit path "")
         (shell "code" path)))))
+
+(defn wait-for-human [message]
+  (shell "say" "Tracker needs your attention now.")
+  (create-human-opinion-if-missing)
+  (println message)
+  (loop []
+    (print "Type 'ok' to proceed: ")
+    (flush)
+    (when (not= "ok" (str/trim (read-line)))
+      (recur))))
 
 (defn run-stage [stage ctx]
   (let [{:keys [id prompt human-input? start-app? stop-app? run-tests?
@@ -123,7 +134,6 @@
       (stop-app))
 
     (when human-input?
-      (create-human-opinion-if-missing)
       (wait-for-human (interpolate (or message "Waiting for human input...") ctx)))
 
     (when prompt
