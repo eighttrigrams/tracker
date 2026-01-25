@@ -108,8 +108,16 @@
         (spit path "")
         (shell "code" path)))))
 
-(defn wait-for-human [message {:keys [produces]}]
+(defn send-notification [stage-id message]
+  (let [script-dir (fs/parent (System/getProperty "babashka.file"))
+        send-msg (str script-dir "/../send-message.sh")
+        title (str "Stage: " (name stage-id))]
+    (when (fs/exists? send-msg)
+      (shell {:continue true} send-msg title message "Tracker Builder"))))
+
+(defn wait-for-human [message {:keys [id produces]}]
   (shell "say" "Tracker needs your attention now.")
+  (send-notification id message)
   (when (some #{:human-opinion} produces)
     (create-human-opinion-if-missing))
   (println message)

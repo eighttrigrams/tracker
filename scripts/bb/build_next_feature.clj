@@ -41,6 +41,11 @@
   (println msg)
   (spit "hooks.log" (str "###### " msg "\n") :append true))
 
+(defn send-notification [title message]
+  (let [send-msg "scripts/send-message.sh"]
+    (when (fs/exists? send-msg)
+      (shell {:continue true} send-msg title message "Tracker Builder"))))
+
 (defn -main [& args]
   (when (< (count args) 2)
     (println "Usage: bb scripts/bb/build_next_feature.clj <stages-edn> <feature-name>")
@@ -51,6 +56,7 @@
     (validate-preconditions)
     (setup-feature-branch feature-name)
     (cleanup-workspace)
+    (send-notification "Build Started" (str "Building feature: " feature-name))
     (log "Start building ...")
     (r/run-pipeline feature-name)
     (log "Done!")
