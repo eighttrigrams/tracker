@@ -4,7 +4,8 @@
             [clojure.string :as str]
             [et.tr.filters :as filters]
             [et.tr.i18n :as i18n]
-            [et.tr.ui.date :as date]))
+            [et.tr.ui.date :as date]
+            [et.tr.ui.api :as api]))
 
 (def initial-collection-state
   {:tasks []
@@ -206,13 +207,10 @@
 
 (defn- categorize-task-batch [task-id category-type ids]
   (doseq [id ids]
-    (POST (str "/api/tasks/" task-id "/categorize")
-      {:params {:category-type category-type :category-id id}
-       :format :json
-       :response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [_])})))
+    (api/post-json (str "/api/tasks/" task-id "/categorize")
+      {:category-type category-type :category-id id}
+      (auth-headers)
+      (fn [_]))))
 
 (defn add-task-with-categories [title categories on-success]
   (POST "/api/tasks"
@@ -289,30 +287,20 @@
   (fetch-collection "/api/places" :places))
 
 (defn add-person [name on-success]
-  (POST "/api/people"
-    {:params {:name name}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [person]
-                (swap! app-state update :people conj person)
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add person")))}))
+  (api/post-json "/api/people" {:name name} (auth-headers)
+    (fn [person]
+      (swap! app-state update :people conj person)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add person")))))
 
 (defn add-place [name on-success]
-  (POST "/api/places"
-    {:params {:name name}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [place]
-                (swap! app-state update :places conj place)
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add place")))}))
+  (api/post-json "/api/places" {:name name} (auth-headers)
+    (fn [place]
+      (swap! app-state update :places conj place)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add place")))))
 
 (defn fetch-projects []
   (fetch-collection "/api/projects" :projects))
@@ -321,68 +309,44 @@
   (fetch-collection "/api/goals" :goals))
 
 (defn add-project [name on-success]
-  (POST "/api/projects"
-    {:params {:name name}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [project]
-                (swap! app-state update :projects conj project)
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add project")))}))
+  (api/post-json "/api/projects" {:name name} (auth-headers)
+    (fn [project]
+      (swap! app-state update :projects conj project)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add project")))))
 
 (defn add-goal [name on-success]
-  (POST "/api/goals"
-    {:params {:name name}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [goal]
-                (swap! app-state update :goals conj goal)
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add goal")))}))
+  (api/post-json "/api/goals" {:name name} (auth-headers)
+    (fn [goal]
+      (swap! app-state update :goals conj goal)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add goal")))))
 
 (defn categorize-task [task-id category-type category-id]
-  (POST (str "/api/tasks/" task-id "/categorize")
-    {:params {:category-type category-type :category-id category-id}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (fetch-tasks))}))
+  (api/post-json (str "/api/tasks/" task-id "/categorize")
+    {:category-type category-type :category-id category-id}
+    (auth-headers)
+    (fn [_] (fetch-tasks))))
 
 (defn uncategorize-task [task-id category-type category-id]
-  (DELETE (str "/api/tasks/" task-id "/categorize")
-    {:params {:category-type category-type :category-id category-id}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (fetch-tasks))}))
+  (api/delete-json (str "/api/tasks/" task-id "/categorize")
+    {:category-type category-type :category-id category-id}
+    (auth-headers)
+    (fn [_] (fetch-tasks))))
 
 (defn update-task [task-id title description on-success]
-  (PUT (str "/api/tasks/" task-id)
-    {:params {:title title :description description}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [updated-task]
-                (swap! app-state update :tasks
-                       (fn [tasks]
-                         (mapv #(if (= (:id %) task-id)
-                                  (merge % updated-task)
-                                  %)
-                               tasks)))
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))}))
+  (api/put-json (str "/api/tasks/" task-id)
+    {:title title :description description}
+    (auth-headers)
+    (fn [updated-task]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id) (merge % updated-task) %) tasks)))
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))))
 
 (defn toggle-filter-person [person-id]
   (swap! app-state update :tasks-page/filter-people
@@ -582,18 +546,15 @@
   (swap! app-state assoc :drag-task nil :drag-over-task nil))
 
 (defn reorder-task [task-id target-task-id position]
-  (POST (str "/api/tasks/" task-id "/reorder")
-    {:params {:target-task-id target-task-id :position position}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (clear-drag-state)
-                (fetch-tasks))
-     :error-handler (fn [resp]
-                      (clear-drag-state)
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))}))
+  (api/post-json (str "/api/tasks/" task-id "/reorder")
+    {:target-task-id target-task-id :position position}
+    (auth-headers)
+    (fn [_]
+      (clear-drag-state)
+      (fetch-tasks))
+    (fn [resp]
+      (clear-drag-state)
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))))
 
 (defn set-drag-category [category-type category-id]
   (swap! app-state assoc :drag-category {:type category-type :id category-id}))
@@ -615,52 +576,43 @@
                    :places fetch-places
                    :projects fetch-projects
                    :goals fetch-goals)]
-    (POST (str endpoint category-id "/reorder")
-      {:params {:target-category-id target-category-id :position position}
-       :format :json
-       :response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [_]
-                  (clear-category-drag-state)
-                  (fetch-fn))
-       :error-handler (fn [resp]
-                        (clear-category-drag-state)
-                        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))})))
+    (api/post-json (str endpoint category-id "/reorder")
+      {:target-category-id target-category-id :position position}
+      (auth-headers)
+      (fn [_]
+        (clear-category-drag-state)
+        (fetch-fn))
+      (fn [resp]
+        (clear-category-drag-state)
+        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder"))))))
 
 (defn set-task-due-date [task-id due-date]
-  (PUT (str "/api/tasks/" task-id "/due-date")
-    {:params {:due-date due-date}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [result]
-                (swap! app-state update :tasks
-                       (fn [tasks]
-                         (mapv #(if (= (:id %) task-id)
-                                  (assoc % :due_date (:due_date result) :due_time (:due_time result) :modified_at (:modified_at result))
-                                  %)
-                               tasks))))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due date")))}))
+  (api/put-json (str "/api/tasks/" task-id "/due-date")
+    {:due-date due-date}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (assoc % :due_date (:due_date result) :due_time (:due_time result) :modified_at (:modified_at result))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due date")))))
 
 (defn set-task-due-time [task-id due-time]
-  (PUT (str "/api/tasks/" task-id "/due-time")
-    {:params {:due-time due-time}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [result]
-                (swap! app-state update :tasks
-                       (fn [tasks]
-                         (mapv #(if (= (:id %) task-id)
-                                  (assoc % :due_date (:due_date result) :due_time (:due_time result) :modified_at (:modified_at result))
-                                  %)
-                               tasks))))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due time")))}))
+  (api/put-json (str "/api/tasks/" task-id "/due-time")
+    {:due-time due-time}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (assoc % :due_date (:due_date result) :due_time (:due_time result) :modified_at (:modified_at result))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due time")))))
 
 (defn set-confirm-delete-task [task]
   (swap! app-state assoc :confirm-delete-task task))
@@ -669,31 +621,25 @@
   (swap! app-state assoc :confirm-delete-task nil))
 
 (defn delete-task [task-id]
-  (DELETE (str "/api/tasks/" task-id)
-    {:format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (swap! app-state update :tasks
-                       (fn [tasks] (filterv #(not= (:id %) task-id) tasks)))
-                (swap! app-state assoc :expanded-task nil :confirm-delete-task nil))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete task"))
-                      (clear-confirm-delete))}))
+  (api/delete-simple (str "/api/tasks/" task-id)
+    (auth-headers)
+    (fn [_]
+      (swap! app-state update :tasks
+             (fn [tasks] (filterv #(not= (:id %) task-id) tasks)))
+      (swap! app-state assoc :expanded-task nil :confirm-delete-task nil))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete task"))
+      (clear-confirm-delete))))
 
 (defn set-task-done [task-id done?]
-  (PUT (str "/api/tasks/" task-id "/done")
-    {:params {:done done?}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (swap! app-state assoc :expanded-task nil)
-                (fetch-tasks))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))}))
+  (api/put-json (str "/api/tasks/" task-id "/done")
+    {:done done?}
+    (auth-headers)
+    (fn [_]
+      (swap! app-state assoc :expanded-task nil)
+      (fetch-tasks))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))))
 
 (defn set-upcoming-horizon [horizon]
   (swap! app-state assoc :upcoming-horizon horizon))
@@ -870,17 +816,12 @@
                       (swap! app-state assoc :users []))}))
 
 (defn add-user [username password on-success]
-  (POST "/api/users"
-    {:params {:username username :password password}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [user]
-                (swap! app-state update :users conj user)
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add user")))}))
+  (api/post-json "/api/users" {:username username :password password} (auth-headers)
+    (fn [user]
+      (swap! app-state update :users conj user)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add user")))))
 
 (defn set-confirm-delete-user [user]
   (swap! app-state assoc :confirm-delete-user user))
@@ -889,18 +830,15 @@
   (swap! app-state assoc :confirm-delete-user nil))
 
 (defn delete-user [user-id]
-  (DELETE (str "/api/users/" user-id)
-    {:format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (swap! app-state update :users
-                       (fn [users] (filterv #(not= (:id %) user-id) users)))
-                (clear-confirm-delete-user))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete user"))
-                      (clear-confirm-delete-user))}))
+  (api/delete-simple (str "/api/users/" user-id)
+    (auth-headers)
+    (fn [_]
+      (swap! app-state update :users
+             (fn [users] (filterv #(not= (:id %) user-id) users)))
+      (clear-confirm-delete-user))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete user"))
+      (clear-confirm-delete-user))))
 
 (defn set-editing-category [category-type id]
   (swap! app-state assoc :category-page/editing {:type category-type :id id}))
@@ -909,64 +847,52 @@
   (swap! app-state assoc :category-page/editing nil))
 
 (defn update-person [id name description on-success]
-  (PUT (str "/api/people/" id)
-    {:params {:name name :description description}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [updated]
-                (swap! app-state update :people
-                       (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
-                (fetch-tasks)
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update person")))}))
+  (api/put-json (str "/api/people/" id)
+    {:name name :description description}
+    (auth-headers)
+    (fn [updated]
+      (swap! app-state update :people
+             (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+      (fetch-tasks)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update person")))))
 
 (defn update-place [id name description on-success]
-  (PUT (str "/api/places/" id)
-    {:params {:name name :description description}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [updated]
-                (swap! app-state update :places
-                       (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
-                (fetch-tasks)
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update place")))}))
+  (api/put-json (str "/api/places/" id)
+    {:name name :description description}
+    (auth-headers)
+    (fn [updated]
+      (swap! app-state update :places
+             (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+      (fetch-tasks)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update place")))))
 
 (defn update-project [id name description on-success]
-  (PUT (str "/api/projects/" id)
-    {:params {:name name :description description}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [updated]
-                (swap! app-state update :projects
-                       (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
-                (fetch-tasks)
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update project")))}))
+  (api/put-json (str "/api/projects/" id)
+    {:name name :description description}
+    (auth-headers)
+    (fn [updated]
+      (swap! app-state update :projects
+             (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+      (fetch-tasks)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update project")))))
 
 (defn update-goal [id name description on-success]
-  (PUT (str "/api/goals/" id)
-    {:params {:name name :description description}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [updated]
-                (swap! app-state update :goals
-                       (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
-                (fetch-tasks)
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update goal")))}))
+  (api/put-json (str "/api/goals/" id)
+    {:name name :description description}
+    (auth-headers)
+    (fn [updated]
+      (swap! app-state update :goals
+             (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+      (fetch-tasks)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update goal")))))
 
 (defn set-confirm-delete-category [category-type category]
   (swap! app-state assoc :confirm-delete-category {:type category-type :category category}))
@@ -975,19 +901,16 @@
   (swap! app-state assoc :confirm-delete-category nil))
 
 (defn- delete-category-entity [endpoint state-key error-msg id]
-  (DELETE (str endpoint id)
-    {:format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (swap! app-state update state-key
-                       (fn [items] (filterv #(not= (:id %) id) items)))
-                (fetch-tasks)
-                (clear-confirm-delete-category))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] error-msg))
-                      (clear-confirm-delete-category))}))
+  (api/delete-simple (str endpoint id)
+    (auth-headers)
+    (fn [_]
+      (swap! app-state update state-key
+             (fn [items] (filterv #(not= (:id %) id) items)))
+      (fetch-tasks)
+      (clear-confirm-delete-category))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] error-msg))
+      (clear-confirm-delete-category))))
 
 (defn delete-person [id]
   (delete-category-entity "/api/people/" :people "Failed to delete person" id))
@@ -1002,20 +925,15 @@
   (delete-category-entity "/api/goals/" :goals "Failed to delete goal" id))
 
 (defn update-user-language [language]
-  (PUT "/api/user/language"
-    {:params {:language language}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [result]
-                (i18n/set-language! language)
-                (swap! app-state update :current-user assoc :language language)
-                (let [user (:current-user @app-state)
-                      token (:token @app-state)]
-                  (save-auth-to-storage token user)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update language")))}))
+  (api/put-json "/api/user/language" {:language language} (auth-headers)
+    (fn [_]
+      (i18n/set-language! language)
+      (swap! app-state update :current-user assoc :language language)
+      (let [user (:current-user @app-state)
+            token (:token @app-state)]
+        (save-auth-to-storage token user)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update language")))))
 
 (defn set-work-private-mode [mode]
   (swap! app-state assoc :work-private-mode mode))
@@ -1034,21 +952,18 @@
         (.remove (.-classList (.-documentElement js/document)) "dark-mode")))))
 
 (defn set-task-scope [task-id scope]
-  (PUT (str "/api/tasks/" task-id "/scope")
-    {:params {:scope scope}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [result]
-                (swap! app-state update :tasks
-                       (fn [tasks]
-                         (mapv #(if (= (:id %) task-id)
-                                  (assoc % :scope (:scope result) :modified_at (:modified_at result))
-                                  %)
-                               tasks))))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))}))
+  (api/put-json (str "/api/tasks/" task-id "/scope")
+    {:scope scope}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (assoc % :scope (:scope result) :modified_at (:modified_at result))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
 (defn export-data []
   (let [headers (auth-headers)
@@ -1074,38 +989,32 @@
                   (swap! app-state assoc :error "Failed to export data"))))))
 
 (defn set-task-importance [task-id importance]
-  (PUT (str "/api/tasks/" task-id "/importance")
-    {:params {:importance importance}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [result]
-                (swap! app-state update :tasks
-                       (fn [tasks]
-                         (mapv #(if (= (:id %) task-id)
-                                  (assoc % :importance (:importance result) :modified_at (:modified_at result))
-                                  %)
-                               tasks))))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))}))
+  (api/put-json (str "/api/tasks/" task-id "/importance")
+    {:importance importance}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (assoc % :importance (:importance result) :modified_at (:modified_at result))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))))
 
 (defn set-task-urgency [task-id urgency]
-  (PUT (str "/api/tasks/" task-id "/urgency")
-    {:params {:urgency urgency}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [result]
-                (swap! app-state update :tasks
-                       (fn [tasks]
-                         (mapv #(if (= (:id %) task-id)
-                                  (assoc % :urgency (:urgency result) :modified_at (:modified_at result))
-                                  %)
-                               tasks))))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update urgency")))}))
+  (api/put-json (str "/api/tasks/" task-id "/urgency")
+    {:urgency urgency}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (assoc % :urgency (:urgency result) :modified_at (:modified_at result))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update urgency")))))
 
 (defn urgent-tasks []
   (->> (scope-filtered-tasks)
@@ -1135,15 +1044,12 @@
   (swap! app-state assoc :mail-page/expanded-message id))
 
 (defn set-message-done [message-id done?]
-  (PUT (str "/api/messages/" message-id "/done")
-    {:params {:done done?}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_] (fetch-messages))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message")))}))
+  (api/put-json (str "/api/messages/" message-id "/done")
+    {:done done?}
+    (auth-headers)
+    (fn [_] (fetch-messages))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message")))))
 
 (defn set-confirm-delete-message [message]
   (swap! app-state assoc :confirm-delete-message message))
@@ -1152,18 +1058,15 @@
   (swap! app-state assoc :confirm-delete-message nil))
 
 (defn delete-message [message-id]
-  (DELETE (str "/api/messages/" message-id)
-    {:format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (swap! app-state update :messages
-                       (fn [messages] (filterv #(not= (:id %) message-id) messages)))
-                (clear-confirm-delete-message))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete message"))
-                      (clear-confirm-delete-message))}))
+  (api/delete-simple (str "/api/messages/" message-id)
+    (auth-headers)
+    (fn [_]
+      (swap! app-state update :messages
+             (fn [messages] (filterv #(not= (:id %) message-id) messages)))
+      (clear-confirm-delete-message))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete message"))
+      (clear-confirm-delete-message))))
 
 (defn is-admin? []
   (let [current-user (:current-user @app-state)]
