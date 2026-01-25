@@ -159,6 +159,20 @@
                      (state/set-task-importance (:id task) level))}
         (labels level)])]))
 
+(defn- time-picker [task]
+  [:span.time-picker-wrapper
+   {:on-click #(.stopPropagation %)}
+   [:input.time-picker-input
+    {:type "time"
+     :value (or (:due_time task) "")
+     :on-change (fn [e]
+                  (let [v (.. e -target -value)]
+                    (state/set-task-due-time (:id task) (when (seq v) v))))}]
+   [:button.clock-icon {:on-click (fn [e]
+                                    (.stopPropagation e)
+                                    (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+    "🕐"]])
+
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
   (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/app-state)
@@ -171,11 +185,11 @@
         (when show-prefix?
           [:span.task-day-prefix (str (state/get-day-name (:due_date task))
                                       (when (seq (:due_time task)) ","))])
-        (when (and (not is-expanded) (seq (:due_time task)))
+        (when (seq (:due_time task))
           [:span.task-time {:class (when overdue? "overdue-time")} (:due_time task)])
-        (when (and is-expanded (:due_date task))
-          [time-picker task])
-        (:title task)]
+        (:title task)
+        (when (and is-expanded (seq (:due_time task)))
+          [time-picker task])]
        (when-not is-expanded
          [task-category-badges task])]
       [:span.task-date
@@ -726,20 +740,6 @@
     [task-scope-selector task]
     [task-importance-selector task]
     [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])
-
-(defn- time-picker [task]
-  [:span.time-picker-wrapper
-   {:on-click #(.stopPropagation %)}
-   [:input.time-picker-input
-    {:type "time"
-     :value (or (:due_time task) "")
-     :on-change (fn [e]
-                  (let [v (.. e -target -value)]
-                    (state/set-task-due-time (:id task) (when (seq v) v))))}]
-   [:button.clock-icon {:on-click (fn [e]
-                                    (.stopPropagation e)
-                                    (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-    "🕐"]])
 
 (defn- task-header [task is-expanded done-mode? due-date-mode?]
   [:div.item-header
