@@ -76,7 +76,8 @@
 (defn start-app []
   (println "Starting app...")
   (shell "make" "stop")
-  (process {:out :inherit :err :inherit} "make" "start")
+  ;; Don't inherit stdout - it blocks subsequent prints until user presses enter
+  (process "make" "start")
   (Thread/sleep 2000))
 
 (defn stop-app []
@@ -136,15 +137,15 @@
     (when commit
       (git-commit (:message commit) (:feature-name ctx)))
 
-    (when cleanup-after
-      (cleanup-docs cleanup-after))
-
     (when amend-commit?
       (let [body (when (fs/exists? (doc-path :commit-message-body))
                    (slurp (doc-path :commit-message-body)))]
         (shell "git" "commit" "--amend" "-m"
                (str "feature/" (:feature-name ctx) " - Implementation")
                "-m" (or body ""))))
+
+    (when cleanup-after
+      (cleanup-docs cleanup-after))
 
     (when clear-next-feature?
       (spit (doc-path :next-feature) ""))))
