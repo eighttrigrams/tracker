@@ -5,6 +5,8 @@ description: Security review guidance. Use when reviewing code for security vuln
 
 # Security Review
 
+- Data leaks? Can outsiders see user data? Can users accidentally see each others' data?
+
 ## Focus Areas
 
 - Input validation and sanitization

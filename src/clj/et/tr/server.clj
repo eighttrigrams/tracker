@@ -602,9 +602,9 @@
   (let [uri (:uri req)]
     (= uri "/api/auth/login")))
 
-(defn wrap-auth [handler]
+(defn- wrap-auth [handler prod?]
   (fn [req]
-    (if (and (prod-mode?)
+    (if (and prod?
              (mutating-request? req)
              (str/starts-with? (or (:uri req) "") "/api")
              (not (public-endpoint? req)))
@@ -619,35 +619,35 @@
          :body "{\"error\":\"Authentication required\"}"})
       (handler req))))
 
-(def app
+(defn- app [prod?]
   (-> app-routes
       (wrap-params)
       (wrap-json-body {:keywords? true})
-      (wrap-auth)
+      (wrap-auth prod?)
       (wrap-json-response)
       (wrap-cors :access-control-allow-origin [#".*"]
                  :access-control-allow-methods [:get :post :put :delete])
-      (wrap-rate-limit (env-int "RATE_LIMIT_MAX_REQUESTS" (if (prod-mode?) 180 720))
+      (wrap-rate-limit (env-int "RATE_LIMIT_MAX_REQUESTS" (if prod? 180 720))
                        (env-int "RATE_LIMIT_WINDOW_SECONDS" 60))))
 
-(defn- run-server [port]
+(defn- run-server [port prod?]
   (let [host (or (System/getenv "HOST") "127.0.0.1")]
     (prn "Binding to" host ":" port)
-    (jetty/run-jetty #'app {:port port :host host :join? false})))
+    (jetty/run-jetty (app prod?) {:port port :host host :join? false})))
 
 (defn -main [& _args]
   (reset! config (load-config))
-  (when (and (true? (:dangerously-skip-logins? @config))
-             (prod-mode?))
-    (throw (ex-info "Cannot use :dangerously-skip-logins? in production mode" {})))
-  (prn (str "Starting system in " (if (prod-mode?) "production" "development") " mode."))
-  (ensure-ds)
-  (when-not (prod-mode?)
-    (let [nrepl-port (Integer/parseInt (or (System/getenv "NREPL_PORT") "7898"))]
-      (nrepl/start-server :port nrepl-port)
-      (spit ".nrepl-port" nrepl-port)
-      (prn "nREPL server started on port" nrepl-port)))
-  (let [port (Integer/parseInt (or (System/getenv "PORT") "3027"))]
-    (prn "Starting server on port" port)
-    (run-server port)
-    @(promise)))
+  (let [prod? (prod-mode?)]
+    (when (and (true? (:dangerously-skip-logins? @config)) prod?)
+      (throw (ex-info "Cannot use :dangerously-skip-logins? in production mode" {})))
+    (prn (str "Starting system in " (if prod? "production" "development") " mode."))
+    (ensure-ds)
+    (when-not prod?
+      (let [nrepl-port (env-int "NREPL_PORT" 7898)]
+        (nrepl/start-server :port nrepl-port)
+        (spit ".nrepl-port" nrepl-port)
+        (prn "nREPL server started on port" nrepl-port)))
+    (let [port (env-int "PORT" 3027)]
+      (prn "Starting server on port" port)
+      (run-server port prod?)
+      @(promise))))
