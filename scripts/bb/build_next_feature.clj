@@ -62,7 +62,8 @@
           commit1 (clojure.string/trim out)
           {:keys [out]} (shell {:out :string} "git" "rev-parse" (str "feature/" feature-name))
           commit2 (clojure.string/trim out)]
-      (shell "git" "cherry-pick" commit1 commit2))))
+      (shell "git" "cherry-pick" commit1 commit2)
+      (shell "git" "branch" "-D" (str "feature/" feature-name)))))
 
 (when (= *file* (System/getProperty "babashka.file"))
   (apply -main *command-line-args*))

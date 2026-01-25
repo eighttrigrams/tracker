@@ -164,7 +164,9 @@
       (cleanup-docs cleanup-after))
 
     (when clear-next-feature?
-      (spit (doc-path :next-feature) ""))))
+      (spit (doc-path :next-feature) "")
+      (shell "git" "add" ".")
+      (shell "git" "commit" "--amend" "--no-edit"))))
 
 (defn run-pipeline [feature-name]
   (let [ctx {:feature-name feature-name}]
