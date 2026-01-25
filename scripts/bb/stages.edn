@@ -37,6 +37,7 @@
         - If you have taken screenshots, list names of screenshots in this doc (prefix the names with where they are stored, namely .playwright-mcp/)"}
 
   {:id :code-smell-detection
+   :requires-commit? true
    :produces [:boyscout-observations]
    :prompt "Look at the diff between HEAD and master (`git diff master...HEAD`).
   
@@ -71,6 +72,7 @@
   Write your findings to {{boyscout-observations}}."}
 
   {:id :code-review
+   :requires-commit? true
    :requires [:exploratory-implementers-complaints :exploratory-justification :boyscout-observations]
    :produces [:pr-architecture-review :pr-data-consistency-review :pr-security-review]
    :prompt "Start three code reviewer subagents, to look at the current diff against master.
@@ -129,6 +131,7 @@ For the proper implementation, then
    :message "Please human, add your verdict in {{human-opinion}} (note that the app is up at 3027)"}
 
   {:id :revert
+   :requires-commit? true
    :cleanup [:exploratory-implementers-complaints :exploratory-justification
              :pr-architecture-review :pr-data-consistency-review :pr-security-review
              :boyscout-observations]
@@ -150,6 +153,7 @@ Report what you did in {{boyscout-report}}"}
    :requires [:next-feature :boyscout-report :implementation-plan :human-opinion]
    :produces [:feature-justification]
    :run-tests? true
+   :commit {:message "Implementation"}
    :cleanup-after [:boyscout-report :implementation-plan :human-opinion]
    :prompt "Now implement the feature properly, according to the implementation plan!
 Make sure to use the UI skill to watch your implementation results live in the browser.
@@ -160,22 +164,23 @@ Report what you did in {{feature-justification}}"}
 
   {:id :final-review
    :requires [:feature-justification]
+   :requires-commits [:boyscout-refactoring :implementation]
    :human-input? true
    :start-app? true
+   :stop-app? true
+   :produces-pseudo [:human-ok]
    :message "Human, please visit the app in a browser, and also check the changes. Everything ok?"}
-
-  {:id :commit-implementation
-   :commit {:message "Implementation"}
-   :stop-app? true}
 
   {:id :synthesize-commit
    :requires [:next-feature :feature-justification]
+   :requires-pseudo [:human-ok]
    :produces [:commit-message-body]
    :prompt "Write a commit message body summarizing what was done and why.
 Output ONLY the commit message body (no subject line, no markdown fences).
 Write the result to {{commit-message-body}}"}
 
   {:id :finalize
+   :requires [:commit-message-body]
    :amend-commit? true
    :cleanup-after [:commit-message-body :feature-justification]
    :clear-next-feature? true}]}

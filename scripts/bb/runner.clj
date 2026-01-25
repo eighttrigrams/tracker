@@ -136,11 +136,11 @@
     (when start-app?
       (start-app))
 
-    (when stop-app?
-      (stop-app))
-
     (when human-input?
       (wait-for-human (interpolate (or message "Waiting for human input...") ctx) stage))
+
+    (when stop-app?
+      (stop-app))
 
     (when prompt
       (run-claude (build-prompt stage ctx)))
@@ -172,3 +172,78 @@
   (let [ctx {:feature-name feature-name}]
     (doseq [stage (:stages *config*)]
       (run-stage stage ctx))))
+
+(defn stage-id->node [id]
+  (-> (name id)
+      (str/replace #"-" "_")
+      str/upper-case))
+
+(defn doc-id->node [id]
+  (-> (name id)
+      (str/replace #"-" "_")))
+
+(defn commit-artifact-id [stage-id]
+  (keyword (str (name stage-id) "-commit")))
+
+(defn generate-mermaid []
+  (let [stages (:stages *config*)
+        sb (StringBuilder.)
+        commit-artifacts (atom #{})
+        pseudo-artifacts (atom #{})
+        last-commit (atom nil)
+        past-revert? (atom false)
+        post-revert-commits (atom [])
+        finalize-stage (atom nil)]
+    (.append sb "flowchart TB\n")
+    (doseq [{:keys [id requires produces commit git-revert? requires-commit? amend-commit?
+                    produces-pseudo requires-pseudo requires-commits]} stages]
+      (let [stage-node (stage-id->node id)]
+        (when amend-commit?
+          (reset! finalize-stage stage-node))
+        (when (seq requires)
+          (doseq [req requires]
+            (.append sb (format "    %s --> %s\n" (doc-id->node req) stage-node))))
+        (when (seq requires-pseudo)
+          (doseq [req requires-pseudo]
+            (.append sb (format "    %s --> %s\n" (doc-id->node req) stage-node))))
+        (when (and requires-commit? @last-commit)
+          (.append sb (format "    %s --> %s\n" (doc-id->node @last-commit) stage-node)))
+        (when (seq requires-commits)
+          (doseq [c requires-commits]
+            (.append sb (format "    %s --> %s\n" (doc-id->node (commit-artifact-id c)) stage-node))))
+        (when (seq produces)
+          (doseq [prod produces]
+            (.append sb (format "    %s --> %s\n" stage-node (doc-id->node prod)))))
+        (when (seq produces-pseudo)
+          (doseq [prod produces-pseudo]
+            (swap! pseudo-artifacts conj prod)
+            (.append sb (format "    %s --> %s\n" stage-node (doc-id->node prod)))))
+        (when (or commit git-revert?)
+          (let [commit-id (commit-artifact-id id)]
+            (swap! commit-artifacts conj commit-id)
+            (reset! last-commit commit-id)
+            (when (and @past-revert? commit)
+              (swap! post-revert-commits conj commit-id))
+            (.append sb (format "    %s --> %s\n" stage-node (doc-id->node commit-id)))))
+        (when git-revert?
+          (reset! past-revert? true))))
+    (when @finalize-stage
+      (doseq [c @post-revert-commits]
+        (.append sb (format "    %s --> %s\n" (doc-id->node c) @finalize-stage))))
+    (.append sb "\n")
+    (let [all-stages (map :id stages)
+          all-docs (->> stages
+                        (mapcat (juxt :requires :produces))
+                        flatten
+                        (remove nil?)
+                        distinct)]
+      (doseq [s all-stages]
+        (.append sb (format "    style %s fill:#455a64,color:#fff\n" (stage-id->node s))))
+      (.append sb "\n")
+      (doseq [d all-docs]
+        (.append sb (format "    style %s fill:#fff,stroke:#455a64,color:#000\n" (doc-id->node d))))
+      (doseq [c @commit-artifacts]
+        (.append sb (format "    style %s fill:#fff,stroke:#455a64,color:#000\n" (doc-id->node c))))
+      (doseq [p @pseudo-artifacts]
+        (.append sb (format "    style %s fill:#fff,stroke:#455a64,color:#000\n" (doc-id->node p)))))
+    (.toString sb)))
