@@ -55,3 +55,44 @@
 (deftest target-upcoming-tasks-count-test
   (testing "target count is defined"
     (is (= 10 filters/target-upcoming-tasks-count))))
+
+(deftest matches-scope?-test
+  (testing "non-strict mode - :private includes both and private"
+    (is (true? (filters/matches-scope? {:scope "private"} :private false)))
+    (is (true? (filters/matches-scope? {:scope "both"} :private false)))
+    (is (false? (filters/matches-scope? {:scope "work"} :private false))))
+
+  (testing "non-strict mode - :work includes both and work"
+    (is (true? (filters/matches-scope? {:scope "work"} :work false)))
+    (is (true? (filters/matches-scope? {:scope "both"} :work false)))
+    (is (false? (filters/matches-scope? {:scope "private"} :work false))))
+
+  (testing "non-strict mode - :both includes all"
+    (is (true? (filters/matches-scope? {:scope "private"} :both false)))
+    (is (true? (filters/matches-scope? {:scope "work"} :both false)))
+    (is (true? (filters/matches-scope? {:scope "both"} :both false))))
+
+  (testing "non-strict mode - nil scope defaults to both"
+    (is (true? (filters/matches-scope? {} :private false)))
+    (is (true? (filters/matches-scope? {} :work false)))
+    (is (true? (filters/matches-scope? {} :both false))))
+
+  (testing "strict mode - :private only matches private"
+    (is (true? (filters/matches-scope? {:scope "private"} :private true)))
+    (is (false? (filters/matches-scope? {:scope "both"} :private true)))
+    (is (false? (filters/matches-scope? {:scope "work"} :private true))))
+
+  (testing "strict mode - :work only matches work"
+    (is (true? (filters/matches-scope? {:scope "work"} :work true)))
+    (is (false? (filters/matches-scope? {:scope "both"} :work true)))
+    (is (false? (filters/matches-scope? {:scope "private"} :work true))))
+
+  (testing "strict mode - :both only matches both"
+    (is (true? (filters/matches-scope? {:scope "both"} :both true)))
+    (is (false? (filters/matches-scope? {:scope "private"} :both true)))
+    (is (false? (filters/matches-scope? {:scope "work"} :both true))))
+
+  (testing "strict mode - nil scope defaults to both and only matches :both"
+    (is (true? (filters/matches-scope? {} :both true)))
+    (is (false? (filters/matches-scope? {} :private true)))
+    (is (false? (filters/matches-scope? {} :work true)))))

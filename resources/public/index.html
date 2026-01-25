@@ -1196,6 +1196,35 @@
       background: var(--surface-subtle);
       transform: none;
     }
+    .work-private-toggle-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .strict-mode-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      font-size: 1em;
+      font-weight: 700;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      opacity: 0;
+    }
+    .work-private-toggle-wrapper:hover .strict-mode-toggle {
+      opacity: 1;
+    }
+    .strict-mode-toggle:hover {
+      background: var(--surface-subtle);
+    }
+    .strict-mode-toggle.active {
+      color: var(--accent);
+      opacity: 1;
+    }
     .task-scope-selector {
       display: flex;
       gap: 0;

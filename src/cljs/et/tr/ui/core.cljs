@@ -1019,8 +1019,15 @@
          [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]]]]]))
 
 (defn work-private-toggle []
-  (let [mode (name (:work-private-mode @state/app-state))]
-    [scope-toggle "work-private-toggle" mode #(state/set-work-private-mode (keyword %))]))
+  (let [mode (name (:work-private-mode @state/app-state))
+        strict? (:strict-mode @state/app-state)]
+    [:div.work-private-toggle-wrapper
+     [:span.strict-mode-toggle
+      {:class (when strict? "active")
+       :on-click state/toggle-strict-mode
+       :title (t :toggle/strict-tooltip)}
+      "!"]
+     [scope-toggle "work-private-toggle" mode #(state/set-work-private-mode (keyword %))]]))
 
 (defn dark-mode-toggle []
   (let [dark-mode (:dark-mode @state/app-state)]

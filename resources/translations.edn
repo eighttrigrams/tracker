@@ -113,6 +113,7 @@
   :toggle/private "Private"
   :toggle/both "Both"
   :toggle/work "Work"
+  :toggle/strict-tooltip "Strict mode: show only tasks with exact scope match"
 
   :importance/normal "Normal"
   :importance/important "Important"
@@ -236,6 +237,7 @@
   :toggle/private "Privat"
   :toggle/both "Beide"
   :toggle/work "Arbeit"
+  :toggle/strict-tooltip "Strikt-Modus: nur Aufgaben mit exakter Bereichsübereinstimmung anzeigen"
 
   :importance/normal "Normal"
   :importance/important "Wichtig"
@@ -359,6 +361,7 @@
   :toggle/private "Privado"
   :toggle/both "Ambos"
   :toggle/work "Trabalho"
+  :toggle/strict-tooltip "Modo estrito: mostrar apenas tarefas com correspondência exata de âmbito"
 
   :importance/normal "Normal"
   :importance/important "Importante"

@@ -47,6 +47,7 @@
                             :category-selector/open nil
                             :category-selector/search ""
                             :work-private-mode :both
+                            :strict-mode false
                             :dark-mode false}))
 
 (defn auth-headers []
@@ -545,17 +546,13 @@
         words (.split title-lower #"\s+")]
     (some #(.startsWith % search-lower) words)))
 
-(defn- matches-scope? [task mode]
-  (let [task-scope (or (:scope task) "both")]
-    (case mode
-      :private (contains? #{"private" "both"} task-scope)
-      :work (contains? #{"work" "both"} task-scope)
-      :both true
-      true)))
+(defn- matches-scope? [task mode strict?]
+  (filters/matches-scope? task mode strict?))
 
 (defn- scope-filtered-tasks []
-  (let [mode (:work-private-mode @app-state)]
-    (filter #(matches-scope? % mode) (:tasks @app-state))))
+  (let [mode (:work-private-mode @app-state)
+        strict? (:strict-mode @app-state)]
+    (filter #(matches-scope? % mode strict?) (:tasks @app-state))))
 
 (defn- matches-importance-filter? [task importance-filter]
   (case importance-filter
@@ -1121,6 +1118,9 @@
 
 (defn set-work-private-mode [mode]
   (swap! app-state assoc :work-private-mode mode))
+
+(defn toggle-strict-mode []
+  (swap! app-state update :strict-mode not))
 
 (defn toggle-dark-mode []
   (swap! app-state update :dark-mode not))
