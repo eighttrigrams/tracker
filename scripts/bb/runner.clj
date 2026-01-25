@@ -55,11 +55,10 @@
 
 (defn build-prompt [{:keys [requires prompt]} ctx]
   (when prompt
-    (let [read-section (when (seq requires)
-                         (str "Read the following documents:\n"
-                              (str/join "\n" (map #(str "- " (doc-path %)) requires))
-                              "\n\n"))]
-      (interpolate (str read-section prompt) ctx))))
+    (let [file-refs (when (seq requires)
+                      (str (str/join " " (map #(str "@" (doc-path %)) requires))
+                           "\n\n"))]
+      (interpolate (str file-refs prompt) ctx))))
 
 (defn run-tests []
   (println "Running tests...")
@@ -79,8 +78,14 @@
       (when (fs/exists? path)
         (fs/delete path)))))
 
+(defn log-to-file [msg]
+  (spit "hooks.log" (str msg "\n") :append true))
+
 (defn run-claude [prompt]
   (println "Running Claude...")
+  (log-to-file "### Sending the following prompt to Claude:")
+  (log-to-file prompt)
+  (log-to-file "### End of prompt\n")
   (shell "claude" "-p" prompt "--allowedTools" "Write"))
 
 (defn start-app []
@@ -103,9 +108,10 @@
         (spit path "")
         (shell "code" path)))))
 
-(defn wait-for-human [message]
+(defn wait-for-human [message {:keys [produces]}]
   (shell "say" "Tracker needs your attention now.")
-  (create-human-opinion-if-missing)
+  (when (some #{:human-opinion} produces)
+    (create-human-opinion-if-missing))
   (println message)
   (loop []
     (print "Type 'ok' to proceed: ")
@@ -134,7 +140,7 @@
       (stop-app))
 
     (when human-input?
-      (wait-for-human (interpolate (or message "Waiting for human input...") ctx)))
+      (wait-for-human (interpolate (or message "Waiting for human input...") ctx) stage))
 
     (when prompt
       (run-claude (build-prompt stage ctx)))
