@@ -10,3 +10,7 @@ And then, the position of the clock symbol should go after the task name/title,
 just like on the cards on the Tasks page.
 
 Here, it suddenly was before the title. I didn't ask for that!
+
+
+Again, I am speaking only about the little clock symbol, only that time edit clock symbol when uncollapsed goes after the title,
+the written in digits time and date do not get touched.
