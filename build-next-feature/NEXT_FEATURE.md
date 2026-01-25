@@ -6,6 +6,7 @@ which should get its own db table.
 It also gets its own top level tab/page, called "Mail", which is positioned after Categories in the navigation.
 
 A message has a sender, a date, a title, and a description, and an associated user (null for admin, like tasks).
+(we dont need anything else like other dates other than created_at. we dont need sort order)
 
 One should be able to send messages to the app via API, using the login credentials of users.
 
@@ -22,3 +23,7 @@ Make sure to test this sufficiently via curl at every implementation step.
 
 Message should be displayed with cards, like tasks. 
 We should be able to mark them done, and then we find them in a Done sort order subtab, like the way it is done for tasks.
+
+## Beta version
+
+We develop the feature for all users, however, only for Admin will we show the new menu item in the navbar.
