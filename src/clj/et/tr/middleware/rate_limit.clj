@@ -26,7 +26,7 @@
 
 (defn wrap-rate-limit
   ([handler]
-   (wrap-rate-limit handler {:max-requests (env-int "RATE_LIMIT_MAX_REQUESTS" 180)
+   (wrap-rate-limit handler {:max-requests (env-int "RATE_LIMIT_MAX_REQUESTS" 360)
                              :window-seconds (env-int "RATE_LIMIT_WINDOW_SECONDS" 60)}))
   ([handler {:keys [max-requests window-seconds]}]
    (let [window-ms (* window-seconds 1000)]

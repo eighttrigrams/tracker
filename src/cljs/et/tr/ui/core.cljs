@@ -159,7 +159,7 @@
                      (state/set-task-importance (:id task) level))}
         (labels level)])]))
 
-(defn- time-picker [task]
+(defn- time-picker [task & {:keys [show-clear?] :or {show-clear? false}}]
   [:span.time-picker-wrapper
    {:on-click #(.stopPropagation %)}
    [:input.time-picker-input
@@ -171,7 +171,12 @@
    [:button.clock-icon {:on-click (fn [e]
                                     (.stopPropagation e)
                                     (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-    "🕐"]])
+    "🕐"]
+   (when (and show-clear? (seq (:due_time task)))
+     [:button.clear-time {:on-click (fn [e]
+                                      (.stopPropagation e)
+                                      (state/set-task-due-time (:id task) nil))}
+      "✕"])])
 
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
   (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
@@ -767,7 +772,7 @@
                                             (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
          "📅"]]
        (when (:due_date task)
-         [time-picker task])])]
+         [time-picker task :show-clear? true])])]
    [:div.item-date
     (when (and (:due_date task) (not done-mode?))
       (let [today (state/today-str)

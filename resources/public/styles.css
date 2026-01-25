@@ -233,6 +233,20 @@ button:active { transform: translateY(0); }
   border-radius: 4px;
   opacity: 0.6;
 }
+.clear-time {
+  padding: 2px 6px;
+  font-size: 0.75em;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 4px;
+  opacity: 0.6;
+  cursor: pointer;
+}
+.clear-time:hover {
+  opacity: 1;
+  background: var(--surface-subtle);
+}
 .due-date {
   color: var(--accent);
   margin-right: 12px;
