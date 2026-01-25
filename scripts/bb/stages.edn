@@ -55,7 +55,7 @@
   - Deeply nested code
   - Duplicated code patterns
   - Poor naming
-  - Missing abstractions
+  - Large files
 
   ## Clojure specific things
 
@@ -68,6 +68,8 @@
   
   Focus ONLY on the areas touched by the diff, not the entire codebase.
   Do NOT include anything specific to the new feature - only pre-existing smells that were exposed.
+
+  Be assertive, and if something is a pre-existing condition, then this is exactly the right thing for you to look at.
   
   Write your findings to {{boyscout-observations}}."}
 

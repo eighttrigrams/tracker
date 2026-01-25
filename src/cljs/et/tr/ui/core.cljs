@@ -91,25 +91,27 @@
     (let [lower-filter (clojure.string/lower-case filter-text)]
       (filter #(clojure.string/includes? (clojure.string/lower-case (:name %)) lower-filter) items))))
 
+(def ^:private tab-config
+  [{:key :today          :translation :nav/today}
+   {:key :tasks          :translation :nav/tasks}
+   {:key :people-places  :translation :nav/people-places}
+   {:key :projects-goals :translation :nav/projects-goals}
+   {:key :users          :translation :nav/users          :admin-only true}
+   {:key :settings       :translation :nav/settings}])
+
+(defn- tab-button [active-tab tab-key translation-key]
+  [:button.tab
+   {:class (when (= active-tab tab-key) "active")
+    :on-click #(state/set-active-tab tab-key)}
+   (t translation-key)])
+
 (defn tabs []
   (let [active-tab (:active-tab @state/app-state)]
     [:div.tabs
-     [:button.tab
-      {:class (when (= active-tab :today) "active")
-       :on-click #(state/set-active-tab :today)}
-      (t :nav/today)]
-     [:button.tab
-      {:class (when (= active-tab :tasks) "active")
-       :on-click #(state/set-active-tab :tasks)}
-      (t :nav/tasks)]
-     [:button.tab
-      {:class (when (= active-tab :people-places) "active")
-       :on-click #(state/set-active-tab :people-places)}
-      (t :nav/people-places)]
-     [:button.tab
-      {:class (when (= active-tab :projects-goals) "active")
-       :on-click #(state/set-active-tab :projects-goals)}
-      (t :nav/projects-goals)]]))
+     [tab-button active-tab :today :nav/today]
+     [tab-button active-tab :tasks :nav/tasks]
+     [tab-button active-tab :people-places :nav/people-places]
+     [tab-button active-tab :projects-goals :nav/projects-goals]]))
 
 (defn task-category-badges [task]
   (let [all-categories (concat
@@ -1124,9 +1126,9 @@
 
 (defn- get-available-tabs []
   (let [is-admin (state/is-admin?)]
-    (cond-> [:today :tasks :people-places :projects-goals]
-      is-admin (conj :users)
-      true (conj :settings))))
+    (->> tab-config
+         (filter #(or (not (:admin-only %)) is-admin))
+         (mapv :key))))
 
 (defn- navigate-tab [direction]
   (let [tabs (get-available-tabs)
