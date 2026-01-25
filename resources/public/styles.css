@@ -545,7 +545,7 @@ button:active { transform: translateY(0); }
 .today-section .section-header h3 { margin: 0; }
 .today-task-item {
   padding: 10px 12px;
-  background: var(--glass-bg-subtle);
+  background: var(--glass-bg);
   border-radius: 8px;
   margin-bottom: 6px;
   transition: all 0.2s ease;
