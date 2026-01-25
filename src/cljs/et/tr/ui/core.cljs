@@ -725,6 +725,20 @@
     [task-importance-selector task]
     [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])
 
+(defn- time-picker [task]
+  [:span.time-picker-wrapper
+   {:on-click #(.stopPropagation %)}
+   [:input.time-picker-input
+    {:type "time"
+     :value (or (:due_time task) "")
+     :on-change (fn [e]
+                  (let [v (.. e -target -value)]
+                    (state/set-task-due-time (:id task) (when (seq v) v))))}]
+   [:button.clock-icon {:on-click (fn [e]
+                                    (.stopPropagation e)
+                                    (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+    "🕐"]])
+
 (defn- task-header [task is-expanded done-mode? due-date-mode?]
   [:div.item-header
    {:on-click #(state/toggle-expanded (:id task))}
@@ -751,18 +765,7 @@
                                             (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
          "📅"]]
        (when (:due_date task)
-         [:span.time-picker-wrapper
-          {:on-click #(.stopPropagation %)}
-          [:input.time-picker-input
-           {:type "time"
-            :value (or (:due_time task) "")
-            :on-change (fn [e]
-                         (let [v (.. e -target -value)]
-                           (state/set-task-due-time (:id task) (when (seq v) v))))}]
-          [:button.clock-icon {:on-click (fn [e]
-                                           (.stopPropagation e)
-                                           (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-           "🕐"]])])]
+         [time-picker task])])]
    [:div.item-date
     (when (and (:due_date task) (not done-mode?))
       (let [today (state/today-str)
