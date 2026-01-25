@@ -2,7 +2,8 @@
 
 (ns build-next-feature
   (:require [babashka.process :refer [shell]]
-            [babashka.fs :as fs]))
+            [babashka.fs :as fs]
+            [runner :as r]))
 
 (defn validate-preconditions []
   (let [{:keys [out]} (shell {:out :string} "git" "branch" "--show-current")
@@ -45,15 +46,13 @@
     (println "Usage: bb scripts/bb/build_next_feature.clj <stages-edn> <feature-name>")
     (System/exit 1))
 
-  (let [[stages-file feature-name] args
-        _ (require '[runner :as r])
-        run-pipeline (resolve 'r/run-pipeline)]
+  (let [[stages-file feature-name] args]
     (r/load-config! stages-file)
     (validate-preconditions)
     (setup-feature-branch feature-name)
     (cleanup-workspace)
     (log "Start building ...")
-    (run-pipeline feature-name)
+    (r/run-pipeline feature-name)
     (log "Done!")
 
     (println "\nSwitching back to main...")
