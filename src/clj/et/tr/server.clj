@@ -627,7 +627,7 @@
       (wrap-json-response)
       (wrap-cors :access-control-allow-origin [#".*"]
                  :access-control-allow-methods [:get :post :put :delete])
-      (wrap-rate-limit (env-int "RATE_LIMIT_MAX_REQUESTS" (if (prod-mode?) 180 360))
+      (wrap-rate-limit (env-int "RATE_LIMIT_MAX_REQUESTS" (if (prod-mode?) 180 720))
                        (env-int "RATE_LIMIT_WINDOW_SECONDS" 60))))
 
 (defn- run-server [port]
