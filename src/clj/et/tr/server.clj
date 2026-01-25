@@ -551,42 +551,59 @@
 (defroutes api-routes
   (context "/api" []
     (GET "/translations" [] translations-handler)
-    (GET "/auth/required" [] password-required-handler)
-    (GET "/auth/available-users" [] available-users-handler)
-    (POST "/auth/login" [] login-handler)
-    (PUT "/user/language" [] update-language-handler)
     (GET "/export" [] export-data-handler)
-    (GET "/users" [] list-users-handler)
-    (POST "/users" [] add-user-handler)
-    (DELETE "/users/:id" [] delete-user-handler)
-    (GET "/tasks" [] list-tasks-handler)
-    (POST "/tasks" [] add-task-handler)
-    (PUT "/tasks/:id" [] update-task-handler)
-    (DELETE "/tasks/:id" [] delete-task-handler)
-    (POST "/tasks/:id/categorize" [] categorize-task-handler)
-    (DELETE "/tasks/:id/categorize" [] uncategorize-task-handler)
-    (POST "/tasks/:id/reorder" [] reorder-task-handler)
-    (PUT "/tasks/:id/due-date" [] set-due-date-handler)
-    (PUT "/tasks/:id/due-time" [] set-due-time-handler)
-    (PUT "/tasks/:id/done" [] set-task-done-handler)
-    (PUT "/tasks/:id/scope" [] set-task-scope-handler)
-    (PUT "/tasks/:id/importance" [] set-task-importance-handler)
-    (GET "/people" [] list-people-handler)
-    (POST "/people" [] add-person-handler)
-    (PUT "/people/:id" [] update-person-handler)
-    (POST "/people/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-people "people")))
-    (GET "/places" [] list-places-handler)
-    (POST "/places" [] add-place-handler)
-    (PUT "/places/:id" [] update-place-handler)
-    (POST "/places/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-places "places")))
-    (GET "/projects" [] list-projects-handler)
-    (POST "/projects" [] add-project-handler)
-    (PUT "/projects/:id" [] update-project-handler)
-    (POST "/projects/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-projects "projects")))
-    (GET "/goals" [] list-goals-handler)
-    (POST "/goals" [] add-goal-handler)
-    (PUT "/goals/:id" [] update-goal-handler)
-    (POST "/goals/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-goals "goals")))
+
+    (context "/auth" []
+      (GET "/required" [] password-required-handler)
+      (GET "/available-users" [] available-users-handler)
+      (POST "/login" [] login-handler))
+
+    (context "/user" []
+      (PUT "/language" [] update-language-handler))
+
+    (context "/users" []
+      (GET "/" [] list-users-handler)
+      (POST "/" [] add-user-handler)
+      (DELETE "/:id" [] delete-user-handler))
+
+    (context "/tasks" []
+      (GET "/" [] list-tasks-handler)
+      (POST "/" [] add-task-handler)
+      (PUT "/:id" [] update-task-handler)
+      (DELETE "/:id" [] delete-task-handler)
+      (POST "/:id/categorize" [] categorize-task-handler)
+      (DELETE "/:id/categorize" [] uncategorize-task-handler)
+      (POST "/:id/reorder" [] reorder-task-handler)
+      (PUT "/:id/due-date" [] set-due-date-handler)
+      (PUT "/:id/due-time" [] set-due-time-handler)
+      (PUT "/:id/done" [] set-task-done-handler)
+      (PUT "/:id/scope" [] set-task-scope-handler)
+      (PUT "/:id/importance" [] set-task-importance-handler))
+
+    (context "/people" []
+      (GET "/" [] list-people-handler)
+      (POST "/" [] add-person-handler)
+      (PUT "/:id" [] update-person-handler)
+      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-people "people"))))
+
+    (context "/places" []
+      (GET "/" [] list-places-handler)
+      (POST "/" [] add-place-handler)
+      (PUT "/:id" [] update-place-handler)
+      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-places "places"))))
+
+    (context "/projects" []
+      (GET "/" [] list-projects-handler)
+      (POST "/" [] add-project-handler)
+      (PUT "/:id" [] update-project-handler)
+      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-projects "projects"))))
+
+    (context "/goals" []
+      (GET "/" [] list-goals-handler)
+      (POST "/" [] add-goal-handler)
+      (PUT "/:id" [] update-goal-handler)
+      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-goals "goals"))))
+
     (DELETE "/:category/:id" [] delete-category-handler)))
 
 (defroutes app-routes
