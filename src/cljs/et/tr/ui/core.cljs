@@ -171,8 +171,10 @@
         (when show-prefix?
           [:span.task-day-prefix (str (state/get-day-name (:due_date task))
                                       (when (seq (:due_time task)) ","))])
-        (when (seq (:due_time task))
-          [:span.task-time {:class (when overdue? "overdue-time")} (:due_time task)])
+        (if (and is-expanded (:due_date task))
+          [time-picker task]
+          (when (seq (:due_time task))
+            [:span.task-time {:class (when overdue? "overdue-time")} (:due_time task)]))
         (:title task)]
        (when-not is-expanded
          [task-category-badges task])]
