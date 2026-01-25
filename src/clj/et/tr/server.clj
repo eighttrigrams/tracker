@@ -386,6 +386,10 @@
   (make-task-property-handler :importance db/valid-importances db/set-task-importance
                               "Invalid importance. Must be 'normal', 'important', or 'critical'"))
 
+(def set-task-urgency-handler
+  (make-task-property-handler :urgency db/valid-urgencies db/set-task-urgency
+                              "Invalid urgency. Must be 'default', 'urgent', or 'superurgent'"))
+
 (defn delete-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -622,7 +626,8 @@
       (PUT "/:id/due-time" [] set-due-time-handler)
       (PUT "/:id/done" [] set-task-done-handler)
       (PUT "/:id/scope" [] set-task-scope-handler)
-      (PUT "/:id/importance" [] set-task-importance-handler))
+      (PUT "/:id/importance" [] set-task-importance-handler)
+      (PUT "/:id/urgency" [] set-task-urgency-handler))
 
     (context "/people" []
       (GET "/" [] list-people-handler)

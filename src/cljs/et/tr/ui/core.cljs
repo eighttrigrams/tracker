@@ -169,6 +169,19 @@
                      (state/set-task-importance (:id task) level))}
         (labels level)])]))
 
+(defn task-urgency-selector [task]
+  (let [urgency (or (:urgency task) "default")
+        labels {"default" "—" "urgent" "!" "superurgent" "!!"}]
+    [:div.task-urgency-selector
+     (for [level ["default" "urgent" "superurgent"]]
+       ^{:key level}
+       [:button.toggle-option
+        {:class (str level (when (= urgency level) " active"))
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-task-urgency (:id task) level))}
+        (labels level)])]))
+
 (defn- time-picker [task & {:keys [show-clear?] :or {show-clear? false}}]
   [:span.time-picker-wrapper
    {:on-click #(.stopPropagation %)}
@@ -345,6 +358,7 @@
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
         today (state/today-tasks)
+        urgent (state/urgent-tasks)
         upcoming (state/upcoming-tasks)]
     [:div.main-layout
      [today-sidebar-filters]
@@ -366,6 +380,14 @@
              ^{:key (:id task)}
              [today-task-item task]))]
          [:p.empty-message (t :today/no-today)])]
+      (when (seq urgent)
+        [:div.today-section.urgent
+         [:h3 (t :today/urgent-matters)]
+         [:div.task-list
+          (doall
+           (for [task urgent]
+             ^{:key (:id task)}
+             [today-task-item task :show-day-of-week true]))]])
       [:div.today-section.upcoming
        [:div.section-header
         [:h3 (t :today/upcoming)]
@@ -774,6 +796,7 @@
       [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
     [task-scope-selector task]
     [task-importance-selector task]
+    [task-urgency-selector task]
     [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])
 
 (defn- task-header [task is-expanded done-mode? due-date-mode?]

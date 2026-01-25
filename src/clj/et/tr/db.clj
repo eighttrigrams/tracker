@@ -70,7 +70,12 @@
 (defn- normalize-importance [importance]
   (if (contains? valid-importances importance) importance "normal"))
 
-(def task-select-columns "id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope, importance")
+(def valid-urgencies #{"default" "urgent" "superurgent"})
+
+(defn- normalize-urgency [urgency]
+  (if (contains? valid-urgencies urgency) urgency "default"))
+
+(def task-select-columns "id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope, importance, urgency")
 
 (defn- user-id-clause [user-id]
   {:clause (if user-id "user_id = ?" "user_id IS NULL")
@@ -388,6 +393,14 @@
         query-params (concat [valid-importance task-id] params)]
     (jdbc/execute-one! (get-conn ds)
       (into [(str "UPDATE tasks SET importance = ?, modified_at = datetime('now') WHERE id = ? AND " clause " RETURNING id, importance, modified_at")] query-params)
+      {:builder-fn rs/as-unqualified-maps})))
+
+(defn set-task-urgency [ds user-id task-id urgency]
+  (let [{:keys [clause params]} (user-id-clause user-id)
+        valid-urgency (normalize-urgency urgency)
+        query-params (concat [valid-urgency task-id] params)]
+    (jdbc/execute-one! (get-conn ds)
+      (into [(str "UPDATE tasks SET urgency = ?, modified_at = datetime('now') WHERE id = ? AND " clause " RETURNING id, urgency, modified_at")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (def valid-languages #{"en" "de" "pt"})

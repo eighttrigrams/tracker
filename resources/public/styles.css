@@ -1364,6 +1364,43 @@ button:active { transform: translateY(0); }
 .task-importance-selector .toggle-option:hover:not(.active) {
   background: var(--surface-subtle);
 }
+.task-urgency-selector {
+  display: flex;
+  gap: 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+}
+.task-urgency-selector .toggle-option {
+  padding: 4px 10px;
+  font-size: 0.75em;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.task-urgency-selector .toggle-option.active {
+  background: var(--accent);
+  color: white;
+}
+.task-urgency-selector .toggle-option.urgent.active {
+  background: #ff9500;
+}
+.task-urgency-selector .toggle-option.superurgent.active {
+  background: #ff3b30;
+}
+.task-urgency-selector .toggle-option:hover:not(.active) {
+  background: var(--surface-subtle);
+}
+.today-section.urgent h3 {
+  color: #ff9500;
+}
 .dark-mode-toggle {
   display: flex;
   align-items: center;

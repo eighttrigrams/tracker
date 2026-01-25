@@ -1161,6 +1161,29 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))}))
 
+(defn set-task-urgency [task-id urgency]
+  (PUT (str "/api/tasks/" task-id "/urgency")
+    {:params {:urgency urgency}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [result]
+                (swap! app-state update :tasks
+                       (fn [tasks]
+                         (mapv #(if (= (:id %) task-id)
+                                  (assoc % :urgency (:urgency result) :modified_at (:modified_at result))
+                                  %)
+                               tasks))))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update urgency")))}))
+
+(defn urgent-tasks []
+  (->> (scope-filtered-tasks)
+       (filter #(contains? #{"urgent" "superurgent"} (:urgency %)))
+       (apply-today-exclusion-filter)
+       (sort-by (juxt #(if (= "superurgent" (:urgency %)) 0 1) :sort_order))))
+
 (defn fetch-messages []
   (let [request-id (:mail-page/fetch-request-id (swap! app-state update :mail-page/fetch-request-id inc))
         sort-mode (name (:mail-page/sort-mode @app-state))]
