@@ -70,6 +70,8 @@
 (defn- normalize-importance [importance]
   (if (contains? valid-importances importance) importance "normal"))
 
+(def task-select-columns "id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope, importance")
+
 (defn- user-id-clause [user-id]
   {:clause (if user-id "user_id = ?" "user_id IS NULL")
    :params (if user-id [user-id] [])})
@@ -86,10 +88,32 @@
                        1.0)
          new-order (- min-order 1.0)
          result (jdbc/execute-one! conn
-                  ["INSERT INTO tasks (title, sort_order, user_id, modified_at, scope) VALUES (?, ?, ?, datetime('now'), ?) RETURNING id, title, description, created_at, modified_at, sort_order, user_id, done, scope, importance"
+                  [(str "INSERT INTO tasks (title, sort_order, user_id, modified_at, scope) VALUES (?, ?, ?, datetime('now'), ?) RETURNING " task-select-columns ", user_id")
                    title new-order user-id valid-scope]
                   {:builder-fn rs/as-unqualified-maps})]
      result)))
+
+(defn- associate-categories-with-tasks [tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id]
+  (mapv (fn [task]
+          (let [task-categories (get categories-by-task (:id task) [])
+                task-people (->> task-categories
+                                 (filter #(= (:category_type %) "person"))
+                                 (keep #(when-let [name (people-by-id (:category_id %))]
+                                          {:id (:category_id %) :name name})))
+                task-places (->> task-categories
+                                 (filter #(= (:category_type %) "place"))
+                                 (keep #(when-let [name (places-by-id (:category_id %))]
+                                          {:id (:category_id %) :name name})))
+                task-projects (->> task-categories
+                                   (filter #(= (:category_type %) "project"))
+                                   (keep #(when-let [name (projects-by-id (:category_id %))]
+                                            {:id (:category_id %) :name name})))
+                task-goals (->> task-categories
+                                (filter #(= (:category_type %) "goal"))
+                                (keep #(when-let [name (goals-by-id (:category_id %))]
+                                         {:id (:category_id %) :name name})))]
+            (assoc task :people (vec task-people) :places (vec task-places) :projects (vec task-projects) :goals (vec task-goals))))
+        tasks))
 
 (defn list-tasks
   ([ds user-id] (list-tasks ds user-id :recent))
@@ -106,7 +130,7 @@
                         :done "ORDER BY modified_at DESC"
                         "ORDER BY modified_at DESC")
          tasks (jdbc/execute! conn
-                 (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope, importance FROM tasks " where-clause " " order-clause)] params)
+                 (into [(str "SELECT " task-select-columns " FROM tasks " where-clause " " order-clause)] params)
                  {:builder-fn rs/as-unqualified-maps})
          task-ids (mapv :id tasks)
          categories (when (seq task-ids)
@@ -132,22 +156,7 @@
          projects-by-id (into {} (map (juxt :id :name) projects))
          goals-by-id (into {} (map (juxt :id :name) goals))
          categories-by-task (group-by :task_id categories)]
-     (mapv (fn [task]
-             (let [task-categories (get categories-by-task (:id task) [])
-                   task-people (->> task-categories
-                                    (filter #(= (:category_type %) "person"))
-                                    (mapv #(hash-map :id (:category_id %) :name (people-by-id (:category_id %)))))
-                   task-places (->> task-categories
-                                    (filter #(= (:category_type %) "place"))
-                                    (mapv #(hash-map :id (:category_id %) :name (places-by-id (:category_id %)))))
-                   task-projects (->> task-categories
-                                      (filter #(= (:category_type %) "project"))
-                                      (mapv #(hash-map :id (:category_id %) :name (projects-by-id (:category_id %)))))
-                   task-goals (->> task-categories
-                                   (filter #(= (:category_type %) "goal"))
-                                   (mapv #(hash-map :id (:category_id %) :name (goals-by-id (:category_id %)))))]
-               (assoc task :people task-people :places task-places :projects task-projects :goals task-goals)))
-           tasks))))
+     (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id))))
 
 (defn add-person [ds user-id name]
   (let [conn (get-conn ds)
@@ -418,7 +427,7 @@
   (let [conn (get-conn ds)
         {:keys [clause params]} (user-id-clause user-id)
         tasks (jdbc/execute! conn
-                (into [(str "SELECT id, title, description, created_at, modified_at, due_date, due_time, sort_order, done, scope, importance FROM tasks WHERE " clause " ORDER BY created_at")] params)
+                (into [(str "SELECT " task-select-columns " FROM tasks WHERE " clause " ORDER BY created_at")] params)
                 {:builder-fn rs/as-unqualified-maps})
         task-ids (mapv :id tasks)
         categories (query-categories-chunked conn task-ids)
@@ -434,35 +443,13 @@
         goals (jdbc/execute! conn
                 (into [(str "SELECT id, name, description, sort_order FROM goals WHERE " clause " ORDER BY sort_order ASC, name ASC")] params)
                 {:builder-fn rs/as-unqualified-maps})
-        people-by-id (into {} (map (juxt :id identity) people))
-        places-by-id (into {} (map (juxt :id identity) places))
-        projects-by-id (into {} (map (juxt :id identity) projects))
-        goals-by-id (into {} (map (juxt :id identity) goals))
+        people-by-id (into {} (map (juxt :id :name) people))
+        places-by-id (into {} (map (juxt :id :name) places))
+        projects-by-id (into {} (map (juxt :id :name) projects))
+        goals-by-id (into {} (map (juxt :id :name) goals))
         categories-by-task (group-by :task_id categories)
-        tasks-with-categories (mapv (fn [task]
-                                      (let [task-categories (get categories-by-task (:id task) [])
-                                            task-people (->> task-categories
-                                                             (filter #(= (:category_type %) "person"))
-                                                             (keep #(when-let [p (people-by-id (:category_id %))]
-                                                                      {:id (:id p) :name (:name p)})))
-                                            task-places (->> task-categories
-                                                             (filter #(= (:category_type %) "place"))
-                                                             (keep #(when-let [p (places-by-id (:category_id %))]
-                                                                      {:id (:id p) :name (:name p)})))
-                                            task-projects (->> task-categories
-                                                               (filter #(= (:category_type %) "project"))
-                                                               (keep #(when-let [p (projects-by-id (:category_id %))]
-                                                                        {:id (:id p) :name (:name p)})))
-                                            task-goals (->> task-categories
-                                                            (filter #(= (:category_type %) "goal"))
-                                                            (keep #(when-let [p (goals-by-id (:category_id %))]
-                                                                     {:id (:id p) :name (:name p)})))]
-                                        (-> (normalize-task task)
-                                            (assoc :people (vec task-people)
-                                                   :places (vec task-places)
-                                                   :projects (vec task-projects)
-                                                   :goals (vec task-goals)))))
-                                    tasks)]
+        tasks-with-categories (->> (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id)
+                                   (mapv normalize-task))]
     {:tasks tasks-with-categories
      :people people
      :places places

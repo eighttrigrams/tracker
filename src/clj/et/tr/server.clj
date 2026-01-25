@@ -366,27 +366,25 @@
         {:status 200 :body result}
         {:status 404 :body {:error "Task not found"}}))))
 
-(defn set-task-scope-handler [req]
-  (let [scope (get-in req [:body :scope])]
-    (if-not (contains? db/valid-scopes scope)
-      {:status 400 :body {:error "Invalid scope. Must be 'private', 'both', or 'work'"}}
-      (let [user-id (get-user-id req)
-            task-id (Integer/parseInt (get-in req [:params :id]))
-            result (db/set-task-scope (ensure-ds) user-id task-id scope)]
-        (if result
-          {:status 200 :body result}
-          {:status 404 :body {:error "Task not found"}})))))
+(defn- make-task-property-handler [property-key valid-values db-setter-fn error-message]
+  (fn [req]
+    (let [value (get-in req [:body property-key])]
+      (if-not (contains? valid-values value)
+        {:status 400 :body {:error error-message}}
+        (let [user-id (get-user-id req)
+              task-id (Integer/parseInt (get-in req [:params :id]))
+              result (db-setter-fn (ensure-ds) user-id task-id value)]
+          (if result
+            {:status 200 :body result}
+            {:status 404 :body {:error "Task not found"}}))))))
 
-(defn set-task-importance-handler [req]
-  (let [importance (get-in req [:body :importance])]
-    (if-not (contains? db/valid-importances importance)
-      {:status 400 :body {:error "Invalid importance. Must be 'normal', 'important', or 'critical'"}}
-      (let [user-id (get-user-id req)
-            task-id (Integer/parseInt (get-in req [:params :id]))
-            result (db/set-task-importance (ensure-ds) user-id task-id importance)]
-        (if result
-          {:status 200 :body result}
-          {:status 404 :body {:error "Task not found"}})))))
+(def set-task-scope-handler
+  (make-task-property-handler :scope db/valid-scopes db/set-task-scope
+                              "Invalid scope. Must be 'private', 'both', or 'work'"))
+
+(def set-task-importance-handler
+  (make-task-property-handler :importance db/valid-importances db/set-task-importance
+                              "Invalid importance. Must be 'normal', 'important', or 'critical'"))
 
 (defn delete-task-handler [req]
   (let [user-id (get-user-id req)
