@@ -5,6 +5,14 @@
             [et.tr.filters :as filters]
             [et.tr.i18n :as i18n]))
 
+(def initial-collection-state
+  {:tasks []
+   :people []
+   :places []
+   :projects []
+   :goals []
+   :upcoming-horizon nil})
+
 (defonce app-state (r/atom {:tasks []
                             :people []
                             :places []
@@ -67,6 +75,13 @@
 (declare fetch-goals)
 (declare calculate-best-horizon)
 (declare recalculate-today-horizon)
+
+(defn- fetch-collection [endpoint state-key]
+  (GET endpoint
+    {:response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler #(swap! app-state assoc state-key %)}))
 
 (defn- save-auth-to-storage [token user]
   (when token
@@ -146,16 +161,12 @@
 
 (defn logout []
   (clear-auth-from-storage)
-  (swap! app-state assoc
-         :logged-in? false
-         :token nil
-         :current-user nil
-         :tasks []
-         :people []
-         :places []
-         :projects []
-         :goals []
-         :users []))
+  (swap! app-state merge
+         initial-collection-state
+         {:logged-in? false
+          :token nil
+          :current-user nil
+          :users []}))
 
 (defn clear-error []
   (swap! app-state assoc :error nil))
@@ -280,20 +291,10 @@
                           (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))))
 
 (defn fetch-people []
-  (GET "/api/people"
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [people]
-                (swap! app-state assoc :people people))}))
+  (fetch-collection "/api/people" :people))
 
 (defn fetch-places []
-  (GET "/api/places"
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [places]
-                (swap! app-state assoc :places places))}))
+  (fetch-collection "/api/places" :places))
 
 (defn add-person [name on-success]
   (POST "/api/people"
@@ -322,20 +323,10 @@
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add place")))}))
 
 (defn fetch-projects []
-  (GET "/api/projects"
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [projects]
-                (swap! app-state assoc :projects projects))}))
+  (fetch-collection "/api/projects" :projects))
 
 (defn fetch-goals []
-  (GET "/api/goals"
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [goals]
-                (swap! app-state assoc :goals goals))}))
+  (fetch-collection "/api/goals" :goals))
 
 (defn add-project [name on-success]
   (POST "/api/projects"
@@ -906,16 +897,11 @@
   (swap! app-state assoc :show-user-switcher false))
 
 (defn switch-user [user]
-  (swap! app-state assoc
-         :current-user user
-         :show-user-switcher false
-         :tasks []
-         :people []
-         :places []
-         :projects []
-         :goals []
-         :upcoming-horizon nil
-         :active-tab :today)
+  (swap! app-state merge
+         initial-collection-state
+         {:current-user user
+          :show-user-switcher false
+          :active-tab :today})
   (apply-user-language user)
   (fetch-tasks)
   (fetch-people)
@@ -1040,65 +1026,32 @@
 (defn clear-confirm-delete-category []
   (swap! app-state assoc :confirm-delete-category nil))
 
-(defn delete-person [id]
-  (DELETE (str "/api/people/" id)
+(defn- delete-category-entity [endpoint state-key error-msg id]
+  (DELETE (str endpoint id)
     {:format :json
      :response-format :json
      :keywords? true
      :headers (auth-headers)
      :handler (fn [_]
-                (swap! app-state update :people
+                (swap! app-state update state-key
                        (fn [items] (filterv #(not= (:id %) id) items)))
                 (fetch-tasks)
                 (clear-confirm-delete-category))
      :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete person"))
+                      (swap! app-state assoc :error (get-in resp [:response :error] error-msg))
                       (clear-confirm-delete-category))}))
+
+(defn delete-person [id]
+  (delete-category-entity "/api/people/" :people "Failed to delete person" id))
 
 (defn delete-place [id]
-  (DELETE (str "/api/places/" id)
-    {:format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (swap! app-state update :places
-                       (fn [items] (filterv #(not= (:id %) id) items)))
-                (fetch-tasks)
-                (clear-confirm-delete-category))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete place"))
-                      (clear-confirm-delete-category))}))
+  (delete-category-entity "/api/places/" :places "Failed to delete place" id))
 
 (defn delete-project [id]
-  (DELETE (str "/api/projects/" id)
-    {:format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (swap! app-state update :projects
-                       (fn [items] (filterv #(not= (:id %) id) items)))
-                (fetch-tasks)
-                (clear-confirm-delete-category))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete project"))
-                      (clear-confirm-delete-category))}))
+  (delete-category-entity "/api/projects/" :projects "Failed to delete project" id))
 
 (defn delete-goal [id]
-  (DELETE (str "/api/goals/" id)
-    {:format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [_]
-                (swap! app-state update :goals
-                       (fn [items] (filterv #(not= (:id %) id) items)))
-                (fetch-tasks)
-                (clear-confirm-delete-category))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete goal"))
-                      (clear-confirm-delete-category))}))
+  (delete-category-entity "/api/goals/" :goals "Failed to delete goal" id))
 
 (defn update-user-language [language]
   (PUT "/api/user/language"

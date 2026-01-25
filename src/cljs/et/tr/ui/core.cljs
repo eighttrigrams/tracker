@@ -857,17 +857,29 @@
              [task-edit-form task]
              [task-item-content task is-expanded people places projects goals done-mode? due-date-mode?])])))))
 
+(defn- generic-confirm-modal
+  [{:keys [header body-paragraphs on-cancel on-confirm]}]
+  [:div.modal-overlay {:on-click on-cancel}
+   [:div.modal {:on-click #(.stopPropagation %)}
+    [:div.modal-header header]
+    [:div.modal-body
+     (for [[idx p] (map-indexed vector body-paragraphs)]
+       ^{:key idx}
+       (if (:class p)
+         [:p {:class (:class p)} (:text p)]
+         [:p (:text p)]))]
+    [:div.modal-footer
+     [:button.cancel {:on-click on-cancel} (t :modal/cancel)]
+     [:button.confirm-delete {:on-click on-confirm} (t :modal/delete)]]]])
+
 (defn confirm-delete-modal []
   (when-let [task (:confirm-delete-task @state/app-state)]
-    [:div.modal-overlay {:on-click #(state/clear-confirm-delete)}
-     [:div.modal {:on-click #(.stopPropagation %)}
-      [:div.modal-header (t :modal/delete-task)]
-      [:div.modal-body
-       [:p (t :modal/delete-task-confirm)]
-       [:p.task-title (:title task)]]
-      [:div.modal-footer
-       [:button.cancel {:on-click #(state/clear-confirm-delete)} (t :modal/cancel)]
-       [:button.confirm-delete {:on-click #(state/delete-task (:id task))} (t :modal/delete)]]]]))
+    [generic-confirm-modal
+     {:header (t :modal/delete-task)
+      :body-paragraphs [{:text (t :modal/delete-task-confirm)}
+                        {:text (:title task) :class "task-title"}]
+      :on-cancel state/clear-confirm-delete
+      :on-confirm #(state/delete-task (:id task))}]))
 
 (defn confirm-delete-user-modal []
   (let [confirmation-input (r/atom "")]
@@ -906,16 +918,13 @@
                       :place state/delete-place
                       :project state/delete-project
                       :goal state/delete-goal)]
-      [:div.modal-overlay {:on-click #(state/clear-confirm-delete-category)}
-       [:div.modal {:on-click #(.stopPropagation %)}
-        [:div.modal-header (tf :modal/delete-category type-label)]
-        [:div.modal-body
-         [:p (tf :modal/delete-category-confirm type-label)]
-         [:p.task-title (:name category)]
-         [:p.warning (tf :modal/delete-category-warning type-label)]]
-        [:div.modal-footer
-         [:button.cancel {:on-click #(state/clear-confirm-delete-category)} (t :modal/cancel)]
-         [:button.confirm-delete {:on-click #(delete-fn (:id category))} (t :modal/delete)]]]])))
+      [generic-confirm-modal
+       {:header (tf :modal/delete-category type-label)
+        :body-paragraphs [{:text (tf :modal/delete-category-confirm type-label)}
+                          {:text (:name category) :class "task-title"}
+                          {:text (tf :modal/delete-category-warning type-label) :class "warning"}]
+        :on-cancel state/clear-confirm-delete-category
+        :on-confirm #(delete-fn (:id category))}])))
 
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable
