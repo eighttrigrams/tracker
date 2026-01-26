@@ -87,3 +87,17 @@ Then use the script:
 ./scripts/send-message.sh "Title" "Message body"
 ./scripts/send-message.sh "Title" "Message body" "CustomSender"
 ```
+
+## Automated Feature Building
+
+Requires [builder](https://github.com/eighttrigrams/builder) installed via bbin:
+
+```bash
+bbin install io.github.eighttrigrams/builder
+```
+
+Then run:
+
+```bash
+bb scripts/bb/build_next_feature.clj <feature-name>
+```

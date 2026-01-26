@@ -3,17 +3,17 @@
 (ns build-next-feature
   (:require [babashka.process :refer [shell]]
             [babashka.fs :as fs]
-            [runner :as r]))
+            [clojure.string :as str]))
 
 (defn validate-preconditions []
   (let [{:keys [out]} (shell {:out :string} "git" "branch" "--show-current")
-        current-branch (clojure.string/trim out)]
+        current-branch (str/trim out)]
     (when (not= "main" current-branch)
       (println "Error: Must be on main branch. Currently on:" current-branch)
       (System/exit 1)))
 
   (let [{:keys [out]} (shell {:out :string} "git" "status" "--porcelain")]
-    (when (seq (clojure.string/trim out))
+    (when (seq (str/trim out))
       (println "Error: Untracked or modified files present. Please clean up first.")
       (System/exit 1))))
 
@@ -47,29 +47,31 @@
       (shell {:continue true} send-msg title message "Tracker Builder"))))
 
 (defn -main [& args]
-  (when (< (count args) 2)
-    (println "Usage: bb scripts/bb/build_next_feature.clj <stages-edn> <feature-name>")
+  (when (< (count args) 1)
+    (println "Usage: bb scripts/bb/build_next_feature.clj <feature-name>")
     (System/exit 1))
 
-  (let [[stages-file feature-name] args]
-    (r/load-config! stages-file)
+  (let [[feature-name] args
+        branch-name (str "feature/" feature-name)]
     (validate-preconditions)
     (setup-feature-branch feature-name)
     (cleanup-workspace)
     (send-notification "Build Started" (str "Building feature: " feature-name))
     (log "Start building ...")
-    (r/run-pipeline feature-name)
+
+    (shell "builder" "tracker-build" branch-name)
+
     (log "Done!")
 
     (println "\nSwitching back to main...")
     (shell "git" "switch" "main")
 
-    (let [{:keys [out]} (shell {:out :string} "git" "rev-parse" (str "feature/" feature-name "~1"))
-          commit1 (clojure.string/trim out)
-          {:keys [out]} (shell {:out :string} "git" "rev-parse" (str "feature/" feature-name))
-          commit2 (clojure.string/trim out)]
+    (let [{:keys [out]} (shell {:out :string} "git" "rev-parse" (str branch-name "~1"))
+          commit1 (str/trim out)
+          {:keys [out]} (shell {:out :string} "git" "rev-parse" branch-name)
+          commit2 (str/trim out)]
       (shell "git" "cherry-pick" commit1 commit2)
-      (shell "git" "branch" "-D" (str "feature/" feature-name)))))
+      (shell "git" "branch" "-D" branch-name))))
 
 (when (= *file* (System/getProperty "babashka.file"))
   (apply -main *command-line-args*))
