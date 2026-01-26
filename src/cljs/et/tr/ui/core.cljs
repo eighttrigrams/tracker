@@ -9,6 +9,22 @@
             [et.tr.i18n :as i18n :refer [t tf]]
             ["marked" :refer [marked]]))
 
+(def ^:private tasks-category-shortcut-keys
+  {"Digit1" :people
+   "Digit2" :places
+   "Digit3" :projects
+   "Digit4" :goals})
+
+(def ^:private today-category-shortcut-keys
+  {"Digit1" :places
+   "Digit2" :projects})
+
+(def ^:private tasks-category-shortcut-numbers
+  (into {} (map (fn [[k v]] [v (subs k 5)]) tasks-category-shortcut-keys)))
+
+(def ^:private today-category-shortcut-numbers
+  (into {} (map (fn [[k v]] [v (subs k 5)]) today-category-shortcut-keys)))
+
 (defn login-form []
   (let [username (r/atom "")
         password (r/atom "")]
@@ -956,22 +972,6 @@
         current-idx (.indexOf tabs effective-current)
         next-idx (mod (+ current-idx direction) (count tabs))]
     (state/set-active-tab (nth tabs next-idx))))
-
-(def ^:private tasks-category-shortcut-keys
-  {"Digit1" :people
-   "Digit2" :places
-   "Digit3" :projects
-   "Digit4" :goals})
-
-(def ^:private tasks-category-shortcut-numbers
-  (into {} (map (fn [[k v]] [v (subs k 5)]) tasks-category-shortcut-keys)))
-
-(def ^:private today-category-shortcut-keys
-  {"Digit1" :places
-   "Digit2" :projects})
-
-(def ^:private today-category-shortcut-numbers
-  (into {} (map (fn [[k v]] [v (subs k 5)]) today-category-shortcut-keys)))
 
 (defn- handle-keyboard-shortcuts [e]
   (let [code (.-code e)
