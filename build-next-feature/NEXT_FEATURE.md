@@ -8,3 +8,4 @@ Go through the whole codebase and find things to clean up.
 
 But, concentrate on the most salient things only.
 It don't want to do too much things at once. Concentrate on a couple of the most problematic issues here.
+Don't do more than a single file or two.
