@@ -2,10 +2,12 @@
   (:require [et.tr.ui.state :as state]
             [et.tr.i18n :refer [t]]))
 
-(defn- format-message-date [date-str]
+(defn- format-message-datetime [date-str]
   (when date-str
     (let [date (js/Date. date-str)]
-      (.toLocaleDateString date js/undefined #js {:year "numeric" :month "short" :day "numeric"}))))
+      (str (.toLocaleDateString date js/undefined #js {:year "numeric" :month "short" :day "numeric"})
+           ", "
+           (.toLocaleTimeString date js/undefined #js {:hour "2-digit" :minute "2-digit"})))))
 
 (defn- mail-message-item [message]
   (let [{:keys [id sender title description created_at done]} message
@@ -16,7 +18,7 @@
       [:span.item-title
        [:span.mail-sender sender]
        [:span.mail-title title]]
-      [:span.item-date (format-message-date created_at)]]
+      [:span.item-date (format-message-datetime created_at)]]
      (when expanded?
        [:div.item-details
         (when (not (empty? description))
