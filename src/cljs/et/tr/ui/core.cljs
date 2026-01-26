@@ -7,26 +7,6 @@
             [et.tr.i18n :as i18n :refer [t tf]]
             ["marked" :refer [marked]]))
 
-(defn- markdown [text]
-  [:div.markdown-content
-   {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
-
-(def ^:private tasks-category-shortcut-keys
-  {"Digit1" :people
-   "Digit2" :places
-   "Digit3" :projects
-   "Digit4" :goals})
-
-(def ^:private tasks-category-shortcut-numbers
-  (into {} (map (fn [[k v]] [v (subs k 5)]) tasks-category-shortcut-keys)))
-
-(def ^:private today-category-shortcut-keys
-  {"Digit1" :places
-   "Digit2" :projects})
-
-(def ^:private today-category-shortcut-numbers
-  (into {} (map (fn [[k v]] [v (subs k 5)]) today-category-shortcut-keys)))
-
 (defn login-form []
   (let [username (r/atom "")
         password (r/atom "")]
@@ -183,6 +163,10 @@
                      (.stopPropagation e)
                      (state/set-task-urgency (:id task) level))}
         (labels level)])]))
+
+(defn- markdown [text]
+  [:div.markdown-content
+   {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
 
 (defn- time-picker [task & {:keys [show-clear?] :or {show-clear? false}}]
   [:span.time-picker-wrapper
@@ -1070,6 +1054,22 @@
         current-idx (.indexOf tabs effective-current)
         next-idx (mod (+ current-idx direction) (count tabs))]
     (state/set-active-tab (nth tabs next-idx))))
+
+(def ^:private tasks-category-shortcut-keys
+  {"Digit1" :people
+   "Digit2" :places
+   "Digit3" :projects
+   "Digit4" :goals})
+
+(def ^:private tasks-category-shortcut-numbers
+  (into {} (map (fn [[k v]] [v (subs k 5)]) tasks-category-shortcut-keys)))
+
+(def ^:private today-category-shortcut-keys
+  {"Digit1" :places
+   "Digit2" :projects})
+
+(def ^:private today-category-shortcut-numbers
+  (into {} (map (fn [[k v]] [v (subs k 5)]) today-category-shortcut-keys)))
 
 (defn- handle-keyboard-shortcuts [e]
   (let [code (.-code e)
