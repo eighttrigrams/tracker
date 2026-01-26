@@ -9,6 +9,9 @@ stop:
 start-prod:
 	./scripts/start.sh prod
 
+test:
+	clj -X:test
+
 build:
 	npm install
 	npx shadow-cljs release app
