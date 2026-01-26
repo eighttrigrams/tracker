@@ -14,6 +14,9 @@ build:
 	npx shadow-cljs release app
 	clj -T:build uber
 
+test:
+	clj -X:test
+
 deploy:
 	fly deploy
 
