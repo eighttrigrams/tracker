@@ -4,6 +4,8 @@
             [et.tr.ui.state :as state]
             [et.tr.ui.modals :as modals]
             [et.tr.ui.mail :as mail]
+            [et.tr.ui.views.settings :as settings]
+            [et.tr.ui.views.users :as users]
             [et.tr.i18n :as i18n :refer [t tf]]
             ["marked" :refer [marked]]))
 
@@ -626,46 +628,6 @@
        :projects-goals [projects-goals-tab]
        [people-places-tab])]))
 
-(defn add-user-form []
-  (let [username (r/atom "")
-        password (r/atom "")]
-    (fn []
-      [:div.add-user-form
-       [:input {:type "text"
-                :placeholder (t :auth/username)
-                :value @username
-                :on-change #(reset! username (-> % .-target .-value))}]
-       [:input {:type "password"
-                :placeholder (t :auth/password)
-                :value @password
-                :on-change #(reset! password (-> % .-target .-value))
-                :on-key-down #(when (= (.-key %) "Enter")
-                                (state/add-user @username @password
-                                                (fn []
-                                                  (reset! username "")
-                                                  (reset! password ""))))}]
-       [:button {:on-click #(state/add-user @username @password
-                                            (fn []
-                                              (reset! username "")
-                                              (reset! password "")))}
-        (t :users/add-button)]])))
-
-(defn users-tab []
-  (let [{:keys [users]} @state/app-state]
-    [:div.manage-tab
-     [:div.manage-section
-      [:h3 (t :users/title)]
-      [add-user-form]
-      [:ul.entity-list.user-list
-       (doall
-        (for [user users]
-          ^{:key (:id user)}
-          [:li
-           [:span.username (:username user)]
-           [:button.delete-user-btn
-            {:on-click #(state/set-confirm-delete-user user)}
-            (t :task/delete)]]))]]]))
-
 (defn category-selector [task category-type entities label]
   (let [selector-id (str (:id task) "-" category-type)
         input-id (str "category-selector-input-" selector-id)]
@@ -882,66 +844,6 @@
           :on-click #(state/switch-user user)}
          (:username user)]))]))
 
-(defn language-selector []
-  (let [current-user (:current-user @state/app-state)
-        current-lang (or (:language current-user) "en")]
-    [:div.settings-item
-     [:span.settings-label (t :settings/language)]
-     [:select.language-select
-      {:value current-lang
-       :on-change #(state/update-user-language (-> % .-target .-value))}
-      [:option {:value "en"} (t :settings/language-en)]
-      [:option {:value "de"} (t :settings/language-de)]
-      [:option {:value "pt"} (t :settings/language-pt)]]]))
-
-(defn settings-tab []
-  (let [current-user (:current-user @state/app-state)
-        is-admin (:is_admin current-user)]
-    [:div.settings-page
-     [:div.manage-tab
-      [:div.manage-section.settings-section
-       [:h3 (t :settings/profile)]
-       [:div.settings-item
-        [:span.settings-label (t :settings/username)]
-        [:span.settings-value (:username current-user)]]
-       [:div.settings-item
-        [:span.settings-label (t :settings/role)]
-        [:span.settings-value (if is-admin (t :settings/role-admin) (t :settings/role-user))]]
-       (when-not is-admin
-         [language-selector])]
-      [:div.manage-section.settings-section
-       [:h3 (t :settings/data)]
-       [:div.settings-item
-        [:button.export-btn {:on-click #(state/export-data)}
-         (t :settings/export-data)]]]]
-     [:hr.settings-separator]
-     [:div.shortcuts-section
-      [:h3 (t :settings/shortcuts)]
-      [:div.shortcuts-subsection
-       [:h4 (t :settings/shortcuts-navigation)]
-       [:div.shortcuts-list
-        [:div.shortcut-item
-         [:span.shortcut-key "Shift+←"]
-         [:span.shortcut-desc (t :settings/shortcut-arrow-left)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Shift+→"]
-         [:span.shortcut-desc (t :settings/shortcut-arrow-right)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+T"]
-         [:span.shortcut-desc (t :settings/shortcut-toggle-today-tasks)]]]]
-      [:div.shortcuts-subsection
-       [:h4 (t :settings/shortcuts-filters)]
-       [:div.shortcuts-list
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+<n>"]
-         [:span.shortcut-desc (t :settings/shortcut-toggle-filter)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+Esc"]
-         [:span.shortcut-desc (t :settings/shortcut-clear-uncollapsed)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Enter"]
-         [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]]]]]))
-
 (defn work-private-toggle []
   (let [mode (name (:work-private-mode @state/app-state))
         strict? (:strict-mode @state/app-state)]
@@ -1024,8 +926,8 @@
           :people-places [categories-tab]
           :projects-goals [categories-tab]
           :mail [mail/mail-page]
-          :users [users-tab]
-          :settings [settings-tab]
+          :users [users/users-tab]
+          :settings [settings/settings-tab]
           [:div.main-layout
            [sidebar-filters]
            [:div.main-content
