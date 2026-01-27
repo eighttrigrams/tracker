@@ -59,7 +59,7 @@
     (send-notification "Build Started" (str "Building feature: " feature-name))
     (log "Start building ...")
 
-    (shell "builder" "fullstack-exploratory-first-with-boyscout-help" branch-name "3027")
+    (shell "builder" branch-name)
 
     (log "Done!")
 
