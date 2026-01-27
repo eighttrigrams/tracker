@@ -21,3 +21,4 @@ hooks.log
 nohup.out
 build-next-feature/*
 !build-next-feature/NEXT_FEATURE.md
+!build-next-feature/NEXT_FEATURES.md
