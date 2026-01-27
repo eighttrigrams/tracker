@@ -59,7 +59,7 @@
     (send-notification "Build Started" (str "Building feature: " feature-name))
     (log "Start building ...")
 
-    (shell "builder" branch-name)
+    (shell "builder" feature-name)
 
     (log "Done!")
 
