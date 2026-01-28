@@ -7,6 +7,11 @@
             [et.tr.ui.date :as date]
             [et.tr.ui.api :as api]))
 
+;; State organization:
+;; - Page-specific keys use namespace prefixes: :tasks-page/*, :today-page/*, etc.
+;; - Global UI state uses namespace prefixes: :category-selector/*, :mail-page/*
+;; - Top-level keys (:tasks, :people, etc.) are shared data collections
+
 (def initial-collection-state
   {:tasks []
    :people []
@@ -16,7 +21,8 @@
    :messages []
    :upcoming-horizon nil})
 
-(defonce app-state (r/atom {:tasks []
+(defonce app-state (r/atom {;; Data collections
+                            :tasks []
                             :people []
                             :places []
                             :projects []
@@ -24,7 +30,8 @@
                             :messages []
                             :users []
                             :available-users []
-                            :show-user-switcher false
+
+                            ;; Tasks page state
                             :tasks-page/filter-people #{}
                             :tasks-page/filter-places #{}
                             :tasks-page/filter-projects #{}
@@ -32,39 +39,50 @@
                             :tasks-page/filter-search ""
                             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
                             :tasks-page/importance-filter nil
+                            :tasks-page/collapsed-filters #{:people :places :projects :goals}
                             :expanded-task nil
                             :editing-task nil
-                            :category-page/editing nil
-                            :confirm-delete-task nil
-                            :confirm-delete-user nil
-                            :confirm-delete-message nil
                             :pending-new-task nil
-                            :active-tab :today
-                            :auth-required? nil
-                            :logged-in? false
-                            :token nil
-                            :current-user nil
-                            :error nil
-                            :tasks-page/collapsed-filters #{:people :places :projects :goals}
-                            :sort-mode :manual
-                            :drag-task nil
-                            :drag-over-task nil
-                            :drag-category nil
-                            :drag-over-category nil
-                            :upcoming-horizon nil
+                            :confirm-delete-task nil
+
+                            ;; Today page state
                             :today-page/excluded-places #{}
                             :today-page/excluded-projects #{}
                             :today-page/collapsed-filters #{:places :projects}
                             :today-page/category-search {:places "" :projects ""}
                             :today-page/expanded-task nil
+                            :upcoming-horizon nil
+
+                            ;; Category selector state
                             :category-selector/open nil
                             :category-selector/search ""
+
+                            ;; Mail page state
+                            :mail-page/sort-mode :recent
+                            :mail-page/expanded-message nil
+                            :mail-page/fetch-request-id 0
+                            :confirm-delete-message nil
+
+                            ;; Global UI state
+                            :active-tab :today
+                            :sort-mode :manual
+                            :drag-task nil
+                            :drag-over-task nil
+                            :drag-category nil
+                            :drag-over-category nil
+                            :category-page/editing nil
+                            :show-user-switcher false
                             :work-private-mode :both
                             :strict-mode false
                             :dark-mode false
-                            :mail-page/sort-mode :recent
-                            :mail-page/expanded-message nil
-                            :mail-page/fetch-request-id 0}))
+                            :error nil
+
+                            ;; Auth state
+                            :auth-required? nil
+                            :logged-in? false
+                            :token nil
+                            :current-user nil
+                            :confirm-delete-user nil}))
 
 (defn auth-headers []
   (let [token (:token @app-state)
@@ -479,14 +497,11 @@
   (when-let [init-fn (get tab-initializers tab)]
     (init-fn)))
 
-(defn toggle-expanded [task-id]
+(defn toggle-expanded [page-key task-id]
   (swap! app-state assoc
-         :expanded-task (if (= (:expanded-task @app-state) task-id) nil task-id)
+         page-key (if (= (get @app-state page-key) task-id) nil task-id)
          :category-selector/open nil
          :category-selector/search ""))
-
-(defn toggle-today-expanded [task-id]
-  (swap! app-state update :today-page/expanded-task #(if (= % task-id) nil task-id)))
 
 (defn set-editing [task-id]
   (swap! app-state assoc :editing-task task-id))
@@ -624,9 +639,11 @@
   (api/delete-simple (str "/api/tasks/" task-id)
     (auth-headers)
     (fn [_]
-      (swap! app-state update :tasks
-             (fn [tasks] (filterv #(not= (:id %) task-id) tasks)))
-      (swap! app-state assoc :expanded-task nil :confirm-delete-task nil))
+      (swap! app-state
+             (fn [state]
+               (-> state
+                   (update :tasks (fn [tasks] (filterv #(not= (:id %) task-id) tasks)))
+                   (assoc :expanded-task nil :confirm-delete-task nil)))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete task"))
       (clear-confirm-delete))))

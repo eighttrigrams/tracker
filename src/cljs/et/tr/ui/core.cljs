@@ -211,7 +211,7 @@
         is-expanded (= expanded-task (:id task))]
     [:div.today-task-item {:class (when is-expanded "expanded")}
      [:div.today-task-header
-      {:on-click #(state/toggle-today-expanded (:id task))}
+      {:on-click #(state/toggle-expanded :today-page/expanded-task (:id task))}
       [:div.today-task-content
        [:span.task-title
         (when show-prefix?
@@ -765,7 +765,7 @@
 
 (defn- task-header [task is-expanded done-mode? due-date-mode?]
   [:div.item-header
-   {:on-click #(state/toggle-expanded (:id task))}
+   {:on-click #(state/toggle-expanded :expanded-task (:id task))}
    [:div.item-title
     (when (seq (:due_time task))
       [:span.task-time (:due_time task)])
@@ -805,6 +805,28 @@
      [task-expanded-details task people places projects goals]
      [task-categories-readonly task])])
 
+(defn- handle-task-drag-start [task manual-mode?]
+  (fn [e]
+    (when manual-mode?
+      (.setData (.-dataTransfer e) "text/plain" (str (:id task)))
+      (state/set-drag-task (:id task)))))
+
+(defn- handle-task-drag-over [task manual-mode?]
+  (fn [e]
+    (when manual-mode?
+      (.preventDefault e)
+      (state/set-drag-over-task (:id task)))))
+
+(defn- handle-task-drop [drag-task task manual-mode?]
+  (fn [e]
+    (.preventDefault e)
+    (when (and manual-mode? drag-task (not= drag-task (:id task)))
+      (let [rect (.getBoundingClientRect (.-currentTarget e))
+            y (.-clientY e)
+            mid-y (+ (.-top rect) (/ (.-height rect) 2))
+            position (if (< y mid-y) "before" "after")]
+        (state/reorder-task drag-task (:id task) position)))))
+
 (defn tasks-list []
   (let [{:keys [people places projects goals expanded-task editing-task sort-mode drag-task drag-over-task]} @state/app-state
         tasks (state/filtered-tasks)
@@ -822,27 +844,13 @@
                             (when is-dragging " dragging")
                             (when is-drag-over " drag-over"))
                 :draggable (and manual-mode? (not is-editing))
-                :on-drag-start (fn [e]
-                                 (when manual-mode?
-                                   (.setData (.-dataTransfer e) "text/plain" (str (:id task)))
-                                   (state/set-drag-task (:id task))))
-                :on-drag-end (fn [_]
-                               (state/clear-drag-state))
-                :on-drag-over (fn [e]
-                                (when manual-mode?
-                                  (.preventDefault e)
-                                  (state/set-drag-over-task (:id task))))
+                :on-drag-start (handle-task-drag-start task manual-mode?)
+                :on-drag-end (fn [_] (state/clear-drag-state))
+                :on-drag-over (handle-task-drag-over task manual-mode?)
                 :on-drag-leave (fn [_]
                                  (when (= drag-over-task (:id task))
                                    (state/set-drag-over-task nil)))
-                :on-drop (fn [e]
-                           (.preventDefault e)
-                           (when (and manual-mode? drag-task (not= drag-task (:id task)))
-                             (let [rect (.getBoundingClientRect (.-currentTarget e))
-                                   y (.-clientY e)
-                                   mid-y (+ (.-top rect) (/ (.-height rect) 2))
-                                   position (if (< y mid-y) "before" "after")]
-                               (state/reorder-task drag-task (:id task) position))))}
+                :on-drop (handle-task-drop drag-task task manual-mode?)}
            (if is-editing
              [task-edit-form task]
              [task-item-content task is-expanded people places projects goals done-mode? due-date-mode?])])))))
