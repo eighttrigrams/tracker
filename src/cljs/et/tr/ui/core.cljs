@@ -123,10 +123,10 @@
 
 (defn task-category-badges [task]
   (let [all-categories (concat
-                        (map #(assoc % :type "person") (:people task))
-                        (map #(assoc % :type "place") (:places task))
-                        (map #(assoc % :type "project") (:projects task))
-                        (map #(assoc % :type "goal") (:goals task)))
+                        (map #(assoc % :type state/CATEGORY-TYPE-PERSON) (:people task))
+                        (map #(assoc % :type state/CATEGORY-TYPE-PLACE) (:places task))
+                        (map #(assoc % :type state/CATEGORY-TYPE-PROJECT) (:projects task))
+                        (map #(assoc % :type state/CATEGORY-TYPE-GOAL) (:goals task)))
         importance (:importance task)
         importance-stars (case importance
                            "important" "★"
@@ -476,7 +476,7 @@
                       :filter-key :people
                       :items people
                       :selected-ids filter-people
-                      :toggle-fn state/toggle-filter-person
+                      :toggle-fn #(state/toggle-filter state/CATEGORY-TYPE-PERSON %)
                       :clear-fn state/clear-filter-people
                       :collapsed? (contains? collapsed-filters :people)
                       :number (tasks-category-shortcut-numbers :people)}]
@@ -484,7 +484,7 @@
                       :filter-key :places
                       :items places
                       :selected-ids filter-places
-                      :toggle-fn state/toggle-filter-place
+                      :toggle-fn #(state/toggle-filter state/CATEGORY-TYPE-PLACE %)
                       :clear-fn state/clear-filter-places
                       :collapsed? (contains? collapsed-filters :places)
                       :number (tasks-category-shortcut-numbers :places)}]
@@ -492,7 +492,7 @@
                       :filter-key :projects
                       :items projects
                       :selected-ids filter-projects
-                      :toggle-fn state/toggle-filter-project
+                      :toggle-fn #(state/toggle-filter state/CATEGORY-TYPE-PROJECT %)
                       :clear-fn state/clear-filter-projects
                       :collapsed? (contains? collapsed-filters :projects)
                       :number (tasks-category-shortcut-numbers :projects)}]
@@ -500,7 +500,7 @@
                       :filter-key :goals
                       :items goals
                       :selected-ids filter-goals
-                      :toggle-fn state/toggle-filter-goal
+                      :toggle-fn #(state/toggle-filter state/CATEGORY-TYPE-GOAL %)
                       :clear-fn state/clear-filter-goals
                       :collapsed? (contains? collapsed-filters :goals)
                       :number (tasks-category-shortcut-numbers :goals)}]]))
@@ -601,7 +601,7 @@
            (doall
             (for [person filtered-people]
               ^{:key (:id person)}
-              [category-item person :person state/update-person :people]))]]
+              [category-item person state/CATEGORY-TYPE-PERSON state/update-person :people]))]]
          [:div.manage-section
           [:h3 (t :category/places)]
           [add-entity-form (t :category/add-place) state/add-place place-name]
@@ -609,7 +609,7 @@
            (doall
             (for [place filtered-places]
               ^{:key (:id place)}
-              [category-item place :place state/update-place :places]))]]]))))
+              [category-item place state/CATEGORY-TYPE-PLACE state/update-place :places]))]]]))))
 
 (defn projects-goals-tab []
   (let [project-name (r/atom "")
@@ -626,7 +626,7 @@
            (doall
             (for [project filtered-projects]
               ^{:key (:id project)}
-              [category-item project :project state/update-project :projects]))]]
+              [category-item project state/CATEGORY-TYPE-PROJECT state/update-project :projects]))]]
          [:div.manage-section
           [:h3 (t :category/goals)]
           [add-entity-form (t :category/add-goal) state/add-goal goal-name]
@@ -634,7 +634,7 @@
            (doall
             (for [goal filtered-goals]
               ^{:key (:id goal)}
-              [category-item goal :goal state/update-goal :goals]))]]]))))
+              [category-item goal state/CATEGORY-TYPE-GOAL state/update-goal :goals]))]]]))))
 
 (defn categories-tab []
   (let [active-tab (:active-tab @state/app-state)]
@@ -649,10 +649,10 @@
         input-id (str "category-selector-input-" selector-id)]
     (fn [task category-type entities label]
       (let [task-categories (case category-type
-                              "person" (:people task)
-                              "place" (:places task)
-                              "project" (:projects task)
-                              "goal" (:goals task))
+                              state/CATEGORY-TYPE-PERSON (:people task)
+                              state/CATEGORY-TYPE-PLACE (:places task)
+                              state/CATEGORY-TYPE-PROJECT (:projects task)
+                              state/CATEGORY-TYPE-GOAL (:goals task))
             task-category-ids (set (map :id task-categories))
             open-selector (:category-selector/open @state/app-state)
             is-open (= open-selector selector-id)
@@ -750,10 +750,10 @@
    (when (seq (:description task))
      [:div.item-description [markdown (:description task)]])
    [:div.item-tags
-    [category-selector task "person" people (t :category/person)]
-    [category-selector task "place" places (t :category/place)]
-    [category-selector task "project" projects (t :category/project)]
-    [category-selector task "goal" goals (t :category/goal)]]
+    [category-selector task state/CATEGORY-TYPE-PERSON people (t :category/person)]
+    [category-selector task state/CATEGORY-TYPE-PLACE places (t :category/place)]
+    [category-selector task state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+    [category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
    [:div.item-actions
     (if (= 1 (:done task))
       [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]

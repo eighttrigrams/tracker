@@ -110,7 +110,7 @@
              (doall
               (for [p (:people @state/app-state)]
                 ^{:key (:id p)}
-                [category-tag-item "person" (:id p) (:name p)
+                [category-tag-item state/CATEGORY-TYPE-PERSON (:id p) (:name p)
                  (contains? selected-people (:id p))
                  state/update-pending-category]))]])
          (when (seq (:places @state/app-state))
@@ -120,7 +120,7 @@
              (doall
               (for [p (:places @state/app-state)]
                 ^{:key (:id p)}
-                [category-tag-item "place" (:id p) (:name p)
+                [category-tag-item state/CATEGORY-TYPE-PLACE (:id p) (:name p)
                  (contains? selected-places (:id p))
                  state/update-pending-category]))]])
          (when (seq (:projects @state/app-state))
@@ -130,7 +130,7 @@
              (doall
               (for [p (:projects @state/app-state)]
                 ^{:key (:id p)}
-                [category-tag-item "project" (:id p) (:name p)
+                [category-tag-item state/CATEGORY-TYPE-PROJECT (:id p) (:name p)
                  (contains? selected-projects (:id p))
                  state/update-pending-category]))]])
          (when (seq (:goals @state/app-state))
@@ -140,7 +140,7 @@
              (doall
               (for [g (:goals @state/app-state)]
                 ^{:key (:id g)}
-                [category-tag-item "goal" (:id g) (:name g)
+                [category-tag-item state/CATEGORY-TYPE-GOAL (:id g) (:name g)
                  (contains? selected-goals (:id g))
                  state/update-pending-category]))]])]
         [:div.modal-footer

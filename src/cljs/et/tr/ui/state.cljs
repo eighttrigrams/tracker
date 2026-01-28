@@ -7,6 +7,11 @@
             [et.tr.ui.date :as date]
             [et.tr.ui.api :as api]))
 
+(def ^:const CATEGORY-TYPE-PERSON "person")
+(def ^:const CATEGORY-TYPE-PLACE "place")
+(def ^:const CATEGORY-TYPE-PROJECT "project")
+(def ^:const CATEGORY-TYPE-GOAL "goal")
+
 ;; State organization:
 ;; - Page-specific keys use namespace prefixes: :tasks-page/*, :today-page/*, etc.
 ;; - Global UI state uses namespace prefixes: :category-selector/*, :mail-page/*
@@ -240,10 +245,10 @@
      :handler (fn [task]
                 (let [task-id (:id task)
                       {:keys [people places projects goals]} categories]
-                  (categorize-task-batch task-id "person" people)
-                  (categorize-task-batch task-id "place" places)
-                  (categorize-task-batch task-id "project" projects)
-                  (categorize-task-batch task-id "goal" goals)
+                  (categorize-task-batch task-id CATEGORY-TYPE-PERSON people)
+                  (categorize-task-batch task-id CATEGORY-TYPE-PLACE places)
+                  (categorize-task-batch task-id CATEGORY-TYPE-PROJECT projects)
+                  (categorize-task-batch task-id CATEGORY-TYPE-GOAL goals)
                   (js/setTimeout fetch-tasks 500)
                   (swap! app-state update :tasks #(cons task %))
                   (when on-success (on-success))))
@@ -268,10 +273,10 @@
 
 (defn update-pending-category [category-type id]
   (let [key (case category-type
-              "person" :people
-              "place" :places
-              "project" :projects
-              "goal" :goals
+              CATEGORY-TYPE-PERSON :people
+              CATEGORY-TYPE-PLACE :places
+              CATEGORY-TYPE-PROJECT :projects
+              CATEGORY-TYPE-GOAL :goals
               (keyword category-type))]
     (swap! app-state update-in [:pending-new-task :categories key]
            #(if (contains? % id) (disj % id) (conj (or % #{}) id)))))
@@ -366,29 +371,16 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))))
 
-(defn toggle-filter-person [person-id]
-  (swap! app-state update :tasks-page/filter-people
-         #(if (contains? % person-id)
-            (disj % person-id)
-            (conj % person-id))))
-
-(defn toggle-filter-place [place-id]
-  (swap! app-state update :tasks-page/filter-places
-         #(if (contains? % place-id)
-            (disj % place-id)
-            (conj % place-id))))
-
-(defn toggle-filter-project [project-id]
-  (swap! app-state update :tasks-page/filter-projects
-         #(if (contains? % project-id)
-            (disj % project-id)
-            (conj % project-id))))
-
-(defn toggle-filter-goal [goal-id]
-  (swap! app-state update :tasks-page/filter-goals
-         #(if (contains? % goal-id)
-            (disj % goal-id)
-            (conj % goal-id))))
+(defn toggle-filter [filter-type id]
+  (let [filter-key (case filter-type
+                     CATEGORY-TYPE-PERSON :tasks-page/filter-people
+                     CATEGORY-TYPE-PLACE :tasks-page/filter-places
+                     CATEGORY-TYPE-PROJECT :tasks-page/filter-projects
+                     CATEGORY-TYPE-GOAL :tasks-page/filter-goals)]
+    (swap! app-state update filter-key
+           #(if (contains? % id)
+              (disj % id)
+              (conj % id)))))
 
 (defn clear-filter-people []
   (swap! app-state assoc :tasks-page/filter-people #{}))
