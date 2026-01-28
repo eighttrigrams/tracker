@@ -260,6 +260,15 @@
                      (state/set-task-urgency (:id task) level))}
         (labels level)])]))
 
+(defn task-attribute-selectors [task & {:keys [show-importance? show-urgency?]
+                                         :or {show-importance? true show-urgency? true}}]
+  [:<>
+   [task-scope-selector task]
+   (when show-importance?
+     [task-importance-selector task])
+   (when show-urgency?
+     [task-urgency-selector task])])
+
 (defn- markdown [text]
   [:div.markdown-content
    {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
@@ -282,6 +291,18 @@
                                       (.stopPropagation e)
                                       (state/set-task-due-time (:id task) nil))}
       "✕"])])
+
+(defn- today-task-expanded-details [task]
+  [:div.today-task-details
+   (when (seq (:description task))
+     [:div.item-description [markdown (:description task)]])
+   [task-category-badges task]
+   [:div.item-actions
+    (if (state/task-done? task)
+      [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
+      [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
+    [task-attribute-selectors task :show-urgency? false]
+    [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])
 
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
   (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
@@ -308,17 +329,7 @@
          show-day-of-week (state/format-date-with-day (:due_date task))
          :else (:due_date task))]]
      (when is-expanded
-       [:div.today-task-details
-        (when (seq (:description task))
-          [:div.item-description [markdown (:description task)]])
-        [task-category-badges task]
-        [:div.item-actions
-         (if (= 1 (:done task))
-           [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
-           [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
-         [task-scope-selector task]
-         [task-importance-selector task]
-         [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])]))
+       [today-task-expanded-details task])]))
 
 (defn horizon-selector []
   (let [horizon (:upcoming-horizon @state/app-state)]
@@ -845,12 +856,10 @@
     [category-selector task state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
     [category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
    [:div.item-actions
-    (if (= 1 (:done task))
+    (if (state/task-done? task)
       [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
       [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
-    [task-scope-selector task]
-    [task-importance-selector task]
-    [task-urgency-selector task]
+    [task-attribute-selectors task]
     [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])
 
 (defn- task-header [task is-expanded done-mode? due-date-mode?]

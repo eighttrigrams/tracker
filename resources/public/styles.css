@@ -761,6 +761,10 @@ button:active { transform: translateY(0); }
   border-style: dashed;
   background: rgba(0, 113, 227, 0.05);
 }
+/* Action button container structure:
+   1. Done/undone button
+   2. Task attribute selectors (scope, importance, urgency)
+   3. Delete button */
 .item-actions {
   margin-top: 12px;
   padding-top: 12px;

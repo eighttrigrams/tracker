@@ -1088,6 +1088,9 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete message"))
       (clear-confirm-delete-message))))
 
+(defn task-done? [task]
+  (= 1 (:done task)))
+
 (defn is-admin? []
   (let [current-user (:current-user @app-state)]
     (or (nil? (:id current-user))
