@@ -161,12 +161,12 @@
 
 (defn task-scope-selector [task]
   (let [scope (or (:scope task) "both")]
-    [scope-toggle "task-scope-selector" scope #(state/set-task-scope (:id task) %)]))
+    [scope-toggle "task-scope-selector toggle-group compact" scope #(state/set-task-scope (:id task) %)]))
 
 (defn task-importance-selector [task]
   (let [importance (or (:importance task) "normal")
         labels {"normal" "○" "important" "★" "critical" "★★"}]
-    [:div.task-importance-selector
+    [:div.task-importance-selector.toggle-group.compact
      (for [level ["normal" "important" "critical"]]
        ^{:key level}
        [:button.toggle-option
@@ -179,7 +179,7 @@
 (defn task-urgency-selector [task]
   (let [urgency (or (:urgency task) "default")
         labels {"default" "—" "urgent" "!" "superurgent" "!!"}]
-    [:div.task-urgency-selector
+    [:div.task-urgency-selector.toggle-group.compact
      (for [level ["default" "urgent" "superurgent"]]
        ^{:key level}
        [:button.toggle-option
@@ -409,7 +409,7 @@
 
 (defn- today-view-switcher []
   (let [selected-view (:today-page/selected-view @state/app-state)]
-    [:div.today-view-switcher
+    [:div.today-view-switcher.toggle-group
      [:button {:class (when (= selected-view :urgent) "active")
                :on-click #(state/set-today-selected-view :urgent)}
       (t :today/urgent-matters)]
@@ -448,7 +448,7 @@
 
 (defn sort-mode-toggle []
   (let [sort-mode (:sort-mode @state/app-state)]
-    [:div.sort-toggle
+    [:div.sort-toggle.toggle-group
      [:button {:class (when (= sort-mode :manual) "active")
                :on-click #(when (not= sort-mode :manual) (state/set-sort-mode :manual))}
       (t :tasks/sort-manual)]
@@ -464,7 +464,7 @@
 
 (defn importance-filter-toggle []
   (let [importance-filter (:tasks-page/importance-filter @state/app-state)]
-    [:div.importance-filter-toggle
+    [:div.importance-filter-toggle.toggle-group
      [:button {:class (when (nil? importance-filter) "active")
                :on-click #(state/set-importance-filter nil)
                :title (t :importance/filter-off)}
@@ -907,7 +907,7 @@
        :on-click state/toggle-strict-mode
        :title (t :toggle/strict-tooltip)}
       "!"]
-     [scope-toggle "work-private-toggle" mode #(state/set-work-private-mode (keyword %))]]))
+     [scope-toggle "work-private-toggle toggle-group" mode #(state/set-work-private-mode (keyword %))]]))
 
 (defn dark-mode-toggle []
   (let [dark-mode (:dark-mode @state/app-state)]

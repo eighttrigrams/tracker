@@ -34,7 +34,7 @@
 
 (defn- mail-sort-toggle []
   (let [sort-mode (:mail-page/sort-mode @state/app-state)]
-    [:div.sort-toggle
+    [:div.sort-toggle.toggle-group
      [:button {:class (when (= sort-mode :recent) "active")
                :on-click #(state/set-mail-sort-mode :recent)}
       (t :mail/sort-recent)]
