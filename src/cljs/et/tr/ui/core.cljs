@@ -189,26 +189,30 @@
      [:defs
       [:mask {:id (str "left-only-" uid)}
        [:rect {:x "0" :y "0" :width "32" :height "20" :fill "white"}]
-       [:circle {:cx "22" :cy "10" :r "7" :fill "black"}]]
+       [:circle {:cx "21" :cy "10" :r "7" :fill "black"}]]
       [:mask {:id (str "right-only-" uid)}
        [:rect {:x "0" :y "0" :width "32" :height "20" :fill "white"}]
-       [:circle {:cx "10" :cy "10" :r "7" :fill "black"}]]]
+       [:circle {:cx "11" :cy "10" :r "7" :fill "black"}]]]
      (when left-crescent
-       [:circle {:cx "10" :cy "10" :r "7" :fill fill-color :stroke "none" :mask (str "url(#left-only-" uid ")")}])
+       [:circle {:cx "11" :cy "10" :r "7" :fill fill-color :stroke "none" :mask (str "url(#left-only-" uid ")")}])
      (when right-crescent
-       [:circle {:cx "22" :cy "10" :r "7" :fill fill-color :stroke "none" :mask (str "url(#right-only-" uid ")")}])
+       [:circle {:cx "21" :cy "10" :r "7" :fill fill-color :stroke "none" :mask (str "url(#right-only-" uid ")")}])
      (when left-filled
-       [:circle {:cx "10" :cy "10" :r "7" :fill fill-color :stroke "none"}])
+       [:circle {:cx "11" :cy "10" :r "7" :fill fill-color :stroke "none"}])
      (when right-filled
-       [:circle {:cx "22" :cy "10" :r "7" :fill fill-color :stroke "none"}])
+       [:circle {:cx "21" :cy "10" :r "7" :fill fill-color :stroke "none"}])
      (when both-filled
        [:g
-        [:circle {:cx "10" :cy "10" :r "7" :fill fill-color :stroke "none"}]
-        [:circle {:cx "22" :cy "10" :r "7" :fill fill-color :stroke "none"}]])
+        [:circle {:cx "11" :cy "10" :r "7" :fill fill-color :stroke "none"}]
+        [:circle {:cx "21" :cy "10" :r "7" :fill fill-color :stroke "none"}]])
      (when intersection-only
-       [:path {:d "M 14 3.5 A 7 7 0 0 1 14 16.5 A 7 7 0 0 1 14 3.5 Z" :fill fill-color :stroke "none"}])
-     [:circle {:cx "10" :cy "10" :r "7" :fill "none" :stroke stroke-color :stroke-width "1.5"}]
-     [:circle {:cx "22" :cy "10" :r "7" :fill "none" :stroke stroke-color :stroke-width "1.5"}]]))
+       [:path {:d "M 16 3.5 A 7 7 0 0 1 16 16.5 A 7 7 0 0 1 16 3.5 Z" :fill fill-color :stroke "none"}])
+     [:circle {:cx "11" :cy "10" :r "7" :fill "none" :stroke stroke-color :stroke-width "1"}]
+     [:circle {:cx "21" :cy "10" :r "7" :fill "none" :stroke stroke-color :stroke-width "1"}]
+     (when left-crescent
+       [:circle {:cx "21" :cy "10" :r "6.5" :fill "var(--glass-bg)" :stroke "none"}])
+     (when right-crescent
+       [:circle {:cx "11" :cy "10" :r "6.5" :fill "var(--glass-bg)" :stroke "none"}])]))
 
 (defn- scope-toggle [css-class current-value on-change]
   (into [:div {:class css-class}]
