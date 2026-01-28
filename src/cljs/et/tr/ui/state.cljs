@@ -40,7 +40,7 @@
                             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
                             :tasks-page/importance-filter nil
                             :tasks-page/collapsed-filters #{:people :places :projects :goals}
-                            :expanded-task nil
+                            :tasks-page/expanded-task nil
                             :editing-task nil
                             :pending-new-task nil
                             :confirm-delete-task nil
@@ -493,7 +493,9 @@
          :category-selector/open nil
          :category-selector/search ""
          :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
-         :today-page/category-search {:places "" :projects ""})
+         :today-page/category-search {:places "" :projects ""}
+         :tasks-page/expanded-task nil
+         :today-page/expanded-task nil)
   (when-let [init-fn (get tab-initializers tab)]
     (init-fn)))
 
@@ -643,7 +645,9 @@
              (fn [state]
                (-> state
                    (update :tasks (fn [tasks] (filterv #(not= (:id %) task-id) tasks)))
-                   (assoc :expanded-task nil :confirm-delete-task nil)))))
+                   (assoc :tasks-page/expanded-task nil
+                          :today-page/expanded-task nil
+                          :confirm-delete-task nil)))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete task"))
       (clear-confirm-delete))))
@@ -653,7 +657,9 @@
     {:done done?}
     (auth-headers)
     (fn [_]
-      (swap! app-state assoc :expanded-task nil)
+      (swap! app-state assoc
+             :tasks-page/expanded-task nil
+             :today-page/expanded-task nil)
       (fetch-tasks))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))))

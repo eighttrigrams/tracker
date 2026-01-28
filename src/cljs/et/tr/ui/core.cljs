@@ -765,7 +765,7 @@
 
 (defn- task-header [task is-expanded done-mode? due-date-mode?]
   [:div.item-header
-   {:on-click #(state/toggle-expanded :expanded-task (:id task))}
+   {:on-click #(state/toggle-expanded :tasks-page/expanded-task (:id task))}
    [:div.item-title
     (when (seq (:due_time task))
       [:span.task-time (:due_time task)])
@@ -828,7 +828,7 @@
         (state/reorder-task drag-task (:id task) position)))))
 
 (defn tasks-list []
-  (let [{:keys [people places projects goals expanded-task editing-task sort-mode drag-task drag-over-task]} @state/app-state
+  (let [{:keys [people places projects goals tasks-page/expanded-task editing-task sort-mode drag-task drag-over-task]} @state/app-state
         tasks (state/filtered-tasks)
         manual-mode? (= sort-mode :manual)
         due-date-mode? (= sort-mode :due-date)
