@@ -532,6 +532,17 @@ button:active { transform: translateY(0); }
 .edit-buttons .delete-btn { margin-left: auto; }
 .search-filter { display: flex; margin-bottom: 16px; position: relative; }
 .search-filter input { flex: 1; padding-right: 36px; }
+.combined-search-add-form {
+  display: flex;
+  margin-bottom: 24px;
+  position: relative;
+  gap: 8px;
+  width: 100%;
+}
+.combined-search-add-form input {
+  flex: 1;
+  padding-right: 36px;
+}
 .clear-search {
   position: absolute;
   right: 6px;

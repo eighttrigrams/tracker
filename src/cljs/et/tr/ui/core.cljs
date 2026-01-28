@@ -35,6 +35,19 @@
       (reset! input-atom "")
       (when on-clear-fn (on-clear-fn)))))
 
+(defn- handle-combined-keys [input-value]
+  (fn [e]
+    (cond
+      (and (.-altKey e) (= (.-key e) "Enter"))
+      (when (seq input-value)
+        (.preventDefault e)
+        (state/add-task input-value (fn [] (state/set-filter-search ""))))
+
+      (= (.-key e) "Escape")
+      (state/set-filter-search "")
+
+      :else nil)))
+
 (defn login-form []
   (let [username (r/atom "")
         password (r/atom "")]
@@ -70,18 +83,21 @@
          [:button {:on-click (fn [_] (do-login))}
           (t :auth/login)]]))))
 
-(defn add-task-form []
-  (let [title (r/atom "")]
-    (fn []
-      [:div.add-form
-       [:input {:type "text"
-                :placeholder (t :tasks/add-placeholder)
-                :value @title
-                :on-change #(reset! title (-> % .-target .-value))
-                :on-key-down #(when (= (.-key %) "Enter")
-                                (state/add-task @title (fn [] (reset! title ""))))}]
-       [:button {:on-click #(state/add-task @title (fn [] (reset! title "")))}
-        (t :tasks/add-button)]])))
+(defn combined-search-add-form []
+  (let [input-value (:tasks-page/filter-search @state/app-state)]
+    [:div.combined-search-add-form
+     [:input#tasks-filter-search
+      {:type "text"
+       :placeholder (t :tasks/search-or-add)
+       :value input-value
+       :on-change #(state/set-filter-search (-> % .-target .-value))
+       :on-key-down (handle-combined-keys input-value)}]
+     [:button {:on-click #(when (seq input-value)
+                            (state/add-task input-value
+                                          (fn [] (state/set-filter-search ""))))}
+      (t :tasks/add-button)]
+     (when (seq input-value)
+       [:button.clear-search {:on-click #(state/set-filter-search "")} "x"])]))
 
 (defn add-entity-form [placeholder add-fn name-atom]
   (fn []
@@ -443,16 +459,6 @@
         [today-urgent-section urgent])
       (when (= selected-view :upcoming)
         [today-upcoming-section upcoming])]]))
-
-(defn search-filter [search-term on-change on-clear]
-  [:div.search-filter
-   [:input#tasks-filter-search {:type "text"
-                                :placeholder (t :tasks/search)
-                                :value search-term
-                                :on-change on-change
-                                :on-key-down (handle-escape-key (r/atom search-term) on-clear)}]
-   (when (seq search-term)
-     [:button.clear-search {:on-click on-clear} "x"])])
 
 (defn sort-mode-toggle []
   (let [sort-mode (:sort-mode @state/app-state)]
@@ -997,13 +1003,8 @@
              [:h2 {:title (t :tasks/title-tooltip)} (t :tasks/title)]
              [importance-filter-toggle]
              [sort-mode-toggle]]
-            [search-filter
-             (:tasks-page/filter-search @state/app-state)
-             #(state/set-filter-search (-> % .-target .-value))
-             #(state/set-filter-search "")]
-            (when (and (not= sort-mode :done)
-                       (empty? (:tasks-page/filter-search @state/app-state)))
-              [add-task-form])
+            (when (not= sort-mode :done)
+              [combined-search-add-form])
             [tasks-list]]])])]))
 
 (defn- get-available-tabs []

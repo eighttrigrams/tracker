@@ -60,4 +60,10 @@
          [:span.shortcut-desc (t :settings/shortcut-clear-uncollapsed)]]
         [:div.shortcut-item
          [:span.shortcut-key "Enter"]
-         [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]]]]]))
+         [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]]]
+      [:div.shortcuts-subsection
+       [:h4 (t :settings/shortcuts-tasks)]
+       [:div.shortcuts-list
+        [:div.shortcut-item
+         [:span.shortcut-key "Option+Enter"]
+         [:span.shortcut-desc (t :settings/shortcut-add-task)]]]]]]))
