@@ -478,7 +478,10 @@
             (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
             (focus-tasks-search))
    :today (fn []
-            (swap! app-state assoc :today-page/collapsed-filters #{:places :projects}))
+            (swap! app-state assoc :today-page/collapsed-filters #{:places :projects})
+            (when (= :done (:sort-mode @app-state))
+              (swap! app-state assoc :sort-mode :manual)
+              (fetch-tasks)))
    :mail (fn []
            (when (is-admin?)
              (fetch-messages)))})
@@ -794,6 +797,7 @@
         horizon (:upcoming-horizon @app-state)
         end-date (horizon-end-date horizon)]
     (->> (scope-filtered-tasks)
+         (remove task-done?)
          (filter #(and (:due_date %)
                        (> (:due_date %) today)
                        (<= (:due_date %) end-date)))
