@@ -317,7 +317,8 @@
                                 (.stopPropagation e)
                                 (clear-fn)
                                 (set-search-fn filter-key ""))
-                              (toggle-collapsed-fn filter-key))
+                              (toggle-collapsed-fn filter-key)
+                              (state/focus-tasks-search))
 
                             (= (.-key e) "Enter")
                             (when-let [first-item (first visible-items)]

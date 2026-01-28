@@ -467,7 +467,7 @@
   (swap! app-state assoc :category-selector/search search-term))
 
 (defn focus-tasks-search []
-  (js/setTimeout #(when-let [el (.getElementById js/document "tasks-search")]
+  (js/setTimeout #(when-let [el (.getElementById js/document "tasks-filter-search")]
                     (.focus el)) 0))
 
 (def tab-initializers
