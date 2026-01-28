@@ -174,20 +174,65 @@
                                     (state/toggle-filter (:type category) (:id category))))}
            (:name category)]))])))
 
+(defn- vesicapiscis-icon [selected-scope strict-mode?]
+  (let [is-active (= selected-scope "both")
+        left-filled (or (= selected-scope "private") (and (= selected-scope "both") (not strict-mode?)))
+        center-filled (and (= selected-scope "both") (not strict-mode?))
+        right-filled (or (= selected-scope "work") (and (= selected-scope "both") (not strict-mode?)))
+        intersection-only (and (= selected-scope "both") strict-mode?)
+        fill-color (if is-active "white" "var(--accent)")
+        stroke-color (if is-active "white" "var(--accent)")]
+    [:svg {:width "32" :height "20" :viewBox "0 0 32 20" :style {:display "inline-block" :vertical-align "middle"}}
+     [:defs
+      [:clipPath {:id "left-circle"}
+       [:circle {:cx "10" :cy "10" :r "7"}]]
+      [:clipPath {:id "right-circle"}
+       [:circle {:cx "22" :cy "10" :r "7"}]]
+      [:clipPath {:id "intersection"}
+       [:path {:d "M 14 3.5 A 7 7 0 0 1 14 16.5 A 7 7 0 0 1 14 3.5 Z"}]]]
+     (when (and left-filled (not intersection-only))
+       [:circle {:cx "10" :cy "10" :r "7" :fill fill-color :stroke "none"}])
+     (when (and right-filled (not intersection-only))
+       [:circle {:cx "22" :cy "10" :r "7" :fill fill-color :stroke "none"}])
+     (when (and center-filled (not intersection-only))
+       [:path {:d "M 14 3.5 A 7 7 0 0 1 14 16.5 A 7 7 0 0 1 14 3.5 Z" :fill fill-color :stroke "none"}])
+     (when intersection-only
+       [:path {:d "M 14 3.5 A 7 7 0 0 1 14 16.5 A 7 7 0 0 1 14 3.5 Z" :fill fill-color :stroke "none"}])
+     [:circle {:cx "10" :cy "10" :r "7" :fill "none" :stroke stroke-color :stroke-width "1.5"}]
+     [:circle {:cx "22" :cy "10" :r "7" :fill "none" :stroke stroke-color :stroke-width "1.5"}]]))
+
 (defn- scope-toggle [css-class current-value on-change]
   (into [:div {:class css-class}]
         (for [scope ["private" "both" "work"]]
-          [:button.toggle-option
-           {:key scope
-            :class (when (= current-value scope) "active")
-            :on-click (fn [e]
-                        (.stopPropagation e)
-                        (on-change scope))}
-           (t (keyword "toggle" scope))])))
+          (if (= scope "both")
+            [:button.toggle-option
+             {:key scope
+              :class (when (= current-value scope) "active")
+              :on-click (fn [e]
+                          (.stopPropagation e)
+                          (if (= current-value "both")
+                            (state/toggle-strict-mode)
+                            (on-change scope)))}
+             [vesicapiscis-icon current-value (:strict-mode @state/app-state)]]
+            [:button.toggle-option
+             {:key scope
+              :class (when (= current-value scope) "active")
+              :on-click (fn [e]
+                          (.stopPropagation e)
+                          (on-change scope))}
+             (t (keyword "toggle" scope))]))))
 
 (defn task-scope-selector [task]
   (let [scope (or (:scope task) "both")]
-    [scope-toggle "task-scope-selector toggle-group compact" scope #(state/set-task-scope (:id task) %)]))
+    [:div.task-scope-selector.toggle-group.compact
+     (for [s ["private" "both" "work"]]
+       ^{:key s}
+       [:button.toggle-option
+        {:class (when (= scope s) "active")
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-task-scope (:id task) s))}
+        s])]))
 
 (defn task-importance-selector [task]
   (let [importance (or (:importance task) "normal")
@@ -914,15 +959,8 @@
          (:username user)]))]))
 
 (defn work-private-toggle []
-  (let [mode (name (:work-private-mode @state/app-state))
-        strict? (:strict-mode @state/app-state)]
-    [:div.work-private-toggle-wrapper
-     [:span.strict-mode-toggle
-      {:class (when strict? "active")
-       :on-click state/toggle-strict-mode
-       :title (t :toggle/strict-tooltip)}
-      "!"]
-     [scope-toggle "work-private-toggle toggle-group" mode #(state/set-work-private-mode (keyword %))]]))
+  (let [mode (name (:work-private-mode @state/app-state))]
+    [scope-toggle "work-private-toggle toggle-group" mode #(state/set-work-private-mode (keyword %))]))
 
 (defn dark-mode-toggle []
   (let [dark-mode (:dark-mode @state/app-state)]
