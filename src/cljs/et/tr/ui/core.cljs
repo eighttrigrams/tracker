@@ -266,6 +266,13 @@
      [:button {:class (when (= horizon :eighteen-months) "active")
                :on-click #(state/set-upcoming-horizon :eighteen-months)} (t :today/eighteen-months)]]))
 
+(defn- handle-filter-badge-click [toggle-fn input-id item-id]
+  (toggle-fn item-id)
+  (js/setTimeout #(when-let [el (.getElementById js/document input-id)]
+                    (.focus el)
+                    (let [len (.-length (.-value el))]
+                      (.setSelectionRange el len len))) 0))
+
 (defn category-filter-section
   [{:keys [title shortcut-number filter-key items marked-ids toggle-fn clear-fn collapsed?
            toggle-collapsed-fn set-search-fn search-state-path
@@ -321,12 +328,7 @@
            ^{:key (:id item)}
            [:button.filter-item
             {:class (when (contains? marked-ids (:id item)) item-active-class)
-             :on-click (fn []
-                         (toggle-fn (:id item))
-                         (js/setTimeout #(when-let [el (.getElementById js/document input-id)]
-                                           (.focus el)
-                                           (let [len (.-length (.-value el))]
-                                             (.setSelectionRange el len len))) 0))}
+             :on-click #(handle-filter-badge-click toggle-fn input-id (:id item))}
             (:name item)]))])]))
 
 (defn today-sidebar-filters []
@@ -366,6 +368,45 @@
                                :label-class "excluded"
                                :page-prefix "today"}]]))
 
+(defn- task-list-section [tasks & opts]
+  (let [opts-map (apply hash-map opts)]
+    [:div.task-list
+     (doall
+      (for [task tasks]
+        ^{:key (:id task)}
+        [today-task-item task
+         :overdue? (get opts-map :overdue? false)
+         :show-day-of-week (get opts-map :show-day-of-week false)
+         :show-day-prefix (get opts-map :show-day-prefix false)]))]))
+
+(defn- today-overdue-section [overdue]
+  (when (seq overdue)
+    [:div.today-section.overdue
+     [:h3 (t :today/overdue)]
+     [task-list-section overdue :overdue? true]]))
+
+(defn- today-today-section [today]
+  [:div.today-section.today
+   [:h3 (state/today-formatted)]
+   (if (seq today)
+     [task-list-section today]
+     [:p.empty-message (t :today/no-today)])])
+
+(defn- today-urgent-section [urgent]
+  (when (seq urgent)
+    [:div.today-section.urgent
+     [:h3 (t :today/urgent-matters)]
+     [task-list-section urgent :show-day-of-week true]]))
+
+(defn- today-upcoming-section [upcoming]
+  [:div.today-section.upcoming
+   [:div.section-header
+    [:h3 (t :today/upcoming)]
+    [horizon-selector]]
+   (if (seq upcoming)
+     [task-list-section upcoming :show-day-of-week true :show-day-prefix true]
+     [:p.empty-message (t :today/no-upcoming)])])
+
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
         today (state/today-tasks)
@@ -374,42 +415,10 @@
     [:div.main-layout
      [today-sidebar-filters]
      [:div.main-content.today-content
-      (when (seq overdue)
-        [:div.today-section.overdue
-         [:h3 (t :today/overdue)]
-         [:div.task-list
-          (doall
-           (for [task overdue]
-             ^{:key (:id task)}
-             [today-task-item task :overdue? true]))]])
-      [:div.today-section.today
-       [:h3 (state/today-formatted)]
-       (if (seq today)
-         [:div.task-list
-          (doall
-           (for [task today]
-             ^{:key (:id task)}
-             [today-task-item task]))]
-         [:p.empty-message (t :today/no-today)])]
-      (when (seq urgent)
-        [:div.today-section.urgent
-         [:h3 (t :today/urgent-matters)]
-         [:div.task-list
-          (doall
-           (for [task urgent]
-             ^{:key (:id task)}
-             [today-task-item task :show-day-of-week true]))]])
-      [:div.today-section.upcoming
-       [:div.section-header
-        [:h3 (t :today/upcoming)]
-        [horizon-selector]]
-       (if (seq upcoming)
-         [:div.task-list
-          (doall
-           (for [task upcoming]
-             ^{:key (:id task)}
-             [today-task-item task :show-day-of-week true :show-day-prefix true]))]
-         [:p.empty-message (t :today/no-upcoming)])]]]))
+      [today-overdue-section overdue]
+      [today-today-section today]
+      [today-urgent-section urgent]
+      [today-upcoming-section upcoming]]]))
 
 (defn search-filter []
   (let [search-term (:tasks-page/filter-search @state/app-state)]
