@@ -269,6 +269,26 @@
    (when show-urgency?
      [task-urgency-selector task])])
 
+(defn task-combined-action-button [task]
+  [:div.combined-button-wrapper
+   [:button.combined-main-btn
+    {:class (if (state/task-done? task) "undone" "done")
+     :on-click #(state/set-task-done (:id task) (not (state/task-done? task)))}
+    (if (state/task-done? task)
+      (t :task/set-undone)
+      (t :task/mark-done))]
+   [:button.combined-dropdown-btn
+    {:class (if (state/task-done? task) "undone" "done")
+     :on-click #(state/set-task-dropdown-open (:id task))}
+    "▼"]
+   (when (= (:id task) (:task-dropdown-open @state/app-state))
+     [:div.task-dropdown-menu
+      [:button.dropdown-item
+       {:on-click #(do
+                     (state/set-task-dropdown-open nil)
+                     (state/set-confirm-delete-task task))}
+       (t :task/delete)]])])
+
 (defn- markdown [text]
   [:div.markdown-content
    {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
@@ -298,11 +318,8 @@
      [:div.item-description [markdown (:description task)]])
    [task-category-badges task]
    [:div.item-actions
-    (if (state/task-done? task)
-      [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
-      [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
     [task-attribute-selectors task :show-urgency? false]
-    [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])
+    [task-combined-action-button task]]])
 
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
   (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
@@ -856,11 +873,8 @@
     [category-selector task state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
     [category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
    [:div.item-actions
-    (if (state/task-done? task)
-      [:button.undone-btn {:on-click #(state/set-task-done (:id task) false)} (t :task/set-undone)]
-      [:button.done-btn {:on-click #(state/set-task-done (:id task) true)} (t :task/mark-done)])
     [task-attribute-selectors task]
-    [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)} (t :task/delete)]]])
+    [task-combined-action-button task]]])
 
 (defn- task-header [task is-expanded done-mode? due-date-mode?]
   [:div.item-header

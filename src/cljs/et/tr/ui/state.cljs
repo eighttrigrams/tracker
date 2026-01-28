@@ -59,6 +59,9 @@
                             :today-page/selected-view :urgent
                             :upcoming-horizon nil
 
+                            ;; Task dropdown state
+                            :task-dropdown-open nil
+
                             ;; Category selector state
                             :category-selector/open nil
                             :category-selector/search ""
@@ -626,6 +629,9 @@
 
 (defn set-confirm-delete-task [task]
   (swap! app-state assoc :confirm-delete-task task))
+
+(defn set-task-dropdown-open [task-id]
+  (swap! app-state assoc :task-dropdown-open task-id))
 
 (defn clear-confirm-delete []
   (swap! app-state assoc :confirm-delete-task nil))
