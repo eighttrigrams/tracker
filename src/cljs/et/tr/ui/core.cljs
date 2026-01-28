@@ -176,26 +176,35 @@
 
 (defn- vesicapiscis-icon [selected-scope strict-mode?]
   (let [is-active (= selected-scope "both")
-        left-filled (or (= selected-scope "private") (and (= selected-scope "both") (not strict-mode?)))
-        center-filled (and (= selected-scope "both") (not strict-mode?))
-        right-filled (or (= selected-scope "work") (and (= selected-scope "both") (not strict-mode?)))
+        left-crescent (and (= selected-scope "private") strict-mode?)
+        right-crescent (and (= selected-scope "work") strict-mode?)
+        left-filled (and (= selected-scope "private") (not strict-mode?))
+        right-filled (and (= selected-scope "work") (not strict-mode?))
+        both-filled (and (= selected-scope "both") (not strict-mode?))
         intersection-only (and (= selected-scope "both") strict-mode?)
         fill-color (if is-active "white" "var(--accent)")
-        stroke-color (if is-active "white" "var(--accent)")]
+        stroke-color (if is-active "white" "var(--accent)")
+        uid (str (random-uuid))]
     [:svg {:width "32" :height "20" :viewBox "0 0 32 20" :style {:display "inline-block" :vertical-align "middle"}}
      [:defs
-      [:clipPath {:id "left-circle"}
-       [:circle {:cx "10" :cy "10" :r "7"}]]
-      [:clipPath {:id "right-circle"}
-       [:circle {:cx "22" :cy "10" :r "7"}]]
-      [:clipPath {:id "intersection"}
-       [:path {:d "M 14 3.5 A 7 7 0 0 1 14 16.5 A 7 7 0 0 1 14 3.5 Z"}]]]
-     (when (and left-filled (not intersection-only))
+      [:mask {:id (str "left-only-" uid)}
+       [:rect {:x "0" :y "0" :width "32" :height "20" :fill "white"}]
+       [:circle {:cx "22" :cy "10" :r "7" :fill "black"}]]
+      [:mask {:id (str "right-only-" uid)}
+       [:rect {:x "0" :y "0" :width "32" :height "20" :fill "white"}]
+       [:circle {:cx "10" :cy "10" :r "7" :fill "black"}]]]
+     (when left-crescent
+       [:circle {:cx "10" :cy "10" :r "7" :fill fill-color :stroke "none" :mask (str "url(#left-only-" uid ")")}])
+     (when right-crescent
+       [:circle {:cx "22" :cy "10" :r "7" :fill fill-color :stroke "none" :mask (str "url(#right-only-" uid ")")}])
+     (when left-filled
        [:circle {:cx "10" :cy "10" :r "7" :fill fill-color :stroke "none"}])
-     (when (and right-filled (not intersection-only))
+     (when right-filled
        [:circle {:cx "22" :cy "10" :r "7" :fill fill-color :stroke "none"}])
-     (when (and center-filled (not intersection-only))
-       [:path {:d "M 14 3.5 A 7 7 0 0 1 14 16.5 A 7 7 0 0 1 14 3.5 Z" :fill fill-color :stroke "none"}])
+     (when both-filled
+       [:g
+        [:circle {:cx "10" :cy "10" :r "7" :fill fill-color :stroke "none"}]
+        [:circle {:cx "22" :cy "10" :r "7" :fill fill-color :stroke "none"}]])
      (when intersection-only
        [:path {:d "M 14 3.5 A 7 7 0 0 1 14 16.5 A 7 7 0 0 1 14 3.5 Z" :fill fill-color :stroke "none"}])
      [:circle {:cx "10" :cy "10" :r "7" :fill "none" :stroke stroke-color :stroke-width "1.5"}]
