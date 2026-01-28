@@ -1,3 +1,4 @@
 {:pipeline-name "fullstack-exploratory-first-with-boyscout-help"
  :project-name "Tracker"
- :port "3027"}
+ :port "3027"
+ :model "sonnett"}
