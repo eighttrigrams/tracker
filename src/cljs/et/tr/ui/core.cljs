@@ -308,7 +308,21 @@
         visible-items (if (seq search-term)
                         (filter #(state/prefix-matches? (:name %) search-term) items)
                         items)
-        input-id (str (or page-prefix "tasks") "-filter-" (name filter-key))]
+        input-id (str (or page-prefix "tasks") "-filter-" (name filter-key))
+        handle-key-down (fn [e]
+                          (cond
+                            (= (.-key e) "Escape")
+                            (do
+                              (when (.-altKey e)
+                                (.stopPropagation e)
+                                (clear-fn)
+                                (set-search-fn filter-key ""))
+                              (toggle-collapsed-fn filter-key))
+
+                            (= (.-key e) "Enter")
+                            (when-let [first-item (first visible-items)]
+                              (.preventDefault e)
+                              (toggle-fn (:id first-item)))))]
     [:div.filter-section {:class section-class}
      [:div.filter-header
       [:button.collapse-toggle
@@ -334,21 +348,7 @@
           :placeholder (t :category/search)
           :value search-term
           :on-change #(set-search-fn filter-key (-> % .-target .-value))
-          :on-key-down (fn [e]
-                         (cond
-                           (= (.-key e) "Escape")
-                           (if (.-altKey e)
-                             (do
-                               (.stopPropagation e)
-                               (clear-fn)
-                               (set-search-fn filter-key "")
-                               (toggle-collapsed-fn filter-key))
-                             (toggle-collapsed-fn filter-key))
-
-                           (= (.-key e) "Enter")
-                           (when-let [first-item (first visible-items)]
-                             (.preventDefault e)
-                             (toggle-fn (:id first-item)))))}]
+          :on-key-down handle-key-down}]
         (doall
          (for [item visible-items]
            ^{:key (:id item)}
