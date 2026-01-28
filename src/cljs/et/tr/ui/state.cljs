@@ -56,6 +56,7 @@
                             :today-page/collapsed-filters #{:places :projects}
                             :today-page/category-search {:places "" :projects ""}
                             :today-page/expanded-task nil
+                            :today-page/selected-view :urgent
                             :upcoming-horizon nil
 
                             ;; Category selector state
@@ -722,6 +723,10 @@
 
 (defn set-today-category-search [category-key search-term]
   (swap! app-state assoc-in [:today-page/category-search category-key] search-term))
+
+(defn set-today-selected-view [view]
+  (when (#{:urgent :upcoming} view)
+    (swap! app-state assoc :today-page/selected-view view)))
 
 (defn- apply-today-exclusion-filter [tasks]
   (filters/apply-exclusion-filter tasks

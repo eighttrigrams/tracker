@@ -407,18 +407,32 @@
      [task-list-section upcoming :show-day-of-week true :show-day-prefix true]
      [:p.empty-message (t :today/no-upcoming)])])
 
+(defn- today-view-switcher []
+  (let [selected-view (:today-page/selected-view @state/app-state)]
+    [:div.today-view-switcher
+     [:button {:class (when (= selected-view :urgent) "active")
+               :on-click #(state/set-today-selected-view :urgent)}
+      (t :today/urgent-matters)]
+     [:button {:class (when (= selected-view :upcoming) "active")
+               :on-click #(state/set-today-selected-view :upcoming)}
+      (t :today/upcoming)]]))
+
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
         today (state/today-tasks)
         urgent (state/urgent-tasks)
-        upcoming (state/upcoming-tasks)]
+        upcoming (state/upcoming-tasks)
+        selected-view (:today-page/selected-view @state/app-state)]
     [:div.main-layout
      [today-sidebar-filters]
      [:div.main-content.today-content
       [today-overdue-section overdue]
       [today-today-section today]
-      [today-urgent-section urgent]
-      [today-upcoming-section upcoming]]]))
+      [today-view-switcher]
+      (when (= selected-view :urgent)
+        [today-urgent-section urgent])
+      (when (= selected-view :upcoming)
+        [today-upcoming-section upcoming])]]))
 
 (defn search-filter []
   (let [search-term (:tasks-page/filter-search @state/app-state)]
