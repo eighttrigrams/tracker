@@ -25,6 +25,16 @@
 (def ^:private today-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) today-category-shortcut-keys)))
 
+(defn- reset-input-and-filter! [input-atom filter-value]
+  (reset! input-atom filter-value)
+  (state/set-filter-search filter-value))
+
+(defn- handle-escape-key [input-atom on-clear-fn]
+  (fn [e]
+    (when (= (.-key e) "Escape")
+      (reset! input-atom "")
+      (when on-clear-fn (on-clear-fn)))))
+
 (defn login-form []
   (let [username (r/atom "")
         password (r/atom "")]
@@ -434,17 +444,15 @@
       (when (= selected-view :upcoming)
         [today-upcoming-section upcoming])]]))
 
-(defn search-filter []
-  (let [search-term (:tasks-page/filter-search @state/app-state)]
-    [:div.search-filter
-     [:input#tasks-search {:type "text"
-                           :placeholder (t :tasks/search)
-                           :value search-term
-                           :on-change #(state/set-filter-search (-> % .-target .-value))
-                           :on-key-down #(when (= (.-key %) "Escape")
-                                           (state/set-filter-search ""))}]
-     (when (seq search-term)
-       [:button.clear-search {:on-click #(state/set-filter-search "")} "x"])]))
+(defn search-filter [search-term on-change on-clear]
+  [:div.search-filter
+   [:input#tasks-filter-search {:type "text"
+                                :placeholder (t :tasks/search)
+                                :value search-term
+                                :on-change on-change
+                                :on-key-down (handle-escape-key (r/atom search-term) on-clear)}]
+   (when (seq search-term)
+     [:button.clear-search {:on-click on-clear} "x"])])
 
 (defn sort-mode-toggle []
   (let [sort-mode (:sort-mode @state/app-state)]
@@ -989,7 +997,10 @@
              [:h2 {:title (t :tasks/title-tooltip)} (t :tasks/title)]
              [importance-filter-toggle]
              [sort-mode-toggle]]
-            [search-filter]
+            [search-filter
+             (:tasks-page/filter-search @state/app-state)
+             #(state/set-filter-search (-> % .-target .-value))
+             #(state/set-filter-search "")]
             (when (and (not= sort-mode :done)
                        (empty? (:tasks-page/filter-search @state/app-state)))
               [add-task-form])
