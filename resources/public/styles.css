@@ -740,7 +740,7 @@ button:active { transform: translateY(0); }
 }
 .today-view-switcher {
   margin: 16px 0;
-  align-self: flex-end;
+  margin-left: auto;
 }
 .items li[draggable="true"] { cursor: grab; }
 .items li[draggable="true"]:active { cursor: grabbing; }
