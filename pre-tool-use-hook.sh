@@ -10,7 +10,12 @@ TIMESTAMP=$(date +%Y-%m-%d\ %H:%M:%S)
 
 if [ "$TOOL_NAME" = "Bash" ]; then
   CMD=$(echo "$INPUT" | jq -r '.tool_input.command' 2>/dev/null)
-  echo "$TIMESTAMP - PreToolUse - Bash($CMD)" >> "$LOG_FILE"
+  DESC=$(echo "$INPUT" | jq -r '.tool_input.description // empty' 2>/dev/null)
+  if [ -n "$DESC" ]; then
+    echo "$TIMESTAMP - PreToolUse - Bash($CMD) - $DESC" >> "$LOG_FILE"
+  else
+    echo "$TIMESTAMP - PreToolUse - Bash($CMD)" >> "$LOG_FILE"
+  fi
 else
   echo "" >> "$LOG_FILE"
   echo "================================================================" >> "$LOG_FILE"
