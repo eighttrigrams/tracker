@@ -34,6 +34,7 @@
     "allow": [
       "Bash(make start)",
       "Bash(make test)",
+      "Bash(clj -X:test)",
       "mcp__playwright__browser_wait_for",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_type",
