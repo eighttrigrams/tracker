@@ -1,4 +1,4 @@
-(ns et.tr.messages-test
+(ns et.tr.messages-db-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [et.tr.db :as db]))
 
