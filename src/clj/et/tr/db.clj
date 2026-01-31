@@ -130,6 +130,7 @@
          base-where (case sort-mode
                       :due-date (str "WHERE " clause " AND due_date IS NOT NULL AND done = 0")
                       :done (str "WHERE " clause " AND done = 1")
+                      :today (str "WHERE " clause " AND done = 0 AND (due_date IS NOT NULL OR urgency IN ('urgent', 'superurgent'))")
                       (str "WHERE " clause " AND done = 0"))
          search-clause (when (and search-term (not (clojure.string/blank? search-term)))
                          (let [term (clojure.string/lower-case (clojure.string/trim search-term))]
@@ -141,6 +142,7 @@
                         :manual "ORDER BY sort_order ASC, created_at DESC"
                         :due-date "ORDER BY due_date ASC, due_time IS NOT NULL, due_time ASC"
                         :done "ORDER BY modified_at DESC"
+                        :today "ORDER BY due_date ASC, due_time IS NOT NULL, due_time ASC"
                         "ORDER BY modified_at DESC")
          tasks (jdbc/execute! conn
                  (into [(str "SELECT " task-select-columns " FROM tasks " where-clause " " order-clause)] all-params)

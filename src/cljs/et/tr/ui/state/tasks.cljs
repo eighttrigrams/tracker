@@ -219,7 +219,9 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))))
 
 (defn set-sort-mode [app-state fetch-tasks-fn mode]
-  (swap! app-state assoc :sort-mode mode)
+  (swap! app-state assoc
+         :sort-mode mode
+         :tasks-page/last-sort-mode mode)
   (fetch-tasks-fn))
 
 (defn task-done? [task]

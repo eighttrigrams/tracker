@@ -7,12 +7,14 @@
 (defn make-tab-initializers [app-state fetch-tasks-fn fetch-messages-fn is-admin-fn]
   {:tasks (fn []
             (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
+            (let [last-sort-mode (:tasks-page/last-sort-mode @app-state)]
+              (swap! app-state assoc :sort-mode last-sort-mode))
             (focus-tasks-search)
             (fetch-tasks-fn {:search-term (:tasks-page/filter-search @app-state)}))
    :today (fn []
-            (swap! app-state assoc :today-page/collapsed-filters #{:places :projects})
-            (when (= :done (:sort-mode @app-state))
-              (swap! app-state assoc :sort-mode :manual))
+            (swap! app-state assoc
+                   :today-page/collapsed-filters #{:places :projects}
+                   :sort-mode :today)
             (fetch-tasks-fn))
    :mail (fn []
            (when (is-admin-fn)
