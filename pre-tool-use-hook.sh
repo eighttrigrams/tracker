@@ -22,6 +22,14 @@ elif [ "$TOOL_NAME" = "Task" ]; then
   PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
   echo "$TIMESTAMP - PreToolUse - Task($SUBAGENT) - $DESC" >> "$LOG_FILE"
   echo "  prompt: $PROMPT" >> "$LOG_FILE"
+elif [ "$TOOL_NAME" = "Skill" ]; then
+  SKILL=$(echo "$INPUT" | jq -r '.tool_input.skill // empty' 2>/dev/null)
+  ARGS=$(echo "$INPUT" | jq -r '.tool_input.args // empty' 2>/dev/null)
+  if [ -n "$ARGS" ]; then
+    echo "$TIMESTAMP - PreToolUse - Skill($SKILL) - $ARGS" >> "$LOG_FILE"
+  else
+    echo "$TIMESTAMP - PreToolUse - Skill($SKILL)" >> "$LOG_FILE"
+  fi
 else
   echo "" >> "$LOG_FILE"
   echo "================================================================" >> "$LOG_FILE"
