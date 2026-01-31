@@ -71,7 +71,7 @@
 
                             ;; Global UI state
                             :active-tab :today
-                            :sort-mode :manual
+                            :sort-mode :today
                             :tasks-page/last-sort-mode :manual
                             :drag-task nil
                             :drag-over-task nil
