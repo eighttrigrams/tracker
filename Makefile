@@ -1,4 +1,4 @@
-.PHONY: start stop start-prod build deploy clean fly-backup fly-backup-replay
+.PHONY: start stop start-prod build test deploy clean fly-backup fly-backup-replay
 
 start:
 	./scripts/start.sh
