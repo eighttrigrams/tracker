@@ -397,28 +397,19 @@
       (into [(str "UPDATE tasks SET done = ?, modified_at = datetime('now') WHERE id = ? AND " clause " RETURNING id, done, modified_at")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
-(defn set-task-scope [ds user-id task-id scope]
-  (let [{:keys [clause params]} (user-id-clause user-id)
-        valid-scope (normalize-scope scope)
-        query-params (concat [valid-scope task-id] params)]
-    (jdbc/execute-one! (get-conn ds)
-      (into [(str "UPDATE tasks SET scope = ?, modified_at = datetime('now') WHERE id = ? AND " clause " RETURNING id, scope, modified_at")] query-params)
-      {:builder-fn rs/as-unqualified-maps})))
+(def ^:private field-normalizers
+  {:scope normalize-scope
+   :importance normalize-importance
+   :urgency normalize-urgency})
 
-(defn set-task-importance [ds user-id task-id importance]
+(defn set-task-field [ds user-id task-id field value]
   (let [{:keys [clause params]} (user-id-clause user-id)
-        valid-importance (normalize-importance importance)
-        query-params (concat [valid-importance task-id] params)]
+        normalize-fn (get field-normalizers field identity)
+        valid-value (normalize-fn value)
+        field-name (name field)
+        query-params (concat [valid-value task-id] params)]
     (jdbc/execute-one! (get-conn ds)
-      (into [(str "UPDATE tasks SET importance = ?, modified_at = datetime('now') WHERE id = ? AND " clause " RETURNING id, importance, modified_at")] query-params)
-      {:builder-fn rs/as-unqualified-maps})))
-
-(defn set-task-urgency [ds user-id task-id urgency]
-  (let [{:keys [clause params]} (user-id-clause user-id)
-        valid-urgency (normalize-urgency urgency)
-        query-params (concat [valid-urgency task-id] params)]
-    (jdbc/execute-one! (get-conn ds)
-      (into [(str "UPDATE tasks SET urgency = ?, modified_at = datetime('now') WHERE id = ? AND " clause " RETURNING id, urgency, modified_at")] query-params)
+      (into [(str "UPDATE tasks SET " field-name " = ?, modified_at = datetime('now') WHERE id = ? AND " clause " RETURNING id, " field-name ", modified_at")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (def valid-languages #{"en" "de" "pt"})

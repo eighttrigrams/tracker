@@ -377,8 +377,8 @@
     (let [_task1 (db/add-task *ds* nil "Normal task")
           task2 (db/add-task *ds* nil "Important task")
           task3 (db/add-task *ds* nil "Critical task")]
-      (db/set-task-importance *ds* nil (:id task2) "important")
-      (db/set-task-importance *ds* nil (:id task3) "critical")
+      (db/set-task-field *ds* nil (:id task2) :importance "important")
+      (db/set-task-field *ds* nil (:id task3) :importance "critical")
       (let [tasks (db/list-tasks *ds* nil :recent {})]
         (is (= 3 (count tasks))))))
 
@@ -410,8 +410,8 @@
     (let [_task1 (db/add-task *ds* nil "Normal urgency")
           task2 (db/add-task *ds* nil "Urgent task")
           task3 (db/add-task *ds* nil "Superurgent task")]
-      (db/set-task-urgency *ds* nil (:id task2) "urgent")
-      (db/set-task-urgency *ds* nil (:id task3) "superurgent")
+      (db/set-task-field *ds* nil (:id task2) :urgency "urgent")
+      (db/set-task-field *ds* nil (:id task3) :urgency "superurgent")
       (let [tasks (db/list-tasks *ds* nil :today)]
         (is (some #(= "Urgent task" (:title %)) tasks))
         (is (some #(= "Superurgent task" (:title %)) tasks))

@@ -370,28 +370,28 @@
         {:status 200 :body result}
         {:status 404 :body {:error "Task not found"}}))))
 
-(defn- make-task-property-handler [property-key valid-values db-setter-fn error-message]
+(defn- make-task-property-handler [field valid-values error-message]
   (fn [req]
-    (let [value (get-in req [:body property-key])]
+    (let [value (get-in req [:body field])]
       (if-not (contains? valid-values value)
         {:status 400 :body {:error error-message}}
         (let [user-id (get-user-id req)
               task-id (Integer/parseInt (get-in req [:params :id]))
-              result (db-setter-fn (ensure-ds) user-id task-id value)]
+              result (db/set-task-field (ensure-ds) user-id task-id field value)]
           (if result
             {:status 200 :body result}
             {:status 404 :body {:error "Task not found"}}))))))
 
 (def set-task-scope-handler
-  (make-task-property-handler :scope db/valid-scopes db/set-task-scope
+  (make-task-property-handler :scope db/valid-scopes
                               "Invalid scope. Must be 'private', 'both', or 'work'"))
 
 (def set-task-importance-handler
-  (make-task-property-handler :importance db/valid-importances db/set-task-importance
+  (make-task-property-handler :importance db/valid-importances
                               "Invalid importance. Must be 'normal', 'important', or 'critical'"))
 
 (def set-task-urgency-handler
-  (make-task-property-handler :urgency db/valid-urgencies db/set-task-urgency
+  (make-task-property-handler :urgency db/valid-urgencies
                               "Invalid urgency. Must be 'default', 'urgent', or 'superurgent'"))
 
 (defn delete-task-handler [req]
