@@ -1,4 +1,4 @@
-(ns et.tr.db-test
+(ns et.tr.tasks-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [et.tr.db :as db]))
 
@@ -131,38 +131,6 @@
       (db/uncategorize-task *ds* nil (:id task) "person" (:id person))
       (is (= 0 (count (:people (first (db/list-tasks *ds* nil)))))))))
 
-(deftest people-crud-test
-  (testing "add and list people"
-    (db/add-person *ds* nil "Alice")
-    (db/add-person *ds* nil "Bob")
-    (let [people (db/list-people *ds* nil)]
-      (is (= 2 (count people)))
-      (is (= ["Alice" "Bob"] (map :name people))))))
-
-(deftest places-crud-test
-  (testing "add and list places"
-    (db/add-place *ds* nil "Home")
-    (db/add-place *ds* nil "Work")
-    (let [places (db/list-places *ds* nil)]
-      (is (= 2 (count places)))
-      (is (= ["Home" "Work"] (map :name places))))))
-
-(deftest projects-crud-test
-  (testing "add and list projects"
-    (db/add-project *ds* nil "Alpha")
-    (db/add-project *ds* nil "Beta")
-    (let [projects (db/list-projects *ds* nil)]
-      (is (= 2 (count projects)))
-      (is (= ["Alpha" "Beta"] (map :name projects))))))
-
-(deftest goals-crud-test
-  (testing "add and list goals"
-    (db/add-goal *ds* nil "Learn Clojure")
-    (db/add-goal *ds* nil "Ship product")
-    (let [goals (db/list-goals *ds* nil)]
-      (is (= 2 (count goals)))
-      (is (= ["Learn Clojure" "Ship product"] (map :name goals))))))
-
 (deftest sort-order-midpoint-test
   (testing "midpoint insertion maintains order"
     (let [task1 (db/add-task *ds* nil "A")
@@ -229,44 +197,6 @@
       (is (= 1 (count (:people (first (db/list-tasks *ds* nil))))))
       (db/delete-task *ds* nil (:id task))
       (is (= 0 (count (db/list-tasks *ds* nil)))))))
-
-(deftest user-data-isolation-test
-  (testing "users see only their own data"
-    (let [user2 (db/create-user *ds* "user2" "pass")
-          user2-id (:id user2)]
-      (db/add-task *ds* nil "Admin task")
-      (db/add-task *ds* user2-id "User2 task")
-      (db/add-person *ds* nil "Admin person")
-      (db/add-person *ds* user2-id "User2 person")
-      (is (= 1 (count (db/list-tasks *ds* nil))))
-      (is (= 1 (count (db/list-tasks *ds* user2-id))))
-      (is (= "Admin task" (:title (first (db/list-tasks *ds* nil)))))
-      (is (= "User2 task" (:title (first (db/list-tasks *ds* user2-id)))))
-      (is (= ["Admin person"] (map :name (db/list-people *ds* nil))))
-      (is (= ["User2 person"] (map :name (db/list-people *ds* user2-id)))))))
-
-(deftest delete-user-cleans-up-data-test
-  (testing "deleting user removes all their data"
-    (let [user (db/create-user *ds* "testuser" "pass")
-          user-id (:id user)
-          task (db/add-task *ds* user-id "User task")
-          person (db/add-person *ds* user-id "User person")
-          place (db/add-place *ds* user-id "User place")
-          project (db/add-project *ds* user-id "User project")
-          goal (db/add-goal *ds* user-id "User goal")]
-      (db/categorize-task *ds* user-id (:id task) "person" (:id person))
-      (is (= 1 (count (db/list-tasks *ds* user-id))))
-      (is (= 1 (count (db/list-people *ds* user-id))))
-      (is (= 1 (count (db/list-places *ds* user-id))))
-      (is (= 1 (count (db/list-projects *ds* user-id))))
-      (is (= 1 (count (db/list-goals *ds* user-id))))
-      (db/delete-user *ds* user-id)
-      (is (= 0 (count (db/list-tasks *ds* user-id))))
-      (is (= 0 (count (db/list-people *ds* user-id))))
-      (is (= 0 (count (db/list-places *ds* user-id))))
-      (is (= 0 (count (db/list-projects *ds* user-id))))
-      (is (= 0 (count (db/list-goals *ds* user-id))))
-      (is (nil? (db/get-user-by-username *ds* "testuser"))))))
 
 (deftest set-task-done-test
   (testing "marks task as done"
@@ -370,110 +300,6 @@
             retrieved (first tasks)]
         (is (= "09:30" (:due_time retrieved)))
         (is (= "2026-01-15" (:due_date retrieved)))))))
-
-(deftest category-name-unique-per-user-test
-  (testing "different users can have categories with the same name"
-    (let [user1 (db/create-user *ds* "user1" "pass1")
-          user2 (db/create-user *ds* "user2" "pass2")
-          user1-id (:id user1)
-          user2-id (:id user2)]
-      (db/add-person *ds* user1-id "John")
-      (db/add-person *ds* user2-id "John")
-      (db/add-place *ds* user1-id "Office")
-      (db/add-place *ds* user2-id "Office")
-      (db/add-project *ds* user1-id "Alpha")
-      (db/add-project *ds* user2-id "Alpha")
-      (db/add-goal *ds* user1-id "Launch")
-      (db/add-goal *ds* user2-id "Launch")
-      (is (= ["John"] (map :name (db/list-people *ds* user1-id))))
-      (is (= ["John"] (map :name (db/list-people *ds* user2-id))))
-      (is (= ["Office"] (map :name (db/list-places *ds* user1-id))))
-      (is (= ["Office"] (map :name (db/list-places *ds* user2-id))))
-      (is (= ["Alpha"] (map :name (db/list-projects *ds* user1-id))))
-      (is (= ["Alpha"] (map :name (db/list-projects *ds* user2-id))))
-      (is (= ["Launch"] (map :name (db/list-goals *ds* user1-id))))
-      (is (= ["Launch"] (map :name (db/list-goals *ds* user2-id))))))
-
-  (testing "same user cannot have duplicate category names"
-    (let [user (db/create-user *ds* "testuser" "pass")
-          user-id (:id user)]
-      (db/add-person *ds* user-id "Alice")
-      (is (thrown? Exception (db/add-person *ds* user-id "Alice"))))))
-
-(deftest add-message-test
-  (testing "adds message with required fields"
-    (let [message (db/add-message *ds* nil "John" "Hello" "Test body")]
-      (is (some? (:id message)))
-      (is (= "John" (:sender message)))
-      (is (= "Hello" (:title message)))
-      (is (= "Test body" (:description message)))
-      (is (= 0 (:done message)))
-      (is (some? (:created_at message))))))
-
-(deftest list-messages-empty-test
-  (testing "returns empty list when no messages"
-    (is (= [] (db/list-messages *ds* nil)))))
-
-(deftest list-messages-recent-mode-test
-  (testing "recent mode returns non-done messages"
-    (let [m1 (db/add-message *ds* nil "A" "Msg1" "")
-          _m2 (db/add-message *ds* nil "B" "Msg2" "")]
-      (db/set-message-done *ds* nil (:id m1) true)
-      (let [messages (db/list-messages *ds* nil :recent)]
-        (is (= 1 (count messages)))
-        (is (= "Msg2" (:title (first messages))))))))
-
-(deftest list-messages-done-mode-test
-  (testing "done mode returns archived messages"
-    (let [m1 (db/add-message *ds* nil "A" "Msg1" "")
-          _m2 (db/add-message *ds* nil "B" "Msg2" "")]
-      (db/set-message-done *ds* nil (:id m1) true)
-      (let [messages (db/list-messages *ds* nil :done)]
-        (is (= 1 (count messages)))
-        (is (= "Msg1" (:title (first messages))))))))
-
-(deftest set-message-done-test
-  (testing "marks message as done"
-    (let [message (db/add-message *ds* nil "X" "Test" "")
-          result (db/set-message-done *ds* nil (:id message) true)]
-      (is (= 1 (:done result)))))
-
-  (testing "can unmark message as done"
-    (let [message (db/add-message *ds* nil "Y" "Test2" "")
-          _ (db/set-message-done *ds* nil (:id message) true)
-          result (db/set-message-done *ds* nil (:id message) false)]
-      (is (= 0 (:done result))))))
-
-(deftest delete-message-test
-  (testing "deletes message and returns success"
-    (let [message (db/add-message *ds* nil "Z" "ToDelete" "")
-          result (db/delete-message *ds* nil (:id message))]
-      (is (= true (:success result)))
-      (is (= 0 (count (db/list-messages *ds* nil))))))
-
-  (testing "returns nil for non-existent message"
-    (let [result (db/delete-message *ds* nil 99999)]
-      (is (nil? result)))))
-
-(deftest message-user-isolation-test
-  (testing "users see only their own messages"
-    (let [user2 (db/create-user *ds* "user2" "pass")
-          user2-id (:id user2)]
-      (db/add-message *ds* nil "AdminSender" "Admin msg" "")
-      (db/add-message *ds* user2-id "User2Sender" "User2 msg" "")
-      (is (= 1 (count (db/list-messages *ds* nil))))
-      (is (= 1 (count (db/list-messages *ds* user2-id))))
-      (is (= "Admin msg" (:title (first (db/list-messages *ds* nil)))))
-      (is (= "User2 msg" (:title (first (db/list-messages *ds* user2-id))))))))
-
-(deftest delete-user-cleans-up-messages-test
-  (testing "deleting user removes their messages"
-    (let [user (db/create-user *ds* "testuser" "pass")
-          user-id (:id user)]
-      (db/add-message *ds* user-id "Sender" "User msg" "")
-      (is (= 1 (count (db/list-messages *ds* user-id))))
-      (db/delete-user *ds* user-id)
-      (is (= 0 (count (db/list-messages *ds* user-id)))))))
 
 (deftest list-tasks-search-test
   (testing "nil search-term returns all tasks"
