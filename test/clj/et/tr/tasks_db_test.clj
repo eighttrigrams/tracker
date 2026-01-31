@@ -331,6 +331,47 @@
     (let [tasks (db/list-tasks *ds* nil :recent "xyz")]
       (is (= 0 (count tasks))))))
 
+(deftest list-tasks-multi-prefix-search-test
+  (testing "setup data for multi-prefix tests"
+    (db/add-task *ds* nil "aaaba cccde")
+    (db/add-task *ds* nil "kkml aka")
+    (db/add-task *ds* nil "aaa alba"))
+
+  (testing "single prefix 'aaa' matches tasks 1 and 3"
+    (let [tasks (db/list-tasks *ds* nil :recent "aaa")]
+      (is (= 2 (count tasks)))
+      (is (= #{"aaaba cccde" "aaa alba"} (set (map :title tasks))))))
+
+  (testing "two prefixes 'aaa al' narrows to task 3 only"
+    (let [tasks (db/list-tasks *ds* nil :recent "aaa al")]
+      (is (= 1 (count tasks)))
+      (is (= "aaa alba" (:title (first tasks))))))
+
+  (testing "prefix order independence - 'al aaa' same as 'aaa al'"
+    (let [tasks (db/list-tasks *ds* nil :recent "al aaa")]
+      (is (= 1 (count tasks)))
+      (is (= "aaa alba" (:title (first tasks))))))
+
+  (testing "extra whitespace is handled"
+    (let [tasks (db/list-tasks *ds* nil :recent "  aaa   al  ")]
+      (is (= 1 (count tasks)))
+      (is (= "aaa alba" (:title (first tasks))))))
+
+  (testing "case insensitivity with multiple prefixes"
+    (let [tasks (db/list-tasks *ds* nil :recent "AAA AL")]
+      (is (= 1 (count tasks)))
+      (is (= "aaa alba" (:title (first tasks))))))
+
+  (testing "three+ prefixes narrow further"
+    (db/add-task *ds* nil "aaa alba xyz")
+    (let [tasks (db/list-tasks *ds* nil :recent "aaa al xyz")]
+      (is (= 1 (count tasks)))
+      (is (= "aaa alba xyz" (:title (first tasks))))))
+
+  (testing "no match when one prefix fails"
+    (let [tasks (db/list-tasks *ds* nil :recent "aaa nonexistent")]
+      (is (= 0 (count tasks))))))
+
 (deftest list-tasks-importance-filter-test
   (testing "no importance filter returns all tasks"
     (let [_task1 (db/add-task *ds* nil "Normal task")

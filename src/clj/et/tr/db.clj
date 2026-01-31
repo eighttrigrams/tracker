@@ -118,9 +118,12 @@
 
 (defn- build-search-clause [search-term]
   (when (and search-term (not (clojure.string/blank? search-term)))
-    (let [term (clojure.string/lower-case (clojure.string/trim search-term))]
-      {:clause " AND (LOWER(title) LIKE ? OR LOWER(title) LIKE ?)"
-       :params [(str term "%") (str "% " term "%")]})))
+    (let [terms (->> (clojure.string/split (clojure.string/trim search-term) #"\s+")
+                     (map clojure.string/lower-case)
+                     (filter (complement clojure.string/blank?)))]
+      (when (seq terms)
+        {:clause (apply str (repeat (count terms) " AND (LOWER(title) LIKE ? OR LOWER(title) LIKE ?)"))
+         :params (vec (mapcat (fn [term] [(str term "%") (str "% " term "%")]) terms))}))))
 
 (defn- build-filter-clauses [base-params & clauses]
   (let [active-clauses (filter some? clauses)]
