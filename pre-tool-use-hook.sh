@@ -16,6 +16,12 @@ if [ "$TOOL_NAME" = "Bash" ]; then
   else
     echo "$TIMESTAMP - PreToolUse - Bash($CMD)" >> "$LOG_FILE"
   fi
+elif [ "$TOOL_NAME" = "Task" ]; then
+  SUBAGENT=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)
+  DESC=$(echo "$INPUT" | jq -r '.tool_input.description // empty' 2>/dev/null)
+  PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
+  echo "$TIMESTAMP - PreToolUse - Task($SUBAGENT) - $DESC" >> "$LOG_FILE"
+  echo "  prompt: $PROMPT" >> "$LOG_FILE"
 else
   echo "" >> "$LOG_FILE"
   echo "================================================================" >> "$LOG_FILE"
