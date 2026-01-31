@@ -1,6 +1,5 @@
 (ns et.tr.ui.state.tasks-page
-  (:require [clojure.set]
-            [et.tr.filters :as filters]))
+  (:require [clojure.set]))
 
 (def ^:const CATEGORY-TYPE-PERSON "person")
 (def ^:const CATEGORY-TYPE-PLACE "place")
@@ -37,14 +36,19 @@
 (defn clear-filter-goals [app-state]
   (swap! app-state assoc :tasks-page/filter-goals #{}))
 
+(defn- current-fetch-opts [app-state]
+  {:search-term (:tasks-page/filter-search @app-state)
+   :importance (:tasks-page/importance-filter @app-state)
+   :context (:work-private-mode @app-state)
+   :strict (:strict-mode @app-state)})
+
 (defn set-importance-filter [app-state fetch-tasks-fn level]
   (swap! app-state assoc :tasks-page/importance-filter level)
-  (fetch-tasks-fn {:search-term (:tasks-page/filter-search @app-state)
-                   :importance level}))
+  (fetch-tasks-fn (assoc (current-fetch-opts app-state) :importance level)))
 
 (defn clear-importance-filter [app-state fetch-tasks-fn]
   (swap! app-state assoc :tasks-page/importance-filter nil)
-  (fetch-tasks-fn {:search-term (:tasks-page/filter-search @app-state)}))
+  (fetch-tasks-fn (assoc (current-fetch-opts app-state) :importance nil)))
 
 (defn clear-uncollapsed-task-filters [app-state]
   (let [collapsed (:tasks-page/collapsed-filters @app-state)
@@ -98,8 +102,7 @@
   (when-let [timer @search-debounce-timer]
     (js/clearTimeout timer))
   (reset! search-debounce-timer
-          (js/setTimeout #(fetch-tasks-fn {:search-term search-term
-                                            :importance (:tasks-page/importance-filter @app-state)}) 300)))
+          (js/setTimeout #(fetch-tasks-fn (assoc (current-fetch-opts app-state) :search-term search-term)) 300)))
 
 (defn set-category-search [app-state category-key search-term]
   (swap! app-state assoc-in [:tasks-page/category-search category-key] search-term))
@@ -127,35 +130,19 @@
         words (.split title-lower #"\s+")]
     (some #(.startsWith % search-lower) words)))
 
-(defn- matches-scope? [task mode strict?]
-  (filters/matches-scope? task mode strict?))
-
-(defn scope-filtered-tasks [app-state]
-  (let [mode (:work-private-mode @app-state)
-        strict? (:strict-mode @app-state)]
-    (filter #(matches-scope? % mode strict?) (:tasks @app-state))))
-
-(defn- matches-importance-filter? [task importance-filter]
-  (case importance-filter
-    :important (contains? #{"important" "critical"} (:importance task))
-    :critical (= "critical" (:importance task))
-    true))
-
 (defn filtered-tasks [app-state]
-  (let [tasks (scope-filtered-tasks app-state)
+  (let [tasks (:tasks @app-state)
         filter-people (:tasks-page/filter-people @app-state)
         filter-places (:tasks-page/filter-places @app-state)
         filter-projects (:tasks-page/filter-projects @app-state)
         filter-goals (:tasks-page/filter-goals @app-state)
-        importance-filter (:tasks-page/importance-filter @app-state)
         matches-any? (fn [task-categories filter-ids]
                        (some #(contains? filter-ids (:id %)) task-categories))]
     (cond->> tasks
       (seq filter-people) (filter #(matches-any? (:people %) filter-people))
       (seq filter-places) (filter #(matches-any? (:places %) filter-places))
       (seq filter-projects) (filter #(matches-any? (:projects %) filter-projects))
-      (seq filter-goals) (filter #(matches-any? (:goals %) filter-goals))
-      importance-filter (filter #(matches-importance-filter? % importance-filter)))))
+      (seq filter-goals) (filter #(matches-any? (:goals %) filter-goals)))))
 
 (defn set-pending-new-task [app-state title on-success]
   (let [filter-people (:tasks-page/filter-people @app-state)

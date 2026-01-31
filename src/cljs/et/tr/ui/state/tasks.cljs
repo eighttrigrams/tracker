@@ -11,11 +11,13 @@
 (defn fetch-tasks
   ([app-state auth-headers calculate-best-horizon-fn]
    (fetch-tasks app-state auth-headers calculate-best-horizon-fn nil))
-  ([app-state auth-headers calculate-best-horizon-fn {:keys [search-term importance]}]
+  ([app-state auth-headers calculate-best-horizon-fn {:keys [search-term importance context strict]}]
    (let [sort-mode (name (:sort-mode @app-state))
          url (cond-> (str "/api/tasks?sort=" sort-mode)
                (seq search-term) (str "&q=" (js/encodeURIComponent search-term))
-               importance (str "&importance=" (name importance)))]
+               importance (str "&importance=" (name importance))
+               context (str "&context=" (name context))
+               strict (str "&strict=true"))]
      (GET url
        {:response-format :json
         :keywords? true

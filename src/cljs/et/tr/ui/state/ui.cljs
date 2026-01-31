@@ -11,12 +11,15 @@
               (swap! app-state assoc :sort-mode last-sort-mode))
             (focus-tasks-search)
             (fetch-tasks-fn {:search-term (:tasks-page/filter-search @app-state)
-                             :importance (:tasks-page/importance-filter @app-state)}))
+                             :importance (:tasks-page/importance-filter @app-state)
+                             :context (:work-private-mode @app-state)
+                             :strict (:strict-mode @app-state)}))
    :today (fn []
             (swap! app-state assoc
                    :today-page/collapsed-filters #{:places :projects}
                    :sort-mode :today)
-            (fetch-tasks-fn))
+            (fetch-tasks-fn {:context (:work-private-mode @app-state)
+                             :strict (:strict-mode @app-state)}))
    :mail (fn []
            (when (is-admin-fn)
              (fetch-messages-fn)))})
@@ -45,11 +48,23 @@
 (defn clear-editing [app-state]
   (swap! app-state assoc :editing-task nil))
 
-(defn set-work-private-mode [app-state mode]
-  (swap! app-state assoc :work-private-mode mode))
+(defn- fetch-opts-for-current-tab [app-state context strict]
+  (case (:active-tab @app-state)
+    :tasks {:search-term (:tasks-page/filter-search @app-state)
+            :importance (:tasks-page/importance-filter @app-state)
+            :context context
+            :strict strict}
+    :today {:context context :strict strict}
+    {:context context :strict strict}))
 
-(defn toggle-strict-mode [app-state]
-  (swap! app-state update :strict-mode not))
+(defn set-work-private-mode [app-state fetch-tasks-fn mode]
+  (swap! app-state assoc :work-private-mode mode)
+  (fetch-tasks-fn (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state))))
+
+(defn toggle-strict-mode [app-state fetch-tasks-fn]
+  (let [new-strict (not (:strict-mode @app-state))]
+    (swap! app-state assoc :strict-mode new-strict)
+    (fetch-tasks-fn (fetch-opts-for-current-tab app-state (:work-private-mode @app-state) new-strict))))
 
 (defn toggle-dark-mode [app-state]
   (swap! app-state update :dark-mode not))

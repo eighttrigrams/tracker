@@ -126,7 +126,7 @@
   ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
   ([ds user-id sort-mode opts]
    (let [opts (if (string? opts) {:search-term opts} opts)
-         {:keys [search-term importance]} opts
+         {:keys [search-term importance context strict]} opts
          conn (get-conn ds)
          {:keys [clause params]} (user-id-clause user-id)
          base-where (case sort-mode
@@ -142,12 +142,21 @@
                              "important" {:clause " AND importance IN ('important', 'critical')" :params []}
                              "critical" {:clause " AND importance = 'critical'" :params []}
                              nil)
+         scope-clause (when context
+                        (if strict
+                          {:clause " AND scope = ?" :params [context]}
+                          (case context
+                            "private" {:clause " AND scope IN ('private', 'both')" :params []}
+                            "work" {:clause " AND scope IN ('work', 'both')" :params []}
+                            nil)))
          where-clause (str base-where
                            (when search-clause (:clause search-clause))
-                           (when importance-clause (:clause importance-clause)))
+                           (when importance-clause (:clause importance-clause))
+                           (when scope-clause (:clause scope-clause)))
          all-params (cond-> params
                       search-clause (into (:params search-clause))
-                      importance-clause (into (:params importance-clause)))
+                      importance-clause (into (:params importance-clause))
+                      scope-clause (into (:params scope-clause)))
          order-clause (case sort-mode
                         :manual "ORDER BY sort_order ASC, created_at DESC"
                         :due-date "ORDER BY due_date ASC, due_time IS NOT NULL, due_time ASC"

@@ -385,3 +385,45 @@
         (is (some #(= "Urgent task" (:title %)) tasks))
         (is (some #(= "Superurgent task" (:title %)) tasks))
         (is (not (some #(= "Normal urgency" (:title %)) tasks)))))))
+
+(deftest list-tasks-context-filter-test
+  (testing "no context filter returns all tasks"
+    (let [_task1 (db/add-task *ds* nil "Private task" "private")
+          _task2 (db/add-task *ds* nil "Work task" "work")
+          _task3 (db/add-task *ds* nil "Both task" "both")]
+      (let [tasks (db/list-tasks *ds* nil :recent {})]
+        (is (= 3 (count tasks))))))
+
+  (testing "private context (non-strict) returns private and both"
+    (let [tasks (db/list-tasks *ds* nil :recent {:context "private"})]
+      (is (= 2 (count tasks)))
+      (is (some #(= "Private task" (:title %)) tasks))
+      (is (some #(= "Both task" (:title %)) tasks))
+      (is (not (some #(= "Work task" (:title %)) tasks)))))
+
+  (testing "work context (non-strict) returns work and both"
+    (let [tasks (db/list-tasks *ds* nil :recent {:context "work"})]
+      (is (= 2 (count tasks)))
+      (is (some #(= "Work task" (:title %)) tasks))
+      (is (some #(= "Both task" (:title %)) tasks))
+      (is (not (some #(= "Private task" (:title %)) tasks)))))
+
+  (testing "strict mode private returns only private"
+    (let [tasks (db/list-tasks *ds* nil :recent {:context "private" :strict true})]
+      (is (= 1 (count tasks)))
+      (is (= "Private task" (:title (first tasks))))))
+
+  (testing "strict mode work returns only work"
+    (let [tasks (db/list-tasks *ds* nil :recent {:context "work" :strict true})]
+      (is (= 1 (count tasks)))
+      (is (= "Work task" (:title (first tasks))))))
+
+  (testing "strict mode both returns only both"
+    (let [tasks (db/list-tasks *ds* nil :recent {:context "both" :strict true})]
+      (is (= 1 (count tasks)))
+      (is (= "Both task" (:title (first tasks))))))
+
+  (testing "context filter works with search"
+    (let [tasks (db/list-tasks *ds* nil :recent {:search-term "task" :context "private"})]
+      (is (= 2 (count tasks)))
+      (is (not (some #(= "Work task" (:title %)) tasks))))))

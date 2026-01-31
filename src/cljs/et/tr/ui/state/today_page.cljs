@@ -3,14 +3,6 @@
             [et.tr.filters :as filters]
             [et.tr.ui.date :as date]))
 
-(defn- matches-scope? [task mode strict?]
-  (filters/matches-scope? task mode strict?))
-
-(defn scope-filtered-tasks [app-state]
-  (let [mode (:work-private-mode @app-state)
-        strict? (:strict-mode @app-state)]
-    (filter #(matches-scope? % mode strict?) (:tasks @app-state))))
-
 (defn- apply-today-exclusion-filter [app-state tasks]
   (filters/apply-exclusion-filter tasks
                                   (:today-page/excluded-places @app-state)
@@ -123,7 +115,7 @@
 
 (defn overdue-tasks [app-state]
   (let [today (today-str)]
-    (->> (scope-filtered-tasks app-state)
+    (->> (:tasks @app-state)
          (filter #(and (:due_date %)
                        (< (:due_date %) today)))
          (apply-today-exclusion-filter app-state)
@@ -131,7 +123,7 @@
 
 (defn today-tasks [app-state]
   (let [today (today-str)]
-    (->> (scope-filtered-tasks app-state)
+    (->> (:tasks @app-state)
          (filter #(= (:due_date %) today))
          (apply-today-exclusion-filter app-state)
          (sort-by-date-and-time))))
@@ -140,7 +132,7 @@
   (let [today (today-str)
         horizon (:upcoming-horizon @app-state)
         end-date (horizon-end-date horizon)]
-    (->> (scope-filtered-tasks app-state)
+    (->> (:tasks @app-state)
          (remove task-done?)
          (filter #(and (:due_date %)
                        (> (:due_date %) today)
@@ -149,7 +141,7 @@
          (sort-by-date-and-time))))
 
 (defn urgent-tasks [app-state]
-  (->> (scope-filtered-tasks app-state)
+  (->> (:tasks @app-state)
        (filter #(contains? #{"urgent" "superurgent"} (:urgency %)))
        (apply-today-exclusion-filter app-state)
        (sort-by (juxt #(if (= "superurgent" (:urgency %)) 0 1) :sort_order))))

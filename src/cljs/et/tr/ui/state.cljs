@@ -471,10 +471,10 @@
   (ui/clear-editing app-state))
 
 (defn set-work-private-mode [mode]
-  (ui/set-work-private-mode app-state mode))
+  (ui/set-work-private-mode app-state fetch-tasks mode))
 
 (defn toggle-strict-mode []
-  (ui/toggle-strict-mode app-state))
+  (ui/toggle-strict-mode app-state fetch-tasks))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode app-state))
