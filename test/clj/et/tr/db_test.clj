@@ -474,3 +474,43 @@
       (is (= 1 (count (db/list-messages *ds* user-id))))
       (db/delete-user *ds* user-id)
       (is (= 0 (count (db/list-messages *ds* user-id)))))))
+
+(deftest list-tasks-search-test
+  (testing "nil search-term returns all tasks"
+    (db/add-task *ds* nil "Apple pie")
+    (db/add-task *ds* nil "Banana bread")
+    (db/add-task *ds* nil "Cherry cake")
+    (let [tasks (db/list-tasks *ds* nil :recent nil)]
+      (is (= 3 (count tasks)))))
+
+  (testing "empty search-term returns all tasks"
+    (let [tasks (db/list-tasks *ds* nil :recent "")]
+      (is (= 3 (count tasks)))))
+
+  (testing "search matches title starting with term"
+    (let [tasks (db/list-tasks *ds* nil :recent "app")]
+      (is (= 1 (count tasks)))
+      (is (= "Apple pie" (:title (first tasks))))))
+
+  (testing "search matches word starting with term"
+    (let [tasks (db/list-tasks *ds* nil :recent "pie")]
+      (is (= 1 (count tasks)))
+      (is (= "Apple pie" (:title (first tasks))))))
+
+  (testing "search is case-insensitive"
+    (let [tasks (db/list-tasks *ds* nil :recent "BANANA")]
+      (is (= 1 (count tasks)))
+      (is (= "Banana bread" (:title (first tasks))))))
+
+  (testing "search trims whitespace"
+    (let [tasks (db/list-tasks *ds* nil :recent "  cherry  ")]
+      (is (= 1 (count tasks)))
+      (is (= "Cherry cake" (:title (first tasks))))))
+
+  (testing "search works with all sort modes"
+    (is (= 1 (count (db/list-tasks *ds* nil :manual "apple"))))
+    (is (= 1 (count (db/list-tasks *ds* nil :recent "apple")))))
+
+  (testing "search with no matches returns empty"
+    (let [tasks (db/list-tasks *ds* nil :recent "xyz")]
+      (is (= 0 (count tasks))))))

@@ -2,7 +2,8 @@
   (:require [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [et.tr.migrations :as migrations]
-            [buddy.hashers :as hashers]))
+            [buddy.hashers :as hashers]
+            [clojure.string]))
 
 (defn init-conn [{:keys [type path]}]
   (let [db-spec (case type
@@ -122,20 +123,27 @@
 
 (defn list-tasks
   ([ds user-id] (list-tasks ds user-id :recent))
-  ([ds user-id sort-mode]
+  ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
+  ([ds user-id sort-mode search-term]
    (let [conn (get-conn ds)
          {:keys [clause params]} (user-id-clause user-id)
-         where-clause (case sort-mode
-                        :due-date (str "WHERE " clause " AND due_date IS NOT NULL AND done = 0")
-                        :done (str "WHERE " clause " AND done = 1")
-                        (str "WHERE " clause " AND done = 0"))
+         base-where (case sort-mode
+                      :due-date (str "WHERE " clause " AND due_date IS NOT NULL AND done = 0")
+                      :done (str "WHERE " clause " AND done = 1")
+                      (str "WHERE " clause " AND done = 0"))
+         search-clause (when (and search-term (not (clojure.string/blank? search-term)))
+                         (let [term (clojure.string/lower-case (clojure.string/trim search-term))]
+                           {:clause " AND (LOWER(title) LIKE ? OR LOWER(title) LIKE ?)"
+                            :params [(str term "%") (str "% " term "%")]}))
+         where-clause (str base-where (when search-clause (:clause search-clause)))
+         all-params (if search-clause (into params (:params search-clause)) params)
          order-clause (case sort-mode
                         :manual "ORDER BY sort_order ASC, created_at DESC"
                         :due-date "ORDER BY due_date ASC, due_time IS NOT NULL, due_time ASC"
                         :done "ORDER BY modified_at DESC"
                         "ORDER BY modified_at DESC")
          tasks (jdbc/execute! conn
-                 (into [(str "SELECT " task-select-columns " FROM tasks " where-clause " " order-clause)] params)
+                 (into [(str "SELECT " task-select-columns " FROM tasks " where-clause " " order-clause)] all-params)
                  {:builder-fn rs/as-unqualified-maps})
          task-ids (mapv :id tasks)
          categories (when (seq task-ids)

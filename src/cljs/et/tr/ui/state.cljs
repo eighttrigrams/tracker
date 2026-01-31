@@ -211,16 +211,20 @@
 (defn clear-error []
   (swap! app-state assoc :error nil))
 
-(defn fetch-tasks []
-  (let [sort-mode (name (:sort-mode @app-state))]
-    (GET (str "/api/tasks?sort=" sort-mode)
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [tasks]
-                  (swap! app-state assoc :tasks tasks)
-                  (when (nil? (:upcoming-horizon @app-state))
-                    (swap! app-state assoc :upcoming-horizon (calculate-best-horizon tasks))))})))
+(defn fetch-tasks
+  ([] (fetch-tasks nil))
+  ([{:keys [search-term]}]
+   (let [sort-mode (name (:sort-mode @app-state))
+         url (cond-> (str "/api/tasks?sort=" sort-mode)
+               (seq search-term) (str "&q=" (js/encodeURIComponent search-term)))]
+     (GET url
+       {:response-format :json
+        :keywords? true
+        :headers (auth-headers)
+        :handler (fn [tasks]
+                   (swap! app-state assoc :tasks tasks)
+                   (when (nil? (:upcoming-horizon @app-state))
+                     (swap! app-state assoc :upcoming-horizon (calculate-best-horizon tasks))))}))))
 
 (defn has-active-filters? []
   (let [filter-people (:tasks-page/filter-people @app-state)
@@ -450,8 +454,13 @@
          (.focus el)))
      0)))
 
+(defonce search-debounce-timer (atom nil))
+
 (defn set-filter-search [search-term]
-  (swap! app-state assoc :tasks-page/filter-search search-term))
+  (swap! app-state assoc :tasks-page/filter-search search-term)
+  (when-let [timer @search-debounce-timer]
+    (js/clearTimeout timer))
+  (reset! search-debounce-timer (js/setTimeout #(fetch-tasks {:search-term search-term}) 300)))
 
 (defn set-category-search [category-key search-term]
   (swap! app-state assoc-in [:tasks-page/category-search category-key] search-term))
@@ -476,12 +485,13 @@
 (def tab-initializers
   {:tasks (fn []
             (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
-            (focus-tasks-search))
+            (focus-tasks-search)
+            (fetch-tasks {:search-term (:tasks-page/filter-search @app-state)}))
    :today (fn []
             (swap! app-state assoc :today-page/collapsed-filters #{:places :projects})
             (when (= :done (:sort-mode @app-state))
-              (swap! app-state assoc :sort-mode :manual)
-              (fetch-tasks)))
+              (swap! app-state assoc :sort-mode :manual))
+            (fetch-tasks))
    :mail (fn []
            (when (is-admin?)
              (fetch-messages)))})
@@ -536,7 +546,6 @@
         filter-places (:tasks-page/filter-places @app-state)
         filter-projects (:tasks-page/filter-projects @app-state)
         filter-goals (:tasks-page/filter-goals @app-state)
-        filter-search (:tasks-page/filter-search @app-state)
         importance-filter (:tasks-page/importance-filter @app-state)
         matches-any? (fn [task-categories filter-ids]
                        (some #(contains? filter-ids (:id %)) task-categories))]
@@ -545,7 +554,6 @@
       (seq filter-places) (filter #(matches-any? (:places %) filter-places))
       (seq filter-projects) (filter #(matches-any? (:projects %) filter-projects))
       (seq filter-goals) (filter #(matches-any? (:goals %) filter-goals))
-      (seq filter-search) (filter #(prefix-matches? (:title %) filter-search))
       importance-filter (filter #(matches-importance-filter? % importance-filter)))))
 
 (defn set-sort-mode [mode]
