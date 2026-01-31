@@ -99,27 +99,51 @@
                   {:builder-fn rs/as-unqualified-maps})]
      result)))
 
+(defn- extract-category [task-categories category-type lookup-map]
+  (->> task-categories
+       (filter #(= (:category_type %) category-type))
+       (keep #(when-let [name (lookup-map (:category_id %))]
+                {:id (:category_id %) :name name}))
+       vec))
+
 (defn- associate-categories-with-tasks [tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id]
   (mapv (fn [task]
-          (let [task-categories (get categories-by-task (:id task) [])
-                task-people (->> task-categories
-                                 (filter #(= (:category_type %) "person"))
-                                 (keep #(when-let [name (people-by-id (:category_id %))]
-                                          {:id (:category_id %) :name name})))
-                task-places (->> task-categories
-                                 (filter #(= (:category_type %) "place"))
-                                 (keep #(when-let [name (places-by-id (:category_id %))]
-                                          {:id (:category_id %) :name name})))
-                task-projects (->> task-categories
-                                   (filter #(= (:category_type %) "project"))
-                                   (keep #(when-let [name (projects-by-id (:category_id %))]
-                                            {:id (:category_id %) :name name})))
-                task-goals (->> task-categories
-                                (filter #(= (:category_type %) "goal"))
-                                (keep #(when-let [name (goals-by-id (:category_id %))]
-                                         {:id (:category_id %) :name name})))]
-            (assoc task :people (vec task-people) :places (vec task-places) :projects (vec task-projects) :goals (vec task-goals))))
+          (let [task-categories (get categories-by-task (:id task) [])]
+            (assoc task
+                   :people (extract-category task-categories "person" people-by-id)
+                   :places (extract-category task-categories "place" places-by-id)
+                   :projects (extract-category task-categories "project" projects-by-id)
+                   :goals (extract-category task-categories "goal" goals-by-id))))
         tasks))
+
+(defn- build-search-clause [search-term]
+  (when (and search-term (not (clojure.string/blank? search-term)))
+    (let [term (clojure.string/lower-case (clojure.string/trim search-term))]
+      {:clause " AND (LOWER(title) LIKE ? OR LOWER(title) LIKE ?)"
+       :params [(str term "%") (str "% " term "%")]})))
+
+(defn- build-filter-clauses [base-params & clauses]
+  (let [active-clauses (filter some? clauses)]
+    {:clause (apply str (map :clause active-clauses))
+     :params (reduce into base-params (map :params active-clauses))}))
+
+(defn- fetch-category-lookups [conn clause params]
+  (let [people (jdbc/execute! conn
+                 (into [(str "SELECT id, name FROM people WHERE " clause)] params)
+                 {:builder-fn rs/as-unqualified-maps})
+        places (jdbc/execute! conn
+                 (into [(str "SELECT id, name FROM places WHERE " clause)] params)
+                 {:builder-fn rs/as-unqualified-maps})
+        projects (jdbc/execute! conn
+                   (into [(str "SELECT id, name FROM projects WHERE " clause)] params)
+                   {:builder-fn rs/as-unqualified-maps})
+        goals (jdbc/execute! conn
+                (into [(str "SELECT id, name FROM goals WHERE " clause)] params)
+                {:builder-fn rs/as-unqualified-maps})]
+    {:people-by-id (into {} (map (juxt :id :name) people))
+     :places-by-id (into {} (map (juxt :id :name) places))
+     :projects-by-id (into {} (map (juxt :id :name) projects))
+     :goals-by-id (into {} (map (juxt :id :name) goals))}))
 
 (defn list-tasks
   ([ds user-id] (list-tasks ds user-id :recent))
@@ -134,10 +158,7 @@
                       :done (str "WHERE " clause " AND done = 1")
                       :today (str "WHERE " clause " AND done = 0 AND (due_date IS NOT NULL OR urgency IN ('urgent', 'superurgent'))")
                       (str "WHERE " clause " AND done = 0"))
-         search-clause (when (and search-term (not (clojure.string/blank? search-term)))
-                         (let [term (clojure.string/lower-case (clojure.string/trim search-term))]
-                           {:clause " AND (LOWER(title) LIKE ? OR LOWER(title) LIKE ?)"
-                            :params [(str term "%") (str "% " term "%")]}))
+         search-clause (build-search-clause search-term)
          importance-clause (case importance
                              "important" {:clause " AND importance IN ('important', 'critical')" :params []}
                              "critical" {:clause " AND importance = 'critical'" :params []}
@@ -149,14 +170,8 @@
                             "private" {:clause " AND scope IN ('private', 'both')" :params []}
                             "work" {:clause " AND scope IN ('work', 'both')" :params []}
                             nil)))
-         where-clause (str base-where
-                           (when search-clause (:clause search-clause))
-                           (when importance-clause (:clause importance-clause))
-                           (when scope-clause (:clause scope-clause)))
-         all-params (cond-> params
-                      search-clause (into (:params search-clause))
-                      importance-clause (into (:params importance-clause))
-                      scope-clause (into (:params scope-clause)))
+         {:keys [clause params] :as filter-result} (build-filter-clauses params search-clause importance-clause scope-clause)
+         where-clause (str base-where clause)
          order-clause (case sort-mode
                         :manual "ORDER BY sort_order ASC, created_at DESC"
                         :due-date "ORDER BY due_date ASC, due_time IS NOT NULL, due_time ASC"
@@ -164,7 +179,7 @@
                         :today "ORDER BY due_date ASC, due_time IS NOT NULL, due_time ASC"
                         "ORDER BY modified_at DESC")
          tasks (jdbc/execute! conn
-                 (into [(str "SELECT " task-select-columns " FROM tasks " where-clause " " order-clause)] all-params)
+                 (into [(str "SELECT " task-select-columns " FROM tasks " where-clause " " order-clause)] params)
                  {:builder-fn rs/as-unqualified-maps})
          task-ids (mapv :id tasks)
          categories (when (seq task-ids)
@@ -173,22 +188,8 @@
                                     (clojure.string/join "," (repeat (count task-ids) "?"))
                                     ")")] task-ids)
                         {:builder-fn rs/as-unqualified-maps}))
-         people (jdbc/execute! conn
-                  (into [(str "SELECT id, name FROM people WHERE " clause)] params)
-                  {:builder-fn rs/as-unqualified-maps})
-         places (jdbc/execute! conn
-                  (into [(str "SELECT id, name FROM places WHERE " clause)] params)
-                  {:builder-fn rs/as-unqualified-maps})
-         projects (jdbc/execute! conn
-                    (into [(str "SELECT id, name FROM projects WHERE " clause)] params)
-                    {:builder-fn rs/as-unqualified-maps})
-         goals (jdbc/execute! conn
-                 (into [(str "SELECT id, name FROM goals WHERE " clause)] params)
-                 {:builder-fn rs/as-unqualified-maps})
-         people-by-id (into {} (map (juxt :id :name) people))
-         places-by-id (into {} (map (juxt :id :name) places))
-         projects-by-id (into {} (map (juxt :id :name) projects))
-         goals-by-id (into {} (map (juxt :id :name) goals))
+         {:keys [clause params]} (user-id-clause user-id)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn clause params)
          categories-by-task (group-by :task_id categories)]
      (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id))))
 
