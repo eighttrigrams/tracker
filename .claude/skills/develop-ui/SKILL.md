@@ -5,6 +5,6 @@ description: To develop the user interface of the application, you need to know 
 
 Start with `make start`
 
-Stop with `make stop`. Unless you are specifically asked to. Don't use this on your own to 'just' shut down the app. You may only use this if you want to restart the app, then in conjuction with `make start`.
+Stop with `make stop`. Unless you are specifically asked to. Don't use this on your own to 'just' shut down the app. You may only use this if you want to restart the app, then in conjuction with `make start`. Importantly, use `nohup make start $` and `nohup make start $` or use other ways to run those in the BACKGROUND.
 
 The running app is assessible at localhost:3027
