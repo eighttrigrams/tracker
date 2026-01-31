@@ -10,7 +10,8 @@
             (let [last-sort-mode (:tasks-page/last-sort-mode @app-state)]
               (swap! app-state assoc :sort-mode last-sort-mode))
             (focus-tasks-search)
-            (fetch-tasks-fn {:search-term (:tasks-page/filter-search @app-state)}))
+            (fetch-tasks-fn {:search-term (:tasks-page/filter-search @app-state)
+                             :importance (:tasks-page/importance-filter @app-state)}))
    :today (fn []
             (swap! app-state assoc
                    :today-page/collapsed-filters #{:places :projects}

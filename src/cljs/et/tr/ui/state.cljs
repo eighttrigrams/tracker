@@ -353,10 +353,10 @@
   (tasks-page/clear-filter-goals app-state))
 
 (defn set-importance-filter [level]
-  (tasks-page/set-importance-filter app-state level))
+  (tasks-page/set-importance-filter app-state fetch-tasks level))
 
 (defn clear-importance-filter []
-  (tasks-page/clear-importance-filter app-state))
+  (tasks-page/clear-importance-filter app-state fetch-tasks))
 
 (defn clear-uncollapsed-task-filters []
   (tasks-page/clear-uncollapsed-task-filters app-state))

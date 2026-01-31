@@ -124,8 +124,10 @@
 (defn list-tasks
   ([ds user-id] (list-tasks ds user-id :recent))
   ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
-  ([ds user-id sort-mode search-term]
-   (let [conn (get-conn ds)
+  ([ds user-id sort-mode opts]
+   (let [opts (if (string? opts) {:search-term opts} opts)
+         {:keys [search-term importance]} opts
+         conn (get-conn ds)
          {:keys [clause params]} (user-id-clause user-id)
          base-where (case sort-mode
                       :due-date (str "WHERE " clause " AND due_date IS NOT NULL AND done = 0")
@@ -136,8 +138,16 @@
                          (let [term (clojure.string/lower-case (clojure.string/trim search-term))]
                            {:clause " AND (LOWER(title) LIKE ? OR LOWER(title) LIKE ?)"
                             :params [(str term "%") (str "% " term "%")]}))
-         where-clause (str base-where (when search-clause (:clause search-clause)))
-         all-params (if search-clause (into params (:params search-clause)) params)
+         importance-clause (case importance
+                             "important" {:clause " AND importance IN ('important', 'critical')" :params []}
+                             "critical" {:clause " AND importance = 'critical'" :params []}
+                             nil)
+         where-clause (str base-where
+                           (when search-clause (:clause search-clause))
+                           (when importance-clause (:clause importance-clause)))
+         all-params (cond-> params
+                      search-clause (into (:params search-clause))
+                      importance-clause (into (:params importance-clause)))
          order-clause (case sort-mode
                         :manual "ORDER BY sort_order ASC, created_at DESC"
                         :due-date "ORDER BY due_date ASC, due_time IS NOT NULL, due_time ASC"

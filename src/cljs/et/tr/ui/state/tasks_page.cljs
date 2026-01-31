@@ -37,11 +37,14 @@
 (defn clear-filter-goals [app-state]
   (swap! app-state assoc :tasks-page/filter-goals #{}))
 
-(defn set-importance-filter [app-state level]
-  (swap! app-state assoc :tasks-page/importance-filter level))
+(defn set-importance-filter [app-state fetch-tasks-fn level]
+  (swap! app-state assoc :tasks-page/importance-filter level)
+  (fetch-tasks-fn {:search-term (:tasks-page/filter-search @app-state)
+                   :importance level}))
 
-(defn clear-importance-filter [app-state]
-  (swap! app-state assoc :tasks-page/importance-filter nil))
+(defn clear-importance-filter [app-state fetch-tasks-fn]
+  (swap! app-state assoc :tasks-page/importance-filter nil)
+  (fetch-tasks-fn {:search-term (:tasks-page/filter-search @app-state)}))
 
 (defn clear-uncollapsed-task-filters [app-state]
   (let [collapsed (:tasks-page/collapsed-filters @app-state)
@@ -94,7 +97,9 @@
   (swap! app-state assoc :tasks-page/filter-search search-term)
   (when-let [timer @search-debounce-timer]
     (js/clearTimeout timer))
-  (reset! search-debounce-timer (js/setTimeout #(fetch-tasks-fn {:search-term search-term}) 300)))
+  (reset! search-debounce-timer
+          (js/setTimeout #(fetch-tasks-fn {:search-term search-term
+                                            :importance (:tasks-page/importance-filter @app-state)}) 300)))
 
 (defn set-category-search [app-state category-key search-term]
   (swap! app-state assoc-in [:tasks-page/category-search category-key] search-term))

@@ -340,3 +340,48 @@
   (testing "search with no matches returns empty"
     (let [tasks (db/list-tasks *ds* nil :recent "xyz")]
       (is (= 0 (count tasks))))))
+
+(deftest list-tasks-importance-filter-test
+  (testing "no importance filter returns all tasks"
+    (let [_task1 (db/add-task *ds* nil "Normal task")
+          task2 (db/add-task *ds* nil "Important task")
+          task3 (db/add-task *ds* nil "Critical task")]
+      (db/set-task-importance *ds* nil (:id task2) "important")
+      (db/set-task-importance *ds* nil (:id task3) "critical")
+      (let [tasks (db/list-tasks *ds* nil :recent {})]
+        (is (= 3 (count tasks))))))
+
+  (testing "important filter returns important and critical tasks"
+    (let [tasks (db/list-tasks *ds* nil :recent {:importance "important"})]
+      (is (= 2 (count tasks)))
+      (is (= #{"Important task" "Critical task"} (set (map :title tasks))))))
+
+  (testing "critical filter returns only critical tasks"
+    (let [tasks (db/list-tasks *ds* nil :recent {:importance "critical"})]
+      (is (= 1 (count tasks)))
+      (is (= "Critical task" (:title (first tasks))))))
+
+  (testing "importance filter works with search"
+    (let [tasks (db/list-tasks *ds* nil :recent {:search-term "task" :importance "important"})]
+      (is (= 2 (count tasks)))
+      (is (not (some #(= "Normal task" (:title %)) tasks))))))
+
+(deftest list-tasks-today-mode-test
+  (testing "today mode returns tasks with due dates"
+    (let [task1 (db/add-task *ds* nil "Has due date")
+          _task2 (db/add-task *ds* nil "No due date")]
+      (db/set-task-due-date *ds* nil (:id task1) "2026-02-01")
+      (let [tasks (db/list-tasks *ds* nil :today)]
+        (is (some #(= "Has due date" (:title %)) tasks))
+        (is (not (some #(= "No due date" (:title %)) tasks))))))
+
+  (testing "today mode returns urgent and superurgent tasks without due dates"
+    (let [_task1 (db/add-task *ds* nil "Normal urgency")
+          task2 (db/add-task *ds* nil "Urgent task")
+          task3 (db/add-task *ds* nil "Superurgent task")]
+      (db/set-task-urgency *ds* nil (:id task2) "urgent")
+      (db/set-task-urgency *ds* nil (:id task3) "superurgent")
+      (let [tasks (db/list-tasks *ds* nil :today)]
+        (is (some #(= "Urgent task" (:title %)) tasks))
+        (is (some #(= "Superurgent task" (:title %)) tasks))
+        (is (not (some #(= "Normal urgency" (:title %)) tasks)))))))

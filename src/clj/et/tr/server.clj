@@ -127,8 +127,9 @@
 (defn list-tasks-handler [req]
   (let [user-id (get-user-id req)
         sort-mode (keyword (get-in req [:params "sort"] "recent"))
-        search-term (get-in req [:params "q"])]
-    {:status 200 :body (db/list-tasks (ensure-ds) user-id sort-mode search-term)}))
+        search-term (get-in req [:params "q"])
+        importance (get-in req [:params "importance"])]
+    {:status 200 :body (db/list-tasks (ensure-ds) user-id sort-mode {:search-term search-term :importance importance})}))
 
 (defn add-task-handler [req]
   (let [user-id (get-user-id req)
