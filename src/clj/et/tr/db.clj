@@ -3,7 +3,8 @@
             [next.jdbc.result-set :as rs]
             [et.tr.migrations :as migrations]
             [buddy.hashers :as hashers]
-            [clojure.string]))
+            [clojure.string]
+            [honey.sql :as sql]))
 
 (defn init-conn [{:keys [type path]}]
   (let [db-spec (case type
@@ -82,6 +83,11 @@
   {:clause (if user-id "user_id = ?" "user_id IS NULL")
    :params (if user-id [user-id] [])})
 
+(defn- user-id-where-clause [user-id]
+  (if user-id
+    [:= :user_id user-id]
+    [:is :user_id nil]))
+
 (defn add-task
   ([ds user-id title] (add-task ds user-id title "both"))
   ([ds user-id title scope]
@@ -122,26 +128,33 @@
                      (map clojure.string/lower-case)
                      (filter (complement clojure.string/blank?)))]
       (when (seq terms)
-        {:clause (apply str (repeat (count terms) " AND (LOWER(title) LIKE ? OR LOWER(title) LIKE ?)"))
-         :params (vec (mapcat (fn [term] [(str term "%") (str "% " term "%")]) terms))}))))
+        (into [:and]
+              (map (fn [term]
+                     [:or
+                      [:like [:lower :title] (str term "%")]
+                      [:like [:lower :title] (str "% " term "%")]])
+                   terms))))))
 
-(defn- build-filter-clauses [base-params & clauses]
-  (let [active-clauses (filter some? clauses)]
-    {:clause (apply str (map :clause active-clauses))
-     :params (reduce into base-params (map :params active-clauses))}))
-
-(defn- fetch-category-lookups [conn clause params]
+(defn- fetch-category-lookups [conn user-id-where-clause]
   (let [people (jdbc/execute! conn
-                 (into [(str "SELECT id, name FROM people WHERE " clause)] params)
+                 (sql/format {:select [:id :name]
+                              :from [:people]
+                              :where user-id-where-clause})
                  {:builder-fn rs/as-unqualified-maps})
         places (jdbc/execute! conn
-                 (into [(str "SELECT id, name FROM places WHERE " clause)] params)
+                 (sql/format {:select [:id :name]
+                              :from [:places]
+                              :where user-id-where-clause})
                  {:builder-fn rs/as-unqualified-maps})
         projects (jdbc/execute! conn
-                   (into [(str "SELECT id, name FROM projects WHERE " clause)] params)
+                   (sql/format {:select [:id :name]
+                                :from [:projects]
+                                :where user-id-where-clause})
                    {:builder-fn rs/as-unqualified-maps})
         goals (jdbc/execute! conn
-                (into [(str "SELECT id, name FROM goals WHERE " clause)] params)
+                (sql/format {:select [:id :name]
+                              :from [:goals]
+                              :where user-id-where-clause})
                 {:builder-fn rs/as-unqualified-maps})]
     {:people-by-id (into {} (map (juxt :id :name) people))
      :places-by-id (into {} (map (juxt :id :name) places))
@@ -155,44 +168,52 @@
    (let [opts (if (string? opts) {:search-term opts} opts)
          {:keys [search-term importance context strict]} opts
          conn (get-conn ds)
-         {:keys [clause params]} (user-id-clause user-id)
+         user-where (user-id-where-clause user-id)
          base-where (case sort-mode
-                      :due-date (str "WHERE " clause " AND due_date IS NOT NULL AND done = 0")
-                      :done (str "WHERE " clause " AND done = 1")
-                      :today (str "WHERE " clause " AND done = 0 AND (due_date IS NOT NULL OR urgency IN ('urgent', 'superurgent'))")
-                      (str "WHERE " clause " AND done = 0"))
+                      :due-date [:and user-where [:not= :due_date nil] [:= :done 0]]
+                      :done [:and user-where [:= :done 1]]
+                      :today [:and user-where [:= :done 0]
+                              [:or [:not= :due_date nil]
+                                   [:in :urgency ["urgent" "superurgent"]]]]
+                      [:and user-where [:= :done 0]])
          search-clause (build-search-clause search-term)
          importance-clause (case importance
-                             "important" {:clause " AND importance IN ('important', 'critical')" :params []}
-                             "critical" {:clause " AND importance = 'critical'" :params []}
+                             "important" [:in :importance ["important" "critical"]]
+                             "critical" [:= :importance "critical"]
                              nil)
          scope-clause (when context
                         (if strict
-                          {:clause " AND scope = ?" :params [context]}
+                          [:= :scope context]
                           (case context
-                            "private" {:clause " AND scope IN ('private', 'both')" :params []}
-                            "work" {:clause " AND scope IN ('work', 'both')" :params []}
+                            "private" [:in :scope ["private" "both"]]
+                            "work" [:in :scope ["work" "both"]]
                             nil)))
-         {:keys [clause params] :as filter-result} (build-filter-clauses params search-clause importance-clause scope-clause)
-         where-clause (str base-where clause)
-         order-clause (case sort-mode
-                        :manual "ORDER BY sort_order ASC, created_at DESC"
-                        :due-date "ORDER BY due_date ASC, due_time IS NOT NULL, due_time ASC"
-                        :done "ORDER BY modified_at DESC"
-                        :today "ORDER BY due_date ASC, due_time IS NOT NULL, due_time ASC"
-                        "ORDER BY modified_at DESC")
+         where-clause (into [:and base-where]
+                            (filter some? [search-clause importance-clause scope-clause]))
+         order-by (case sort-mode
+                    :manual [[:sort_order :asc] [:created_at :desc]]
+                    :due-date [[:due_date :asc]
+                               [[:case [:not= :due_time nil] 1 :else 0] :desc]
+                               [:due_time :asc]]
+                    :done [[:modified_at :desc]]
+                    :today [[:due_date :asc]
+                            [[:case [:not= :due_time nil] 1 :else 0] :desc]
+                            [:due_time :asc]]
+                    [[:modified_at :desc]])
          tasks (jdbc/execute! conn
-                 (into [(str "SELECT " (clojure.string/join ", " (map name task-select-columns)) " FROM tasks " where-clause " " order-clause)] params)
+                 (sql/format {:select task-select-columns
+                              :from [:tasks]
+                              :where where-clause
+                              :order-by order-by})
                  {:builder-fn rs/as-unqualified-maps})
          task-ids (mapv :id tasks)
          categories (when (seq task-ids)
                       (jdbc/execute! conn
-                        (into [(str "SELECT task_id, category_type, category_id FROM task_categories WHERE task_id IN ("
-                                    (clojure.string/join "," (repeat (count task-ids) "?"))
-                                    ")")] task-ids)
+                        (sql/format {:select [:task_id :category_type :category_id]
+                                     :from [:task_categories]
+                                     :where [:in :task_id task-ids]})
                         {:builder-fn rs/as-unqualified-maps}))
-         {:keys [clause params]} (user-id-clause user-id)
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn clause params)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn user-where)
          categories-by-task (group-by :task_id categories)]
      (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id))))
 
