@@ -32,7 +32,8 @@
          :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
          :today-page/category-search {:places "" :projects ""}
          :tasks-page/expanded-task nil
-         :today-page/expanded-task nil)
+         :today-page/expanded-task nil
+         :task-dropdown-open nil)
   (when-let [init-fn (get tab-initializers tab)]
     (init-fn)))
 
@@ -40,7 +41,8 @@
   (swap! app-state assoc
          page-key (if (= (get @app-state page-key) task-id) nil task-id)
          :category-selector/open nil
-         :category-selector/search ""))
+         :category-selector/search ""
+         :task-dropdown-open nil))
 
 (defn set-editing [app-state task-id]
   (swap! app-state assoc :editing-task task-id))

@@ -127,7 +127,8 @@
   (swap! app-state assoc :confirm-delete-task task))
 
 (defn set-task-dropdown-open [app-state task-id]
-  (swap! app-state assoc :task-dropdown-open task-id))
+  (swap! app-state assoc :task-dropdown-open
+         (when (not= (:task-dropdown-open @app-state) task-id) task-id)))
 
 (defn clear-confirm-delete [app-state]
   (swap! app-state assoc :confirm-delete-task nil))
