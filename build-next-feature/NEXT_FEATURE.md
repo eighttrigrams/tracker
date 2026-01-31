@@ -12,3 +12,8 @@ This should apply to the tasks search only, not for when i select categories to 
 
 This is a backend heavy feature. Also a feature which involves the particular ways the sqlite handles things,
 so add tests which involve the db.
+
+---
+
+I also think, and this may be something for the preparatory refactoring, we should introduce and use honey sql
+instead of sticking strings together for the query
