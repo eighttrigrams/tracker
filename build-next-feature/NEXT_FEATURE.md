@@ -8,8 +8,7 @@ I.e. when I have the following list
 Then the search term "aaa" matches 1 and 3.
 And the search term "aaa al" matches 3.
 
-This should apply to the tasks search as well as for the search in the category selector widgets everywhere.
+This should apply to the tasks search only, not for when i select categories to filter by in the category picker.
 
-Consider extracting common code into reused functions.
 This is a backend heavy feature. Also a feature which involves the particular ways the sqlite handles things,
 so add tests which involve the db.

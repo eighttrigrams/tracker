@@ -1,3 +1,8 @@
+filter by categories in the backend, pass a new query (list) param categories (names!) to the backend
+
+---
+
+multi-prefix search for filter categories in the left hand sides category pickers
 
 ---
 
