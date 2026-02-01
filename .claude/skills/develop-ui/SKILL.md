@@ -9,5 +9,5 @@ Stop with `make stop`. Unless you are specifically asked to. Don't use this on y
 
 The running app is assessible at localhost:3027.
 
-To gain inside of whats happening while the application is running, tail the logs at `logs/tracker.log`.
+To gain inside of whats happening while the application is running (especially when its sent to the background, as we always want to do!), tail the logs at `logs/tracker.log`.
 A complete log of a testrun is written to `logs/tracker.tests.log`.
