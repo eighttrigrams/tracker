@@ -332,6 +332,7 @@
      [:div.item-description [markdown (:description task)]])
    [task-category-badges task]
    [:div.item-actions
+    ;; :show-urgency? false - Today view excludes urgency since tasks here are already time-sensitive by definition
     [task-attribute-selectors task :show-urgency? false]
     [task-combined-action-button task]]])
 
