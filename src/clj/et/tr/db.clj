@@ -79,14 +79,15 @@
 
 (def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :scope :importance :urgency])
 
-(defn- user-id-clause [user-id]
-  {:clause (if user-id "user_id = ?" "user_id IS NULL")
-   :params (if user-id [user-id] [])})
-
 (defn- user-id-where-clause [user-id]
   (if user-id
     [:= :user_id user-id]
     [:is :user_id nil]))
+
+(defn- user-id-sql-clause [user-id]
+  (let [[sql-str & params] (sql/format {:where (user-id-where-clause user-id)})]
+    {:clause (subs sql-str 6)
+     :params (vec params)}))
 
 (defn add-task
   ([ds user-id title] (add-task ds user-id title "both"))
@@ -225,17 +226,25 @@
   (when-not (contains? valid-category-tables table-name)
     (throw (ex-info "Invalid table name" {:table-name table-name}))))
 
+(def ^:private valid-category-types #{"person" "place" "project" "goal"})
+
+(defn- validate-category-type! [category-type]
+  (when-not (contains? valid-category-types category-type)
+    (throw (ex-info "Invalid category type" {:category-type category-type}))))
+
 (defn- add-category [ds user-id name table-name]
   (validate-table-name! table-name)
   (let [conn (get-conn ds)
-        {:keys [clause params]} (user-id-clause user-id)
         max-order (or (:max_order (jdbc/execute-one! conn
-                                    (into [(str "SELECT MAX(sort_order) as max_order FROM " table-name " WHERE " clause)] params)
+                                    (sql/format {:select [[[:max :sort_order] :max_order]]
+                                                 :from [(keyword table-name)]
+                                                 :where (user-id-where-clause user-id)})
                                     {:builder-fn rs/as-unqualified-maps}))
                       0)
         new-order (+ max-order 1.0)]
     (jdbc/execute-one! conn
-      (into [(str "INSERT INTO " table-name " (name, user_id, sort_order) VALUES (?, ?, ?) RETURNING id, name, sort_order")] [name user-id new-order])
+      [(str "INSERT INTO " table-name " (name, user_id, sort_order) VALUES (?, ?, ?) RETURNING id, name, sort_order")
+       name user-id new-order]
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn add-person [ds user-id name]
@@ -246,10 +255,12 @@
 
 (defn- list-category [ds user-id table-name]
   (validate-table-name! table-name)
-  (let [{:keys [clause params]} (user-id-clause user-id)]
-    (jdbc/execute! (get-conn ds)
-      (into [(str "SELECT id, name, description, sort_order FROM " table-name " WHERE " clause " ORDER BY sort_order ASC, name ASC")] params)
-      {:builder-fn rs/as-unqualified-maps})))
+  (jdbc/execute! (get-conn ds)
+    (sql/format {:select [:id :name :description :sort_order]
+                 :from [(keyword table-name)]
+                 :where (user-id-where-clause user-id)
+                 :order-by [[:sort_order :asc] [:name :asc]]})
+    {:builder-fn rs/as-unqualified-maps}))
 
 (defn list-people [ds user-id]
   (list-category ds user-id "people"))
@@ -271,7 +282,7 @@
 
 (defn- update-category [ds user-id category-id name description table-name]
   (validate-table-name! table-name)
-  (let [{:keys [clause params]} (user-id-clause user-id)
+  (let [{:keys [clause params]} (user-id-sql-clause user-id)
         query-params (concat [name description category-id] params)]
     (jdbc/execute-one! (get-conn ds)
       (into [(str "UPDATE " table-name " SET name = ?, description = ? WHERE id = ? AND " clause " RETURNING id, name, description")] query-params)
@@ -291,7 +302,8 @@
 
 (defn delete-category [ds user-id category-id category-type table-name]
   (validate-table-name! table-name)
-  (let [{:keys [clause params]} (user-id-clause user-id)
+  (validate-category-type! category-type)
+  (let [{:keys [clause params]} (user-id-sql-clause user-id)
         query-params (concat [category-id] params)
         conn (get-conn ds)]
     (jdbc/with-transaction [tx conn]
@@ -304,32 +316,36 @@
         {:success (pos? (:next.jdbc/update-count result))}))))
 
 (defn task-owned-by-user? [ds task-id user-id]
-  (let [{:keys [clause params]} (user-id-clause user-id)
-        query-params (concat [task-id] params)]
-    (some? (jdbc/execute-one! (get-conn ds)
-             (into [(str "SELECT id FROM tasks WHERE id = ? AND " clause)] query-params)
-             {:builder-fn rs/as-unqualified-maps}))))
+  (some? (jdbc/execute-one! (get-conn ds)
+           (sql/format {:select [:id]
+                        :from [:tasks]
+                        :where [:and [:= :id task-id] (user-id-where-clause user-id)]})
+           {:builder-fn rs/as-unqualified-maps})))
 
 (defn categorize-task [ds user-id task-id category-type category-id]
+  (validate-category-type! category-type)
   (when (task-owned-by-user? ds task-id user-id)
     (let [conn (get-conn ds)]
-      (jdbc/execute-one! conn
-        ["INSERT OR IGNORE INTO task_categories (task_id, category_type, category_id) VALUES (?, ?, ?)"
-         task-id category-type category-id])
-      (jdbc/execute-one! conn
-        ["UPDATE tasks SET modified_at = datetime('now') WHERE id = ?" task-id]))))
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          ["INSERT OR IGNORE INTO task_categories (task_id, category_type, category_id) VALUES (?, ?, ?)"
+           task-id category-type category-id])
+        (jdbc/execute-one! tx
+          ["UPDATE tasks SET modified_at = datetime('now') WHERE id = ?" task-id])))))
 
 (defn uncategorize-task [ds user-id task-id category-type category-id]
+  (validate-category-type! category-type)
   (when (task-owned-by-user? ds task-id user-id)
     (let [conn (get-conn ds)]
-      (jdbc/execute-one! conn
-        ["DELETE FROM task_categories WHERE task_id = ? AND category_type = ? AND category_id = ?"
-         task-id category-type category-id])
-      (jdbc/execute-one! conn
-        ["UPDATE tasks SET modified_at = datetime('now') WHERE id = ?" task-id]))))
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          ["DELETE FROM task_categories WHERE task_id = ? AND category_type = ? AND category_id = ?"
+           task-id category-type category-id])
+        (jdbc/execute-one! tx
+          ["UPDATE tasks SET modified_at = datetime('now') WHERE id = ?" task-id])))))
 
 (defn update-task [ds user-id task-id fields]
-  (let [{:keys [clause params]} (user-id-clause user-id)
+  (let [{:keys [clause params]} (user-id-sql-clause user-id)
         field-names (keys fields)
         set-clause (clojure.string/join ", " (map #(str (name %) " = ?") field-names))
         query-params (concat (vals fields) [task-id] params)
@@ -339,37 +355,37 @@
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn get-task-sort-order [ds user-id task-id]
-  (let [{:keys [clause params]} (user-id-clause user-id)
-        query-params (concat [task-id] params)]
-    (:sort_order (jdbc/execute-one! (get-conn ds)
-                   (into [(str "SELECT sort_order FROM tasks WHERE id = ? AND " clause)] query-params)
-                   {:builder-fn rs/as-unqualified-maps}))))
+  (:sort_order (jdbc/execute-one! (get-conn ds)
+                 (sql/format {:select [:sort_order]
+                              :from [:tasks]
+                              :where [:and [:= :id task-id] (user-id-where-clause user-id)]})
+                 {:builder-fn rs/as-unqualified-maps})))
 
 (defn reorder-task [ds user-id task-id new-sort-order]
-  (let [{:keys [clause params]} (user-id-clause user-id)
-        query-params (concat [new-sort-order task-id] params)]
-    (jdbc/execute-one! (get-conn ds)
-      (into [(str "UPDATE tasks SET sort_order = ? WHERE id = ? AND " clause)] query-params))
-    {:success true :sort_order new-sort-order}))
+  (jdbc/execute-one! (get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:sort_order new-sort-order}
+                 :where [:and [:= :id task-id] (user-id-where-clause user-id)]}))
+  {:success true :sort_order new-sort-order})
 
 (defn get-category-sort-order [ds user-id category-id table-name]
   (validate-table-name! table-name)
-  (let [{:keys [clause params]} (user-id-clause user-id)
-        query-params (concat [category-id] params)]
-    (:sort_order (jdbc/execute-one! (get-conn ds)
-                   (into [(str "SELECT sort_order FROM " table-name " WHERE id = ? AND " clause)] query-params)
-                   {:builder-fn rs/as-unqualified-maps}))))
+  (:sort_order (jdbc/execute-one! (get-conn ds)
+                 (sql/format {:select [:sort_order]
+                              :from [(keyword table-name)]
+                              :where [:and [:= :id category-id] (user-id-where-clause user-id)]})
+                 {:builder-fn rs/as-unqualified-maps})))
 
 (defn reorder-category [ds user-id category-id new-sort-order table-name]
   (validate-table-name! table-name)
-  (let [{:keys [clause params]} (user-id-clause user-id)
-        query-params (concat [new-sort-order category-id] params)]
-    (jdbc/execute-one! (get-conn ds)
-      (into [(str "UPDATE " table-name " SET sort_order = ? WHERE id = ? AND " clause)] query-params))
-    {:success true :sort_order new-sort-order}))
+  (jdbc/execute-one! (get-conn ds)
+    (sql/format {:update (keyword table-name)
+                 :set {:sort_order new-sort-order}
+                 :where [:and [:= :id category-id] (user-id-where-clause user-id)]}))
+  {:success true :sort_order new-sort-order})
 
 (defn set-task-due-date [ds user-id task-id due-date]
-  (let [{:keys [clause params]} (user-id-clause user-id)
+  (let [{:keys [clause params]} (user-id-sql-clause user-id)
         update-clause (if (nil? due-date)
                         "UPDATE tasks SET due_date = ?, due_time = NULL, modified_at = datetime('now')"
                         "UPDATE tasks SET due_date = ?, modified_at = datetime('now')")
@@ -379,7 +395,7 @@
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn set-task-due-time [ds user-id task-id due-time]
-  (let [{:keys [clause params]} (user-id-clause user-id)
+  (let [{:keys [clause params]} (user-id-sql-clause user-id)
         normalized-time (if (empty? due-time) nil due-time)
         query-params (concat [normalized-time task-id] params)]
     (jdbc/execute-one! (get-conn ds)
@@ -388,14 +404,16 @@
 
 (defn delete-task [ds user-id task-id]
   (when (task-owned-by-user? ds task-id user-id)
-    (jdbc/execute-one! (get-conn ds)
-      ["DELETE FROM task_categories WHERE task_id = ?" task-id])
-    (let [result (jdbc/execute-one! (get-conn ds)
-                   ["DELETE FROM tasks WHERE id = ?" task-id])]
-      {:success (pos? (:next.jdbc/update-count result))})))
+    (let [conn (get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          ["DELETE FROM task_categories WHERE task_id = ?" task-id])
+        (let [result (jdbc/execute-one! tx
+                       ["DELETE FROM tasks WHERE id = ?" task-id])]
+          {:success (pos? (:next.jdbc/update-count result))})))))
 
 (defn set-task-done [ds user-id task-id done?]
-  (let [{:keys [clause params]} (user-id-clause user-id)
+  (let [{:keys [clause params]} (user-id-sql-clause user-id)
         done-val (if done? 1 0)
         query-params (concat [done-val task-id] params)]
     (jdbc/execute-one! (get-conn ds)
@@ -408,7 +426,7 @@
    :urgency normalize-urgency})
 
 (defn set-task-field [ds user-id task-id field value]
-  (let [{:keys [clause params]} (user-id-clause user-id)
+  (let [{:keys [clause params]} (user-id-sql-clause user-id)
         normalize-fn (get field-normalizers field identity)
         valid-value (normalize-fn value)
         field-name (name field)
@@ -452,23 +470,38 @@
 
 (defn export-all-data [ds user-id]
   (let [conn (get-conn ds)
-        {:keys [clause params]} (user-id-clause user-id)
+        user-where (user-id-where-clause user-id)
         tasks (jdbc/execute! conn
-                (into [(str "SELECT " (clojure.string/join ", " (map name task-select-columns)) " FROM tasks WHERE " clause " ORDER BY created_at")] params)
+                (sql/format {:select task-select-columns
+                             :from [:tasks]
+                             :where user-where
+                             :order-by [[:created_at :asc]]})
                 {:builder-fn rs/as-unqualified-maps})
         task-ids (mapv :id tasks)
         categories (query-categories-chunked conn task-ids)
         people (jdbc/execute! conn
-                 (into [(str "SELECT id, name, description, sort_order FROM people WHERE " clause " ORDER BY sort_order ASC, name ASC")] params)
+                 (sql/format {:select [:id :name :description :sort_order]
+                              :from [:people]
+                              :where user-where
+                              :order-by [[:sort_order :asc] [:name :asc]]})
                  {:builder-fn rs/as-unqualified-maps})
         places (jdbc/execute! conn
-                 (into [(str "SELECT id, name, description, sort_order FROM places WHERE " clause " ORDER BY sort_order ASC, name ASC")] params)
+                 (sql/format {:select [:id :name :description :sort_order]
+                              :from [:places]
+                              :where user-where
+                              :order-by [[:sort_order :asc] [:name :asc]]})
                  {:builder-fn rs/as-unqualified-maps})
         projects (jdbc/execute! conn
-                   (into [(str "SELECT id, name, description, sort_order FROM projects WHERE " clause " ORDER BY sort_order ASC, name ASC")] params)
+                   (sql/format {:select [:id :name :description :sort_order]
+                                :from [:projects]
+                                :where user-where
+                                :order-by [[:sort_order :asc] [:name :asc]]})
                    {:builder-fn rs/as-unqualified-maps})
         goals (jdbc/execute! conn
-                (into [(str "SELECT id, name, description, sort_order FROM goals WHERE " clause " ORDER BY sort_order ASC, name ASC")] params)
+                (sql/format {:select [:id :name :description :sort_order]
+                             :from [:goals]
+                             :where user-where
+                             :order-by [[:sort_order :asc] [:name :asc]]})
                 {:builder-fn rs/as-unqualified-maps})
         people-by-id (into {} (map (juxt :id :name) people))
         places-by-id (into {} (map (juxt :id :name) places))
@@ -492,26 +525,26 @@
 (defn list-messages
   ([ds user-id] (list-messages ds user-id :recent))
   ([ds user-id sort-mode]
-   (let [{:keys [clause params]} (user-id-clause user-id)
-         where-clause (case sort-mode
-                        :done (str "WHERE " clause " AND done = 1")
-                        (str "WHERE " clause " AND done = 0"))
-         order-clause (case sort-mode
-                        :done "ORDER BY created_at DESC"
-                        "ORDER BY created_at DESC")]
+   (let [user-where (user-id-where-clause user-id)
+         done-filter (case sort-mode
+                       :done [:= :done 1]
+                       [:= :done 0])]
      (jdbc/execute! (get-conn ds)
-       (into [(str "SELECT id, sender, title, description, created_at, done FROM messages " where-clause " " order-clause)] params)
+       (sql/format {:select [:id :sender :title :description :created_at :done]
+                    :from [:messages]
+                    :where [:and user-where done-filter]
+                    :order-by [[:created_at :desc]]})
        {:builder-fn rs/as-unqualified-maps}))))
 
 (defn message-owned-by-user? [ds message-id user-id]
-  (let [{:keys [clause params]} (user-id-clause user-id)
-        query-params (concat [message-id] params)]
-    (some? (jdbc/execute-one! (get-conn ds)
-             (into [(str "SELECT id FROM messages WHERE id = ? AND " clause)] query-params)
-             {:builder-fn rs/as-unqualified-maps}))))
+  (some? (jdbc/execute-one! (get-conn ds)
+           (sql/format {:select [:id]
+                        :from [:messages]
+                        :where [:and [:= :id message-id] (user-id-where-clause user-id)]})
+           {:builder-fn rs/as-unqualified-maps})))
 
 (defn set-message-done [ds user-id message-id done?]
-  (let [{:keys [clause params]} (user-id-clause user-id)
+  (let [{:keys [clause params]} (user-id-sql-clause user-id)
         done-val (if done? 1 0)
         query-params (concat [done-val message-id] params)]
     (jdbc/execute-one! (get-conn ds)
