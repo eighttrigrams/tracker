@@ -12,3 +12,9 @@ Also, we can change context and importance, but not urgency.
 
 Fix that.
 
+---
+
+Minor thing, to sneak into this changeset:
+
+When we are not in a category picker's input field, but whereever else on the Tasks page, and press option+escape, which
+removes all category selections, then also make sure this collapses any potential uncollapsed (open) task cards.
