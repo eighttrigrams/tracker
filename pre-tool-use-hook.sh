@@ -32,10 +32,12 @@ elif [ "$TOOL_NAME" = "Skill" ]; then
   fi
 elif [ "$TOOL_NAME" = "Write" ]; then
   FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
-  echo "$TIMESTAMP - PreToolUse - Write($FILE_PATH)" >> "$LOG_FILE"
+  REL_PATH="${FILE_PATH#$script_dir/}"
+  echo "$TIMESTAMP - PreToolUse - Write($REL_PATH)" >> "$LOG_FILE"
 elif [ "$TOOL_NAME" = "Edit" ]; then
   FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
-  echo "$TIMESTAMP - PreToolUse - Edit($FILE_PATH)" >> "$LOG_FILE"
+  REL_PATH="${FILE_PATH#$script_dir/}"
+  echo "$TIMESTAMP - PreToolUse - Edit($REL_PATH)" >> "$LOG_FILE"
 else
   echo "" >> "$LOG_FILE"
   echo "================================================================" >> "$LOG_FILE"
