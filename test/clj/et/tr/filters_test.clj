@@ -56,6 +56,32 @@
   (testing "target count is defined"
     (is (= 10 filters/target-upcoming-tasks-count))))
 
+(deftest multi-prefix-matches?-test
+  (testing "empty search matches everything"
+    (is (true? (filters/multi-prefix-matches? "abc def" "")))
+    (is (true? (filters/multi-prefix-matches? "abc def" "   ")))
+    (is (true? (filters/multi-prefix-matches? "abc def" nil))))
+
+  (testing "single prefix matches word start"
+    (is (true? (filters/multi-prefix-matches? "abc def" "ab")))
+    (is (true? (filters/multi-prefix-matches? "abc def" "de"))))
+
+  (testing "single prefix does NOT match mid-word"
+    (is (false? (filters/multi-prefix-matches? "abc def" "bc")))
+    (is (false? (filters/multi-prefix-matches? "abc def" "ef"))))
+
+  (testing "multiple prefixes require ALL to match"
+    (is (true? (filters/multi-prefix-matches? "abc bbab blablub" "a bb")))
+    (is (true? (filters/multi-prefix-matches? "abc def ghi" "ab de")))
+    (is (false? (filters/multi-prefix-matches? "abc def" "ab xyz"))))
+
+  (testing "case insensitivity"
+    (is (true? (filters/multi-prefix-matches? "ABC DEF" "ab de")))
+    (is (true? (filters/multi-prefix-matches? "abc def" "AB DE"))))
+
+  (testing "whitespace handling in search term"
+    (is (true? (filters/multi-prefix-matches? "abc def" "  ab  de  ")))))
+
 (deftest matches-scope?-test
   (testing "non-strict mode - :private includes both and private"
     (is (true? (filters/matches-scope? {:scope "private"} :private false)))

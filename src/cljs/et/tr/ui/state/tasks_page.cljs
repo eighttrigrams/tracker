@@ -1,5 +1,6 @@
 (ns et.tr.ui.state.tasks-page
-  (:require [clojure.set]))
+  (:require [clojure.set]
+            [et.tr.filters :as filters]))
 
 (def ^:const CATEGORY-TYPE-PERSON "person")
 (def ^:const CATEGORY-TYPE-PLACE "place")
@@ -125,10 +126,7 @@
                     (.focus el)) 0))
 
 (defn prefix-matches? [title search-term]
-  (let [title-lower (.toLowerCase title)
-        search-lower (.toLowerCase search-term)
-        words (.split title-lower #"\s+")]
-    (some #(.startsWith % search-lower) words)))
+  (filters/multi-prefix-matches? title search-term))
 
 (defn filtered-tasks [app-state]
   (let [tasks (:tasks @app-state)

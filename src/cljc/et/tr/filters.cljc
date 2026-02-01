@@ -1,4 +1,5 @@
-(ns et.tr.filters)
+(ns et.tr.filters
+  (:require [clojure.string :as str]))
 
 (def target-upcoming-tasks-count 10)
 
@@ -11,6 +12,15 @@
         :work (contains? #{"work" "both"} task-scope)
         :both true
         true))))
+
+(defn multi-prefix-matches? [text search-term]
+  (if (str/blank? search-term)
+    true
+    (let [text-words (str/split (str/lower-case text) #"\s+")
+          search-prefixes (str/split (str/lower-case (str/trim search-term)) #"\s+")]
+      (every? (fn [prefix]
+                (some #(str/starts-with? % prefix) text-words))
+              search-prefixes))))
 
 (defn apply-exclusion-filter [tasks excluded-places excluded-projects]
   (let [has-excluded-place? (fn [task]

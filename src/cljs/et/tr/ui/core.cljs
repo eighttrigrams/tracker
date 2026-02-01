@@ -8,6 +8,7 @@
             [et.tr.ui.views.settings :as settings]
             [et.tr.ui.views.users :as users]
             [et.tr.i18n :as i18n :refer [t tf]]
+            [et.tr.filters :as filters]
             ["marked" :refer [marked]]))
 
 (def ^:private tasks-category-shortcut-keys
@@ -115,7 +116,7 @@
 (defn- filter-by-name [items filter-text]
   (if (empty? filter-text)
     items
-    (filter #(tasks-page/prefix-matches? (:name %) filter-text) items)))
+    (filter #(filters/multi-prefix-matches? (:name %) filter-text) items)))
 
 (def ^:private tab-config
   [{:key :today      :translation :nav/today}
