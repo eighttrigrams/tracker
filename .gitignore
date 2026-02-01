@@ -12,7 +12,8 @@ config.edn.*
 data/
 logs/
 .lsp
-.clj-kondo
+.clj-kondo/*
+!.clj-kondo/config.edn
 .editor-layouts.json
 .claude/settings.local.json
 .credentials
