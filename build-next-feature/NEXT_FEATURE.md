@@ -29,4 +29,3 @@ Now a search for "aa bb" hits
 
 - "aaaba bbbd kka" | "cool"
 - "aaa mmm" | "alma bb"
-

@@ -27,6 +27,15 @@
             "command": "./pre-tool-use-hook.sh"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./pre-tool-use-hook.sh"
+          }
+        ]
       }
     ]
   },
