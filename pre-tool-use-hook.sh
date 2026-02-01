@@ -30,6 +30,10 @@ elif [ "$TOOL_NAME" = "Skill" ]; then
   else
     echo "$TIMESTAMP - PreToolUse - Skill($SKILL)" >> "$LOG_FILE"
   fi
+elif [ "$TOOL_NAME" = "Read" ]; then
+  FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+  REL_PATH="${FILE_PATH#$script_dir/}"
+  echo "$TIMESTAMP - PreToolUse - Read($REL_PATH)" >> "$LOG_FILE"
 elif [ "$TOOL_NAME" = "Write" ]; then
   FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
   REL_PATH="${FILE_PATH#$script_dir/}"
@@ -38,10 +42,13 @@ elif [ "$TOOL_NAME" = "Edit" ]; then
   FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
   REL_PATH="${FILE_PATH#$script_dir/}"
   echo "$TIMESTAMP - PreToolUse - Edit($REL_PATH)" >> "$LOG_FILE"
+elif [ "$TOOL_NAME" = "WebFetch" ]; then
+  URL=$(echo "$INPUT" | jq -r '.tool_input.url // empty' 2>/dev/null)
+  PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
+  echo "$TIMESTAMP - PreToolUse - WebFetch($URL) - $PROMPT" >> "$LOG_FILE"
+elif [ "$TOOL_NAME" = "WebSearch" ]; then
+  QUERY=$(echo "$INPUT" | jq -r '.tool_input.query // empty' 2>/dev/null)
+  echo "$TIMESTAMP - PreToolUse - WebSearch($QUERY)" >> "$LOG_FILE"
 else
-  echo "" >> "$LOG_FILE"
-  echo "================================================================" >> "$LOG_FILE"
-  echo "[$TIMESTAMP] PreToolUse" >> "$LOG_FILE"
-  echo "================================================================" >> "$LOG_FILE"
-  echo "$INPUT" | jq '{tool_name, tool_input}' >> "$LOG_FILE" 2>&1 || echo "$INPUT" >> "$LOG_FILE"
+  echo "$TIMESTAMP - PreToolUse - $TOOL_NAME" >> "$LOG_FILE"
 fi
