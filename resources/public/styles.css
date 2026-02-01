@@ -1403,6 +1403,18 @@ button:active { transform: translateY(0); }
 .task-urgency-selector .toggle-option.superurgent.active {
   background: #ff3b30;
 }
+/* Hide task attribute selectors by default, show on hover over the actions row */
+.item-actions .task-scope-selector,
+.item-actions .task-importance-selector,
+.item-actions .task-urgency-selector {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.item-actions:hover .task-scope-selector,
+.item-actions:hover .task-importance-selector,
+.item-actions:hover .task-urgency-selector {
+  opacity: 1;
+}
 .today-section.urgent h3 {
   color: #ff9500;
 }
