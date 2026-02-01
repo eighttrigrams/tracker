@@ -382,9 +382,6 @@
 (defn focus-tasks-search []
   (tasks-page/focus-tasks-search))
 
-(defn prefix-matches? [title search-term]
-  (tasks-page/prefix-matches? title search-term))
-
 (defn filtered-tasks []
   (tasks-page/filtered-tasks app-state))
 

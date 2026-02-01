@@ -2,6 +2,7 @@
   (:require [reagent.dom :as rdom]
             [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.ui.modals :as modals]
             [et.tr.ui.mail :as mail]
             [et.tr.ui.views.settings :as settings]
@@ -114,8 +115,7 @@
 (defn- filter-by-name [items filter-text]
   (if (empty? filter-text)
     items
-    (let [lower-filter (clojure.string/lower-case filter-text)]
-      (filter #(clojure.string/includes? (clojure.string/lower-case (:name %)) lower-filter) items))))
+    (filter #(tasks-page/prefix-matches? (:name %) filter-text) items)))
 
 (def ^:private tab-config
   [{:key :today      :translation :nav/today}
@@ -392,7 +392,7 @@
   (let [marked-items (filter #(contains? marked-ids (:id %)) items)
         search-term (get-in @state/app-state search-state-path "")
         visible-items (if (seq search-term)
-                        (filter #(state/prefix-matches? (:name %) search-term) items)
+                        (filter #(tasks-page/prefix-matches? (:name %) search-term) items)
                         items)
         input-id (str (or page-prefix "tasks") "-filter-" (name filter-key))
         handle-key-down (fn [e]
@@ -790,7 +790,7 @@
             search-term (:category-selector/search @state/app-state)
             available-entities (remove #(contains? task-category-ids (:id %)) entities)
             filtered-entities (if (and is-open (seq search-term))
-                                (filter #(state/prefix-matches? (:name %) search-term) available-entities)
+                                (filter #(tasks-page/prefix-matches? (:name %) search-term) available-entities)
                                 available-entities)]
         [:div.tag-selector
          [:div.category-selector-dropdown
