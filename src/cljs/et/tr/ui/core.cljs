@@ -274,8 +274,14 @@
                      (state/set-task-urgency (:id task) level))}
         (labels level)])]))
 
-(defn task-attribute-selectors [task & {:keys [show-importance? show-urgency?]
-                                         :or {show-importance? true show-urgency? true}}]
+(defn task-attribute-selectors
+  "Renders scope, importance, and urgency selectors for a task.
+  Options:
+    :show-importance? - Whether to show importance selector (default: true)
+    :show-urgency?    - Whether to show urgency selector (default: true)
+                        Set to false for views where urgency is implicit (e.g. Today page)"
+  [task & {:keys [show-importance? show-urgency?]
+           :or {show-importance? true show-urgency? true}}]
   [:<>
    [task-scope-selector task]
    (when show-importance?
@@ -638,28 +644,44 @@
                       :collapsed? (contains? collapsed-filters :goals)
                       :number (tasks-category-shortcut-numbers :goals)}]]))
 
+(defn- item-edit-form
+  [{:keys [title-atom description-atom tags-atom
+           title-placeholder description-placeholder tags-placeholder
+           on-save on-cancel on-delete]}]
+  [:div.item-edit-form
+   [:input {:type "text"
+            :value @title-atom
+            :on-change #(reset! title-atom (-> % .-target .-value))
+            :placeholder title-placeholder}]
+   [:textarea {:value @description-atom
+               :on-change #(reset! description-atom (-> % .-target .-value))
+               :placeholder description-placeholder
+               :rows 3}]
+   (when tags-atom
+     [:input {:type "text"
+              :value @tags-atom
+              :on-change #(reset! tags-atom (-> % .-target .-value))
+              :placeholder tags-placeholder}])
+   [:div.edit-buttons
+    [:button {:on-click on-save} (t :task/save)]
+    [:button.cancel {:on-click on-cancel} (t :task/cancel)]
+    (when on-delete
+      [:button.delete-btn {:on-click on-delete} (t :category/delete)])]])
+
 (defn category-edit-form [item category-type update-fn]
   (let [name-val (r/atom (:name item))
         description-val (r/atom (or (:description item) ""))]
     (fn []
-      [:div.item-edit-form
-       [:input {:type "text"
-                :value @name-val
-                :on-change #(reset! name-val (-> % .-target .-value))
-                :placeholder (t :category/name-placeholder)}]
-       [:textarea {:value @description-val
-                   :on-change #(reset! description-val (-> % .-target .-value))
-                   :placeholder (t :category/description-placeholder)
-                   :rows 3}]
-       [:div.edit-buttons
-        [:button {:on-click (fn []
-                              (update-fn (:id item) @name-val @description-val
-                                         #(state/clear-editing-category)))}
-         (t :task/save)]
-        [:button.cancel {:on-click #(state/clear-editing-category)}
-         (t :task/cancel)]
-        [:button.delete-btn {:on-click #(state/set-confirm-delete-category category-type item)}
-         (t :category/delete)]]])))
+      [item-edit-form
+       {:title-atom name-val
+        :description-atom description-val
+        :title-placeholder (t :category/name-placeholder)
+        :description-placeholder (t :category/description-placeholder)
+        :on-save (fn []
+                   (update-fn (:id item) @name-val @description-val
+                              #(state/clear-editing-category)))
+        :on-cancel #(state/clear-editing-category)
+        :on-delete #(state/set-confirm-delete-category category-type item)}])))
 
 (defn category-item [item category-type update-fn state-key]
   (let [editing (:category-page/editing @state/app-state)
@@ -858,26 +880,17 @@
         description (r/atom (or (:description task) ""))
         tags (r/atom (or (:tags task) ""))]
     (fn []
-      [:div.item-edit-form
-       [:input {:type "text"
-                :value @title
-                :on-change #(reset! title (-> % .-target .-value))
-                :placeholder (t :task/title-placeholder)}]
-       [:textarea {:value @description
-                   :on-change #(reset! description (-> % .-target .-value))
-                   :placeholder (t :task/description-placeholder)
-                   :rows 3}]
-       [:input {:type "text"
-                :value @tags
-                :on-change #(reset! tags (-> % .-target .-value))
-                :placeholder (t :task/tags-placeholder)}]
-       [:div.edit-buttons
-        [:button {:on-click (fn []
-                              (state/update-task (:id task) @title @description @tags
-                                                 #(state/clear-editing)))}
-         (t :task/save)]
-        [:button.cancel {:on-click #(state/clear-editing)}
-         (t :task/cancel)]]])))
+      [item-edit-form
+       {:title-atom title
+        :description-atom description
+        :tags-atom tags
+        :title-placeholder (t :task/title-placeholder)
+        :description-placeholder (t :task/description-placeholder)
+        :tags-placeholder (t :task/tags-placeholder)
+        :on-save (fn []
+                   (state/update-task (:id task) @title @description @tags
+                                      #(state/clear-editing)))
+        :on-cancel #(state/clear-editing)}])))
 
 (defn task-categories-readonly [task]
   [:div.item-tags-readonly
