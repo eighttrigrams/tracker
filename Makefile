@@ -1,4 +1,4 @@
-.PHONY: start stop start-prod build test deploy clean fly-backup fly-backup-replay
+.PHONY: start stop start-prod build test lint deploy clean fly-backup fly-backup-replay
 
 start:
 	./scripts/start.sh
@@ -16,6 +16,9 @@ build:
 
 test:
 	clj -X:test
+
+lint:
+	clj-kondo --lint src/clj src/cljc test/clj
 
 deploy:
 	fly deploy
