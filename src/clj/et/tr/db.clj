@@ -6,6 +6,8 @@
             [clojure.string]
             [honey.sql :as sql]))
 
+(def ^:private jdbc-opts {:builder-fn rs/as-unqualified-maps})
+
 (defn init-conn [{:keys [type path]}]
   (let [db-spec (case type
                   :sqlite-memory {:dbtype "sqlite" :dbname "file::memory:?cache=shared"}
@@ -26,12 +28,12 @@
     (jdbc/execute-one! (get-conn ds)
       ["INSERT INTO users (username, password_hash) VALUES (?, ?) RETURNING id, username, language, created_at"
        username hash]
-      {:builder-fn rs/as-unqualified-maps})))
+      jdbc-opts)))
 
 (defn get-user-by-username [ds username]
   (jdbc/execute-one! (get-conn ds)
     ["SELECT id, username, password_hash, language, created_at FROM users WHERE username = ?" username]
-    {:builder-fn rs/as-unqualified-maps}))
+    jdbc-opts))
 
 (defn verify-user [ds username password]
   (when-let [user (get-user-by-username ds username)]
@@ -41,26 +43,27 @@
 (defn list-users [ds]
   (jdbc/execute! (get-conn ds)
     ["SELECT id, username, language, created_at FROM users WHERE username != 'admin' ORDER BY created_at"]
-    {:builder-fn rs/as-unqualified-maps}))
+    jdbc-opts))
 
 (defn delete-user [ds user-id]
-  (let [conn (get-conn ds)
-        task-ids (mapv :id (jdbc/execute! conn
-                             ["SELECT id FROM tasks WHERE user_id = ?" user-id]
-                             {:builder-fn rs/as-unqualified-maps}))]
-    (when (seq task-ids)
-      (jdbc/execute-one! conn
-        (into [(str "DELETE FROM task_categories WHERE task_id IN ("
-                    (clojure.string/join "," (repeat (count task-ids) "?"))
-                    ")")] task-ids)))
-    (jdbc/execute-one! conn ["DELETE FROM tasks WHERE user_id = ?" user-id])
-    (jdbc/execute-one! conn ["DELETE FROM messages WHERE user_id = ?" user-id])
-    (jdbc/execute-one! conn ["DELETE FROM people WHERE user_id = ?" user-id])
-    (jdbc/execute-one! conn ["DELETE FROM places WHERE user_id = ?" user-id])
-    (jdbc/execute-one! conn ["DELETE FROM projects WHERE user_id = ?" user-id])
-    (jdbc/execute-one! conn ["DELETE FROM goals WHERE user_id = ?" user-id])
-    (let [result (jdbc/execute-one! conn ["DELETE FROM users WHERE id = ?" user-id])]
-      {:success (pos? (:next.jdbc/update-count result))})))
+  (let [conn (get-conn ds)]
+    (jdbc/with-transaction [tx conn]
+      (let [task-ids (mapv :id (jdbc/execute! tx
+                                 ["SELECT id FROM tasks WHERE user_id = ?" user-id]
+                                 jdbc-opts))]
+        (when (seq task-ids)
+          (jdbc/execute-one! tx
+            (into [(str "DELETE FROM task_categories WHERE task_id IN ("
+                        (clojure.string/join "," (repeat (count task-ids) "?"))
+                        ")")] task-ids)))
+        (jdbc/execute-one! tx ["DELETE FROM tasks WHERE user_id = ?" user-id])
+        (jdbc/execute-one! tx ["DELETE FROM messages WHERE user_id = ?" user-id])
+        (jdbc/execute-one! tx ["DELETE FROM people WHERE user_id = ?" user-id])
+        (jdbc/execute-one! tx ["DELETE FROM places WHERE user_id = ?" user-id])
+        (jdbc/execute-one! tx ["DELETE FROM projects WHERE user_id = ?" user-id])
+        (jdbc/execute-one! tx ["DELETE FROM goals WHERE user_id = ?" user-id])
+        (let [result (jdbc/execute-one! tx ["DELETE FROM users WHERE id = ?" user-id])]
+          {:success (pos? (:next.jdbc/update-count result))})))))
 
 (def valid-scopes #{"private" "both" "work"})
 
@@ -98,7 +101,7 @@
                                      (sql/format {:select [[[:min :sort_order] :min_order]]
                                                   :from [:tasks]
                                                   :where (user-id-where-clause user-id)})
-                                     {:builder-fn rs/as-unqualified-maps}))
+                                     jdbc-opts))
                        1.0)
          new-order (- min-order 1.0)]
      (jdbc/execute-one! conn
@@ -109,7 +112,7 @@
                               :modified_at [:raw "datetime('now')"]
                               :scope valid-scope}]
                     :returning (conj task-select-columns :user_id)})
-       {:builder-fn rs/as-unqualified-maps}))))
+       jdbc-opts))))
 
 (defn- extract-category [task-categories category-type lookup-map]
   (->> task-categories
@@ -148,22 +151,22 @@
                  (sql/format {:select [:id :name]
                               :from [:people]
                               :where user-id-where-clause})
-                 {:builder-fn rs/as-unqualified-maps})
+                 jdbc-opts)
         places (jdbc/execute! conn
                  (sql/format {:select [:id :name]
                               :from [:places]
                               :where user-id-where-clause})
-                 {:builder-fn rs/as-unqualified-maps})
+                 jdbc-opts)
         projects (jdbc/execute! conn
                    (sql/format {:select [:id :name]
                                 :from [:projects]
                                 :where user-id-where-clause})
-                   {:builder-fn rs/as-unqualified-maps})
+                   jdbc-opts)
         goals (jdbc/execute! conn
                 (sql/format {:select [:id :name]
                               :from [:goals]
                               :where user-id-where-clause})
-                {:builder-fn rs/as-unqualified-maps})]
+                jdbc-opts)]
     {:people-by-id (into {} (map (juxt :id :name) people))
      :places-by-id (into {} (map (juxt :id :name) places))
      :projects-by-id (into {} (map (juxt :id :name) projects))
@@ -213,14 +216,14 @@
                               :from [:tasks]
                               :where where-clause
                               :order-by order-by})
-                 {:builder-fn rs/as-unqualified-maps})
+                 jdbc-opts)
          task-ids (mapv :id tasks)
          categories (when (seq task-ids)
                       (jdbc/execute! conn
                         (sql/format {:select [:task_id :category_type :category_id]
                                      :from [:task_categories]
                                      :where [:in :task_id task-ids]})
-                        {:builder-fn rs/as-unqualified-maps}))
+                        jdbc-opts))
          {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn user-where)
          categories-by-task (group-by :task_id categories)]
      (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id))))
@@ -244,13 +247,13 @@
                                     (sql/format {:select [[[:max :sort_order] :max_order]]
                                                  :from [(keyword table-name)]
                                                  :where (user-id-where-clause user-id)})
-                                    {:builder-fn rs/as-unqualified-maps}))
+                                    jdbc-opts))
                       0)
         new-order (+ max-order 1.0)]
     (jdbc/execute-one! conn
       [(str "INSERT INTO " table-name " (name, user_id, sort_order) VALUES (?, ?, ?) RETURNING id, name, sort_order")
        name user-id new-order]
-      {:builder-fn rs/as-unqualified-maps})))
+      jdbc-opts)))
 
 (defn add-person [ds user-id name]
   (add-category ds user-id name "people"))
@@ -265,7 +268,7 @@
                  :from [(keyword table-name)]
                  :where (user-id-where-clause user-id)
                  :order-by [[:sort_order :asc] [:name :asc]]})
-    {:builder-fn rs/as-unqualified-maps}))
+    jdbc-opts))
 
 (defn list-people [ds user-id]
   (list-category ds user-id "people"))
@@ -291,7 +294,7 @@
         query-params (concat [name description category-id] params)]
     (jdbc/execute-one! (get-conn ds)
       (into [(str "UPDATE " table-name " SET name = ?, description = ? WHERE id = ? AND " clause " RETURNING id, name, description")] query-params)
-      {:builder-fn rs/as-unqualified-maps})))
+      jdbc-opts)))
 
 (defn update-person [ds user-id person-id name description]
   (update-category ds user-id person-id name description "people"))
@@ -325,7 +328,7 @@
            (sql/format {:select [:id]
                         :from [:tasks]
                         :where [:and [:= :id task-id] (user-id-where-clause user-id)]})
-           {:builder-fn rs/as-unqualified-maps})))
+           jdbc-opts)))
 
 (defn categorize-task [ds user-id task-id category-type category-id]
   (validate-category-type! category-type)
@@ -369,14 +372,14 @@
                    :set set-map
                    :where [:and [:= :id task-id] (user-id-where-clause user-id)]
                    :returning return-cols})
-      {:builder-fn rs/as-unqualified-maps})))
+      jdbc-opts)))
 
 (defn get-task-sort-order [ds user-id task-id]
   (:sort_order (jdbc/execute-one! (get-conn ds)
                  (sql/format {:select [:sort_order]
                               :from [:tasks]
                               :where [:and [:= :id task-id] (user-id-where-clause user-id)]})
-                 {:builder-fn rs/as-unqualified-maps})))
+                 jdbc-opts)))
 
 (defn reorder-task [ds user-id task-id new-sort-order]
   (jdbc/execute-one! (get-conn ds)
@@ -391,7 +394,7 @@
                  (sql/format {:select [:sort_order]
                               :from [(keyword table-name)]
                               :where [:and [:= :id category-id] (user-id-where-clause user-id)]})
-                 {:builder-fn rs/as-unqualified-maps})))
+                 jdbc-opts)))
 
 (defn reorder-category [ds user-id category-id new-sort-order table-name]
   (validate-table-name! table-name)
@@ -413,7 +416,7 @@
                    :set set-map
                    :where [:and [:= :id task-id] (user-id-where-clause user-id)]
                    :returning [:id :due_date :due_time :modified_at]})
-      {:builder-fn rs/as-unqualified-maps})))
+      jdbc-opts)))
 
 (defn set-task-due-time [ds user-id task-id due-time]
   (let [normalized-time (if (empty? due-time) nil due-time)]
@@ -423,7 +426,7 @@
                          :modified_at [:raw "datetime('now')"]}
                    :where [:and [:= :id task-id] (user-id-where-clause user-id)]
                    :returning [:id :due_date :due_time :modified_at]})
-      {:builder-fn rs/as-unqualified-maps})))
+      jdbc-opts)))
 
 (defn delete-task [ds user-id task-id]
   (when (task-owned-by-user? ds task-id user-id)
@@ -445,7 +448,7 @@
                          :modified_at [:raw "datetime('now')"]}
                    :where [:and [:= :id task-id] (user-id-where-clause user-id)]
                    :returning [:id :done :modified_at]})
-      {:builder-fn rs/as-unqualified-maps})))
+      jdbc-opts)))
 
 (def ^:private field-normalizers
   {:scope normalize-scope
@@ -461,7 +464,7 @@
                          :modified_at [:raw "datetime('now')"]}
                    :where [:and [:= :id task-id] (user-id-where-clause user-id)]
                    :returning [:id field :modified_at]})
-      {:builder-fn rs/as-unqualified-maps})))
+      jdbc-opts)))
 
 (def valid-languages #{"en" "de" "pt"})
 
@@ -469,13 +472,13 @@
   (when user-id
     (:language (jdbc/execute-one! (get-conn ds)
                  ["SELECT language FROM users WHERE id = ?" user-id]
-                 {:builder-fn rs/as-unqualified-maps}))))
+                 jdbc-opts))))
 
 (defn set-user-language [ds user-id language]
   (when (and user-id (contains? valid-languages language))
     (jdbc/execute-one! (get-conn ds)
       ["UPDATE users SET language = ? WHERE id = ? RETURNING id, language" language user-id]
-      {:builder-fn rs/as-unqualified-maps})))
+      jdbc-opts)))
 
 (defn- query-categories-chunked [conn task-ids]
   (if (empty? task-ids)
@@ -487,7 +490,7 @@
                   (into [(str "SELECT task_id, category_type, category_id FROM task_categories WHERE task_id IN ("
                               (clojure.string/join "," (repeat (count chunk) "?"))
                               ")")] chunk)
-                  {:builder-fn rs/as-unqualified-maps}))
+                  jdbc-opts))
               chunks))))
 
 (defn- normalize-task [task]
@@ -504,7 +507,7 @@
                              :from [:tasks]
                              :where user-where
                              :order-by [[:created_at :asc]]})
-                {:builder-fn rs/as-unqualified-maps})
+                jdbc-opts)
         task-ids (mapv :id tasks)
         categories (query-categories-chunked conn task-ids)
         people (jdbc/execute! conn
@@ -512,25 +515,25 @@
                               :from [:people]
                               :where user-where
                               :order-by [[:sort_order :asc] [:name :asc]]})
-                 {:builder-fn rs/as-unqualified-maps})
+                 jdbc-opts)
         places (jdbc/execute! conn
                  (sql/format {:select [:id :name :description :sort_order]
                               :from [:places]
                               :where user-where
                               :order-by [[:sort_order :asc] [:name :asc]]})
-                 {:builder-fn rs/as-unqualified-maps})
+                 jdbc-opts)
         projects (jdbc/execute! conn
                    (sql/format {:select [:id :name :description :sort_order]
                                 :from [:projects]
                                 :where user-where
                                 :order-by [[:sort_order :asc] [:name :asc]]})
-                   {:builder-fn rs/as-unqualified-maps})
+                   jdbc-opts)
         goals (jdbc/execute! conn
                 (sql/format {:select [:id :name :description :sort_order]
                              :from [:goals]
                              :where user-where
                              :order-by [[:sort_order :asc] [:name :asc]]})
-                {:builder-fn rs/as-unqualified-maps})
+                jdbc-opts)
         people-by-id (into {} (map (juxt :id :name) people))
         places-by-id (into {} (map (juxt :id :name) places))
         projects-by-id (into {} (map (juxt :id :name) projects))
@@ -552,7 +555,7 @@
                            :description (or description "")
                            :user_id user-id}]
                  :returning [:id :sender :title :description :created_at :done :user_id]})
-    {:builder-fn rs/as-unqualified-maps}))
+    jdbc-opts))
 
 (defn list-messages
   ([ds user-id] (list-messages ds user-id :recent))
@@ -566,14 +569,14 @@
                     :from [:messages]
                     :where [:and user-where done-filter]
                     :order-by [[:created_at :desc]]})
-       {:builder-fn rs/as-unqualified-maps}))))
+       jdbc-opts))))
 
 (defn message-owned-by-user? [ds message-id user-id]
   (some? (jdbc/execute-one! (get-conn ds)
            (sql/format {:select [:id]
                         :from [:messages]
                         :where [:and [:= :id message-id] (user-id-where-clause user-id)]})
-           {:builder-fn rs/as-unqualified-maps})))
+           jdbc-opts)))
 
 (defn set-message-done [ds user-id message-id done?]
   (let [done-val (if done? 1 0)]
@@ -582,7 +585,7 @@
                    :set {:done done-val}
                    :where [:and [:= :id message-id] (user-id-where-clause user-id)]
                    :returning [:id :done]})
-      {:builder-fn rs/as-unqualified-maps})))
+      jdbc-opts)))
 
 (defn delete-message [ds user-id message-id]
   (when (message-owned-by-user? ds message-id user-id)
