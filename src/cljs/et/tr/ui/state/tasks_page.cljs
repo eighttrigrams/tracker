@@ -62,7 +62,8 @@
              :tasks-page/filter-projects #{}
              :tasks-page/filter-goals #{}
              :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
-             :tasks-page/importance-filter nil)
+             :tasks-page/importance-filter nil
+             :tasks-page/expanded-task nil)
       (do
         (doseq [filter-key uncollapsed]
           (case filter-key
@@ -73,7 +74,8 @@
         (swap! app-state assoc
                :tasks-page/collapsed-filters all-filters
                :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
-               :tasks-page/importance-filter nil)))))
+               :tasks-page/importance-filter nil
+               :tasks-page/expanded-task nil)))))
 
 (defn toggle-filter-collapsed [app-state filter-key]
   (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)

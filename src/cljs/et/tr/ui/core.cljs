@@ -332,20 +332,40 @@
                                       (state/set-task-due-time (:id task) nil))}
       "✕"])])
 
+(defn- today-task-edit-form [task]
+  (let [title (r/atom (:title task))
+        description (r/atom (or (:description task) ""))]
+    (fn []
+      [item-edit-form
+       {:title-atom title
+        :description-atom description
+        :tags-atom nil
+        :title-placeholder (t :task/title-placeholder)
+        :description-placeholder (t :task/description-placeholder)
+        :on-save (fn []
+                   (state/update-task (:id task) @title @description (:tags task)
+                                      #(state/clear-editing)))
+        :on-cancel #(state/clear-editing)}])))
+
 (defn- today-task-expanded-details [task]
-  [:div.today-task-details
-   (when (seq (:description task))
-     [:div.item-description [markdown (:description task)]])
-   [task-category-badges task]
-   [:div.item-actions
-    ;; :show-urgency? false - Today view excludes urgency since tasks here are already time-sensitive by definition
-    [task-attribute-selectors task :show-urgency? false]
-    [task-combined-action-button task]]])
+  (let [editing-task (:editing-task @state/app-state)
+        is-editing (= editing-task (:id task))]
+    (if is-editing
+      [today-task-edit-form task]
+      [:div.today-task-details
+       (when (seq (:description task))
+         [:div.item-description [markdown (:description task)]])
+       [task-category-badges task]
+       [:div.item-actions
+        [task-attribute-selectors task]
+        [task-combined-action-button task]]])))
 
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
   (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/app-state)
-        is-expanded (= expanded-task (:id task))]
+        editing-task (:editing-task @state/app-state)
+        is-expanded (= expanded-task (:id task))
+        is-editing (= editing-task (:id task))]
     [:div.today-task-item {:class (when is-expanded "expanded")}
      [:div.today-task-header
       {:on-click #(state/toggle-expanded :today-page/expanded-task (:id task))}
@@ -357,6 +377,11 @@
         (when (seq (:due_time task))
           [:span.task-time {:class (when overdue? "overdue-time")} (:due_time task)])
         (:title task)
+        (when (and is-expanded (not is-editing))
+          [:button.edit-icon {:on-click (fn [e]
+                                          (.stopPropagation e)
+                                          (state/set-editing (:id task)))}
+           "✎"])
         (when (and is-expanded (seq (:due_time task)))
           [time-picker task])]
        (when-not is-expanded
