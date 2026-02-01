@@ -11,7 +11,8 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.cors :refer [wrap-cors]]
             [nrepl.server :as nrepl]
-            [buddy.sign.jwt :as jwt])
+            [buddy.sign.jwt :as jwt]
+            [taoensso.telemere :as tel])
   (:import [java.util.zip ZipOutputStream ZipEntry]
            [java.io ByteArrayOutputStream]
            [java.text Normalizer Normalizer$Form]
@@ -25,10 +26,10 @@
   (let [config-file (io/file "config.edn")]
     (if (.exists config-file)
       (do
-        (prn "Loading configuration from config.edn")
+        (tel/log! :info "Loading configuration from config.edn")
         (edn/read-string (slurp config-file)))
       (do
-        (prn "config.edn not found, using default in-memory database")
+        (tel/log! :info "config.edn not found, using default in-memory database")
         {:db {:type :sqlite-memory}}))))
 
 (defn ensure-ds []
@@ -708,22 +709,28 @@
 
 (defn- run-server [port prod?]
   (let [host (or (System/getenv "HOST") "127.0.0.1")]
-    (prn "Binding to" host ":" port)
+    (tel/log! :info (str "Binding to " host ":" port))
     (jetty/run-jetty (app prod?) {:port port :host host :join? false})))
+
+(defn- setup-file-logging []
+  (let [log-dir (io/file "logs")]
+    (.mkdirs log-dir)
+    (tel/add-handler! :file (tel/handler:file {:path "logs/tracker.log"}))))
 
 (defn -main [& _args]
   (reset! config (load-config))
   (let [prod? (prod-mode?)]
+    (when-not prod? (setup-file-logging))
     (when (and (true? (:dangerously-skip-logins? @config)) prod?)
       (throw (ex-info "Cannot use :dangerously-skip-logins? in production mode" {})))
-    (prn (str "Starting system in " (if prod? "production" "development") " mode."))
+    (tel/log! :info (str "Starting system in " (if prod? "production" "development") " mode"))
     (ensure-ds)
     (when-not prod?
       (let [nrepl-port (env-int "NREPL_PORT" 7898)]
         (nrepl/start-server :port nrepl-port)
         (spit ".nrepl-port" nrepl-port)
-        (prn "nREPL server started on port" nrepl-port)))
+        (tel/log! :info (str "nREPL server started on port " nrepl-port))))
     (let [port (env-int "PORT" 3027)]
-      (prn "Starting server on port" port)
+      (tel/log! :info (str "Starting server on port " port))
       (run-server port prod?)
       @(promise))))

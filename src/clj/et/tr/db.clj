@@ -4,7 +4,8 @@
             [et.tr.migrations :as migrations]
             [buddy.hashers :as hashers]
             [clojure.string]
-            [honey.sql :as sql]))
+            [honey.sql :as sql]
+            [taoensso.telemere :as tel]))
 
 (def ^:private jdbc-opts {:builder-fn rs/as-unqualified-maps})
 
@@ -24,12 +25,14 @@
   (if (map? ds) (:conn ds) ds))
 
 (defn create-user [ds username password]
-  (let [hash (hashers/derive password)]
-    (jdbc/execute-one! (get-conn ds)
-      (sql/format {:insert-into :users
-                   :values [{:username username :password_hash hash}]
-                   :returning [:id :username :language :created_at]})
-      jdbc-opts)))
+  (let [hash (hashers/derive password)
+        result (jdbc/execute-one! (get-conn ds)
+                 (sql/format {:insert-into :users
+                              :values [{:username username :password_hash hash}]
+                              :returning [:id :username :language :created_at]})
+                 jdbc-opts)]
+    (tel/log! {:level :info :data {:user-id (:id result) :username username}} "User created")
+    result))
 
 (defn get-user-by-username [ds username]
   (jdbc/execute-one! (get-conn ds)
@@ -70,6 +73,7 @@
         (jdbc/execute-one! tx (sql/format {:delete-from :projects :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :goals :where [:= :user_id user-id]}))
         (let [result (jdbc/execute-one! tx (sql/format {:delete-from :users :where [:= :id user-id]}))]
+          (tel/log! {:level :info :data {:user-id user-id}} "User deleted")
           {:success (pos? (:next.jdbc/update-count result))})))))
 
 (def valid-scopes #{"private" "both" "work"})
@@ -105,16 +109,18 @@
                                                   :where (user-id-where-clause user-id)})
                                      jdbc-opts))
                        1.0)
-         new-order (- min-order 1.0)]
-     (jdbc/execute-one! conn
-       (sql/format {:insert-into :tasks
-                    :values [{:title title
-                              :sort_order new-order
-                              :user_id user-id
-                              :modified_at [:raw "datetime('now')"]
-                              :scope valid-scope}]
-                    :returning (conj task-select-columns :user_id)})
-       jdbc-opts))))
+         new-order (- min-order 1.0)
+         result (jdbc/execute-one! conn
+                  (sql/format {:insert-into :tasks
+                               :values [{:title title
+                                         :sort_order new-order
+                                         :user_id user-id
+                                         :modified_at [:raw "datetime('now')"]
+                                         :scope valid-scope}]
+                               :returning (conj task-select-columns :user_id)})
+                  jdbc-opts)]
+     (tel/log! {:level :info :data {:task-id (:id result) :user-id user-id}} "Task added")
+     result)))
 
 (defn- extract-category [task-categories category-type lookup-map]
   (->> task-categories
@@ -251,12 +257,14 @@
                                                  :where (user-id-where-clause user-id)})
                                     jdbc-opts))
                       0)
-        new-order (+ max-order 1.0)]
-    (jdbc/execute-one! conn
-      (sql/format {:insert-into (keyword table-name)
-                   :values [{:name name :user_id user-id :sort_order new-order}]
-                   :returning [:id :name :sort_order]})
-      jdbc-opts)))
+        new-order (+ max-order 1.0)
+        result (jdbc/execute-one! conn
+                 (sql/format {:insert-into (keyword table-name)
+                              :values [{:name name :user_id user-id :sort_order new-order}]
+                              :returning [:id :name :sort_order]})
+                 jdbc-opts)]
+    (tel/log! {:level :info :data {:category table-name :id (:id result) :user-id user-id}} "Category added")
+    result))
 
 (defn add-person [ds user-id name]
   (add-category ds user-id name "people"))
@@ -328,6 +336,7 @@
       (let [result (jdbc/execute-one! tx
                      (sql/format {:delete-from (keyword table-name)
                                   :where [:and [:= :id category-id] (user-id-where-clause user-id)]}))]
+        (tel/log! {:level :info :data {:category table-name :id category-id :user-id user-id}} "Category deleted")
         {:success (pos? (:next.jdbc/update-count result))}))))
 
 (defn task-owned-by-user? [ds task-id user-id]
@@ -445,6 +454,7 @@
         (let [result (jdbc/execute-one! tx
                        (sql/format {:delete-from :tasks
                                     :where [:= :id task-id]}))]
+          (tel/log! {:level :info :data {:task-id task-id :user-id user-id}} "Task deleted")
           {:success (pos? (:next.jdbc/update-count result))})))))
 
 (defn set-task-done [ds user-id task-id done?]
@@ -560,14 +570,16 @@
      :goals goals}))
 
 (defn add-message [ds user-id sender title description]
-  (jdbc/execute-one! (get-conn ds)
-    (sql/format {:insert-into :messages
-                 :values [{:sender sender
-                           :title title
-                           :description (or description "")
-                           :user_id user-id}]
-                 :returning [:id :sender :title :description :created_at :done :user_id]})
-    jdbc-opts))
+  (let [result (jdbc/execute-one! (get-conn ds)
+                 (sql/format {:insert-into :messages
+                              :values [{:sender sender
+                                        :title title
+                                        :description (or description "")
+                                        :user_id user-id}]
+                              :returning [:id :sender :title :description :created_at :done :user_id]})
+                 jdbc-opts)]
+    (tel/log! {:level :info :data {:message-id (:id result) :user-id user-id}} "Message added")
+    result))
 
 (defn list-messages
   ([ds user-id] (list-messages ds user-id :recent))
@@ -604,4 +616,5 @@
     (let [result (jdbc/execute-one! (get-conn ds)
                    (sql/format {:delete-from :messages
                                 :where [:= :id message-id]}))]
+      (tel/log! {:level :info :data {:message-id message-id :user-id user-id}} "Message deleted")
       {:success (pos? (:next.jdbc/update-count result))})))

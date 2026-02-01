@@ -10,6 +10,7 @@ config.edn
 config.edn.*
 !config.edn.template
 data/
+logs/
 .lsp
 .clj-kondo
 .editor-layouts.json
