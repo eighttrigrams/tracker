@@ -77,7 +77,7 @@
 (defn- normalize-urgency [urgency]
   (if (contains? valid-urgencies urgency) urgency "default"))
 
-(def task-select-columns [:id :title :description :created_at :modified_at :due_date :due_time :sort_order :done :scope :importance :urgency])
+(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :scope :importance :urgency])
 
 (defn- user-id-clause [user-id]
   {:clause (if user-id "user_id = ?" "user_id IS NULL")
@@ -132,7 +132,9 @@
               (map (fn [term]
                      [:or
                       [:like [:lower :title] (str term "%")]
-                      [:like [:lower :title] (str "% " term "%")]])
+                      [:like [:lower :title] (str "% " term "%")]
+                      [:like [:lower :tags] (str term "%")]
+                      [:like [:lower :tags] (str "% " term "%")]])
                    terms))))))
 
 (defn- fetch-category-lookups [conn user-id-where-clause]
@@ -326,11 +328,14 @@
       (jdbc/execute-one! conn
         ["UPDATE tasks SET modified_at = datetime('now') WHERE id = ?" task-id]))))
 
-(defn update-task [ds user-id task-id title description]
+(defn update-task [ds user-id task-id fields]
   (let [{:keys [clause params]} (user-id-clause user-id)
-        query-params (concat [title description task-id] params)]
+        field-names (keys fields)
+        set-clause (clojure.string/join ", " (map #(str (name %) " = ?") field-names))
+        query-params (concat (vals fields) [task-id] params)
+        return-cols (clojure.string/join ", " (map name field-names))]
     (jdbc/execute-one! (get-conn ds)
-      (into [(str "UPDATE tasks SET title = ?, description = ?, modified_at = datetime('now') WHERE id = ? AND " clause " RETURNING id, title, description, created_at, modified_at")] query-params)
+      (into [(str "UPDATE tasks SET " set-clause ", modified_at = datetime('now') WHERE id = ? AND " clause " RETURNING id, " return-cols ", created_at, modified_at")] query-params)
       {:builder-fn rs/as-unqualified-maps})))
 
 (defn get-task-sort-order [ds user-id task-id]

@@ -89,7 +89,7 @@
 (deftest update-task-test
   (testing "updates title and description"
     (let [task (db/add-task *ds* nil "Original")
-          updated (db/update-task *ds* nil (:id task) "Updated" "New description")]
+          updated (db/update-task *ds* nil (:id task) {:title "Updated" :description "New description"})]
       (is (= "Updated" (:title updated)))
       (is (= "New description" (:description updated)))
       (is (= (:id task) (:id updated))))))
@@ -229,7 +229,7 @@
 (deftest update-task-updates-modified-at-test
   (testing "updating task returns modified_at"
     (let [task (db/add-task *ds* nil "Original")
-          updated (db/update-task *ds* nil (:id task) "Updated" "Desc")]
+          updated (db/update-task *ds* nil (:id task) {:title "Updated" :description "Desc"})]
       (is (some? (:modified_at updated))))))
 
 (deftest set-due-date-updates-modified-at-test
@@ -458,3 +458,25 @@
     (let [tasks (db/list-tasks *ds* nil :recent {:search-term "task" :context "private"})]
       (is (= 2 (count tasks)))
       (is (not (some #(= "Work task" (:title %)) tasks))))))
+
+(deftest list-tasks-tag-search-test
+  (testing "search matches tags field"
+    (let [task1 (db/add-task *ds* nil "aaaba bbbd kka")
+          task2 (db/add-task *ds* nil "eieie yoyo")
+          task3 (db/add-task *ds* nil "aaa mmm")]
+      (db/update-task *ds* nil (:id task1) {:title "aaaba bbbd kka" :description "" :tags "cool"})
+      (db/update-task *ds* nil (:id task2) {:title "eieie yoyo" :description "" :tags "sup"})
+      (db/update-task *ds* nil (:id task3) {:title "aaa mmm" :description "" :tags "alma bb"})
+      (let [tasks (db/list-tasks *ds* nil :recent "aa bb")]
+        (is (= 2 (count tasks)))
+        (is (= #{"aaaba bbbd kka" "aaa mmm"} (set (map :title tasks)))))))
+
+  (testing "tag search is case insensitive"
+    (let [tasks (db/list-tasks *ds* nil :recent "COOL")]
+      (is (= 1 (count tasks)))
+      (is (= "aaaba bbbd kka" (:title (first tasks))))))
+
+  (testing "search matches prefix in tags"
+    (let [tasks (db/list-tasks *ds* nil :recent "al")]
+      (is (= 1 (count tasks)))
+      (is (= "aaa mmm" (:title (first tasks)))))))

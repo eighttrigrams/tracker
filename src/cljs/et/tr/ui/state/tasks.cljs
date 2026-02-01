@@ -71,9 +71,9 @@
          :error-handler (fn [resp]
                           (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))))
 
-(defn update-task [app-state auth-headers task-id title description on-success]
+(defn update-task [app-state auth-headers task-id title description tags on-success]
   (api/put-json (str "/api/tasks/" task-id)
-    {:title title :description description}
+    {:title title :description description :tags tags}
     (auth-headers)
     (fn [updated-task]
       (swap! app-state update :tasks

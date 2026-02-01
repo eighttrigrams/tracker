@@ -54,6 +54,7 @@
   :task/cancel "Cancel"
   :task/title-placeholder "Title"
   :task/description-placeholder "Description (optional)"
+  :task/tags-placeholder "Tags (space-separated search terms)"
 
   :category/people "People"
   :category/places "Places"
@@ -192,6 +193,7 @@
   :task/cancel "Abbrechen"
   :task/title-placeholder "Titel"
   :task/description-placeholder "Beschreibung (optional)"
+  :task/tags-placeholder "Tags (Suchbegriffe mit Leerzeichen getrennt)"
 
   :category/people "Personen"
   :category/places "Orte"
@@ -330,6 +332,7 @@
   :task/cancel "Cancelar"
   :task/title-placeholder "Título"
   :task/description-placeholder "Descrição (opcional)"
+  :task/tags-placeholder "Tags (termos de pesquisa separados por espaços)"
 
   :category/people "Pessoas"
   :category/places "Lugares"

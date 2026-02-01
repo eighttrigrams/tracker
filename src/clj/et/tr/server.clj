@@ -144,10 +144,10 @@
 (defn update-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [title description]} (:body req)]
+        {:keys [title description tags]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [task (db/update-task (ensure-ds) user-id task-id title (or description ""))]
+      (let [task (db/update-task (ensure-ds) user-id task-id {:title title :description (or description "") :tags (or tags "")})]
         {:status 200 :body task}))))
 
 (defn list-people-handler [req]

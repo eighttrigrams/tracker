@@ -853,7 +853,8 @@
 
 (defn task-edit-form [task]
   (let [title (r/atom (:title task))
-        description (r/atom (or (:description task) ""))]
+        description (r/atom (or (:description task) ""))
+        tags (r/atom (or (:tags task) ""))]
     (fn []
       [:div.item-edit-form
        [:input {:type "text"
@@ -864,9 +865,13 @@
                    :on-change #(reset! description (-> % .-target .-value))
                    :placeholder (t :task/description-placeholder)
                    :rows 3}]
+       [:input {:type "text"
+                :value @tags
+                :on-change #(reset! tags (-> % .-target .-value))
+                :placeholder (t :task/tags-placeholder)}]
        [:div.edit-buttons
         [:button {:on-click (fn []
-                              (state/update-task (:id task) @title @description
+                              (state/update-task (:id task) @title @description @tags
                                                  #(state/clear-editing)))}
          (t :task/save)]
         [:button.cancel {:on-click #(state/clear-editing)}

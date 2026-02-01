@@ -277,8 +277,8 @@
 (defn add-task [title on-success]
   (tasks/add-task app-state auth-headers current-scope has-active-filters? set-pending-new-task title on-success))
 
-(defn update-task [task-id title description on-success]
-  (tasks/update-task app-state auth-headers task-id title description on-success))
+(defn update-task [task-id title description tags on-success]
+  (tasks/update-task app-state auth-headers task-id title description tags on-success))
 
 (defn categorize-task [task-id category-type category-id]
   (tasks/categorize-task app-state auth-headers fetch-tasks task-id category-type category-id))
