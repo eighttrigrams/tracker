@@ -1,7 +1,7 @@
 .PHONY: start stop start-prod build test lint deploy clean fly-backup fly-backup-replay
 
 start:
-	./scripts/start.sh
+	@if [ -f .env ]; then set -a && . ./.env && set +a; fi && ./scripts/start.sh
 
 stop:
 	./scripts/stop.sh

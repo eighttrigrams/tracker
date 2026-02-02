@@ -501,6 +501,38 @@
         {:status 404 :body {:success false :error "Message not found"}}))
     {:status 403 :body {:error "Admin access required"}}))
 
+(defn- telegram-secret []
+  (System/getenv "TELEGRAM_WEBHOOK_SECRET"))
+
+(defn telegram-webhook-handler [req]
+  (let [secret (telegram-secret)
+        provided-secret (get-in req [:headers "x-telegram-bot-api-secret-token"])]
+    (cond
+      (nil? secret)
+      (do
+        (tel/log! :warn "No Telegram webhook secret defined")
+        {:status 503 :body {:error "Webhook not configured"}})
+
+      (not= secret provided-secret)
+      (do
+        (tel/log! :warn "Unauthorized Telegram webhook access attempt")
+        {:status 403 :body {:error "Unauthorized"}})
+
+      :else
+      (let [update (:body req)
+            message (or (:message update) (:edited_message update))]
+        (if-let [text (:text message)]
+          (let [from (:from message)
+                sender (or (:username from)
+                           (str (:first_name from) (when (:last_name from) (str " " (:last_name from))))
+                           "Unknown")
+                title (if (> (count text) 50)
+                        (str (subs text 0 47) "...")
+                        text)]
+            (db/add-message (ensure-ds) nil sender title text)
+            {:status 200 :body {:ok true}})
+          {:status 200 :body {:ok true :skipped "no text"}})))))
+
 (defonce translations-cache (atom nil))
 
 (defn- load-translations []
@@ -668,6 +700,7 @@
 
 (defroutes app-routes
   api-routes
+  (POST "/webhook/telegram" [] telegram-webhook-handler)
   (GET "/" [] serve-index)
   (route/resources "/")
   (route/not-found {:status 404 :body {:error "Not found"}}))
