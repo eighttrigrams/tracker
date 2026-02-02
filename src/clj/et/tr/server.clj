@@ -12,7 +12,8 @@
             [ring.middleware.cors :refer [wrap-cors]]
             [nrepl.server :as nrepl]
             [buddy.sign.jwt :as jwt]
-            [taoensso.telemere :as tel])
+            [taoensso.telemere :as tel]
+            [clj-http.client :as http])
   (:import [java.util.zip ZipOutputStream ZipEntry]
            [java.io ByteArrayOutputStream]
            [java.text Normalizer Normalizer$Form]
@@ -504,6 +505,18 @@
 (defn- telegram-secret []
   (System/getenv "TELEGRAM_WEBHOOK_SECRET"))
 
+(defn- telegram-token []
+  (System/getenv "TELEGRAM_BOT_TOKEN"))
+
+(defn- delete-telegram-message [chat-id message-id]
+  (when-let [token (telegram-token)]
+    (try
+      (http/post (str "https://api.telegram.org/bot" token "/deleteMessage")
+                 {:form-params {:chat_id chat-id :message_id message-id}
+                  :content-type :json})
+      (catch Exception e
+        (tel/log! :warn (str "Failed to delete Telegram message: " (.getMessage e)))))))
+
 (defn telegram-webhook-handler [req]
   (let [secret (telegram-secret)
         provided-secret (get-in req [:headers "x-telegram-bot-api-secret-token"])]
@@ -523,6 +536,8 @@
             message (or (:message update) (:edited_message update))]
         (if-let [text (:text message)]
           (let [from (:from message)
+                chat-id (get-in message [:chat :id])
+                message-id (:message_id message)
                 sender (or (:username from)
                            (str (:first_name from) (when (:last_name from) (str " " (:last_name from))))
                            "Unknown")
@@ -530,6 +545,7 @@
                         (str (subs text 0 47) "...")
                         text)]
             (db/add-message (ensure-ds) nil sender title text)
+            (delete-telegram-message chat-id message-id)
             {:status 200 :body {:ok true}})
           {:status 200 :body {:ok true :skipped "no text"}})))))
 
