@@ -49,6 +49,19 @@ elif [ "$TOOL_NAME" = "WebFetch" ]; then
 elif [ "$TOOL_NAME" = "WebSearch" ]; then
   QUERY=$(echo "$INPUT" | jq -r '.tool_input.query // empty' 2>/dev/null)
   echo "$TIMESTAMP - PreToolUse - WebSearch($QUERY)" >> "$LOG_FILE"
+elif [ "$TOOL_NAME" = "Grep" ]; then
+  PATTERN=$(echo "$INPUT" | jq -r '.tool_input.pattern // empty' 2>/dev/null)
+  PATH_ARG=$(echo "$INPUT" | jq -r '.tool_input.path // empty' 2>/dev/null)
+  GLOB=$(echo "$INPUT" | jq -r '.tool_input.glob // empty' 2>/dev/null)
+  REL_PATH="${PATH_ARG#$script_dir/}"
+  LOG_MSG="$TIMESTAMP - PreToolUse - Grep($PATTERN)"
+  [ -n "$REL_PATH" ] && LOG_MSG="$LOG_MSG path=$REL_PATH"
+  [ -n "$GLOB" ] && LOG_MSG="$LOG_MSG glob=$GLOB"
+  echo "$LOG_MSG" >> "$LOG_FILE"
+elif [ "$TOOL_NAME" = "TodoWrite" ]; then
+  TODOS=$(echo "$INPUT" | jq -c '.tool_input.todos // empty' 2>/dev/null)
+  echo "$TIMESTAMP - PreToolUse - TodoWrite" >> "$LOG_FILE"
+  echo "  todos: $TODOS" >> "$LOG_FILE"
 else
   echo "$TIMESTAMP - PreToolUse - $TOOL_NAME" >> "$LOG_FILE"
 fi
