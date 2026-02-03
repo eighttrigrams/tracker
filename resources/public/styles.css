@@ -1411,7 +1411,7 @@ button:active { transform: translateY(0); }
 .item-actions .task-importance-selector,
 .item-actions .task-urgency-selector {
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.75s ease;
 }
 .item-actions:hover .task-scope-selector,
 .item-actions:hover .task-importance-selector,
