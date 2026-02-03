@@ -67,6 +67,7 @@
                             :mail-page/sort-mode :recent
                             :mail-page/expanded-message nil
                             :mail-page/fetch-request-id 0
+                            :mail-page/sender-filter nil
                             :confirm-delete-message nil
 
                             ;; Global UI state
@@ -160,6 +161,12 @@
 
 (defn delete-message [message-id]
   (mail/delete-message app-state auth-headers message-id))
+
+(defn set-mail-sender-filter [sender]
+  (mail/set-mail-sender-filter app-state auth-headers sender))
+
+(defn clear-mail-sender-filter []
+  (mail/clear-mail-sender-filter app-state auth-headers))
 
 (defn fetch-users []
   (users/fetch-users app-state auth-headers))

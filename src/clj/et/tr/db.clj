@@ -582,16 +582,20 @@
     result))
 
 (defn list-messages
-  ([ds user-id] (list-messages ds user-id :recent))
-  ([ds user-id sort-mode]
+  ([ds user-id] (list-messages ds user-id :recent nil))
+  ([ds user-id sort-mode] (list-messages ds user-id sort-mode nil))
+  ([ds user-id sort-mode sender-filter]
    (let [user-where (user-id-where-clause user-id)
          done-filter (case sort-mode
                        :done [:= :done 1]
-                       [:= :done 0])]
+                       [:= :done 0])
+         where-clause (if sender-filter
+                        [:and user-where done-filter [:= :sender sender-filter]]
+                        [:and user-where done-filter])]
      (jdbc/execute! (get-conn ds)
        (sql/format {:select [:id :sender :title :description :created_at :done]
                     :from [:messages]
-                    :where [:and user-where done-filter]
+                    :where where-clause
                     :order-by [[:created_at :desc]]})
        jdbc-opts))))
 

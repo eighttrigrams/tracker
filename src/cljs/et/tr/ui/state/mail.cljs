@@ -4,8 +4,11 @@
 
 (defn fetch-messages [app-state auth-headers]
   (let [request-id (:mail-page/fetch-request-id (swap! app-state update :mail-page/fetch-request-id inc))
-        sort-mode (name (:mail-page/sort-mode @app-state))]
-    (GET (str "/api/messages?sort=" sort-mode)
+        sort-mode (name (:mail-page/sort-mode @app-state))
+        sender-filter (:mail-page/sender-filter @app-state)
+        url (cond-> (str "/api/messages?sort=" sort-mode)
+              sender-filter (str "&sender=" (js/encodeURIComponent sender-filter)))]
+    (GET url
       {:response-format :json
        :keywords? true
        :headers (auth-headers)
@@ -47,3 +50,11 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete message"))
       (clear-confirm-delete-message app-state))))
+
+(defn set-mail-sender-filter [app-state auth-headers sender]
+  (swap! app-state assoc :mail-page/sender-filter sender)
+  (fetch-messages app-state auth-headers))
+
+(defn clear-mail-sender-filter [app-state auth-headers]
+  (swap! app-state assoc :mail-page/sender-filter nil)
+  (fetch-messages app-state auth-headers))

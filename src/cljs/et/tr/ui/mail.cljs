@@ -16,7 +16,10 @@
     [:li {:class (when expanded? "expanded")}
      [:div.item-header {:on-click #(state/set-expanded-message (when-not expanded? id))}
       [:span.item-title
-       [:span.mail-sender sender]
+       [:span.mail-sender {:on-click (fn [e]
+                                       (.stopPropagation e)
+                                       (state/set-mail-sender-filter sender))}
+        sender]
        [:span.mail-title title]]
       [:span.item-date (format-message-datetime created_at)]]
      (when expanded?
@@ -31,6 +34,14 @@
             (t :mail/archive)])
          [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
           (t :task/delete)]]])]))
+
+(defn- mail-sender-filter-badge []
+  (let [sender-filter (:mail-page/sender-filter @state/app-state)]
+    (when sender-filter
+      [:div.mail-sender-filter
+       [:span.filter-item-label.included
+        sender-filter
+        [:button.remove-item {:on-click #(state/clear-mail-sender-filter)} "x"]]])))
 
 (defn- mail-sort-toggle []
   (let [sort-mode (:mail-page/sort-mode @state/app-state)]
@@ -48,6 +59,7 @@
      [:div.tasks-header
       [:h2 (t :nav/mail)]
       [mail-sort-toggle]]
+     [mail-sender-filter-badge]
      (if (empty? messages)
        [:p.empty-message (t :mail/no-messages)]
        [:ul.items
