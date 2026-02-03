@@ -58,6 +58,13 @@ elif [ "$TOOL_NAME" = "Grep" ]; then
   [ -n "$REL_PATH" ] && LOG_MSG="$LOG_MSG path=$REL_PATH"
   [ -n "$GLOB" ] && LOG_MSG="$LOG_MSG glob=$GLOB"
   echo "$LOG_MSG" >> "$LOG_FILE"
+elif [ "$TOOL_NAME" = "Glob" ]; then
+  PATTERN=$(echo "$INPUT" | jq -r '.tool_input.pattern // empty' 2>/dev/null)
+  PATH_ARG=$(echo "$INPUT" | jq -r '.tool_input.path // empty' 2>/dev/null)
+  REL_PATH="${PATH_ARG#$script_dir/}"
+  LOG_MSG="$TIMESTAMP - PreToolUse - Glob($PATTERN)"
+  [ -n "$REL_PATH" ] && LOG_MSG="$LOG_MSG path=$REL_PATH"
+  echo "$LOG_MSG" >> "$LOG_FILE"
 elif [ "$TOOL_NAME" = "TodoWrite" ]; then
   TODOS=$(echo "$INPUT" | jq -c '.tool_input.todos // empty' 2>/dev/null)
   echo "$TIMESTAMP - PreToolUse - TodoWrite" >> "$LOG_FILE"
