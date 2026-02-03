@@ -13,6 +13,8 @@
   --text-primary: #1d1d1f;
   --text-secondary: #6e6e73;
   --surface-subtle: rgba(0, 0, 0, 0.03);
+  --badge-excluded-bg: rgba(255, 59, 48, 0.2);
+  --badge-excluded-color: #ff3b30;
 }
 html.dark-mode {
   --glass-bg: rgba(30, 30, 32, 0.85);
@@ -570,8 +572,8 @@ button:active { transform: translateY(0); }
   color: #248a3d;
 }
 .exclusion-filter .filter-item-label.excluded {
-  background: rgba(255, 59, 48, 0.2);
-  color: #ff3b30;
+  background: var(--badge-excluded-bg);
+  color: var(--badge-excluded-color);
 }
 .today-section {
   padding: 20px;

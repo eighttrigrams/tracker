@@ -21,7 +21,7 @@
       [:span.item-date (format-message-datetime created_at)]]
      (when expanded?
        [:div.item-details
-        (when (not (empty? description))
+        (when (seq description)
           [:div.item-description description])
         [:div.item-actions
          (if (= done 1)
