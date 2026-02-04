@@ -65,13 +65,8 @@
 
     (println "\nSwitching back to main...")
     (shell "git" "switch" "main")
-
-    (let [{:keys [out]} (shell {:out :string} "git" "rev-parse" (str branch-name "~1"))
-          commit1 (str/trim out)
-          {:keys [out]} (shell {:out :string} "git" "rev-parse" branch-name)
-          commit2 (str/trim out)]
-      (shell "git" "cherry-pick" commit1 commit2)
-      (shell "git" "branch" "-D" branch-name))))
+    (shell "git" "merge" branch-name)
+    (shell "git" "branch" "-D" branch-name)))
 
 (when (= *file* (System/getProperty "babashka.file"))
   (apply -main *command-line-args*))
