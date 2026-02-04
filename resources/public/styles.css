@@ -1421,6 +1421,54 @@ button:active { transform: translateY(0); }
 .today-section.urgent h3 {
   color: #ff9500;
 }
+.urgency-subsection {
+  margin-bottom: 16px;
+}
+.urgency-subsection:last-child {
+  margin-bottom: 0;
+}
+.urgency-subsection h4 {
+  margin: 0 0 8px 0;
+  font-size: 1em;
+}
+.urgency-task-list {
+  min-height: 40px;
+  padding: 4px;
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.urgency-task-list.section-drag-over {
+  border-color: var(--accent);
+  background: rgba(0, 113, 227, 0.05);
+}
+.draggable-urgent-task {
+  cursor: grab;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+.draggable-urgent-task:last-child {
+  margin-bottom: 0;
+}
+.draggable-urgent-task:active {
+  cursor: grabbing;
+}
+.draggable-urgent-task.dragging {
+  opacity: 0.5;
+}
+.draggable-urgent-task.drag-over {
+  border-color: var(--accent);
+  border-style: dashed;
+}
+.empty-urgency-message {
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: 8px 0;
+  margin: 0;
+}
 .dark-mode-toggle {
   display: flex;
   align-items: center;

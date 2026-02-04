@@ -76,6 +76,7 @@
                             :tasks-page/last-sort-mode :manual
                             :drag-task nil
                             :drag-over-task nil
+                            :drag-over-urgency-section nil
                             :drag-category nil
                             :drag-over-category nil
                             :category-page/editing nil
@@ -328,6 +329,9 @@
 
 (defn set-drag-over-task [task-id]
   (tasks/set-drag-over-task app-state task-id))
+
+(defn set-drag-over-urgency-section [section]
+  (tasks/set-drag-over-urgency-section app-state section))
 
 (defn clear-drag-state []
   (tasks/clear-drag-state app-state))

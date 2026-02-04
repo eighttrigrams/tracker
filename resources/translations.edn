@@ -35,6 +35,7 @@
   :today/no-today "No tasks for today"
   :today/no-upcoming "No upcoming tasks"
   :today/urgent-matters "Urgent Matters"
+  :today/no-tasks-in-section "—"
 
   :tasks/title "Tasks"
   :tasks/title-tooltip "A task is something concrete you must do, which can be completed in one unbroken session (1 minute to 8 hours)."
@@ -174,6 +175,7 @@
   :today/no-today "Keine Aufgaben für heute"
   :today/no-upcoming "Keine anstehenden Aufgaben"
   :today/urgent-matters "Dringende Angelegenheiten"
+  :today/no-tasks-in-section "—"
 
   :tasks/title "Aufgaben"
   :tasks/title-tooltip "Eine Aufgabe ist etwas Konkretes, das erledigt werden muss und in einer ununterbrochenen Sitzung abgeschlossen werden kann (1 Minute bis 8 Stunden)."
@@ -313,6 +315,7 @@
   :today/no-today "Sem tarefas para hoje"
   :today/no-upcoming "Sem tarefas próximas"
   :today/urgent-matters "Assuntos Urgentes"
+  :today/no-tasks-in-section "—"
 
   :tasks/title "Tarefas"
   :tasks/title-tooltip "Uma tarefa é algo concreto que deve ser feito, que pode ser concluído numa sessão ininterrupta (1 minuto a 8 horas)."

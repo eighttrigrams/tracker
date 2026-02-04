@@ -208,8 +208,11 @@
 (defn set-drag-over-task [app-state task-id]
   (swap! app-state assoc :drag-over-task task-id))
 
+(defn set-drag-over-urgency-section [app-state section]
+  (swap! app-state assoc :drag-over-urgency-section section))
+
 (defn clear-drag-state [app-state]
-  (swap! app-state assoc :drag-task nil :drag-over-task nil))
+  (swap! app-state assoc :drag-task nil :drag-over-task nil :drag-over-urgency-section nil))
 
 (defn reorder-task [app-state auth-headers fetch-tasks-fn task-id target-task-id position]
   (api/post-json (str "/api/tasks/" task-id "/reorder")

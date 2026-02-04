@@ -538,11 +538,67 @@
      [task-list-section today]
      [:p.empty-message (t :today/no-today)])])
 
-(defn- today-urgent-section [urgent]
-  (when (seq urgent)
-    [:div.today-section.urgent
-     [:h3 (t :today/urgent-matters)]
-     [task-list-section urgent :show-day-of-week true]]))
+(defn- draggable-urgent-task-item [task target-urgency]
+  (let [drag-task (:drag-task @state/app-state)
+        drag-over-task (:drag-over-task @state/app-state)
+        is-dragging (= drag-task (:id task))
+        is-drag-over (= drag-over-task (:id task))]
+    [:div.draggable-urgent-task
+     {:class (str (when is-dragging "dragging")
+                  (when is-drag-over " drag-over"))
+      :draggable true
+      :on-drag-start (make-drag-start-handler task state/set-drag-task)
+      :on-drag-end (fn [_] (state/clear-drag-state))
+      :on-drag-over (make-drag-over-handler task state/set-drag-over-task)
+      :on-drag-leave (make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
+      :on-drop (make-drop-handler drag-task task
+                 (fn [drag-task-id target-task-id position]
+                   (let [dragged-task (first (filter #(= (:id %) drag-task-id) (:tasks @state/app-state)))
+                         current-urgency (:urgency dragged-task)]
+                     (when (not= current-urgency target-urgency)
+                       (state/set-task-urgency drag-task-id target-urgency))
+                     (state/reorder-task drag-task-id target-task-id position))))}
+     [today-task-item task :show-day-of-week true]]))
+
+(defn- urgency-task-list [tasks target-urgency]
+  (let [drag-over-section (:drag-over-urgency-section @state/app-state)
+        is-section-drag-over (= drag-over-section target-urgency)]
+    [:div.urgency-task-list
+     {:class (when is-section-drag-over "section-drag-over")
+      :on-drag-over (fn [e]
+                      (.preventDefault e)
+                      (state/set-drag-over-urgency-section target-urgency))
+      :on-drag-leave (fn [e]
+                       (when (= (.-target e) (.-currentTarget e))
+                         (state/set-drag-over-urgency-section nil)))
+      :on-drop (fn [e]
+                 (.preventDefault e)
+                 (let [drag-task-id (:drag-task @state/app-state)]
+                   (when drag-task-id
+                     (let [dragged-task (first (filter #(= (:id %) drag-task-id) (:tasks @state/app-state)))
+                           current-urgency (:urgency dragged-task)]
+                       (when (not= current-urgency target-urgency)
+                         (state/set-task-urgency drag-task-id target-urgency))
+                       (when-let [last-task (last tasks)]
+                         (when (not= (:id last-task) drag-task-id)
+                           (state/reorder-task drag-task-id (:id last-task) "after")))
+                       (state/clear-drag-state)))))}
+     (if (seq tasks)
+       (doall
+        (for [task tasks]
+          ^{:key (:id task)}
+          [draggable-urgent-task-item task target-urgency]))
+       [:p.empty-urgency-message (t :today/no-tasks-in-section)])]))
+
+(defn- today-urgent-section [superurgent urgent]
+  [:div.today-section.urgent
+   [:h3 (t :today/urgent-matters)]
+   [:div.urgency-subsection.superurgent
+    [:h4 "🚨🚨"]
+    [urgency-task-list superurgent "superurgent"]]
+   [:div.urgency-subsection.urgent
+    [:h4 "🚨"]
+    [urgency-task-list urgent "urgent"]]])
 
 (defn- today-upcoming-section [upcoming]
   [:div.today-section.upcoming
@@ -566,6 +622,7 @@
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
         today (state/today-tasks)
+        superurgent (state/superurgent-tasks)
         urgent (state/urgent-tasks)
         upcoming (state/upcoming-tasks)
         selected-view (:today-page/selected-view @state/app-state)]
@@ -576,7 +633,7 @@
       [today-today-section today]
       [today-view-switcher]
       (when (= selected-view :urgent)
-        [today-urgent-section urgent])
+        [today-urgent-section superurgent urgent])
       (when (= selected-view :upcoming)
         [today-upcoming-section upcoming])]]))
 
