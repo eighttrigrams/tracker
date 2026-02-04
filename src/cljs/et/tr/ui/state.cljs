@@ -456,6 +456,9 @@
 (defn upcoming-tasks []
   (today-page/upcoming-tasks app-state))
 
+(defn superurgent-tasks []
+  (today-page/superurgent-tasks app-state))
+
 (defn urgent-tasks []
   (today-page/urgent-tasks app-state))
 

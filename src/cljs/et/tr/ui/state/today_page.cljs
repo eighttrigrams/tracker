@@ -140,8 +140,14 @@
          (apply-today-exclusion-filter app-state)
          (sort-by-date-and-time))))
 
+(defn superurgent-tasks [app-state]
+  (->> (:tasks @app-state)
+       (filter #(= "superurgent" (:urgency %)))
+       (apply-today-exclusion-filter app-state)
+       (sort-by :sort_order)))
+
 (defn urgent-tasks [app-state]
   (->> (:tasks @app-state)
-       (filter #(contains? #{"urgent" "superurgent"} (:urgency %)))
+       (filter #(= "urgent" (:urgency %)))
        (apply-today-exclusion-filter app-state)
-       (sort-by (juxt #(if (= "superurgent" (:urgency %)) 0 1) :sort_order))))
+       (sort-by :sort_order)))

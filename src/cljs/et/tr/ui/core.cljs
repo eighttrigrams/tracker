@@ -976,27 +976,45 @@
      [task-expanded-details task people places projects goals]
      [task-categories-readonly task])])
 
-(defn- handle-task-drag-start [task manual-mode?]
+(defn make-drag-start-handler [task set-drag-task-fn]
   (fn [e]
-    (when manual-mode?
-      (.setData (.-dataTransfer e) "text/plain" (str (:id task)))
-      (state/set-drag-task (:id task)))))
+    (.setData (.-dataTransfer e) "text/plain" (str (:id task)))
+    (set-drag-task-fn (:id task))))
 
-(defn- handle-task-drag-over [task manual-mode?]
-  (fn [e]
-    (when manual-mode?
-      (.preventDefault e)
-      (state/set-drag-over-task (:id task)))))
-
-(defn- handle-task-drop [drag-task task manual-mode?]
+(defn make-drag-over-handler [task set-drag-over-task-fn]
   (fn [e]
     (.preventDefault e)
-    (when (and manual-mode? drag-task (not= drag-task (:id task)))
+    (set-drag-over-task-fn (:id task))))
+
+(defn make-drop-handler [drag-task-id target-task on-drop-fn]
+  (fn [e]
+    (.preventDefault e)
+    (when (and drag-task-id (not= drag-task-id (:id target-task)))
       (let [rect (.getBoundingClientRect (.-currentTarget e))
             y (.-clientY e)
             mid-y (+ (.-top rect) (/ (.-height rect) 2))
             position (if (< y mid-y) "before" "after")]
-        (state/reorder-task drag-task (:id task) position)))))
+        (on-drop-fn drag-task-id (:id target-task) position)))))
+
+(defn make-drag-leave-handler [drag-over-task-id task clear-drag-over-fn]
+  (fn [_]
+    (when (= drag-over-task-id (:id task))
+      (clear-drag-over-fn))))
+
+(defn- handle-task-drag-start [task manual-mode?]
+  (fn [e]
+    (when manual-mode?
+      ((make-drag-start-handler task state/set-drag-task) e))))
+
+(defn- handle-task-drag-over [task manual-mode?]
+  (fn [e]
+    (when manual-mode?
+      ((make-drag-over-handler task state/set-drag-over-task) e))))
+
+(defn- handle-task-drop [drag-task task manual-mode?]
+  (fn [e]
+    (when manual-mode?
+      ((make-drop-handler drag-task task state/reorder-task) e))))
 
 (defn tasks-list []
   (let [{:keys [people places projects goals tasks-page/expanded-task editing-task sort-mode drag-task drag-over-task]} @state/app-state
@@ -1018,9 +1036,7 @@
                 :on-drag-start (handle-task-drag-start task manual-mode?)
                 :on-drag-end (fn [_] (state/clear-drag-state))
                 :on-drag-over (handle-task-drag-over task manual-mode?)
-                :on-drag-leave (fn [_]
-                                 (when (= drag-over-task (:id task))
-                                   (state/set-drag-over-task nil)))
+                :on-drag-leave (make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
                 :on-drop (handle-task-drop drag-task task manual-mode?)}
            (if is-editing
              [task-edit-form task]
