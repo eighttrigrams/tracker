@@ -604,13 +604,19 @@
       :on-drag-end (fn [_] (state/clear-drag-state))
       :on-drag-over (make-drag-over-handler task state/set-drag-over-task)
       :on-drag-leave (make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
-      :on-drop (make-drop-handler drag-task task
-                 (fn [drag-task-id target-task-id position]
-                   (let [dragged-task (first (filter #(= (:id %) drag-task-id) (:tasks @state/app-state)))
-                         current-urgency (:urgency dragged-task)]
-                     (when (not= current-urgency target-urgency)
-                       (state/set-task-urgency drag-task-id target-urgency))
-                     (state/reorder-task drag-task-id target-task-id position))))}
+      :on-drop (fn [e]
+                 (.preventDefault e)
+                 (let [current-drag-task (:drag-task @state/app-state)]
+                   (when (and current-drag-task (not= current-drag-task (:id task)))
+                     (let [rect (.getBoundingClientRect (.-currentTarget e))
+                           y (.-clientY e)
+                           mid-y (+ (.-top rect) (/ (.-height rect) 2))
+                           position (if (< y mid-y) "before" "after")
+                           dragged-task (first (filter #(= (:id %) current-drag-task) (:tasks @state/app-state)))
+                           current-urgency (:urgency dragged-task)]
+                       (when (not= current-urgency target-urgency)
+                         (state/set-task-urgency current-drag-task target-urgency))
+                       (state/reorder-task current-drag-task (:id task) position)))))}
      [today-task-item task :show-day-of-week true]]))
 
 (defn- urgency-task-list [tasks target-urgency]
