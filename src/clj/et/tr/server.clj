@@ -546,7 +546,9 @@
       (let [update (:body req)
             message (or (:message update) (:edited_message update))]
         (if-let [text (:text message)]
-          (let [from (:from message)
+          (if (= text "/start")
+            {:status 200 :body {:ok true :skipped "start command"}}
+            (let [from (:from message)
                 chat-id (get-in message [:chat :id])
                 message-id (:message_id message)
                 sender (or (:username from)
@@ -557,7 +559,7 @@
                         text)]
             (db/add-message (ensure-ds) nil sender title text)
             (delete-telegram-message chat-id message-id)
-            {:status 200 :body {:ok true}})
+            {:status 200 :body {:ok true}}))
           {:status 200 :body {:ok true :skipped "no text"}})))))
 
 (defonce translations-cache (atom nil))
