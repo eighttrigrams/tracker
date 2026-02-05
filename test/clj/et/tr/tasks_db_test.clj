@@ -421,9 +421,9 @@
   (testing "no context filter returns all tasks"
     (let [_task1 (db/add-task *ds* nil "Private task" "private")
           _task2 (db/add-task *ds* nil "Work task" "work")
-          _task3 (db/add-task *ds* nil "Both task" "both")]
-      (let [tasks (db/list-tasks *ds* nil :recent {})]
-        (is (= 3 (count tasks))))))
+          _task3 (db/add-task *ds* nil "Both task" "both")
+          tasks (db/list-tasks *ds* nil :recent {})]
+      (is (= 3 (count tasks)))))
 
   (testing "private context (non-strict) returns private and both"
     (let [tasks (db/list-tasks *ds* nil :recent {:context "private"})]

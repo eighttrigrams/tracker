@@ -21,6 +21,12 @@
     CATEGORY-TYPE-PROJECT :tasks-page/filter-projects
     CATEGORY-TYPE-GOAL :tasks-page/filter-goals))
 
+(defn- current-fetch-opts [app-state]
+  {:search-term (:tasks-page/filter-search @app-state)
+   :importance (:tasks-page/importance-filter @app-state)
+   :context (:work-private-mode @app-state)
+   :strict (:strict-mode @app-state)})
+
 (defn toggle-filter [app-state filter-type id]
   (let [filter-key (filter-type->key filter-type)]
     (swap! app-state update filter-key
@@ -42,12 +48,6 @@
 
 (defn clear-filter-goals [app-state]
   (clear-filter app-state CATEGORY-TYPE-GOAL))
-
-(defn- current-fetch-opts [app-state]
-  {:search-term (:tasks-page/filter-search @app-state)
-   :importance (:tasks-page/importance-filter @app-state)
-   :context (:work-private-mode @app-state)
-   :strict (:strict-mode @app-state)})
 
 (defn set-importance-filter [app-state fetch-tasks-fn level]
   (swap! app-state assoc :tasks-page/importance-filter level)
