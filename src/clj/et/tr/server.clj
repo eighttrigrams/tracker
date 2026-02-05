@@ -1,6 +1,9 @@
 (ns et.tr.server
   (:require [ring.adapter.jetty9 :as jetty]
             [et.tr.db :as db]
+            [et.tr.auth :as auth]
+            [et.tr.telegram :as telegram]
+            [et.tr.export :as export]
             [et.tr.middleware.rate-limit :refer [wrap-rate-limit]]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
@@ -11,13 +14,7 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.cors :refer [wrap-cors]]
             [nrepl.server :as nrepl]
-            [buddy.sign.jwt :as jwt]
-            [taoensso.telemere :as tel]
-            [clj-http.client :as http])
-  (:import [java.util.zip ZipOutputStream ZipEntry]
-           [java.io ByteArrayOutputStream]
-           [java.text Normalizer Normalizer$Form]
-           [java.nio.charset StandardCharsets])
+            [taoensso.telemere :as tel])
   (:gen-class))
 
 (defonce ds (atom nil))
@@ -64,22 +61,6 @@
   (and (true? (:dangerously-skip-logins? @config))
        (not (prod-mode?))))
 
-(defn- jwt-secret []
-  (or (System/getenv "ADMIN_PASSWORD") "dev-secret"))
-
-(defn- create-token [user-id username is-admin]
-  (jwt/sign {:user-id user-id :username username :is-admin is-admin} (jwt-secret)))
-
-(defn- verify-token [token]
-  (try
-    (jwt/unsign token (jwt-secret))
-    (catch Exception _ nil)))
-
-(defn- extract-token [req]
-  (when-let [auth-header (get-in req [:headers "authorization"])]
-    (when (str/starts-with? auth-header "Bearer ")
-      (subs auth-header 7))))
-
 (defn- get-user-from-request [req]
   (if (allow-skip-logins?)
     (let [user-id-str (get-in req [:headers "x-user-id"])]
@@ -87,8 +68,8 @@
         {:user-id nil :is-admin true}
         (let [user-id (Integer/parseInt user-id-str)]
           {:user-id user-id :is-admin false})))
-    (when-let [token (extract-token req)]
-      (verify-token token))))
+    (when-let [token (auth/extract-token req)]
+      (auth/verify-token token))))
 
 (defn- get-user-id [req]
   (:user-id (get-user-from-request req)))
@@ -107,12 +88,12 @@
       (if (= username "admin")
         (if (= password (admin-password))
           {:status 200 :body {:success true
-                              :token (create-token nil "admin" true)
+                              :token (auth/create-token nil "admin" true)
                               :user {:id nil :username "admin" :is_admin true :language "en"}}}
           {:status 401 :body {:success false :error "Invalid credentials"}})
         (if-let [user (db/verify-user (ensure-ds) username password)]
           {:status 200 :body {:success true
-                              :token (create-token (:id user) (:username user) false)
+                              :token (auth/create-token (:id user) (:username user) false)
                               :user user}}
           {:status 401 :body {:success false :error "Invalid credentials"}})))))
 
@@ -513,55 +494,6 @@
         {:status 200 :body result}
         {:status 404 :body {:error "Message not found"}}))))
 
-(defn- telegram-secret []
-  (System/getenv "TELEGRAM_WEBHOOK_SECRET"))
-
-(defn- telegram-token []
-  (System/getenv "TELEGRAM_BOT_TOKEN"))
-
-(defn- delete-telegram-message [chat-id message-id]
-  (when-let [token (telegram-token)]
-    (try
-      (http/post (str "https://api.telegram.org/bot" token "/deleteMessage")
-                 {:form-params {:chat_id chat-id :message_id message-id}
-                  :content-type :json})
-      (catch Exception e
-        (tel/log! :warn (str "Failed to delete Telegram message: " (.getMessage e)))))))
-
-(defn telegram-webhook-handler [req]
-  (let [secret (telegram-secret)
-        provided-secret (get-in req [:headers "x-telegram-bot-api-secret-token"])]
-    (cond
-      (nil? secret)
-      (do
-        (tel/log! :warn "No Telegram webhook secret defined")
-        {:status 503 :body {:error "Webhook not configured"}})
-
-      (not= secret provided-secret)
-      (do
-        (tel/log! :warn "Unauthorized Telegram webhook access attempt")
-        {:status 403 :body {:error "Unauthorized"}})
-
-      :else
-      (let [update (:body req)
-            message (or (:message update) (:edited_message update))]
-        (if-let [text (:text message)]
-          (if (= text "/start")
-            {:status 200 :body {:ok true :skipped "start command"}}
-            (let [from (:from message)
-                chat-id (get-in message [:chat :id])
-                message-id (:message_id message)
-                sender (or (:username from)
-                           (str (:first_name from) (when (:last_name from) (str " " (:last_name from))))
-                           "Unknown")
-                title (if (> (count text) 50)
-                        (str (subs text 0 47) "...")
-                        text)]
-            (db/add-message (ensure-ds) nil sender title text)
-            (delete-telegram-message chat-id message-id)
-            {:status 200 :body {:ok true}}))
-          {:status 200 :body {:ok true :skipped "no text"}})))))
-
 (defonce translations-cache (atom nil))
 
 (defn- load-translations []
@@ -573,70 +505,10 @@
 (defn translations-handler [_req]
   {:status 200 :body (load-translations)})
 
-(defn- sanitize-filename [s]
-  (let [s (or s "")
-        normalized (Normalizer/normalize s Normalizer$Form/NFD)
-        ascii-only (str/replace normalized #"[\p{M}]" "")
-        sanitized (-> ascii-only
-                      (str/replace #"\x00" "")
-                      (str/replace #"[/\\:*?\"<>|]" "_")
-                      (str/replace #"[^\x20-\x7E]" "_")
-                      (str/replace #"\s+" "-"))
-        final-str (if (str/blank? sanitized) "untitled" sanitized)]
-    (subs final-str 0 (min (count final-str) 50))))
-
-(defn- task-to-markdown [task]
-  (let [frontmatter (str "---\n"
-                         "id: " (:id task) "\n"
-                         "created_at: \"" (:created_at task) "\"\n"
-                         "modified_at: \"" (:modified_at task) "\"\n"
-                         (when (:due_date task) (str "due_date: \"" (:due_date task) "\"\n"))
-                         (when (:due_time task) (str "due_time: \"" (:due_time task) "\"\n"))
-                         "done: " (if (= 1 (:done task)) "true" "false") "\n"
-                         "scope: \"" (:scope task) "\"\n"
-                         "importance: \"" (:importance task) "\"\n"
-                         "sort_order: " (:sort_order task) "\n"
-                         (when (seq (:people task)) (str "people: " (pr-str (:people task)) "\n"))
-                         (when (seq (:places task)) (str "places: " (pr-str (:places task)) "\n"))
-                         (when (seq (:projects task)) (str "projects: " (pr-str (:projects task)) "\n"))
-                         (when (seq (:goals task)) (str "goals: " (pr-str (:goals task)) "\n"))
-                         "---\n\n")
-        title (str "# " (:title task) "\n\n")
-        description (or (:description task) "")]
-    (str frontmatter title description)))
-
-(defn- create-export-zip [username data]
-  (let [baos (ByteArrayOutputStream.)
-        timestamp (.format (java.time.LocalDateTime/now) (java.time.format.DateTimeFormatter/ofPattern "yyyy-MM-dd-HHmmss"))]
-    (with-open [zos (ZipOutputStream. baos StandardCharsets/UTF_8)]
-      (.putNextEntry zos (ZipEntry. "metadata.edn"))
-      (.write zos (.getBytes (pr-str {:export_version 1
-                                       :exported_at timestamp
-                                       :username username}) "UTF-8"))
-      (.closeEntry zos)
-      (doseq [task (:tasks data)]
-        (let [filename (str "tasks/" (:id task) "-" (sanitize-filename (:title task)) ".md")]
-          (.putNextEntry zos (ZipEntry. filename))
-          (.write zos (.getBytes (task-to-markdown task) "UTF-8"))
-          (.closeEntry zos)))
-      (.putNextEntry zos (ZipEntry. "people.edn"))
-      (.write zos (.getBytes (pr-str (:people data)) "UTF-8"))
-      (.closeEntry zos)
-      (.putNextEntry zos (ZipEntry. "places.edn"))
-      (.write zos (.getBytes (pr-str (:places data)) "UTF-8"))
-      (.closeEntry zos)
-      (.putNextEntry zos (ZipEntry. "projects.edn"))
-      (.write zos (.getBytes (pr-str (:projects data)) "UTF-8"))
-      (.closeEntry zos)
-      (.putNextEntry zos (ZipEntry. "goals.edn"))
-      (.write zos (.getBytes (pr-str (:goals data)) "UTF-8"))
-      (.closeEntry zos))
-    (.toByteArray baos)))
-
 (defn- require-auth [req]
   (if (prod-mode?)
-    (when-let [token (extract-token req)]
-      (verify-token token))
+    (when-let [token (auth/extract-token req)]
+      (auth/verify-token token))
     (get-user-from-request req)))
 
 (defn export-data-handler [req]
@@ -647,9 +519,9 @@
         (let [user-id (:user-id user-info)
               username (or (:username user-info) "admin")
               data (db/export-all-data (ensure-ds) user-id)
-              zip-bytes (create-export-zip username data)
+              zip-bytes (export/create-export-zip username data)
               timestamp (.format (java.time.LocalDateTime/now) (java.time.format.DateTimeFormatter/ofPattern "yyyy-MM-dd-HHmmss"))
-              filename (str "export-" (sanitize-filename username) "-" timestamp ".zip")]
+              filename (str "export-" (export/sanitize-filename username) "-" timestamp ".zip")]
           {:status 200
            :headers {"Content-Type" "application/zip"
                      "Content-Disposition" (str "attachment; filename=\"" filename "\"")}
@@ -730,7 +602,7 @@
 
 (defroutes app-routes
   api-routes
-  (POST "/webhook/telegram" [] telegram-webhook-handler)
+  (POST "/webhook/telegram" [] (telegram/webhook-handler (ensure-ds)))
   (GET "/" [] serve-index)
   (route/resources "/")
   (route/not-found {:status 404 :body {:error "Not found"}}))
@@ -748,8 +620,8 @@
              (mutating-request? req)
              (str/starts-with? (or (:uri req) "") "/api")
              (not (public-endpoint? req)))
-      (if-let [token (extract-token req)]
-        (if (verify-token token)
+      (if-let [token (auth/extract-token req)]
+        (if (auth/verify-token token)
           (handler req)
           {:status 401
            :headers {"Content-Type" "application/json"}
