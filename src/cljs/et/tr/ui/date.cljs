@@ -24,11 +24,45 @@
     6 :date/saturday
     nil))
 
+(defn- month-number->translation-key [month-num]
+  (case month-num
+    0 :date/january
+    1 :date/february
+    2 :date/march
+    3 :date/april
+    4 :date/may
+    5 :date/june
+    6 :date/july
+    7 :date/august
+    8 :date/september
+    9 :date/october
+    10 :date/november
+    11 :date/december
+    nil))
+
+(defn format-date-localized [date-str]
+  (when date-str
+    (let [d (js/Date. (str date-str "T12:00:00"))
+          day (.getDate d)
+          month-key (month-number->translation-key (.getMonth d))
+          year (.getFullYear d)]
+      (str day " " (i18n/t month-key) " " year))))
+
+(defn format-datetime-localized [datetime-str]
+  (when datetime-str
+    (if-let [space-idx (.indexOf datetime-str " ")]
+      (if (> space-idx 0)
+        (let [date-part (.substring datetime-str 0 space-idx)
+              time-part (.substring datetime-str (inc space-idx))]
+          (str (format-date-localized date-part) ", " time-part))
+        (format-date-localized datetime-str))
+      (format-date-localized datetime-str))))
+
 (defn format-date-with-day [date-str]
   (when date-str
     (if-let [day-key (day-number->translation-key (day-of-week date-str))]
-      (str date-str ", " (i18n/t day-key))
-      date-str)))
+      (str (format-date-localized date-str) ", " (i18n/t day-key))
+      (format-date-localized date-str))))
 
 (defn get-day-name [date-str]
   (when date-str
@@ -45,7 +79,7 @@
 (defn today-formatted []
   (let [today (today-str)
         day-key (day-number->translation-key (day-of-week today))]
-    (str (i18n/t :today/today) ", " (i18n/t day-key) ", " today)))
+    (str (i18n/t :today/today) ", " (i18n/t day-key) ", " (format-date-localized today))))
 
 (def horizon-order [:three-days :week :month :three-months :year :eighteen-months])
 

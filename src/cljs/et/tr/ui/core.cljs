@@ -389,9 +389,9 @@
          [task-category-badges task])]
       [:span.task-date
        (cond
-         show-prefix? (:due_date task)
+         show-prefix? (date/format-date-localized (:due_date task))
          show-day-of-week (date/format-date-with-day (:due_date task))
-         :else (:due_date task))]]
+         :else (date/format-date-localized (:due_date task)))]]
      (when is-expanded
        [today-task-expanded-details task])]))
 
@@ -992,7 +992,7 @@
     [task-attribute-selectors task]
     [task-combined-action-button task]]])
 
-(defn- task-header [task is-expanded done-mode? due-date-mode?]
+(defn- task-header [task is-expanded done-mode? due-date-mode? manual-mode?]
   [:div.item-header
    {:on-click #(state/toggle-expanded :tasks-page/expanded-task (:id task))}
    [:div.item-title
@@ -1024,12 +1024,12 @@
       (let [today (date/today-str)
             overdue? (< (:due_date task) today)]
         [:span.due-date {:class (when overdue? "overdue")} (date/format-date-with-day (:due_date task))]))
-    (when-not due-date-mode?
-      [:span (:modified_at task)])]])
+    (when (and (not due-date-mode?) (not manual-mode?))
+      [:span (date/format-datetime-localized (:modified_at task))])]])
 
-(defn- task-item-content [task is-expanded people places projects goals done-mode? due-date-mode?]
+(defn- task-item-content [task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?]
   [:div
-   [task-header task is-expanded done-mode? due-date-mode?]
+   [task-header task is-expanded done-mode? due-date-mode? manual-mode?]
    (if is-expanded
      [task-expanded-details task people places projects goals]
      [task-categories-readonly task])])
@@ -1098,7 +1098,7 @@
                 :on-drop (handle-task-drop drag-task task manual-mode?)}
            (if is-editing
              [task-edit-form task]
-             [task-item-content task is-expanded people places projects goals done-mode? due-date-mode?])])))))
+             [task-item-content task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?])])))))
 
 
 (defn user-switcher-dropdown []
