@@ -249,31 +249,38 @@
                      (state/set-task-scope (:id task) s))}
         s])]))
 
-(defn task-importance-selector [task]
-  (let [importance (or (:importance task) "normal")
-        labels {"normal" "○" "important" "★" "critical" "★★"}]
-    [:div.task-importance-selector.toggle-group.compact
-     (for [level ["normal" "important" "critical"]]
+(defn- task-level-selector
+  [{:keys [task attr-key default-value levels labels css-class set-fn]}]
+  (let [current-value (or (get task attr-key) default-value)]
+    [(keyword (str "div." css-class ".toggle-group.compact"))
+     (for [level levels]
        ^{:key level}
        [:button.toggle-option
-        {:class (str level (when (= importance level) " active"))
+        {:class (str level (when (= current-value level) " active"))
          :on-click (fn [e]
                      (.stopPropagation e)
-                     (state/set-task-importance (:id task) level))}
+                     (set-fn (:id task) level))}
         (labels level)])]))
 
+(defn task-importance-selector [task]
+  [task-level-selector
+   {:task task
+    :attr-key :importance
+    :default-value "normal"
+    :levels ["normal" "important" "critical"]
+    :labels {"normal" "○" "important" "★" "critical" "★★"}
+    :css-class "task-importance-selector"
+    :set-fn state/set-task-importance}])
+
 (defn task-urgency-selector [task]
-  (let [urgency (or (:urgency task) "default")
-        labels {"default" "—" "urgent" "!" "superurgent" "!!"}]
-    [:div.task-urgency-selector.toggle-group.compact
-     (for [level ["default" "urgent" "superurgent"]]
-       ^{:key level}
-       [:button.toggle-option
-        {:class (str level (when (= urgency level) " active"))
-         :on-click (fn [e]
-                     (.stopPropagation e)
-                     (state/set-task-urgency (:id task) level))}
-        (labels level)])]))
+  [task-level-selector
+   {:task task
+    :attr-key :urgency
+    :default-value "default"
+    :levels ["default" "urgent" "superurgent"]
+    :labels {"default" "—" "urgent" "!" "superurgent" "!!"}
+    :css-class "task-urgency-selector"
+    :set-fn state/set-task-urgency}])
 
 (defn task-attribute-selectors
   "Renders scope, importance, and urgency selectors for a task.
