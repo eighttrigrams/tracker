@@ -23,7 +23,7 @@
   (let [lang (or (:language user) "en")]
     (i18n/set-language! lang)))
 
-(defn fetch-auth-required [app-state auth-headers initial-collection-state fetch-all-fn]
+(defn fetch-auth-required [app-state _auth-headers _initial-collection-state fetch-all-fn]
   (GET "/api/auth/required"
     {:response-format :json
      :keywords? true

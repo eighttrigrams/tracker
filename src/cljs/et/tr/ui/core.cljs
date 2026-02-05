@@ -8,7 +8,7 @@
             [et.tr.ui.mail :as mail]
             [et.tr.ui.views.settings :as settings]
             [et.tr.ui.views.users :as users]
-            [et.tr.i18n :as i18n :refer [t tf]]
+            [et.tr.i18n :refer [t]]
             [et.tr.filters :as filters]
             ["marked" :refer [marked]]))
 
@@ -896,7 +896,7 @@
        :projects-goals [projects-goals-tab]
        [people-places-tab])]))
 
-(defn category-selector [task category-type entities label]
+(defn category-selector [_task _category-type _entities _label]
   (let [selector-id (str (:id task) "-" category-type)
         input-id (str "category-selector-input-" selector-id)]
     (fn [task category-type entities label]

@@ -1,1 +1,2 @@
-{:linters {:unused-binding {:level :warning}}}
+{:linters {:unused-binding {:level :warning}}
+ :lint-as {et.tr.server/with-admin-message-context clojure.core/let}}

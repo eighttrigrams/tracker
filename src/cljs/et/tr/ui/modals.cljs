@@ -90,9 +90,8 @@
 
 (defn pending-task-modal []
   (when-let [{:keys [title categories]} (:pending-new-task @state/app-state)]
-    (let [{:keys [people places projects goals]} @state/app-state
-          {:keys [people places projects goals]
-           :as selected} categories
+    (let [{:keys [people places projects goals]
+           :as _selected} categories
           selected-people (or people #{})
           selected-places (or places #{})
           selected-projects (or projects #{})

@@ -83,13 +83,13 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))))
 
-(defn categorize-task [app-state auth-headers fetch-tasks-fn task-id category-type category-id]
+(defn categorize-task [_app-state auth-headers fetch-tasks-fn task-id category-type category-id]
   (api/post-json (str "/api/tasks/" task-id "/categorize")
     {:category-type category-type :category-id category-id}
     (auth-headers)
     (fn [_] (fetch-tasks-fn))))
 
-(defn uncategorize-task [app-state auth-headers fetch-tasks-fn task-id category-type category-id]
+(defn uncategorize-task [_app-state auth-headers fetch-tasks-fn task-id category-type category-id]
   (api/delete-json (str "/api/tasks/" task-id "/categorize")
     {:category-type category-type :category-id category-id}
     (auth-headers)
