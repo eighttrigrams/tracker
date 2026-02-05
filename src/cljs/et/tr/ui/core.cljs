@@ -28,16 +28,6 @@
 (def ^:private today-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) today-category-shortcut-keys)))
 
-(defn- reset-input-and-filter! [input-atom filter-value]
-  (reset! input-atom filter-value)
-  (state/set-filter-search filter-value))
-
-(defn- handle-escape-key [input-atom on-clear-fn]
-  (fn [e]
-    (when (= (.-key e) "Escape")
-      (reset! input-atom "")
-      (when on-clear-fn (on-clear-fn)))))
-
 (defn- handle-combined-keys [input-value]
   (fn [e]
     (cond
@@ -50,6 +40,46 @@
       (state/set-filter-search "")
 
       :else nil)))
+
+(defn make-drag-start-handler [task set-drag-task-fn]
+  (fn [e]
+    (.setData (.-dataTransfer e) "text/plain" (str (:id task)))
+    (set-drag-task-fn (:id task))))
+
+(defn make-drag-over-handler [task set-drag-over-task-fn]
+  (fn [e]
+    (.preventDefault e)
+    (set-drag-over-task-fn (:id task))))
+
+(defn make-drop-handler [drag-task-id target-task on-drop-fn]
+  (fn [e]
+    (.preventDefault e)
+    (when (and drag-task-id (not= drag-task-id (:id target-task)))
+      (let [rect (.getBoundingClientRect (.-currentTarget e))
+            y (.-clientY e)
+            mid-y (+ (.-top rect) (/ (.-height rect) 2))
+            position (if (< y mid-y) "before" "after")]
+        (on-drop-fn drag-task-id (:id target-task) position)))))
+
+(defn make-drag-leave-handler [drag-over-task-id task clear-drag-over-fn]
+  (fn [_]
+    (when (= drag-over-task-id (:id task))
+      (clear-drag-over-fn))))
+
+(defn- handle-task-drag-start [task manual-mode?]
+  (fn [e]
+    (when manual-mode?
+      ((make-drag-start-handler task state/set-drag-task) e))))
+
+(defn- handle-task-drag-over [task manual-mode?]
+  (fn [e]
+    (when manual-mode?
+      ((make-drag-over-handler task state/set-drag-over-task) e))))
+
+(defn- handle-task-drop [drag-task task manual-mode?]
+  (fn [e]
+    (when manual-mode?
+      ((make-drop-handler drag-task task state/reorder-task) e))))
 
 (defn login-form []
   (let [username (r/atom "")
@@ -278,7 +308,7 @@
     :attr-key :urgency
     :default-value "default"
     :levels ["default" "urgent" "superurgent"]
-    :labels {"default" "—" "urgent" "!" "superurgent" "!!"}
+    :labels {"default" "—" "urgent" "🚨" "superurgent" "🚨🚨"}
     :css-class "task-urgency-selector"
     :set-fn state/set-task-urgency}])
 
@@ -339,6 +369,30 @@
                                       (.stopPropagation e)
                                       (state/set-task-due-time (:id task) nil))}
       "✕"])])
+
+(defn- item-edit-form
+  [{:keys [title-atom description-atom tags-atom
+           title-placeholder description-placeholder tags-placeholder
+           on-save on-cancel on-delete]}]
+  [:div.item-edit-form
+   [:input {:type "text"
+            :value @title-atom
+            :on-change #(reset! title-atom (-> % .-target .-value))
+            :placeholder title-placeholder}]
+   [:textarea {:value @description-atom
+               :on-change #(reset! description-atom (-> % .-target .-value))
+               :placeholder description-placeholder
+               :rows 3}]
+   (when tags-atom
+     [:input {:type "text"
+              :value @tags-atom
+              :on-change #(reset! tags-atom (-> % .-target .-value))
+              :placeholder tags-placeholder}])
+   [:div.edit-buttons
+    [:button {:on-click on-save} (t :task/save)]
+    [:button.cancel {:on-click on-cancel} (t :task/cancel)]
+    (when on-delete
+      [:button.delete-btn {:on-click on-delete} (t :category/delete)])]])
 
 (defn- today-task-edit-form [task]
   (let [title (r/atom (:title task))
@@ -734,30 +788,6 @@
                       :collapsed? (contains? collapsed-filters :goals)
                       :number (tasks-category-shortcut-numbers :goals)}]]))
 
-(defn- item-edit-form
-  [{:keys [title-atom description-atom tags-atom
-           title-placeholder description-placeholder tags-placeholder
-           on-save on-cancel on-delete]}]
-  [:div.item-edit-form
-   [:input {:type "text"
-            :value @title-atom
-            :on-change #(reset! title-atom (-> % .-target .-value))
-            :placeholder title-placeholder}]
-   [:textarea {:value @description-atom
-               :on-change #(reset! description-atom (-> % .-target .-value))
-               :placeholder description-placeholder
-               :rows 3}]
-   (when tags-atom
-     [:input {:type "text"
-              :value @tags-atom
-              :on-change #(reset! tags-atom (-> % .-target .-value))
-              :placeholder tags-placeholder}])
-   [:div.edit-buttons
-    [:button {:on-click on-save} (t :task/save)]
-    [:button.cancel {:on-click on-cancel} (t :task/cancel)]
-    (when on-delete
-      [:button.delete-btn {:on-click on-delete} (t :category/delete)])]])
-
 (defn category-edit-form [item category-type update-fn]
   (let [name-val (r/atom (:name item))
         description-val (r/atom (or (:description item) ""))]
@@ -1041,45 +1071,7 @@
      [task-expanded-details task people places projects goals]
      [task-categories-readonly task])])
 
-(defn make-drag-start-handler [task set-drag-task-fn]
-  (fn [e]
-    (.setData (.-dataTransfer e) "text/plain" (str (:id task)))
-    (set-drag-task-fn (:id task))))
 
-(defn make-drag-over-handler [task set-drag-over-task-fn]
-  (fn [e]
-    (.preventDefault e)
-    (set-drag-over-task-fn (:id task))))
-
-(defn make-drop-handler [drag-task-id target-task on-drop-fn]
-  (fn [e]
-    (.preventDefault e)
-    (when (and drag-task-id (not= drag-task-id (:id target-task)))
-      (let [rect (.getBoundingClientRect (.-currentTarget e))
-            y (.-clientY e)
-            mid-y (+ (.-top rect) (/ (.-height rect) 2))
-            position (if (< y mid-y) "before" "after")]
-        (on-drop-fn drag-task-id (:id target-task) position)))))
-
-(defn make-drag-leave-handler [drag-over-task-id task clear-drag-over-fn]
-  (fn [_]
-    (when (= drag-over-task-id (:id task))
-      (clear-drag-over-fn))))
-
-(defn- handle-task-drag-start [task manual-mode?]
-  (fn [e]
-    (when manual-mode?
-      ((make-drag-start-handler task state/set-drag-task) e))))
-
-(defn- handle-task-drag-over [task manual-mode?]
-  (fn [e]
-    (when manual-mode?
-      ((make-drag-over-handler task state/set-drag-over-task) e))))
-
-(defn- handle-task-drop [drag-task task manual-mode?]
-  (fn [e]
-    (when manual-mode?
-      ((make-drop-handler drag-task task state/reorder-task) e))))
 
 (defn tasks-list []
   (let [{:keys [people places projects goals tasks-page/expanded-task editing-task sort-mode drag-task drag-over-task]} @state/app-state
