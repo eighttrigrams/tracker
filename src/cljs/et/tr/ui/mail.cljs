@@ -2,7 +2,35 @@
   (:require [et.tr.ui.state :as state]
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.i18n :refer [t]]
-            [reagent.core :as r]))
+            [reagent.core :as r]
+            [clojure.string :as str]))
+
+(defn- youtube-video-id [url]
+  (when (string? url)
+    (cond
+      (str/includes? url "youtube.com/watch")
+      (second (re-find #"[?&]v=([^&\s]+)" url))
+
+      (str/includes? url "youtube.com/shorts/")
+      (second (re-find #"shorts/([^?/\s]+)" url))
+
+      (str/includes? url "youtu.be/")
+      (second (re-find #"youtu\.be/([^?/\s]+)" url))
+
+      :else nil)))
+
+(defn- youtube-preview [title]
+  (when-let [video-id (youtube-video-id title)]
+    [:div.youtube-preview
+     [:img.youtube-thumbnail
+      {:src (str "https://img.youtube.com/vi/" video-id "/hqdefault.jpg")
+       :alt "YouTube thumbnail"}]
+     [:iframe
+      {:width "420"
+       :height "315"
+       :src (str "https://www.youtube.com/embed/" video-id)
+       :allowFullScreen true
+       :frameBorder "0"}]]))
 
 (defn- format-message-datetime [date-str]
   (when date-str
@@ -45,6 +73,7 @@
       [:span.item-date (format-message-datetime created_at)]]
      (when expanded?
        [:div.item-details
+        [youtube-preview title]
         (when (seq description)
           [:div.item-description description])
         (if editing?

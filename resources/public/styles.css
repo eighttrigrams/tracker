@@ -501,6 +501,20 @@ button:active { transform: translateY(0); }
   background: transparent;
   border: none;
 }
+.youtube-preview {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.youtube-preview .youtube-thumbnail {
+  max-width: 320px;
+  border-radius: 8px;
+}
+.youtube-preview iframe {
+  border-radius: 8px;
+  max-width: 100%;
+}
 .item-description {
   color: var(--text-secondary);
   white-space: pre-wrap;
