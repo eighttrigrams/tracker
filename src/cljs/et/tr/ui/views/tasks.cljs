@@ -92,46 +92,41 @@
                                   :item-active-class "active"
                                   :label-class nil}])
 
+(def ^:private sidebar-filter-configs
+  [{:filter-key :people
+    :title-key :category/people
+    :items-key :people
+    :filter-state-key :tasks-page/filter-people
+    :category-type state/CATEGORY-TYPE-PERSON}
+   {:filter-key :places
+    :title-key :category/places
+    :items-key :places
+    :filter-state-key :tasks-page/filter-places
+    :category-type state/CATEGORY-TYPE-PLACE}
+   {:filter-key :projects
+    :title-key :category/projects
+    :items-key :projects
+    :filter-state-key :tasks-page/filter-projects
+    :category-type state/CATEGORY-TYPE-PROJECT}
+   {:filter-key :goals
+    :title-key :category/goals
+    :items-key :goals
+    :filter-state-key :tasks-page/filter-goals
+    :category-type state/CATEGORY-TYPE-GOAL}])
+
 (defn sidebar-filters []
-  (let [{:keys [people places projects goals]} @state/*app-state
-        filter-people (:tasks-page/filter-people @state/*app-state)
-        filter-places (:tasks-page/filter-places @state/*app-state)
-        filter-projects (:tasks-page/filter-projects @state/*app-state)
-        filter-goals (:tasks-page/filter-goals @state/*app-state)
-        collapsed-filters (:tasks-page/collapsed-filters @state/*app-state)]
-    [:div.sidebar
-     [filter-section {:title (t :category/people)
-                      :filter-key :people
-                      :items people
-                      :selected-ids filter-people
-                      :toggle-fn #(state/toggle-filter state/CATEGORY-TYPE-PERSON %)
-                      :clear-fn state/clear-filter-people
-                      :collapsed? (contains? collapsed-filters :people)
-                      :number (tasks-category-shortcut-numbers :people)}]
-     [filter-section {:title (t :category/places)
-                      :filter-key :places
-                      :items places
-                      :selected-ids filter-places
-                      :toggle-fn #(state/toggle-filter state/CATEGORY-TYPE-PLACE %)
-                      :clear-fn state/clear-filter-places
-                      :collapsed? (contains? collapsed-filters :places)
-                      :number (tasks-category-shortcut-numbers :places)}]
-     [filter-section {:title (t :category/projects)
-                      :filter-key :projects
-                      :items projects
-                      :selected-ids filter-projects
-                      :toggle-fn #(state/toggle-filter state/CATEGORY-TYPE-PROJECT %)
-                      :clear-fn state/clear-filter-projects
-                      :collapsed? (contains? collapsed-filters :projects)
-                      :number (tasks-category-shortcut-numbers :projects)}]
-     [filter-section {:title (t :category/goals)
-                      :filter-key :goals
-                      :items goals
-                      :selected-ids filter-goals
-                      :toggle-fn #(state/toggle-filter state/CATEGORY-TYPE-GOAL %)
-                      :clear-fn state/clear-filter-goals
-                      :collapsed? (contains? collapsed-filters :goals)
-                      :number (tasks-category-shortcut-numbers :goals)}]]))
+  (let [app-state @state/*app-state
+        collapsed-filters (:tasks-page/collapsed-filters app-state)]
+    (into [:div.sidebar]
+          (for [{:keys [filter-key title-key items-key filter-state-key category-type]} sidebar-filter-configs]
+            [filter-section {:title (t title-key)
+                             :filter-key filter-key
+                             :items (get app-state items-key)
+                             :selected-ids (get app-state filter-state-key)
+                             :toggle-fn #(state/toggle-filter category-type %)
+                             :clear-fn #(state/clear-filter category-type)
+                             :collapsed? (contains? collapsed-filters filter-key)
+                             :number (tasks-category-shortcut-numbers filter-key)}]))))
 
 (defn- handle-task-drag-start [task manual-mode?]
   (fn [e]
