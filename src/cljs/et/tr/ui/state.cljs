@@ -63,14 +63,6 @@
                             :category-selector/open nil
                             :category-selector/search ""
 
-                            ;; Mail page state
-                            :mail-page/sort-mode :recent
-                            :mail-page/expanded-message nil
-                            :mail-page/fetch-request-id 0
-                            :mail-page/sender-filter nil
-                            :mail-page/editing-message nil
-                            :confirm-delete-message nil
-
                             ;; Global UI state
                             :active-tab :today
                             :sort-mode :today
@@ -150,16 +142,16 @@
   (mail/set-mail-sort-mode *app-state auth-headers mode))
 
 (defn set-expanded-message [id]
-  (mail/set-expanded-message *app-state id))
+  (mail/set-expanded-message id))
 
 (defn set-message-done [message-id done?]
   (mail/set-message-done *app-state auth-headers message-id done?))
 
 (defn set-confirm-delete-message [message]
-  (mail/set-confirm-delete-message *app-state message))
+  (mail/set-confirm-delete-message message))
 
 (defn clear-confirm-delete-message []
-  (mail/clear-confirm-delete-message *app-state))
+  (mail/clear-confirm-delete-message))
 
 (defn delete-message [message-id]
   (mail/delete-message *app-state auth-headers message-id))
@@ -171,10 +163,10 @@
   (mail/clear-mail-sender-filter *app-state auth-headers))
 
 (defn set-editing-message [id]
-  (mail/set-editing-message *app-state id))
+  (mail/set-editing-message id))
 
 (defn clear-editing-message []
-  (mail/clear-editing-message *app-state))
+  (mail/clear-editing-message))
 
 (defn update-message-annotation [message-id annotation]
   (mail/update-message-annotation *app-state auth-headers message-id annotation))

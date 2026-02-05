@@ -1,6 +1,7 @@
 (ns et.tr.ui.modals
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.state.mail :as mail-state]
             [et.tr.i18n :refer [t tf]]))
 
 (defn- generic-confirm-modal
@@ -73,7 +74,7 @@
         :on-confirm #(delete-fn (:id category))}])))
 
 (defn confirm-delete-message-modal []
-  (when-let [message (:confirm-delete-message @state/*app-state)]
+  (when-let [message (:confirm-delete-message @mail-state/*mail-page-state)]
     [generic-confirm-modal
      {:header (t :modal/delete-message)
       :body-paragraphs [{:text (t :modal/delete-message-confirm)}
