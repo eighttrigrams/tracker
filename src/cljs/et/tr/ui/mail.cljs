@@ -24,10 +24,8 @@
         [:button.cancel {:on-click #(state/clear-editing-message)}
          (t :task/cancel)]]])))
 
-(defn- mail-message-item [message]
+(defn- mail-message-item [message expanded-id editing-id]
   (let [{:keys [id sender title description annotation created_at done]} message
-        expanded-id (:mail-page/expanded-message @state/app-state)
-        editing-id (:mail-page/editing-message @state/app-state)
         expanded? (= expanded-id id)
         editing? (= editing-id id)]
     [:li {:class (when expanded? "expanded")}
@@ -50,16 +48,17 @@
           [:div.item-description description])
         (if editing?
           [message-annotation-edit-form message]
-          (when (seq annotation)
-            [:div.item-annotation annotation]))
-        [:div.item-actions
-         (if (= done 1)
-           [:button.undone-btn {:on-click #(state/set-message-done id false)}
-            (t :mail/set-unarchived)]
-           [:button.done-btn {:on-click #(state/set-message-done id true)}
-            (t :mail/archive)])
-         [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
-          (t :task/delete)]]])]))
+          [:<>
+           (when (seq annotation)
+             [:div.item-annotation annotation])
+           [:div.item-actions
+            (if (= done 1)
+              [:button.undone-btn {:on-click #(state/set-message-done id false)}
+               (t :mail/set-unarchived)]
+              [:button.done-btn {:on-click #(state/set-message-done id true)}
+               (t :mail/archive)])
+            [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
+             (t :task/delete)]]])])]))
 
 (defn- mail-sender-filter-badge []
   (let [sender-filter (:mail-page/sender-filter @state/app-state)]
@@ -80,7 +79,7 @@
       (t :mail/sort-archived)]]))
 
 (defn mail-page []
-  (let [messages (:messages @state/app-state)]
+  (let [{:keys [messages mail-page/expanded-message mail-page/editing-message]} @state/app-state]
     [:div.mail-page
      [:div.tasks-header
       [:h2 (t :nav/mail)]
@@ -91,4 +90,4 @@
        [:ul.items
         (for [message messages]
           ^{:key (:id message)}
-          [mail-message-item message])])]))
+          [mail-message-item message expanded-message editing-message])])]))
