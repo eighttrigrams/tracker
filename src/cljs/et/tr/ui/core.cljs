@@ -539,42 +539,33 @@
              :on-click #(handle-filter-badge-click toggle-fn input-id (:id item))}
             (:name item)]))])]))
 
+(defn- today-exclusion-filter-section [filter-key items excluded-ids collapsed-filters toggle-fn clear-fn]
+  [category-filter-section {:title (t (keyword "category" (name filter-key)))
+                            :shortcut-number (today-category-shortcut-numbers filter-key)
+                            :filter-key filter-key
+                            :items items
+                            :marked-ids excluded-ids
+                            :toggle-fn toggle-fn
+                            :clear-fn clear-fn
+                            :collapsed? (contains? collapsed-filters filter-key)
+                            :toggle-collapsed-fn state/toggle-today-filter-collapsed
+                            :set-search-fn state/set-today-category-search
+                            :search-state-path [:today-page/category-search filter-key]
+                            :section-class "exclusion-filter"
+                            :item-active-class "excluded"
+                            :label-class "excluded"
+                            :page-prefix "today"}])
+
 (defn today-sidebar-filters []
   (let [{:keys [places projects]} @state/app-state
         excluded-places (:today-page/excluded-places @state/app-state)
         excluded-projects (:today-page/excluded-projects @state/app-state)
         collapsed-filters (:today-page/collapsed-filters @state/app-state)]
     [:div.sidebar
-     [category-filter-section {:title (t :category/places)
-                               :shortcut-number (today-category-shortcut-numbers :places)
-                               :filter-key :places
-                               :items places
-                               :marked-ids excluded-places
-                               :toggle-fn state/toggle-today-excluded-place
-                               :clear-fn state/clear-today-excluded-places
-                               :collapsed? (contains? collapsed-filters :places)
-                               :toggle-collapsed-fn state/toggle-today-filter-collapsed
-                               :set-search-fn state/set-today-category-search
-                               :search-state-path [:today-page/category-search :places]
-                               :section-class "exclusion-filter"
-                               :item-active-class "excluded"
-                               :label-class "excluded"
-                               :page-prefix "today"}]
-     [category-filter-section {:title (t :category/projects)
-                               :shortcut-number (today-category-shortcut-numbers :projects)
-                               :filter-key :projects
-                               :items projects
-                               :marked-ids excluded-projects
-                               :toggle-fn state/toggle-today-excluded-project
-                               :clear-fn state/clear-today-excluded-projects
-                               :collapsed? (contains? collapsed-filters :projects)
-                               :toggle-collapsed-fn state/toggle-today-filter-collapsed
-                               :set-search-fn state/set-today-category-search
-                               :search-state-path [:today-page/category-search :projects]
-                               :section-class "exclusion-filter"
-                               :item-active-class "excluded"
-                               :label-class "excluded"
-                               :page-prefix "today"}]]))
+     [today-exclusion-filter-section :places places excluded-places collapsed-filters
+      state/toggle-today-excluded-place state/clear-today-excluded-places]
+     [today-exclusion-filter-section :projects projects excluded-projects collapsed-filters
+      state/toggle-today-excluded-project state/clear-today-excluded-projects]]))
 
 (defn- task-list-section [tasks & opts]
   (let [opts-map (apply hash-map opts)]
@@ -699,21 +690,18 @@
       (when (= selected-view :upcoming)
         [today-upcoming-section upcoming])]]))
 
+(defn- sort-mode-button [current-mode mode label-key]
+  [:button {:class (when (= current-mode mode) "active")
+            :on-click #(when (not= current-mode mode) (state/set-sort-mode mode))}
+   (t label-key)])
+
 (defn sort-mode-toggle []
   (let [sort-mode (:sort-mode @state/app-state)]
     [:div.sort-toggle.toggle-group
-     [:button {:class (when (= sort-mode :manual) "active")
-               :on-click #(when (not= sort-mode :manual) (state/set-sort-mode :manual))}
-      (t :tasks/sort-manual)]
-     [:button {:class (when (= sort-mode :due-date) "active")
-               :on-click #(when (not= sort-mode :due-date) (state/set-sort-mode :due-date))}
-      (t :tasks/sort-due-date)]
-     [:button {:class (when (= sort-mode :recent) "active")
-               :on-click #(when (not= sort-mode :recent) (state/set-sort-mode :recent))}
-      (t :tasks/sort-recent)]
-     [:button {:class (when (= sort-mode :done) "active")
-               :on-click #(when (not= sort-mode :done) (state/set-sort-mode :done))}
-      (t :tasks/sort-done)]]))
+     [sort-mode-button sort-mode :manual :tasks/sort-manual]
+     [sort-mode-button sort-mode :due-date :tasks/sort-due-date]
+     [sort-mode-button sort-mode :recent :tasks/sort-recent]
+     [sort-mode-button sort-mode :done :tasks/sort-done]]))
 
 (defn importance-filter-toggle []
   (let [importance-filter (:tasks-page/importance-filter @state/app-state)]
@@ -861,55 +849,38 @@
      [subtab-button active-tab :people-places :nav/people-places]
      [subtab-button active-tab :projects-goals :nav/projects-goals]]))
 
+(defn- category-manage-section [items name-atom title-key add-label-key add-fn category-type update-fn state-key]
+  (let [filtered-items (filter-by-name items @name-atom)]
+    [:div.manage-section
+     [:h3 (t title-key)]
+     [add-entity-form (t add-label-key) add-fn name-atom]
+     [:ul.entity-list
+      (doall
+       (for [item filtered-items]
+         ^{:key (:id item)}
+         [category-item item category-type update-fn state-key]))]]))
+
 (defn people-places-tab []
   (let [person-name (r/atom "")
         place-name (r/atom "")]
     (fn []
-      (let [{:keys [people places]} @state/app-state
-            filtered-people (filter-by-name people @person-name)
-            filtered-places (filter-by-name places @place-name)]
+      (let [{:keys [people places]} @state/app-state]
         [:div.manage-tab
-         [:div.manage-section
-          [:h3 (t :category/people)]
-          [add-entity-form (t :category/add-person) state/add-person person-name]
-          [:ul.entity-list
-           (doall
-            (for [person filtered-people]
-              ^{:key (:id person)}
-              [category-item person state/CATEGORY-TYPE-PERSON state/update-person :people]))]]
-         [:div.manage-section
-          [:h3 (t :category/places)]
-          [add-entity-form (t :category/add-place) state/add-place place-name]
-          [:ul.entity-list
-           (doall
-            (for [place filtered-places]
-              ^{:key (:id place)}
-              [category-item place state/CATEGORY-TYPE-PLACE state/update-place :places]))]]]))))
+         [category-manage-section people person-name :category/people :category/add-person
+          state/add-person state/CATEGORY-TYPE-PERSON state/update-person :people]
+         [category-manage-section places place-name :category/places :category/add-place
+          state/add-place state/CATEGORY-TYPE-PLACE state/update-place :places]]))))
 
 (defn projects-goals-tab []
   (let [project-name (r/atom "")
         goal-name (r/atom "")]
     (fn []
-      (let [{:keys [projects goals]} @state/app-state
-            filtered-projects (filter-by-name projects @project-name)
-            filtered-goals (filter-by-name goals @goal-name)]
+      (let [{:keys [projects goals]} @state/app-state]
         [:div.manage-tab
-         [:div.manage-section
-          [:h3 (t :category/projects)]
-          [add-entity-form (t :category/add-project) state/add-project project-name]
-          [:ul.entity-list
-           (doall
-            (for [project filtered-projects]
-              ^{:key (:id project)}
-              [category-item project state/CATEGORY-TYPE-PROJECT state/update-project :projects]))]]
-         [:div.manage-section
-          [:h3 (t :category/goals)]
-          [add-entity-form (t :category/add-goal) state/add-goal goal-name]
-          [:ul.entity-list
-           (doall
-            (for [goal filtered-goals]
-              ^{:key (:id goal)}
-              [category-item goal state/CATEGORY-TYPE-GOAL state/update-goal :goals]))]]]))))
+         [category-manage-section projects project-name :category/projects :category/add-project
+          state/add-project state/CATEGORY-TYPE-PROJECT state/update-project :projects]
+         [category-manage-section goals goal-name :category/goals :category/add-goal
+          state/add-goal state/CATEGORY-TYPE-GOAL state/update-goal :goals]]))))
 
 (defn categories-tab []
   (let [active-tab (:active-tab @state/app-state)]
