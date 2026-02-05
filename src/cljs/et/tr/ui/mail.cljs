@@ -1,6 +1,7 @@
 (ns et.tr.ui.mail
   (:require [et.tr.ui.state :as state]
-            [et.tr.i18n :refer [t]]))
+            [et.tr.i18n :refer [t]]
+            [reagent.core :as r]))
 
 (defn- format-message-datetime [date-str]
   (when date-str
@@ -9,10 +10,26 @@
            ", "
            (.toLocaleTimeString date js/undefined #js {:hour "2-digit" :minute "2-digit"})))))
 
+(defn- message-annotation-edit-form [message]
+  (let [annotation-val (r/atom (or (:annotation message) ""))]
+    (fn []
+      [:div.item-edit-form
+       [:textarea {:value @annotation-val
+                   :on-change #(reset! annotation-val (-> % .-target .-value))
+                   :placeholder (t :mail/annotation-placeholder)
+                   :rows 3}]
+       [:div.edit-buttons
+        [:button {:on-click #(state/update-message-annotation (:id message) @annotation-val)}
+         (t :task/save)]
+        [:button.cancel {:on-click #(state/clear-editing-message)}
+         (t :task/cancel)]]])))
+
 (defn- mail-message-item [message]
-  (let [{:keys [id sender title description created_at done]} message
+  (let [{:keys [id sender title description annotation created_at done]} message
         expanded-id (:mail-page/expanded-message @state/app-state)
-        expanded? (= expanded-id id)]
+        editing-id (:mail-page/editing-message @state/app-state)
+        expanded? (= expanded-id id)
+        editing? (= editing-id id)]
     [:li {:class (when expanded? "expanded")}
      [:div.item-header {:on-click #(state/set-expanded-message (when-not expanded? id))}
       [:span.item-title
@@ -20,12 +37,21 @@
                                        (.stopPropagation e)
                                        (state/set-mail-sender-filter sender))}
         sender]
-       [:span.mail-title title]]
+       [:span.mail-title title]
+       (when expanded?
+         [:button.edit-icon {:on-click (fn [e]
+                                         (.stopPropagation e)
+                                         (state/set-editing-message id))}
+          "✎"])]
       [:span.item-date (format-message-datetime created_at)]]
      (when expanded?
        [:div.item-details
         (when (seq description)
           [:div.item-description description])
+        (if editing?
+          [message-annotation-edit-form message]
+          (when (seq annotation)
+            [:div.item-annotation annotation]))
         [:div.item-actions
          (if (= done 1)
            [:button.undone-btn {:on-click #(state/set-message-done id false)}

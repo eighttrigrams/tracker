@@ -593,7 +593,7 @@
                         [:and user-where done-filter [:= :sender sender-filter]]
                         [:and user-where done-filter])]
      (jdbc/execute! (get-conn ds)
-       (sql/format {:select [:id :sender :title :description :created_at :done]
+       (sql/format {:select [:id :sender :title :description :created_at :done :annotation]
                     :from [:messages]
                     :where where-clause
                     :order-by [[:created_at :desc]]})
@@ -622,3 +622,12 @@
                                 :where [:= :id message-id]}))]
       (tel/log! {:level :info :data {:message-id message-id :user-id user-id}} "Message deleted")
       {:success (pos? (:next.jdbc/update-count result))})))
+
+(defn update-message-annotation [ds user-id message-id annotation]
+  (when (message-owned-by-user? ds message-id user-id)
+    (jdbc/execute-one! (get-conn ds)
+      (sql/format {:update :messages
+                   :set {:annotation (or annotation "")}
+                   :where [:and [:= :id message-id] (user-id-where-clause user-id)]
+                   :returning [:id :annotation]})
+      jdbc-opts)))

@@ -58,3 +58,24 @@
 (defn clear-mail-sender-filter [app-state auth-headers]
   (swap! app-state assoc :mail-page/sender-filter nil)
   (fetch-messages app-state auth-headers))
+
+(defn set-editing-message [app-state id]
+  (swap! app-state assoc :mail-page/editing-message id))
+
+(defn clear-editing-message [app-state]
+  (swap! app-state assoc :mail-page/editing-message nil))
+
+(defn update-message-annotation [app-state auth-headers message-id annotation]
+  (api/put-json (str "/api/messages/" message-id "/annotation")
+    {:annotation annotation}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :messages
+             (fn [messages]
+               (mapv #(if (= (:id %) message-id)
+                        (assoc % :annotation (:annotation result))
+                        %)
+                     messages)))
+      (clear-editing-message app-state))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update annotation")))))

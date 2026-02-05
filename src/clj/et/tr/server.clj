@@ -505,6 +505,14 @@
         {:status 200 :body {:success true}}
         {:status 404 :body {:success false :error "Message not found"}}))))
 
+(defn update-message-annotation-handler [req]
+  (with-admin-message-context req user-id message-id
+    (let [annotation (get-in req [:body :annotation])
+          result (db/update-message-annotation (ensure-ds) user-id message-id annotation)]
+      (if result
+        {:status 200 :body result}
+        {:status 404 :body {:error "Message not found"}}))))
+
 (defn- telegram-secret []
   (System/getenv "TELEGRAM_WEBHOOK_SECRET"))
 
@@ -713,6 +721,7 @@
       (GET "/" [] list-messages-handler)
       (POST "/" [] add-message-handler)
       (PUT "/:id/done" [] set-message-done-handler)
+      (PUT "/:id/annotation" [] update-message-annotation-handler)
       (DELETE "/:id" [] delete-message-handler))
 
     (DELETE "/:category/:id" [] delete-category-handler)))

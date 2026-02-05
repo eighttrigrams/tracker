@@ -68,6 +68,7 @@
                             :mail-page/expanded-message nil
                             :mail-page/fetch-request-id 0
                             :mail-page/sender-filter nil
+                            :mail-page/editing-message nil
                             :confirm-delete-message nil
 
                             ;; Global UI state
@@ -168,6 +169,15 @@
 
 (defn clear-mail-sender-filter []
   (mail/clear-mail-sender-filter app-state auth-headers))
+
+(defn set-editing-message [id]
+  (mail/set-editing-message app-state id))
+
+(defn clear-editing-message []
+  (mail/clear-editing-message app-state))
+
+(defn update-message-annotation [message-id annotation]
+  (mail/update-message-annotation app-state auth-headers message-id annotation))
 
 (defn fetch-users []
   (users/fetch-users app-state auth-headers))
