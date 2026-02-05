@@ -353,6 +353,9 @@
 (defn toggle-filter [filter-type id]
   (tasks-page/toggle-filter *app-state filter-type id))
 
+(defn clear-filter [filter-type]
+  (tasks-page/clear-filter *app-state filter-type))
+
 (defn clear-filter-people []
   (tasks-page/clear-filter-people *app-state))
 

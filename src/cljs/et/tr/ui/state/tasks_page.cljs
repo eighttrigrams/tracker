@@ -14,28 +14,34 @@
         filter-goals (:tasks-page/filter-goals @app-state)]
     (or (seq filter-people) (seq filter-places) (seq filter-projects) (seq filter-goals))))
 
+(defn- filter-type->key [filter-type]
+  (case filter-type
+    CATEGORY-TYPE-PERSON :tasks-page/filter-people
+    CATEGORY-TYPE-PLACE :tasks-page/filter-places
+    CATEGORY-TYPE-PROJECT :tasks-page/filter-projects
+    CATEGORY-TYPE-GOAL :tasks-page/filter-goals))
+
 (defn toggle-filter [app-state filter-type id]
-  (let [filter-key (case filter-type
-                     CATEGORY-TYPE-PERSON :tasks-page/filter-people
-                     CATEGORY-TYPE-PLACE :tasks-page/filter-places
-                     CATEGORY-TYPE-PROJECT :tasks-page/filter-projects
-                     CATEGORY-TYPE-GOAL :tasks-page/filter-goals)]
+  (let [filter-key (filter-type->key filter-type)]
     (swap! app-state update filter-key
            #(if (contains? % id)
               (disj % id)
               (conj % id)))))
 
+(defn clear-filter [app-state filter-type]
+  (swap! app-state assoc (filter-type->key filter-type) #{}))
+
 (defn clear-filter-people [app-state]
-  (swap! app-state assoc :tasks-page/filter-people #{}))
+  (clear-filter app-state CATEGORY-TYPE-PERSON))
 
 (defn clear-filter-places [app-state]
-  (swap! app-state assoc :tasks-page/filter-places #{}))
+  (clear-filter app-state CATEGORY-TYPE-PLACE))
 
 (defn clear-filter-projects [app-state]
-  (swap! app-state assoc :tasks-page/filter-projects #{}))
+  (clear-filter app-state CATEGORY-TYPE-PROJECT))
 
 (defn clear-filter-goals [app-state]
-  (swap! app-state assoc :tasks-page/filter-goals #{}))
+  (clear-filter app-state CATEGORY-TYPE-GOAL))
 
 (defn- current-fetch-opts [app-state]
   {:search-term (:tasks-page/filter-search @app-state)
