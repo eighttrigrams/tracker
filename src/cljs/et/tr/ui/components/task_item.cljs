@@ -2,7 +2,6 @@
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.state.tasks-page :as tasks-page]
-            [et.tr.ui.components.controls :as controls]
             [et.tr.i18n :refer [t]]
             ["marked" :refer [marked]]))
 
@@ -103,7 +102,7 @@
     {:class (if (state/task-done? task) "undone" "done")
      :on-click #(state/set-task-dropdown-open (:id task))}
     "▼"]
-   (when (= (:id task) (:task-dropdown-open @state/app-state))
+   (when (= (:id task) (:task-dropdown-open @state/*app-state))
      [:div.task-dropdown-menu
       [:button.dropdown-item
        {:on-click #(do
@@ -178,16 +177,16 @@
 (defn category-selector [task category-type entities label]
   (let [selector-id (str (:id task) "-" category-type)
         input-id (str "category-selector-input-" selector-id)]
-    (fn [task category-type entities label]
+    (fn [task category-type _ _]
       (let [task-categories (case category-type
                               state/CATEGORY-TYPE-PERSON (:people task)
                               state/CATEGORY-TYPE-PLACE (:places task)
                               state/CATEGORY-TYPE-PROJECT (:projects task)
                               state/CATEGORY-TYPE-GOAL (:goals task))
             task-category-ids (set (map :id task-categories))
-            open-selector (:category-selector/open @state/app-state)
+            open-selector (:category-selector/open @state/*app-state)
             is-open (= open-selector selector-id)
-            search-term (:category-selector/search @state/app-state)
+            search-term (:category-selector/search @state/*app-state)
             available-entities (remove #(contains? task-category-ids (:id %)) entities)
             filtered-entities (if (and is-open (seq search-term))
                                 (filter #(tasks-page/prefix-matches? (:name %) search-term) available-entities)

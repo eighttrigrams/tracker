@@ -22,6 +22,11 @@
                 (some #(str/starts-with? % prefix) text-words))
               search-prefixes))))
 
+(defn filter-by-name [items filter-text]
+  (if (empty? filter-text)
+    items
+    (filter #(multi-prefix-matches? (:name %) filter-text) items)))
+
 (defn apply-exclusion-filter [tasks excluded-places excluded-projects]
   (let [has-excluded-place? (fn [task]
                               (some #(contains? excluded-places (:id %)) (:places task)))

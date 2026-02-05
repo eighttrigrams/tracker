@@ -3,7 +3,7 @@
             [et.tr.i18n :refer [t]]))
 
 (defn language-selector []
-  (let [current-user (:current-user @state/app-state)
+  (let [current-user (:current-user @state/*app-state)
         current-lang (or (:language current-user) "en")]
     [:div.settings-item
      [:span.settings-label (t :settings/language)]
@@ -15,7 +15,7 @@
       [:option {:value "pt"} (t :settings/language-pt)]]]))
 
 (defn settings-tab []
-  (let [current-user (:current-user @state/app-state)
+  (let [current-user (:current-user @state/*app-state)
         is-admin (:is_admin current-user)]
     [:div.settings-page
      [:div.manage-tab

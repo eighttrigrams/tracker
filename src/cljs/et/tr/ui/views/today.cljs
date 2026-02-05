@@ -33,7 +33,7 @@
         :on-cancel #(state/clear-editing)}])))
 
 (defn- today-task-expanded-details [task]
-  (let [editing-task (:editing-task @state/app-state)
+  (let [editing-task (:editing-task @state/*app-state)
         is-editing (= editing-task (:id task))]
     (if is-editing
       [today-task-edit-form task]
@@ -47,8 +47,8 @@
 
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:due_date task) 6))
-        expanded-task (:today-page/expanded-task @state/app-state)
-        editing-task (:editing-task @state/app-state)
+        expanded-task (:today-page/expanded-task @state/*app-state)
+        editing-task (:editing-task @state/*app-state)
         is-expanded (= expanded-task (:id task))
         is-editing (= editing-task (:id task))]
     [:div.today-task-item {:class (when is-expanded "expanded")}
@@ -80,7 +80,7 @@
        [today-task-expanded-details task])]))
 
 (defn horizon-selector []
-  (let [horizon (:upcoming-horizon @state/app-state)]
+  (let [horizon (:upcoming-horizon @state/*app-state)]
     [:div.horizon-selector
      [:span (t :today/show)]
      [:button {:class (when (= horizon :three-days) "active")
@@ -108,7 +108,7 @@
            toggle-collapsed-fn set-search-fn search-state-path
            section-class item-active-class label-class page-prefix]}]
   (let [marked-items (filter #(contains? marked-ids (:id %)) items)
-        search-term (get-in @state/app-state search-state-path "")
+        search-term (get-in @state/*app-state search-state-path "")
         visible-items (if (seq search-term)
                         (filter #(tasks-page/prefix-matches? (:name %) search-term) items)
                         items)
@@ -180,10 +180,10 @@
                             :page-prefix "today"}])
 
 (defn today-sidebar-filters []
-  (let [{:keys [places projects]} @state/app-state
-        excluded-places (:today-page/excluded-places @state/app-state)
-        excluded-projects (:today-page/excluded-projects @state/app-state)
-        collapsed-filters (:today-page/collapsed-filters @state/app-state)]
+  (let [{:keys [places projects]} @state/*app-state
+        excluded-places (:today-page/excluded-places @state/*app-state)
+        excluded-projects (:today-page/excluded-projects @state/*app-state)
+        collapsed-filters (:today-page/collapsed-filters @state/*app-state)]
     [:div.sidebar
      [today-exclusion-filter-section :places places excluded-places collapsed-filters
       state/toggle-today-excluded-place state/clear-today-excluded-places]
@@ -215,8 +215,8 @@
      [:p.empty-message (t :today/no-today)])])
 
 (defn- draggable-urgent-task-item [task target-urgency]
-  (let [drag-task (:drag-task @state/app-state)
-        drag-over-task (:drag-over-task @state/app-state)
+  (let [drag-task (:drag-task @state/*app-state)
+        drag-over-task (:drag-over-task @state/*app-state)
         is-dragging (= drag-task (:id task))
         is-drag-over (= drag-over-task (:id task))]
     [:div.draggable-urgent-task
@@ -229,13 +229,13 @@
       :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
       :on-drop (fn [e]
                  (.preventDefault e)
-                 (let [current-drag-task (:drag-task @state/app-state)]
+                 (let [current-drag-task (:drag-task @state/*app-state)]
                    (when (and current-drag-task (not= current-drag-task (:id task)))
                      (let [rect (.getBoundingClientRect (.-currentTarget e))
                            y (.-clientY e)
                            mid-y (+ (.-top rect) (/ (.-height rect) 2))
                            position (if (< y mid-y) "before" "after")
-                           dragged-task (first (filter #(= (:id %) current-drag-task) (:tasks @state/app-state)))
+                           dragged-task (first (filter #(= (:id %) current-drag-task) (:tasks @state/*app-state)))
                            current-urgency (:urgency dragged-task)]
                        (when (not= current-urgency target-urgency)
                          (state/set-task-urgency current-drag-task target-urgency))
@@ -243,7 +243,7 @@
      [today-task-item task :show-day-of-week true]]))
 
 (defn- urgency-task-list [tasks target-urgency]
-  (let [drag-over-section (:drag-over-urgency-section @state/app-state)
+  (let [drag-over-section (:drag-over-urgency-section @state/*app-state)
         is-section-drag-over (= drag-over-section target-urgency)]
     [:div.urgency-task-list
      {:class (when is-section-drag-over "section-drag-over")
@@ -255,9 +255,9 @@
                          (state/set-drag-over-urgency-section nil)))
       :on-drop (fn [e]
                  (.preventDefault e)
-                 (let [drag-task-id (:drag-task @state/app-state)]
+                 (let [drag-task-id (:drag-task @state/*app-state)]
                    (when drag-task-id
-                     (let [dragged-task (first (filter #(= (:id %) drag-task-id) (:tasks @state/app-state)))
+                     (let [dragged-task (first (filter #(= (:id %) drag-task-id) (:tasks @state/*app-state)))
                            current-urgency (:urgency dragged-task)]
                        (when (not= current-urgency target-urgency)
                          (state/set-task-urgency drag-task-id target-urgency))
@@ -292,7 +292,7 @@
      [:p.empty-message (t :today/no-upcoming)])])
 
 (defn- today-view-switcher []
-  (let [selected-view (:today-page/selected-view @state/app-state)]
+  (let [selected-view (:today-page/selected-view @state/*app-state)]
     [:div.today-view-switcher.toggle-group
      [:button {:class (when (= selected-view :urgent) "active")
                :on-click #(state/set-today-selected-view :urgent)}
@@ -307,7 +307,7 @@
         superurgent (state/superurgent-tasks)
         urgent (state/urgent-tasks)
         upcoming (state/upcoming-tasks)
-        selected-view (:today-page/selected-view @state/app-state)]
+        selected-view (:today-page/selected-view @state/*app-state)]
     [:div.main-layout
      [today-sidebar-filters]
      [:div.main-content.today-content

@@ -1,2 +1,2 @@
 {:linters {:unused-binding {:level :warning}}
- :lint-as {et.tr.server/with-admin-message-context clojure.core/let}}
+ :hooks {:analyze-call {et.tr.server/with-admin-message-context hooks.with-admin-message-context/with-admin-message-context}}}

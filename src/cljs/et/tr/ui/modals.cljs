@@ -19,7 +19,7 @@
      [:button.confirm-delete {:on-click on-confirm} (t :modal/delete)]]]])
 
 (defn confirm-delete-modal []
-  (when-let [task (:confirm-delete-task @state/app-state)]
+  (when-let [task (:confirm-delete-task @state/*app-state)]
     [generic-confirm-modal
      {:header (t :modal/delete-task)
       :body-paragraphs [{:text (t :modal/delete-task-confirm)}
@@ -30,7 +30,7 @@
 (defn confirm-delete-user-modal []
   (let [confirmation-input (r/atom "")]
     (fn []
-      (when-let [user (:confirm-delete-user @state/app-state)]
+      (when-let [user (:confirm-delete-user @state/*app-state)]
         (let [username (:username user)
               matches? (= @confirmation-input username)]
           [:div.modal-overlay {:on-click #(do (reset! confirmation-input "") (state/clear-confirm-delete-user))}
@@ -52,7 +52,7 @@
                                       :on-click #(do (reset! confirmation-input "") (state/delete-user (:id user)))} (t :modal/delete)]]]])))))
 
 (defn confirm-delete-category-modal []
-  (when-let [{:keys [type category]} (:confirm-delete-category @state/app-state)]
+  (when-let [{:keys [type category]} (:confirm-delete-category @state/*app-state)]
     (let [type-label (case type
                        :person (t :category/person)
                        :place (t :category/place)
@@ -73,7 +73,7 @@
         :on-confirm #(delete-fn (:id category))}])))
 
 (defn confirm-delete-message-modal []
-  (when-let [message (:confirm-delete-message @state/app-state)]
+  (when-let [message (:confirm-delete-message @state/*app-state)]
     [generic-confirm-modal
      {:header (t :modal/delete-message)
       :body-paragraphs [{:text (t :modal/delete-message-confirm)}
@@ -89,7 +89,7 @@
    (when selected? [:span.check " ✓"])])
 
 (defn pending-task-modal []
-  (when-let [{:keys [title categories]} (:pending-new-task @state/app-state)]
+  (when-let [{:keys [title categories]} (:pending-new-task @state/*app-state)]
     (let [{:keys [people places projects goals]
            :as _selected} categories
           selected-people (or people #{})
@@ -102,42 +102,42 @@
         [:div.modal-body
          [:p.task-title title]
          [:p.modal-instruction (t :modal/select-categories)]
-         (when (seq (:people @state/app-state))
+         (when (seq (:people @state/*app-state))
            [:div.category-group
             [:label (str (t :category/people) ":")]
             [:div.category-tags
              (doall
-              (for [p (:people @state/app-state)]
+              (for [p (:people @state/*app-state)]
                 ^{:key (:id p)}
                 [category-tag-item state/CATEGORY-TYPE-PERSON (:id p) (:name p)
                  (contains? selected-people (:id p))
                  state/update-pending-category]))]])
-         (when (seq (:places @state/app-state))
+         (when (seq (:places @state/*app-state))
            [:div.category-group
             [:label (str (t :category/places) ":")]
             [:div.category-tags
              (doall
-              (for [p (:places @state/app-state)]
+              (for [p (:places @state/*app-state)]
                 ^{:key (:id p)}
                 [category-tag-item state/CATEGORY-TYPE-PLACE (:id p) (:name p)
                  (contains? selected-places (:id p))
                  state/update-pending-category]))]])
-         (when (seq (:projects @state/app-state))
+         (when (seq (:projects @state/*app-state))
            [:div.category-group
             [:label (str (t :category/projects) ":")]
             [:div.category-tags
              (doall
-              (for [p (:projects @state/app-state)]
+              (for [p (:projects @state/*app-state)]
                 ^{:key (:id p)}
                 [category-tag-item state/CATEGORY-TYPE-PROJECT (:id p) (:name p)
                  (contains? selected-projects (:id p))
                  state/update-pending-category]))]])
-         (when (seq (:goals @state/app-state))
+         (when (seq (:goals @state/*app-state))
            [:div.category-group
             [:label (str (t :category/goals) ":")]
             [:div.category-tags
              (doall
-              (for [g (:goals @state/app-state)]
+              (for [g (:goals @state/*app-state)]
                 ^{:key (:id g)}
                 [category-tag-item state/CATEGORY-TYPE-GOAL (:id g) (:name g)
                  (contains? selected-goals (:id g))

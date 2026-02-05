@@ -1,13 +1,10 @@
 (ns et.tr.ui.views.tasks
-  (:require [reagent.core :as r]
-            [et.tr.ui.state :as state]
-            [et.tr.ui.state.tasks-page :as tasks-page]
+  (:require [et.tr.ui.state :as state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.views.today :as today]
-            [et.tr.i18n :refer [t]]
-            [et.tr.filters :as filters]))
+            [et.tr.i18n :refer [t]]))
 
 (def ^:private tasks-category-shortcut-keys
   {"Digit1" :people
@@ -35,7 +32,7 @@
       :else nil)))
 
 (defn combined-search-add-form []
-  (let [input-value (:tasks-page/filter-search @state/app-state)]
+  (let [input-value (:tasks-page/filter-search @state/*app-state)]
     [:div.combined-search-add-form
      [:input#tasks-filter-search
       {:type "text"
@@ -50,18 +47,13 @@
      (when (seq input-value)
        [:button.clear-search {:on-click #(state/set-filter-search "")} "x"])]))
 
-(defn- filter-by-name [items filter-text]
-  (if (empty? filter-text)
-    items
-    (filter #(filters/multi-prefix-matches? (:name %) filter-text) items)))
-
 (defn- sort-mode-button [current-mode mode label-key]
   [:button {:class (when (= current-mode mode) "active")
             :on-click #(when (not= current-mode mode) (state/set-sort-mode mode))}
    (t label-key)])
 
 (defn sort-mode-toggle []
-  (let [sort-mode (:sort-mode @state/app-state)]
+  (let [sort-mode (:sort-mode @state/*app-state)]
     [:div.sort-toggle.toggle-group
      [sort-mode-button sort-mode :manual :tasks/sort-manual]
      [sort-mode-button sort-mode :due-date :tasks/sort-due-date]
@@ -69,7 +61,7 @@
      [sort-mode-button sort-mode :done :tasks/sort-done]]))
 
 (defn importance-filter-toggle []
-  (let [importance-filter (:tasks-page/importance-filter @state/app-state)]
+  (let [importance-filter (:tasks-page/importance-filter @state/*app-state)]
     [:div.importance-filter-toggle.toggle-group
      [:button {:class (when (nil? importance-filter) "active")
                :on-click #(state/set-importance-filter nil)
@@ -101,12 +93,12 @@
                                   :label-class nil}])
 
 (defn sidebar-filters []
-  (let [{:keys [people places projects goals]} @state/app-state
-        filter-people (:tasks-page/filter-people @state/app-state)
-        filter-places (:tasks-page/filter-places @state/app-state)
-        filter-projects (:tasks-page/filter-projects @state/app-state)
-        filter-goals (:tasks-page/filter-goals @state/app-state)
-        collapsed-filters (:tasks-page/collapsed-filters @state/app-state)]
+  (let [{:keys [people places projects goals]} @state/*app-state
+        filter-people (:tasks-page/filter-people @state/*app-state)
+        filter-places (:tasks-page/filter-places @state/*app-state)
+        filter-projects (:tasks-page/filter-projects @state/*app-state)
+        filter-goals (:tasks-page/filter-goals @state/*app-state)
+        collapsed-filters (:tasks-page/collapsed-filters @state/*app-state)]
     [:div.sidebar
      [filter-section {:title (t :category/people)
                       :filter-key :people
@@ -212,7 +204,7 @@
      [task-item/task-categories-readonly task])])
 
 (defn tasks-list []
-  (let [{:keys [people places projects goals tasks-page/expanded-task editing-task sort-mode drag-task drag-over-task]} @state/app-state
+  (let [{:keys [people places projects goals tasks-page/expanded-task editing-task sort-mode drag-task drag-over-task]} @state/*app-state
         tasks (state/filtered-tasks)
         manual-mode? (= sort-mode :manual)
         due-date-mode? (= sort-mode :due-date)

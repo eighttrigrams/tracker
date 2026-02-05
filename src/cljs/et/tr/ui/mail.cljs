@@ -61,7 +61,7 @@
              (t :task/delete)]]])])]))
 
 (defn- mail-sender-filter-badge []
-  (let [sender-filter (:mail-page/sender-filter @state/app-state)]
+  (let [sender-filter (:mail-page/sender-filter @state/*app-state)]
     (when sender-filter
       [:div.mail-sender-filter
        [:span.filter-item-label.included
@@ -69,7 +69,7 @@
         [:button.remove-item {:on-click #(state/clear-mail-sender-filter)} "x"]]])))
 
 (defn- mail-sort-toggle []
-  (let [sort-mode (:mail-page/sort-mode @state/app-state)]
+  (let [sort-mode (:mail-page/sort-mode @state/*app-state)]
     [:div.sort-toggle.toggle-group
      [:button {:class (when (= sort-mode :recent) "active")
                :on-click #(state/set-mail-sort-mode :recent)}
@@ -79,7 +79,7 @@
       (t :mail/sort-archived)]]))
 
 (defn mail-page []
-  (let [{:keys [messages mail-page/expanded-message mail-page/editing-message]} @state/app-state]
+  (let [{:keys [messages mail-page/expanded-message mail-page/editing-message]} @state/*app-state]
     [:div.mail-page
      [:div.tasks-header
       [:h2 (t :nav/mail)]

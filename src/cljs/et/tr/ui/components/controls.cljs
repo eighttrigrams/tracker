@@ -54,7 +54,7 @@
                           (if (= current-value "both")
                             (state/toggle-strict-mode)
                             (on-change scope)))}
-             [vesicapiscis-icon current-value (:strict-mode @state/app-state)]]
+             [vesicapiscis-icon current-value (:strict-mode @state/*app-state)]]
             [:button.toggle-option
              {:key scope
               :class (when (= current-value scope) "active")
@@ -64,18 +64,18 @@
              (t (keyword "toggle" scope))]))))
 
 (defn work-private-toggle []
-  (let [mode (name (:work-private-mode @state/app-state))]
+  (let [mode (name (:work-private-mode @state/*app-state))]
     [scope-toggle "work-private-toggle toggle-group" mode #(state/set-work-private-mode (keyword %))]))
 
 (defn dark-mode-toggle []
-  (let [dark-mode (:dark-mode @state/app-state)]
+  (let [dark-mode (:dark-mode @state/*app-state)]
     [:button.dark-mode-toggle
      {:on-click state/toggle-dark-mode}
      (if dark-mode "\u2600" "\u263E")]))
 
 (defn user-switcher-dropdown []
-  (let [available-users (:available-users @state/app-state)
-        current-user (:current-user @state/app-state)]
+  (let [available-users (:available-users @state/*app-state)
+        current-user (:current-user @state/*app-state)]
     [:div.user-switcher-dropdown
      (doall
       (for [user available-users]
@@ -86,11 +86,11 @@
          (:username user)]))]))
 
 (defn user-info []
-  (let [current-user (:current-user @state/app-state)
-        active-tab (:active-tab @state/app-state)
+  (let [current-user (:current-user @state/*app-state)
+        active-tab (:active-tab @state/*app-state)
         is-admin (state/is-admin?)
-        auth-required? (:auth-required? @state/app-state)
-        show-switcher (:show-user-switcher @state/app-state)]
+        auth-required? (:auth-required? @state/*app-state)
+        show-switcher (:show-user-switcher @state/*app-state)]
     (when current-user
       [:div.user-info
        (when is-admin

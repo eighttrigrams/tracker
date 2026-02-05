@@ -28,7 +28,7 @@
         (t :users/add-button)]])))
 
 (defn users-tab []
-  (let [{:keys [users]} @state/app-state]
+  (let [{:keys [users]} @state/*app-state]
     [:div.manage-tab
      [:div.manage-section
       [:h3 (t :users/title)]

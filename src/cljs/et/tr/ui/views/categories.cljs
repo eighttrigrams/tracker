@@ -5,11 +5,6 @@
             [et.tr.i18n :refer [t]]
             [et.tr.filters :as filters]))
 
-(defn- filter-by-name [items filter-text]
-  (if (empty? filter-text)
-    items
-    (filter #(filters/multi-prefix-matches? (:name %) filter-text) items)))
-
 (defn add-entity-form [placeholder add-fn name-atom]
   (fn []
     [:div.add-entity-form
@@ -38,12 +33,12 @@
         :on-delete #(state/set-confirm-delete-category category-type item)}])))
 
 (defn category-item [item category-type update-fn state-key]
-  (let [editing (:category-page/editing @state/app-state)
+  (let [editing (:category-page/editing @state/*app-state)
         is-editing (and editing
                         (= (:type editing) category-type)
                         (= (:id editing) (:id item)))
-        drag-cat (:drag-category @state/app-state)
-        drag-over-cat (:drag-over-category @state/app-state)
+        drag-cat (:drag-category @state/*app-state)
+        drag-over-cat (:drag-over-category @state/*app-state)
         is-dragging (and drag-cat
                          (= (:type drag-cat) state-key)
                          (= (:id drag-cat) (:id item)))
@@ -90,13 +85,13 @@
    (t translation-key)])
 
 (defn- categories-subtabs []
-  (let [active-tab (:active-tab @state/app-state)]
+  (let [active-tab (:active-tab @state/*app-state)]
     [:div.categories-subtabs
      [subtab-button active-tab :people-places :nav/people-places]
      [subtab-button active-tab :projects-goals :nav/projects-goals]]))
 
 (defn- category-manage-section [items name-atom title-key add-label-key add-fn category-type update-fn state-key]
-  (let [filtered-items (filter-by-name items @name-atom)]
+  (let [filtered-items (filters/filter-by-name items @name-atom)]
     [:div.manage-section
      [:h3 (t title-key)]
      [add-entity-form (t add-label-key) add-fn name-atom]
@@ -110,7 +105,7 @@
   (let [person-name (r/atom "")
         place-name (r/atom "")]
     (fn []
-      (let [{:keys [people places]} @state/app-state]
+      (let [{:keys [people places]} @state/*app-state]
         [:div.manage-tab
          [category-manage-section people person-name :category/people :category/add-person
           state/add-person state/CATEGORY-TYPE-PERSON state/update-person :people]
@@ -121,7 +116,7 @@
   (let [project-name (r/atom "")
         goal-name (r/atom "")]
     (fn []
-      (let [{:keys [projects goals]} @state/app-state]
+      (let [{:keys [projects goals]} @state/*app-state]
         [:div.manage-tab
          [category-manage-section projects project-name :category/projects :category/add-project
           state/add-project state/CATEGORY-TYPE-PROJECT state/update-project :projects]
@@ -129,7 +124,7 @@
           state/add-goal state/CATEGORY-TYPE-GOAL state/update-goal :goals]]))))
 
 (defn categories-tab []
-  (let [active-tab (:active-tab @state/app-state)]
+  (let [active-tab (:active-tab @state/*app-state)]
     [:div.categories-page
      [categories-subtabs]
      (case active-tab

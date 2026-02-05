@@ -36,7 +36,7 @@
                                       (state/fetch-goals))))]
         [:div.login-form
          [:h2 (t :auth/login)]
-         (when-let [error (:error @state/app-state)]
+         (when-let [error (:error @state/*app-state)]
            [:div.error error [:button.error-dismiss {:on-click state/clear-error} "×"]])
          [:input {:type "text"
                   :placeholder (t :auth/username)
@@ -68,7 +68,7 @@
     (t translation-key)]))
 
 (defn tabs []
-  (let [active-tab (:active-tab @state/app-state)]
+  (let [active-tab (:active-tab @state/*app-state)]
     [:div.tabs
      [tab-button active-tab :today :nav/today]
      [tab-button active-tab :tasks :nav/tasks]
@@ -78,7 +78,7 @@
        [tab-button active-tab :mail :nav/mail])]))
 
 (defn app []
-  (let [{:keys [auth-required? logged-in? active-tab sort-mode]} @state/app-state]
+  (let [{:keys [auth-required? logged-in? active-tab sort-mode]} @state/*app-state]
     [:div
      [modals/confirm-delete-modal]
      [modals/confirm-delete-user-modal]
@@ -94,7 +94,7 @@
 
        :else
        [:div
-        (when-let [error (:error @state/app-state)]
+        (when-let [error (:error @state/*app-state)]
           [:div.error error [:button.error-dismiss {:on-click state/clear-error} "×"]])
         [:div.top-bar
          [tabs]
@@ -130,7 +130,7 @@
 
 (defn- navigate-tab [direction]
   (let [tabs (get-available-tabs)
-        current (:active-tab @state/app-state)
+        current (:active-tab @state/*app-state)
         effective-current (if (contains? #{:people-places :projects-goals} current)
                             :categories
                             current)
@@ -140,7 +140,7 @@
 
 (defn- handle-keyboard-shortcuts [e]
   (let [code (.-code e)
-        {:keys [active-tab]} @state/app-state
+        {:keys [active-tab]} @state/*app-state
         tasks-shortcut-keys (tasks/get-tasks-category-shortcut-keys)
         today-shortcut-keys (today/get-today-category-shortcut-keys)]
     (when (.-shiftKey e)
@@ -186,7 +186,7 @@
      (state/fetch-auth-required)
      (.addEventListener js/document "click"
                         (fn [_]
-                          (when (:category-selector/open @state/app-state)
+                          (when (:category-selector/open @state/*app-state)
                             (state/close-category-selector))))
      (.removeEventListener js/document "keydown" handle-keyboard-shortcuts)
      (.addEventListener js/document "keydown" handle-keyboard-shortcuts)
