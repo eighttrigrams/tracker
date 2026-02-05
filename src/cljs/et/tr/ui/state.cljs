@@ -351,22 +351,22 @@
   (tasks-page/has-active-filters? *app-state))
 
 (defn toggle-filter [filter-type id]
-  (tasks-page/toggle-filter *app-state filter-type id))
+  (tasks-page/toggle-filter *app-state fetch-tasks filter-type id))
 
 (defn clear-filter [filter-type]
-  (tasks-page/clear-filter *app-state filter-type))
+  (tasks-page/clear-filter *app-state fetch-tasks filter-type))
 
 (defn clear-filter-people []
-  (tasks-page/clear-filter-people *app-state))
+  (tasks-page/clear-filter-people *app-state fetch-tasks))
 
 (defn clear-filter-places []
-  (tasks-page/clear-filter-places *app-state))
+  (tasks-page/clear-filter-places *app-state fetch-tasks))
 
 (defn clear-filter-projects []
-  (tasks-page/clear-filter-projects *app-state))
+  (tasks-page/clear-filter-projects *app-state fetch-tasks))
 
 (defn clear-filter-goals []
-  (tasks-page/clear-filter-goals *app-state))
+  (tasks-page/clear-filter-goals *app-state fetch-tasks))
 
 (defn set-importance-filter [level]
   (tasks-page/set-importance-filter *app-state fetch-tasks level))
@@ -375,7 +375,7 @@
   (tasks-page/clear-importance-filter *app-state fetch-tasks))
 
 (defn clear-uncollapsed-task-filters []
-  (tasks-page/clear-uncollapsed-task-filters *app-state))
+  (tasks-page/clear-uncollapsed-task-filters *app-state fetch-tasks))
 
 (defn toggle-filter-collapsed [filter-key]
   (tasks-page/toggle-filter-collapsed *app-state filter-key))

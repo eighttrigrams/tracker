@@ -107,14 +107,24 @@
       {:status 200 :body (cons admin users)})
     {:status 403 :body {:error "Not available in production mode"}}))
 
+(defn- parse-category-param [param]
+  (when (and param (not (str/blank? param)))
+    (vec (str/split param #","))))
+
 (defn list-tasks-handler [req]
   (let [user-id (get-user-id req)
         sort-mode (keyword (get-in req [:params "sort"] "recent"))
         search-term (get-in req [:params "q"])
         importance (get-in req [:params "importance"])
         context (get-in req [:params "context"])
-        strict (= "true" (get-in req [:params "strict"]))]
-    {:status 200 :body (db/list-tasks (ensure-ds) user-id sort-mode {:search-term search-term :importance importance :context context :strict strict})}))
+        strict (= "true" (get-in req [:params "strict"]))
+        people (parse-category-param (get-in req [:params "people"]))
+        places (parse-category-param (get-in req [:params "places"]))
+        projects (parse-category-param (get-in req [:params "projects"]))
+        goals (parse-category-param (get-in req [:params "goals"]))
+        categories (when (or people places projects goals)
+                     {:people people :places places :projects projects :goals goals})]
+    {:status 200 :body (db/list-tasks (ensure-ds) user-id sort-mode {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
 
 (defn add-task-handler [req]
   (let [user-id (get-user-id req)

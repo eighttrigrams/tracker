@@ -27,27 +27,29 @@
    :context (:work-private-mode @app-state)
    :strict (:strict-mode @app-state)})
 
-(defn toggle-filter [app-state filter-type id]
+(defn toggle-filter [app-state fetch-tasks-fn filter-type id]
   (let [filter-key (filter-type->key filter-type)]
     (swap! app-state update filter-key
            #(if (contains? % id)
               (disj % id)
-              (conj % id)))))
+              (conj % id)))
+    (fetch-tasks-fn (current-fetch-opts app-state))))
 
-(defn clear-filter [app-state filter-type]
-  (swap! app-state assoc (filter-type->key filter-type) #{}))
+(defn clear-filter [app-state fetch-tasks-fn filter-type]
+  (swap! app-state assoc (filter-type->key filter-type) #{})
+  (fetch-tasks-fn (current-fetch-opts app-state)))
 
-(defn clear-filter-people [app-state]
-  (clear-filter app-state CATEGORY-TYPE-PERSON))
+(defn clear-filter-people [app-state fetch-tasks-fn]
+  (clear-filter app-state fetch-tasks-fn CATEGORY-TYPE-PERSON))
 
-(defn clear-filter-places [app-state]
-  (clear-filter app-state CATEGORY-TYPE-PLACE))
+(defn clear-filter-places [app-state fetch-tasks-fn]
+  (clear-filter app-state fetch-tasks-fn CATEGORY-TYPE-PLACE))
 
-(defn clear-filter-projects [app-state]
-  (clear-filter app-state CATEGORY-TYPE-PROJECT))
+(defn clear-filter-projects [app-state fetch-tasks-fn]
+  (clear-filter app-state fetch-tasks-fn CATEGORY-TYPE-PROJECT))
 
-(defn clear-filter-goals [app-state]
-  (clear-filter app-state CATEGORY-TYPE-GOAL))
+(defn clear-filter-goals [app-state fetch-tasks-fn]
+  (clear-filter app-state fetch-tasks-fn CATEGORY-TYPE-GOAL))
 
 (defn set-importance-filter [app-state fetch-tasks-fn level]
   (swap! app-state assoc :tasks-page/importance-filter level)
@@ -57,7 +59,7 @@
   (swap! app-state assoc :tasks-page/importance-filter nil)
   (fetch-tasks-fn (assoc (current-fetch-opts app-state) :importance nil)))
 
-(defn clear-uncollapsed-task-filters [app-state]
+(defn clear-uncollapsed-task-filters [app-state fetch-tasks-fn]
   (let [collapsed (:tasks-page/collapsed-filters @app-state)
         all-filters #{:people :places :projects :goals}
         uncollapsed (clojure.set/difference all-filters collapsed)]
@@ -81,7 +83,8 @@
                :tasks-page/collapsed-filters all-filters
                :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
                :tasks-page/importance-filter nil
-               :tasks-page/expanded-task nil)))))
+               :tasks-page/expanded-task nil)))
+    (fetch-tasks-fn (current-fetch-opts app-state))))
 
 (defn toggle-filter-collapsed [app-state filter-key]
   (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)
@@ -137,18 +140,7 @@
   (filters/multi-prefix-matches? title search-term))
 
 (defn filtered-tasks [app-state]
-  (let [tasks (:tasks @app-state)
-        filter-people (:tasks-page/filter-people @app-state)
-        filter-places (:tasks-page/filter-places @app-state)
-        filter-projects (:tasks-page/filter-projects @app-state)
-        filter-goals (:tasks-page/filter-goals @app-state)
-        matches-any? (fn [task-categories filter-ids]
-                       (some #(contains? filter-ids (:id %)) task-categories))]
-    (cond->> tasks
-      (seq filter-people) (filter #(matches-any? (:people %) filter-people))
-      (seq filter-places) (filter #(matches-any? (:places %) filter-places))
-      (seq filter-projects) (filter #(matches-any? (:projects %) filter-projects))
-      (seq filter-goals) (filter #(matches-any? (:goals %) filter-goals)))))
+  (:tasks @app-state))
 
 (defn set-pending-new-task [app-state title on-success]
   (let [filter-people (:tasks-page/filter-people @app-state)

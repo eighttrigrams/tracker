@@ -480,3 +480,106 @@
     (let [tasks (db/list-tasks *ds* nil :recent "al")]
       (is (= 1 (count tasks)))
       (is (= "aaa mmm" (:title (first tasks)))))))
+
+(deftest list-tasks-category-filter-test
+  (testing "single category filter returns matching tasks"
+    (let [task1 (db/add-task *ds* nil "Task with Alice")
+          _task2 (db/add-task *ds* nil "Task without person")
+          person (db/add-person *ds* nil "Alice")]
+      (db/categorize-task *ds* nil (:id task1) "person" (:id person))
+      (let [tasks (db/list-tasks *ds* nil :recent {:categories {:people ["Alice"]}})]
+        (is (= 1 (count tasks)))
+        (is (= "Task with Alice" (:title (first tasks)))))))
+
+  (testing "OR logic within same category group"
+    (let [task1 (db/add-task *ds* nil "Task with Alice")
+          task2 (db/add-task *ds* nil "Task with Bob")
+          _task3 (db/add-task *ds* nil "Task with nobody")
+          alice (db/add-person *ds* nil "Alice2")
+          bob (db/add-person *ds* nil "Bob")]
+      (db/categorize-task *ds* nil (:id task1) "person" (:id alice))
+      (db/categorize-task *ds* nil (:id task2) "person" (:id bob))
+      (let [tasks (db/list-tasks *ds* nil :recent {:categories {:people ["Alice2" "Bob"]}})]
+        (is (= 2 (count tasks)))
+        (is (= #{"Task with Alice" "Task with Bob"} (set (map :title tasks)))))))
+
+  (testing "non-matching category returns no tasks"
+    (let [tasks (db/list-tasks *ds* nil :recent {:categories {:people ["NonExistent"]}})]
+      (is (= 0 (count tasks))))))
+
+(deftest list-tasks-category-filter-and-logic-test
+  (testing "AND logic across category groups"
+    (let [task1 (db/add-task *ds* nil "Task with Alice and Office")
+          task2 (db/add-task *ds* nil "Task with Alice only")
+          task3 (db/add-task *ds* nil "Task with Office only")
+          alice (db/add-person *ds* nil "Alice3")
+          office (db/add-place *ds* nil "Office")]
+      (db/categorize-task *ds* nil (:id task1) "person" (:id alice))
+      (db/categorize-task *ds* nil (:id task1) "place" (:id office))
+      (db/categorize-task *ds* nil (:id task2) "person" (:id alice))
+      (db/categorize-task *ds* nil (:id task3) "place" (:id office))
+      (let [tasks (db/list-tasks *ds* nil :recent {:categories {:people ["Alice3"] :places ["Office"]}})]
+        (is (= 1 (count tasks)))
+        (is (= "Task with Alice and Office" (:title (first tasks))))))))
+
+(deftest list-tasks-category-filter-all-types-test
+  (testing "all four category types work"
+    (let [task1 (db/add-task *ds* nil "Full task")
+          _task2 (db/add-task *ds* nil "Empty task")
+          person (db/add-person *ds* nil "PersonAll")
+          place (db/add-place *ds* nil "PlaceAll")
+          project (db/add-project *ds* nil "ProjectAll")
+          goal (db/add-goal *ds* nil "GoalAll")]
+      (db/categorize-task *ds* nil (:id task1) "person" (:id person))
+      (db/categorize-task *ds* nil (:id task1) "place" (:id place))
+      (db/categorize-task *ds* nil (:id task1) "project" (:id project))
+      (db/categorize-task *ds* nil (:id task1) "goal" (:id goal))
+      (let [tasks (db/list-tasks *ds* nil :recent {:categories {:people ["PersonAll"]
+                                                                 :places ["PlaceAll"]
+                                                                 :projects ["ProjectAll"]
+                                                                 :goals ["GoalAll"]}})]
+        (is (= 1 (count tasks)))
+        (is (= "Full task" (:title (first tasks))))))))
+
+(deftest list-tasks-category-filter-with-other-filters-test
+  (testing "category filter works with search"
+    (let [task1 (db/add-task *ds* nil "Alpha task")
+          task2 (db/add-task *ds* nil "Beta task")
+          person (db/add-person *ds* nil "TestPerson")]
+      (db/categorize-task *ds* nil (:id task1) "person" (:id person))
+      (db/categorize-task *ds* nil (:id task2) "person" (:id person))
+      (let [tasks (db/list-tasks *ds* nil :recent {:search-term "Alpha" :categories {:people ["TestPerson"]}})]
+        (is (= 1 (count tasks)))
+        (is (= "Alpha task" (:title (first tasks)))))))
+
+  (testing "category filter works with importance"
+    (let [task1 (db/add-task *ds* nil "Important task")
+          task2 (db/add-task *ds* nil "Normal task")
+          person (db/add-person *ds* nil "TestPerson2")]
+      (db/set-task-field *ds* nil (:id task1) :importance "important")
+      (db/categorize-task *ds* nil (:id task1) "person" (:id person))
+      (db/categorize-task *ds* nil (:id task2) "person" (:id person))
+      (let [tasks (db/list-tasks *ds* nil :recent {:importance "important" :categories {:people ["TestPerson2"]}})]
+        (is (= 1 (count tasks)))
+        (is (= "Important task" (:title (first tasks)))))))
+
+  (testing "category filter works with context"
+    (let [task1 (db/add-task *ds* nil "Private task" "private")
+          task2 (db/add-task *ds* nil "Work task" "work")
+          person (db/add-person *ds* nil "TestPerson3")]
+      (db/categorize-task *ds* nil (:id task1) "person" (:id person))
+      (db/categorize-task *ds* nil (:id task2) "person" (:id person))
+      (let [tasks (db/list-tasks *ds* nil :recent {:context "private" :categories {:people ["TestPerson3"]}})]
+        (is (= 1 (count tasks)))
+        (is (= "Private task" (:title (first tasks)))))))
+
+  (testing "category filter works with urgency in today mode"
+    (let [task1 (db/add-task *ds* nil "Urgent task")
+          task2 (db/add-task *ds* nil "Not urgent task")
+          person (db/add-person *ds* nil "TestPerson4")]
+      (db/set-task-field *ds* nil (:id task1) :urgency "urgent")
+      (db/categorize-task *ds* nil (:id task1) "person" (:id person))
+      (db/categorize-task *ds* nil (:id task2) "person" (:id person))
+      (let [tasks (db/list-tasks *ds* nil :today {:categories {:people ["TestPerson4"]}})]
+        (is (= 1 (count tasks)))
+        (is (= "Urgent task" (:title (first tasks))))))))

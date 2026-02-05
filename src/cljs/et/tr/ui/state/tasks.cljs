@@ -8,16 +8,42 @@
 (def ^:const CATEGORY-TYPE-PROJECT "project")
 (def ^:const CATEGORY-TYPE-GOAL "goal")
 
+(defn- ids-to-names [ids category-list]
+  (let [id-set (set ids)]
+    (->> category-list
+         (filter #(contains? id-set (:id %)))
+         (map :name))))
+
+(defn- build-category-param [ids category-list]
+  (when (seq ids)
+    (let [names (ids-to-names ids category-list)]
+      (when (seq names)
+        (->> names
+             (map js/encodeURIComponent)
+             (clojure.string/join ","))))))
+
 (defn fetch-tasks
   ([app-state auth-headers calculate-best-horizon-fn]
    (fetch-tasks app-state auth-headers calculate-best-horizon-fn nil))
   ([app-state auth-headers calculate-best-horizon-fn {:keys [search-term importance context strict]}]
    (let [sort-mode (name (:sort-mode @app-state))
+         filter-people (:tasks-page/filter-people @app-state)
+         filter-places (:tasks-page/filter-places @app-state)
+         filter-projects (:tasks-page/filter-projects @app-state)
+         filter-goals (:tasks-page/filter-goals @app-state)
+         people-param (build-category-param filter-people (:people @app-state))
+         places-param (build-category-param filter-places (:places @app-state))
+         projects-param (build-category-param filter-projects (:projects @app-state))
+         goals-param (build-category-param filter-goals (:goals @app-state))
          url (cond-> (str "/api/tasks?sort=" sort-mode)
                (seq search-term) (str "&q=" (js/encodeURIComponent search-term))
                importance (str "&importance=" (name importance))
                context (str "&context=" (name context))
-               strict (str "&strict=true"))]
+               strict (str "&strict=true")
+               people-param (str "&people=" people-param)
+               places-param (str "&places=" places-param)
+               projects-param (str "&projects=" projects-param)
+               goals-param (str "&goals=" goals-param))]
      (GET url
        {:response-format :json
         :keywords? true

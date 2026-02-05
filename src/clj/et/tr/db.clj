@@ -154,6 +154,28 @@
                       [:like [:lower :tags] (str "% " term "%")]])
                    terms))))))
 
+(defn- build-category-subquery [category-type category-names]
+  (when (seq category-names)
+    (let [table-name (case category-type
+                       "person" :people
+                       "place" :places
+                       "project" :projects
+                       "goal" :goals)]
+      [:exists {:select [1]
+                :from [:task_categories]
+                :join [[table-name] [:= (keyword (str (name table-name) ".id")) :task_categories.category_id]]
+                :where [:and
+                        [:= :task_categories.task_id :tasks.id]
+                        [:= :task_categories.category_type category-type]
+                        [:in (keyword (str (name table-name) ".name")) category-names]]}])))
+
+(defn- build-category-clauses [categories]
+  (let [people-clause (build-category-subquery "person" (:people categories))
+        places-clause (build-category-subquery "place" (:places categories))
+        projects-clause (build-category-subquery "project" (:projects categories))
+        goals-clause (build-category-subquery "goal" (:goals categories))]
+    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+
 (defn- fetch-category-lookups [conn user-id-where-clause]
   (let [people (jdbc/execute! conn
                  (sql/format {:select [:id :name]
@@ -185,7 +207,7 @@
   ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
   ([ds user-id sort-mode opts]
    (let [opts (if (string? opts) {:search-term opts} opts)
-         {:keys [search-term importance context strict]} opts
+         {:keys [search-term importance context strict categories]} opts
          conn (get-conn ds)
          user-where (user-id-where-clause user-id)
          base-where (case sort-mode
@@ -207,8 +229,10 @@
                             "private" [:in :scope ["private" "both"]]
                             "work" [:in :scope ["work" "both"]]
                             nil)))
+         category-clauses (build-category-clauses categories)
          where-clause (into [:and base-where]
-                            (filter some? [search-clause importance-clause scope-clause]))
+                            (concat (filter some? [search-clause importance-clause scope-clause])
+                                    category-clauses))
          order-by (case sort-mode
                     :manual [[:sort_order :asc] [:created_at :desc]]
                     :due-date [[:due_date :asc]
