@@ -583,3 +583,55 @@
       (let [tasks (db/list-tasks *ds* nil :today {:categories {:people ["TestPerson4"]}})]
         (is (= 1 (count tasks)))
         (is (= "Urgent task" (:title (first tasks))))))))
+
+(deftest list-tasks-exclusion-filter-test
+  (testing "excluded place filters out tasks with that place"
+    (let [task1 (db/add-task *ds* nil "Home task")
+          task2 (db/add-task *ds* nil "Office task")
+          task3 (db/add-task *ds* nil "No place task")
+          home (db/add-place *ds* nil "Home")
+          office (db/add-place *ds* nil "Office")]
+      (db/set-task-due-date *ds* nil (:id task1) "2026-03-01")
+      (db/set-task-due-date *ds* nil (:id task2) "2026-03-02")
+      (db/set-task-due-date *ds* nil (:id task3) "2026-03-03")
+      (db/categorize-task *ds* nil (:id task1) "place" (:id home))
+      (db/categorize-task *ds* nil (:id task2) "place" (:id office))
+      (let [tasks (db/list-tasks *ds* nil :today {:excluded-places ["Home"]})]
+        (is (= 2 (count tasks)))
+        (is (not (some #(= "Home task" (:title %)) tasks)))
+        (is (some #(= "Office task" (:title %)) tasks))
+        (is (some #(= "No place task" (:title %)) tasks)))))
+
+  (testing "excluded project filters out tasks with that project"
+    (let [task1 (db/add-task *ds* nil "Alpha task")
+          task2 (db/add-task *ds* nil "Beta task")
+          alpha (db/add-project *ds* nil "Alpha")
+          _beta (db/add-project *ds* nil "Beta")]
+      (db/set-task-due-date *ds* nil (:id task1) "2026-03-01")
+      (db/set-task-due-date *ds* nil (:id task2) "2026-03-02")
+      (db/categorize-task *ds* nil (:id task1) "project" (:id alpha))
+      (let [tasks (db/list-tasks *ds* nil :today {:excluded-projects ["Alpha"]})]
+        (is (not (some #(= "Alpha task" (:title %)) tasks)))
+        (is (some #(= "Beta task" (:title %)) tasks))))))
+
+(deftest list-tasks-exclusion-filter-combined-test
+  (testing "excluded places and projects combine"
+    (let [task1 (db/add-task *ds* nil "Home Alpha")
+          task2 (db/add-task *ds* nil "Office Beta")
+          task3 (db/add-task *ds* nil "Plain task")
+          home (db/add-place *ds* nil "HomeX")
+          alpha (db/add-project *ds* nil "AlphaX")]
+      (db/set-task-due-date *ds* nil (:id task1) "2026-03-01")
+      (db/set-task-due-date *ds* nil (:id task2) "2026-03-02")
+      (db/set-task-due-date *ds* nil (:id task3) "2026-03-03")
+      (db/categorize-task *ds* nil (:id task1) "place" (:id home))
+      (db/categorize-task *ds* nil (:id task2) "project" (:id alpha))
+      (let [tasks (db/list-tasks *ds* nil :today {:excluded-places ["HomeX"] :excluded-projects ["AlphaX"]})]
+        (is (= 1 (count tasks)))
+        (is (= "Plain task" (:title (first tasks)))))))
+
+  (testing "tasks without categories are never excluded"
+    (let [task1 (db/add-task *ds* nil "Unassigned")]
+      (db/set-task-due-date *ds* nil (:id task1) "2026-03-01")
+      (let [tasks (db/list-tasks *ds* nil :today {:excluded-places ["NonExistent"] :excluded-projects ["NonExistent"]})]
+        (is (some #(= "Unassigned" (:title %)) tasks))))))

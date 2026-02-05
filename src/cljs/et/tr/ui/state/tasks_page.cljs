@@ -25,7 +25,11 @@
   {:search-term (:tasks-page/filter-search @app-state)
    :importance (:tasks-page/importance-filter @app-state)
    :context (:work-private-mode @app-state)
-   :strict (:strict-mode @app-state)})
+   :strict (:strict-mode @app-state)
+   :filter-people (:tasks-page/filter-people @app-state)
+   :filter-places (:tasks-page/filter-places @app-state)
+   :filter-projects (:tasks-page/filter-projects @app-state)
+   :filter-goals (:tasks-page/filter-goals @app-state)})
 
 (defn toggle-filter [app-state fetch-tasks-fn filter-type id]
   (let [filter-key (filter-type->key filter-type)]

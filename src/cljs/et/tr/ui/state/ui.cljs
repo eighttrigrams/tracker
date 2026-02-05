@@ -13,13 +13,19 @@
             (fetch-tasks-fn {:search-term (:tasks-page/filter-search @app-state)
                              :importance (:tasks-page/importance-filter @app-state)
                              :context (:work-private-mode @app-state)
-                             :strict (:strict-mode @app-state)}))
+                             :strict (:strict-mode @app-state)
+                             :filter-people (:tasks-page/filter-people @app-state)
+                             :filter-places (:tasks-page/filter-places @app-state)
+                             :filter-projects (:tasks-page/filter-projects @app-state)
+                             :filter-goals (:tasks-page/filter-goals @app-state)}))
    :today (fn []
             (swap! app-state assoc
                    :today-page/collapsed-filters #{:places :projects}
                    :sort-mode :today)
             (fetch-tasks-fn {:context (:work-private-mode @app-state)
-                             :strict (:strict-mode @app-state)}))
+                             :strict (:strict-mode @app-state)
+                             :excluded-places (:today-page/excluded-places @app-state)
+                             :excluded-projects (:today-page/excluded-projects @app-state)}))
    :mail (fn []
            (when (is-admin-fn)
              (fetch-messages-fn)))})
@@ -55,8 +61,15 @@
     :tasks {:search-term (:tasks-page/filter-search @app-state)
             :importance (:tasks-page/importance-filter @app-state)
             :context context
-            :strict strict}
-    :today {:context context :strict strict}
+            :strict strict
+            :filter-people (:tasks-page/filter-people @app-state)
+            :filter-places (:tasks-page/filter-places @app-state)
+            :filter-projects (:tasks-page/filter-projects @app-state)
+            :filter-goals (:tasks-page/filter-goals @app-state)}
+    :today {:context context
+            :strict strict
+            :excluded-places (:today-page/excluded-places @app-state)
+            :excluded-projects (:today-page/excluded-projects @app-state)}
     {:context context :strict strict}))
 
 (defn set-work-private-mode [app-state fetch-tasks-fn mode]

@@ -1,16 +1,12 @@
 (ns et.tr.ui.state.today-page
   (:require [clojure.set]
-            [et.tr.filters :as filters]
             [et.tr.ui.date :as date]))
-
-(defn- apply-today-exclusion-filter [app-state tasks]
-  (filters/apply-exclusion-filter tasks
-                                  (:today-page/excluded-places @app-state)
-                                  (:today-page/excluded-projects @app-state)))
 
 (def ^:private today-str date/today-str)
 (def ^:private horizon-order date/horizon-order)
 (def ^:private horizon-end-date date/horizon-end-date)
+
+(def ^:const target-upcoming-tasks-count 10)
 
 (defn count-upcoming-tasks-for-horizon [tasks horizon]
   (let [today (today-str)
@@ -22,50 +18,49 @@
                    tasks))))
 
 (defn calculate-best-horizon [tasks]
-  (or (first (filter #(>= (count-upcoming-tasks-for-horizon tasks %) filters/target-upcoming-tasks-count) horizon-order))
+  (or (first (filter #(>= (count-upcoming-tasks-for-horizon tasks %) target-upcoming-tasks-count) horizon-order))
       :eighteen-months))
-
-(defn- recalculate-today-horizon [app-state]
-  (let [tasks (:tasks @app-state)
-        filtered-tasks (apply-today-exclusion-filter app-state tasks)]
-    (swap! app-state assoc :upcoming-horizon (calculate-best-horizon filtered-tasks))))
 
 (defn set-upcoming-horizon [app-state horizon]
   (swap! app-state assoc :upcoming-horizon horizon))
 
-(defn toggle-today-excluded-place [app-state place-id]
+(defn- current-fetch-opts [app-state]
+  {:context (:work-private-mode @app-state)
+   :strict (:strict-mode @app-state)
+   :excluded-places (:today-page/excluded-places @app-state)
+   :excluded-projects (:today-page/excluded-projects @app-state)})
+
+(defn toggle-today-excluded-place [app-state fetch-tasks-fn place-id]
   (swap! app-state update :today-page/excluded-places
          #(if (contains? % place-id)
             (disj % place-id)
             (conj % place-id)))
-  (recalculate-today-horizon app-state))
+  (fetch-tasks-fn (current-fetch-opts app-state)))
 
-(defn toggle-today-excluded-project [app-state project-id]
+(defn toggle-today-excluded-project [app-state fetch-tasks-fn project-id]
   (swap! app-state update :today-page/excluded-projects
          #(if (contains? % project-id)
             (disj % project-id)
             (conj % project-id)))
-  (recalculate-today-horizon app-state))
+  (fetch-tasks-fn (current-fetch-opts app-state)))
 
-(defn clear-today-excluded-places [app-state]
+(defn clear-today-excluded-places [app-state fetch-tasks-fn]
   (swap! app-state assoc :today-page/excluded-places #{})
-  (recalculate-today-horizon app-state))
+  (fetch-tasks-fn (current-fetch-opts app-state)))
 
-(defn clear-today-excluded-projects [app-state]
+(defn clear-today-excluded-projects [app-state fetch-tasks-fn]
   (swap! app-state assoc :today-page/excluded-projects #{})
-  (recalculate-today-horizon app-state))
+  (fetch-tasks-fn (current-fetch-opts app-state)))
 
-(defn clear-uncollapsed-today-filters [app-state]
+(defn clear-uncollapsed-today-filters [app-state fetch-tasks-fn]
   (let [collapsed (:today-page/collapsed-filters @app-state)
         all-filters #{:places :projects}
         uncollapsed (clojure.set/difference all-filters collapsed)]
     (if (empty? uncollapsed)
-      (do
-        (swap! app-state assoc
-               :today-page/excluded-places #{}
-               :today-page/excluded-projects #{}
-               :today-page/category-search {:places "" :projects ""})
-        (recalculate-today-horizon app-state))
+      (swap! app-state assoc
+             :today-page/excluded-places #{}
+             :today-page/excluded-projects #{}
+             :today-page/category-search {:places "" :projects ""})
       (do
         (doseq [filter-key uncollapsed]
           (case filter-key
@@ -73,8 +68,8 @@
             :projects (swap! app-state assoc :today-page/excluded-projects #{})))
         (swap! app-state assoc
                :today-page/collapsed-filters all-filters
-               :today-page/category-search {:places "" :projects ""})
-        (recalculate-today-horizon app-state)))))
+               :today-page/category-search {:places "" :projects ""})))
+    (fetch-tasks-fn (current-fetch-opts app-state))))
 
 (defn toggle-today-filter-collapsed [app-state filter-key]
   (let [was-collapsed (contains? (:today-page/collapsed-filters @app-state) filter-key)
@@ -112,14 +107,12 @@
     (->> (:tasks @app-state)
          (filter #(and (:due_date %)
                        (< (:due_date %) today)))
-         (apply-today-exclusion-filter app-state)
          (sort-by-date-and-time))))
 
 (defn today-tasks [app-state]
   (let [today (today-str)]
     (->> (:tasks @app-state)
          (filter #(= (:due_date %) today))
-         (apply-today-exclusion-filter app-state)
          (sort-by-date-and-time))))
 
 (defn upcoming-tasks [app-state]
@@ -131,17 +124,14 @@
          (filter #(and (:due_date %)
                        (> (:due_date %) today)
                        (<= (:due_date %) end-date)))
-         (apply-today-exclusion-filter app-state)
          (sort-by-date-and-time))))
 
 (defn superurgent-tasks [app-state]
   (->> (:tasks @app-state)
        (filter #(= "superurgent" (:urgency %)))
-       (apply-today-exclusion-filter app-state)
        (sort-by :sort_order)))
 
 (defn urgent-tasks [app-state]
   (->> (:tasks @app-state)
        (filter #(= "urgent" (:urgency %)))
-       (apply-today-exclusion-filter app-state)
        (sort-by :sort_order)))

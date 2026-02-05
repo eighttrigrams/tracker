@@ -176,6 +176,19 @@
         goals-clause (build-category-subquery "goal" (:goals categories))]
     (filterv some? [people-clause places-clause projects-clause goals-clause])))
 
+(defn- build-exclusion-subquery [category-type category-names]
+  (when (seq category-names)
+    (let [table-name (case category-type
+                       "place" :places
+                       "project" :projects)]
+      [:not [:exists {:select [1]
+                      :from [:task_categories]
+                      :join [[table-name] [:= (keyword (str (name table-name) ".id")) :task_categories.category_id]]
+                      :where [:and
+                              [:= :task_categories.task_id :tasks.id]
+                              [:= :task_categories.category_type category-type]
+                              [:in (keyword (str (name table-name) ".name")) category-names]]}]])))
+
 (defn- fetch-category-lookups [conn user-id-where-clause]
   (let [people (jdbc/execute! conn
                  (sql/format {:select [:id :name]
@@ -207,7 +220,7 @@
   ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
   ([ds user-id sort-mode opts]
    (let [opts (if (string? opts) {:search-term opts} opts)
-         {:keys [search-term importance context strict categories]} opts
+         {:keys [search-term importance context strict categories excluded-places excluded-projects]} opts
          conn (get-conn ds)
          user-where (user-id-where-clause user-id)
          base-where (case sort-mode
@@ -230,9 +243,12 @@
                             "work" [:in :scope ["work" "both"]]
                             nil)))
          category-clauses (build-category-clauses categories)
+         exclusion-clauses (filterv some? [(build-exclusion-subquery "place" excluded-places)
+                                           (build-exclusion-subquery "project" excluded-projects)])
          where-clause (into [:and base-where]
                             (concat (filter some? [search-clause importance-clause scope-clause])
-                                    category-clauses))
+                                    category-clauses
+                                    exclusion-clauses))
          order-by (case sort-mode
                     :manual [[:sort_order :asc] [:created_at :desc]]
                     :due-date [[:due_date :asc]

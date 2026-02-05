@@ -25,16 +25,16 @@
 (defn fetch-tasks
   ([app-state auth-headers calculate-best-horizon-fn]
    (fetch-tasks app-state auth-headers calculate-best-horizon-fn nil))
-  ([app-state auth-headers calculate-best-horizon-fn {:keys [search-term importance context strict]}]
+  ([app-state auth-headers calculate-best-horizon-fn {:keys [search-term importance context strict
+                                                              filter-people filter-places filter-projects filter-goals
+                                                              excluded-places excluded-projects]}]
    (let [sort-mode (name (:sort-mode @app-state))
-         filter-people (:tasks-page/filter-people @app-state)
-         filter-places (:tasks-page/filter-places @app-state)
-         filter-projects (:tasks-page/filter-projects @app-state)
-         filter-goals (:tasks-page/filter-goals @app-state)
          people-param (build-category-param filter-people (:people @app-state))
          places-param (build-category-param filter-places (:places @app-state))
          projects-param (build-category-param filter-projects (:projects @app-state))
          goals-param (build-category-param filter-goals (:goals @app-state))
+         excluded-places-param (build-category-param excluded-places (:places @app-state))
+         excluded-projects-param (build-category-param excluded-projects (:projects @app-state))
          url (cond-> (str "/api/tasks?sort=" sort-mode)
                (seq search-term) (str "&q=" (js/encodeURIComponent search-term))
                importance (str "&importance=" (name importance))
@@ -43,7 +43,9 @@
                people-param (str "&people=" people-param)
                places-param (str "&places=" places-param)
                projects-param (str "&projects=" projects-param)
-               goals-param (str "&goals=" goals-param))]
+               goals-param (str "&goals=" goals-param)
+               excluded-places-param (str "&excluded-places=" excluded-places-param)
+               excluded-projects-param (str "&excluded-projects=" excluded-projects-param))]
      (GET url
        {:response-format :json
         :keywords? true

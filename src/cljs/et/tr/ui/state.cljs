@@ -417,19 +417,19 @@
   (today-page/set-upcoming-horizon *app-state horizon))
 
 (defn toggle-today-excluded-place [place-id]
-  (today-page/toggle-today-excluded-place *app-state place-id))
+  (today-page/toggle-today-excluded-place *app-state fetch-tasks place-id))
 
 (defn toggle-today-excluded-project [project-id]
-  (today-page/toggle-today-excluded-project *app-state project-id))
+  (today-page/toggle-today-excluded-project *app-state fetch-tasks project-id))
 
 (defn clear-today-excluded-places []
-  (today-page/clear-today-excluded-places *app-state))
+  (today-page/clear-today-excluded-places *app-state fetch-tasks))
 
 (defn clear-today-excluded-projects []
-  (today-page/clear-today-excluded-projects *app-state))
+  (today-page/clear-today-excluded-projects *app-state fetch-tasks))
 
 (defn clear-uncollapsed-today-filters []
-  (today-page/clear-uncollapsed-today-filters *app-state))
+  (today-page/clear-uncollapsed-today-filters *app-state fetch-tasks))
 
 (defn toggle-today-filter-collapsed [filter-key]
   (today-page/toggle-today-filter-collapsed *app-state filter-key))
