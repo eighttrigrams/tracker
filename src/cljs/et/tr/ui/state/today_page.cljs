@@ -8,15 +8,9 @@
                                   (:today-page/excluded-places @app-state)
                                   (:today-page/excluded-projects @app-state)))
 
-(def today-str date/today-str)
-(def add-days date/add-days)
-(def day-of-week date/day-of-week)
-(def format-date-with-day date/format-date-with-day)
-(def get-day-name date/get-day-name)
-(def within-days? date/within-days?)
-(def today-formatted date/today-formatted)
-(def horizon-order date/horizon-order)
-(def horizon-end-date date/horizon-end-date)
+(def ^:private today-str date/today-str)
+(def ^:private horizon-order date/horizon-order)
+(def ^:private horizon-end-date date/horizon-end-date)
 
 (defn count-upcoming-tasks-for-horizon [tasks horizon]
   (let [today (today-str)

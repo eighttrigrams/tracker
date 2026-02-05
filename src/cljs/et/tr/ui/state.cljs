@@ -418,22 +418,6 @@
 (defn confirm-pending-new-task []
   (tasks-page/confirm-pending-new-task app-state add-task-with-categories))
 
-(def today-str today-page/today-str)
-(def add-days today-page/add-days)
-(def day-of-week today-page/day-of-week)
-(def format-date-with-day today-page/format-date-with-day)
-(def get-day-name today-page/get-day-name)
-(def within-days? today-page/within-days?)
-(def today-formatted today-page/today-formatted)
-(def horizon-order today-page/horizon-order)
-(def horizon-end-date today-page/horizon-end-date)
-
-(defn count-upcoming-tasks-for-horizon [tasks horizon]
-  (today-page/count-upcoming-tasks-for-horizon tasks horizon))
-
-(defn calculate-best-horizon [tasks]
-  (today-page/calculate-best-horizon tasks))
-
 (defn set-upcoming-horizon [horizon]
   (today-page/set-upcoming-horizon app-state horizon))
 

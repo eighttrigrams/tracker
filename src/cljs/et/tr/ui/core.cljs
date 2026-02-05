@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.state.tasks-page :as tasks-page]
+            [et.tr.ui.date :as date]
             [et.tr.ui.modals :as modals]
             [et.tr.ui.mail :as mail]
             [et.tr.ui.views.settings :as settings]
@@ -361,7 +362,7 @@
         [task-combined-action-button task]]])))
 
 (defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
-  (let [show-prefix? (and show-day-prefix (state/within-days? (:due_date task) 6))
+  (let [show-prefix? (and show-day-prefix (date/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/app-state)
         editing-task (:editing-task @state/app-state)
         is-expanded (= expanded-task (:id task))
@@ -372,7 +373,7 @@
       [:div.today-task-content
        [:span.task-title
         (when show-prefix?
-          [:span.task-day-prefix (str (state/get-day-name (:due_date task))
+          [:span.task-day-prefix (str (date/get-day-name (:due_date task))
                                       (when (seq (:due_time task)) ","))])
         (when (seq (:due_time task))
           [:span.task-time {:class (when overdue? "overdue-time")} (:due_time task)])
@@ -389,7 +390,7 @@
       [:span.task-date
        (cond
          show-prefix? (:due_date task)
-         show-day-of-week (state/format-date-with-day (:due_date task))
+         show-day-of-week (date/format-date-with-day (:due_date task))
          :else (:due_date task))]]
      (when is-expanded
        [today-task-expanded-details task])]))
@@ -533,7 +534,7 @@
 
 (defn- today-today-section [today]
   [:div.today-section.today
-   [:h3 (state/today-formatted)]
+   [:h3 (date/today-formatted)]
    (if (seq today)
      [task-list-section today]
      [:p.empty-message (t :today/no-today)])])
@@ -1020,9 +1021,9 @@
          [time-picker task :show-clear? true])])]
    [:div.item-date
     (when (and (:due_date task) (not done-mode?))
-      (let [today (state/today-str)
+      (let [today (date/today-str)
             overdue? (< (:due_date task) today)]
-        [:span.due-date {:class (when overdue? "overdue")} (state/format-date-with-day (:due_date task))]))
+        [:span.due-date {:class (when overdue? "overdue")} (date/format-date-with-day (:due_date task))]))
     (when-not due-date-mode?
       [:span (:modified_at task)])]])
 
