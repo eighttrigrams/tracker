@@ -21,85 +21,49 @@
 (defn fetch-goals [app-state auth-headers]
   (fetch-collection auth-headers "/api/goals" :goals app-state))
 
-(defn add-person [app-state auth-headers name on-success]
-  (api/post-json "/api/people" {:name name} (auth-headers)
-    (fn [person]
-      (swap! app-state update :people conj person)
+(defn- add-category-entity [app-state auth-headers endpoint state-key error-msg name on-success]
+  (api/post-json endpoint {:name name} (auth-headers)
+    (fn [entity]
+      (swap! app-state update state-key conj entity)
       (when on-success (on-success)))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add person")))))
+      (swap! app-state assoc :error (get-in resp [:response :error] error-msg)))))
+
+(defn add-person [app-state auth-headers name on-success]
+  (add-category-entity app-state auth-headers "/api/people" :people "Failed to add person" name on-success))
 
 (defn add-place [app-state auth-headers name on-success]
-  (api/post-json "/api/places" {:name name} (auth-headers)
-    (fn [place]
-      (swap! app-state update :places conj place)
-      (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add place")))))
+  (add-category-entity app-state auth-headers "/api/places" :places "Failed to add place" name on-success))
 
 (defn add-project [app-state auth-headers name on-success]
-  (api/post-json "/api/projects" {:name name} (auth-headers)
-    (fn [project]
-      (swap! app-state update :projects conj project)
-      (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add project")))))
+  (add-category-entity app-state auth-headers "/api/projects" :projects "Failed to add project" name on-success))
 
 (defn add-goal [app-state auth-headers name on-success]
-  (api/post-json "/api/goals" {:name name} (auth-headers)
-    (fn [goal]
-      (swap! app-state update :goals conj goal)
+  (add-category-entity app-state auth-headers "/api/goals" :goals "Failed to add goal" name on-success))
+
+(defn- update-category-entity [app-state auth-headers fetch-tasks-fn endpoint state-key error-msg id name description on-success]
+  (api/put-json (str endpoint id)
+    {:name name :description description}
+    (auth-headers)
+    (fn [updated]
+      (swap! app-state update state-key
+             (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+      (fetch-tasks-fn)
       (when on-success (on-success)))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add goal")))))
+      (swap! app-state assoc :error (get-in resp [:response :error] error-msg)))))
 
 (defn update-person [app-state auth-headers fetch-tasks-fn id name description on-success]
-  (api/put-json (str "/api/people/" id)
-    {:name name :description description}
-    (auth-headers)
-    (fn [updated]
-      (swap! app-state update :people
-             (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
-      (fetch-tasks-fn)
-      (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update person")))))
+  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/people/" :people "Failed to update person" id name description on-success))
 
 (defn update-place [app-state auth-headers fetch-tasks-fn id name description on-success]
-  (api/put-json (str "/api/places/" id)
-    {:name name :description description}
-    (auth-headers)
-    (fn [updated]
-      (swap! app-state update :places
-             (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
-      (fetch-tasks-fn)
-      (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update place")))))
+  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/places/" :places "Failed to update place" id name description on-success))
 
 (defn update-project [app-state auth-headers fetch-tasks-fn id name description on-success]
-  (api/put-json (str "/api/projects/" id)
-    {:name name :description description}
-    (auth-headers)
-    (fn [updated]
-      (swap! app-state update :projects
-             (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
-      (fetch-tasks-fn)
-      (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update project")))))
+  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/projects/" :projects "Failed to update project" id name description on-success))
 
 (defn update-goal [app-state auth-headers fetch-tasks-fn id name description on-success]
-  (api/put-json (str "/api/goals/" id)
-    {:name name :description description}
-    (auth-headers)
-    (fn [updated]
-      (swap! app-state update :goals
-             (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
-      (fetch-tasks-fn)
-      (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update goal")))))
+  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/goals/" :goals "Failed to update goal" id name description on-success))
 
 (defn set-confirm-delete-category [app-state category-type category]
   (swap! app-state assoc :confirm-delete-category {:type category-type :category category}))

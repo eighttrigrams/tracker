@@ -89,10 +89,21 @@
    name
    (when selected? [:span.check " ✓"])])
 
+(defn- category-group [state-key category-type selected-set i18n-label-key]
+  (when (seq (state-key @state/*app-state))
+    [:div.category-group
+     [:label (str (t i18n-label-key) ":")]
+     [:div.category-tags
+      (doall
+       (for [item (state-key @state/*app-state)]
+         ^{:key (:id item)}
+         [category-tag-item category-type (:id item) (:name item)
+          (contains? selected-set (:id item))
+          state/update-pending-category]))]]))
+
 (defn pending-task-modal []
   (when-let [{:keys [title categories]} (:pending-new-task @state/*app-state)]
-    (let [{:keys [people places projects goals]
-           :as _selected} categories
+    (let [{:keys [people places projects goals]} categories
           selected-people (or people #{})
           selected-places (or places #{})
           selected-projects (or projects #{})
@@ -103,46 +114,10 @@
         [:div.modal-body
          [:p.task-title title]
          [:p.modal-instruction (t :modal/select-categories)]
-         (when (seq (:people @state/*app-state))
-           [:div.category-group
-            [:label (str (t :category/people) ":")]
-            [:div.category-tags
-             (doall
-              (for [p (:people @state/*app-state)]
-                ^{:key (:id p)}
-                [category-tag-item state/CATEGORY-TYPE-PERSON (:id p) (:name p)
-                 (contains? selected-people (:id p))
-                 state/update-pending-category]))]])
-         (when (seq (:places @state/*app-state))
-           [:div.category-group
-            [:label (str (t :category/places) ":")]
-            [:div.category-tags
-             (doall
-              (for [p (:places @state/*app-state)]
-                ^{:key (:id p)}
-                [category-tag-item state/CATEGORY-TYPE-PLACE (:id p) (:name p)
-                 (contains? selected-places (:id p))
-                 state/update-pending-category]))]])
-         (when (seq (:projects @state/*app-state))
-           [:div.category-group
-            [:label (str (t :category/projects) ":")]
-            [:div.category-tags
-             (doall
-              (for [p (:projects @state/*app-state)]
-                ^{:key (:id p)}
-                [category-tag-item state/CATEGORY-TYPE-PROJECT (:id p) (:name p)
-                 (contains? selected-projects (:id p))
-                 state/update-pending-category]))]])
-         (when (seq (:goals @state/*app-state))
-           [:div.category-group
-            [:label (str (t :category/goals) ":")]
-            [:div.category-tags
-             (doall
-              (for [g (:goals @state/*app-state)]
-                ^{:key (:id g)}
-                [category-tag-item state/CATEGORY-TYPE-GOAL (:id g) (:name g)
-                 (contains? selected-goals (:id g))
-                 state/update-pending-category]))]])]
+         [category-group :people state/CATEGORY-TYPE-PERSON selected-people :category/people]
+         [category-group :places state/CATEGORY-TYPE-PLACE selected-places :category/places]
+         [category-group :projects state/CATEGORY-TYPE-PROJECT selected-projects :category/projects]
+         [category-group :goals state/CATEGORY-TYPE-GOAL selected-goals :category/goals]]
         [:div.modal-footer
          [:button.cancel {:on-click #(state/clear-pending-new-task)} (t :modal/cancel)]
          [:button.confirm {:on-click #(state/confirm-pending-new-task)} (t :modal/add-task)]]]])))
