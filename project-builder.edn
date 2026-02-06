@@ -1,7 +1,7 @@
 {:pipeline-name "fullstack-exploratory-first-with-boyscout-help-v2"
  :project-name "Tracker"
  :port "3027"
- :model "sonnet"
+ :model "claude-opus-4-5-20251101"
  :docs-dir "build-next-feature" 
  :log-file "logs/hooks.log"
  :prompts-log "logs/prompts.log"}
