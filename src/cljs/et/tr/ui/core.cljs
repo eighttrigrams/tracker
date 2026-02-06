@@ -78,7 +78,7 @@
        [tab-button active-tab :mail :nav/mail])]))
 
 (defn app []
-  (let [{:keys [auth-required? logged-in? active-tab sort-mode]} @state/*app-state]
+  (let [{:keys [auth-required? logged-in? active-tab]} @state/*app-state]
     [:div
      [modals/confirm-delete-modal]
      [modals/confirm-delete-user-modal]

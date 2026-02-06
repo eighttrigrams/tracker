@@ -4,28 +4,43 @@
   (js/setTimeout #(when-let [el (.getElementById js/document "tasks-filter-search")]
                     (.focus el)) 0))
 
+(defn- tasks-fetch-opts
+  ([app-state]
+   (tasks-fetch-opts app-state (:work-private-mode @app-state) (:strict-mode @app-state)))
+  ([app-state context strict]
+   {:search-term (:tasks-page/filter-search @app-state)
+    :importance (:tasks-page/importance-filter @app-state)
+    :context context
+    :strict strict
+    :filter-people (:tasks-page/filter-people @app-state)
+    :filter-places (:tasks-page/filter-places @app-state)
+    :filter-projects (:tasks-page/filter-projects @app-state)
+    :filter-goals (:tasks-page/filter-goals @app-state)}))
+
+(defn- today-fetch-opts
+  ([app-state]
+   (today-fetch-opts app-state (:work-private-mode @app-state) (:strict-mode @app-state)))
+  ([app-state context strict]
+   {:context context
+    :strict strict
+    :excluded-places (:today-page/excluded-places @app-state)
+    :excluded-projects (:today-page/excluded-projects @app-state)}))
+
+(defn- initialize-tasks-page [app-state fetch-tasks-fn]
+  (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
+  (let [last-sort-mode (:tasks-page/last-sort-mode @app-state)]
+    (swap! app-state assoc :sort-mode last-sort-mode))
+  (focus-tasks-search)
+  (fetch-tasks-fn (tasks-fetch-opts app-state)))
+
 (defn make-tab-initializers [app-state fetch-tasks-fn fetch-messages-fn is-admin-fn]
   {:tasks (fn []
-            (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
-            (let [last-sort-mode (:tasks-page/last-sort-mode @app-state)]
-              (swap! app-state assoc :sort-mode last-sort-mode))
-            (focus-tasks-search)
-            (fetch-tasks-fn {:search-term (:tasks-page/filter-search @app-state)
-                             :importance (:tasks-page/importance-filter @app-state)
-                             :context (:work-private-mode @app-state)
-                             :strict (:strict-mode @app-state)
-                             :filter-people (:tasks-page/filter-people @app-state)
-                             :filter-places (:tasks-page/filter-places @app-state)
-                             :filter-projects (:tasks-page/filter-projects @app-state)
-                             :filter-goals (:tasks-page/filter-goals @app-state)}))
+            (initialize-tasks-page app-state fetch-tasks-fn))
    :today (fn []
             (swap! app-state assoc
                    :today-page/collapsed-filters #{:places :projects}
                    :sort-mode :today)
-            (fetch-tasks-fn {:context (:work-private-mode @app-state)
-                             :strict (:strict-mode @app-state)
-                             :excluded-places (:today-page/excluded-places @app-state)
-                             :excluded-projects (:today-page/excluded-projects @app-state)}))
+            (fetch-tasks-fn (today-fetch-opts app-state)))
    :mail (fn []
            (when (is-admin-fn)
              (fetch-messages-fn)))})
@@ -58,18 +73,8 @@
 
 (defn- fetch-opts-for-current-tab [app-state context strict]
   (case (:active-tab @app-state)
-    :tasks {:search-term (:tasks-page/filter-search @app-state)
-            :importance (:tasks-page/importance-filter @app-state)
-            :context context
-            :strict strict
-            :filter-people (:tasks-page/filter-people @app-state)
-            :filter-places (:tasks-page/filter-places @app-state)
-            :filter-projects (:tasks-page/filter-projects @app-state)
-            :filter-goals (:tasks-page/filter-goals @app-state)}
-    :today {:context context
-            :strict strict
-            :excluded-places (:today-page/excluded-places @app-state)
-            :excluded-projects (:today-page/excluded-projects @app-state)}
+    :tasks (tasks-fetch-opts app-state context strict)
+    :today (today-fetch-opts app-state context strict)
     {:context context :strict strict}))
 
 (defn set-work-private-mode [app-state fetch-tasks-fn mode]
@@ -92,25 +97,32 @@
           (.add (.-classList (.-documentElement js/document)) "dark-mode")
           (.remove (.-classList (.-documentElement js/document)) "dark-mode"))))))
 
+(defn- extract-filename [response]
+  (let [content-disposition (or (.get (.-headers response) "content-disposition") "")]
+    (if-let [match (re-find #"filename=\"([^\"]+)\"" content-disposition)]
+      (second match)
+      "export.zip")))
+
+(defn- trigger-download [blob filename]
+  (let [url (js/URL.createObjectURL blob)
+        a (.createElement js/document "a")]
+    (set! (.-href a) url)
+    (set! (.-download a) filename)
+    (.click a)
+    (js/URL.revokeObjectURL url)))
+
+(defn- handle-export-response [response app-state]
+  (if (.-ok response)
+    (.then (.blob response)
+           (fn [blob]
+             (trigger-download blob (extract-filename response))))
+    (swap! app-state assoc :error "Failed to export data")))
+
 (defn export-data [auth-headers app-state]
   (let [headers (auth-headers)
         url "/api/export"]
     (-> (js/fetch url (clj->js {:method "GET"
                                  :headers headers}))
-        (.then (fn [response]
-                 (if (.-ok response)
-                   (-> (.blob response)
-                       (.then (fn [blob]
-                                (let [content-disposition (or (.get (.-headers response) "content-disposition") "")
-                                      filename (if-let [match (re-find #"filename=\"([^\"]+)\"" content-disposition)]
-                                                 (second match)
-                                                 "export.zip")
-                                      url (js/URL.createObjectURL blob)
-                                      a (.createElement js/document "a")]
-                                  (set! (.-href a) url)
-                                  (set! (.-download a) filename)
-                                  (.click a)
-                                  (js/URL.revokeObjectURL url)))))
-                   (swap! app-state assoc :error "Failed to export data"))))
+        (.then #(handle-export-response % app-state))
         (.catch (fn [_]
                   (swap! app-state assoc :error "Failed to export data"))))))
