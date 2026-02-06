@@ -7,7 +7,7 @@ Formulated differently, whenever we visit the
 Tasks page (or the Today page, for that matter),
 we find all task cards collapsed.
 
-The same should hold for the Messags tab/view.
-When we happen to leave it with a task open,
+The same should hold for the Mail tab/view.
+When we happen to leave it with a message open,
 and come back later to it, we should find it 
-with all tasks collapsed (no "open").
+with all messages collapsed (no "open").
