@@ -73,6 +73,11 @@
 (defn clear-editing-message []
   (swap! *mail-page-state assoc :editing-message nil))
 
+(defn reset-mail-page-view-state! []
+  (swap! *mail-page-state assoc
+         :expanded-message nil
+         :editing-message nil))
+
 (defn update-message-annotation [app-state auth-headers message-id annotation]
   (api/put-json (str "/api/messages/" message-id "/annotation")
     {:annotation annotation}

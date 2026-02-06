@@ -56,9 +56,7 @@
          :tasks-page/expanded-task nil
          :today-page/expanded-task nil
          :task-dropdown-open nil)
-  (swap! mail-state/*mail-page-state assoc
-         :expanded-message nil
-         :editing-message nil)
+  (mail-state/reset-mail-page-view-state!)
   (when-let [init-fn (get tab-initializers tab)]
     (init-fn)))
 
