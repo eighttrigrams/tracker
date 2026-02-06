@@ -34,12 +34,14 @@
   (shell "make" "stop")
   (when (fs/exists? ".playwright-mcp")
     (fs/delete-tree ".playwright-mcp"))
-  (when (fs/exists? "hooks.log")
-    (fs/delete "hooks.log")))
+  (when (fs/exists? "logs/hooks.log")
+    (fs/delete "logs/hooks.log"))
+  (when (fs/exists? "logs/prompts.log")
+    (fs/delete "logs/prompts.log")))
 
 (defn log [msg]
   (println msg)
-  (spit "hooks.log" (str "###### " msg "\n") :append true))
+  (spit "logs/hooks.log" (str "###### " msg "\n") :append true))
 
 (defn send-notification [title message]
   (let [send-msg "scripts/send-message.sh"]
