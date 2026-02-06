@@ -55,16 +55,16 @@
 (defn confirm-delete-category-modal []
   (when-let [{:keys [type category]} (:confirm-delete-category @state/*app-state)]
     (let [type-label (case type
-                       :person (t :category/person)
-                       :place (t :category/place)
-                       :project (t :category/project)
-                       :goal (t :category/goal)
+                       "person" (t :category/person)
+                       "place" (t :category/place)
+                       "project" (t :category/project)
+                       "goal" (t :category/goal)
                        type)
           delete-fn (case type
-                      :person state/delete-person
-                      :place state/delete-place
-                      :project state/delete-project
-                      :goal state/delete-goal)]
+                      "person" state/delete-person
+                      "place" state/delete-place
+                      "project" state/delete-project
+                      "goal" state/delete-goal)]
       [generic-confirm-modal
        {:header (tf :modal/delete-category type-label)
         :body-paragraphs [{:text (tf :modal/delete-category-confirm type-label)}
