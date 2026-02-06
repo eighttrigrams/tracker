@@ -66,9 +66,12 @@ elif [ "$TOOL_NAME" = "Glob" ]; then
   [ -n "$REL_PATH" ] && LOG_MSG="$LOG_MSG path=$REL_PATH"
   echo "$LOG_MSG" >> "$LOG_FILE"
 elif [ "$TOOL_NAME" = "TodoWrite" ]; then
-  TODOS=$(echo "$INPUT" | jq -c '.tool_input.todos // empty' 2>/dev/null)
   echo "$TIMESTAMP - PreToolUse - TodoWrite" >> "$LOG_FILE"
-  echo "  todos: $TODOS" >> "$LOG_FILE"
+  echo "  todos:" >> "$LOG_FILE"
+  echo "$INPUT" | jq -r '
+    .tool_input.todos // [] | .[] |
+    "  - " + (to_entries | map("\(.key): \(.value | tostring)") | join("\n    "))
+  ' 2>/dev/null >> "$LOG_FILE"
 else
   echo "$TIMESTAMP - PreToolUse - $TOOL_NAME" >> "$LOG_FILE"
 fi
