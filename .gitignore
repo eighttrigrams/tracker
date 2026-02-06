@@ -18,7 +18,7 @@ logs/
 .claude/settings.local.json
 .credentials
 .playwright-mcp
-volume*.tar.gz
+.backups/
 nohup.out
 build-next-feature/*
 !build-next-feature/NEXT_FEATURE.md
