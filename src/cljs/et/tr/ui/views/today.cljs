@@ -223,67 +223,58 @@
     (when (not= current-urgency target-urgency)
       (state/set-task-urgency task-id target-urgency))))
 
-(defn- draggable-urgent-task-item [task target-urgency]
+(defn- draggable-urgent-task-item [task target-urgency drag-enabled?]
   (let [drag-task (:drag-task @state/*app-state)
         drag-over-task (:drag-over-task @state/*app-state)
         is-dragging (= drag-task (:id task))
         is-drag-over (= drag-over-task (:id task))]
     [:div.draggable-urgent-task
      {:class (str (when is-dragging "dragging")
-                  (when is-drag-over " drag-over"))
-      :draggable true
-      :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task)
+                  (when is-drag-over " drag-over")
+                  (when-not drag-enabled? " drag-disabled"))
+      :draggable drag-enabled?
+      :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task drag-enabled?)
       :on-drag-end (fn [_] (state/clear-drag-state))
-      :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task)
+      :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task drag-enabled?)
       :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
-      :on-drop (fn [e]
-                 (.preventDefault e)
-                 (let [current-drag-task (:drag-task @state/*app-state)]
-                   (when (and current-drag-task (not= current-drag-task (:id task)))
-                     (let [rect (.getBoundingClientRect (.-currentTarget e))
-                           y (.-clientY e)
-                           mid-y (+ (.-top rect) (/ (.-height rect) 2))
-                           position (if (< y mid-y) "before" "after")]
-                       (ensure-urgency current-drag-task target-urgency)
-                       (state/reorder-task current-drag-task (:id task) position)))))}
+      :on-drop (drag-drop/make-urgency-task-drop-handler drag-task task target-urgency ensure-urgency state/reorder-task drag-enabled?)}
      [today-task-item task :show-day-of-week true]]))
 
-(defn- urgency-task-list [tasks target-urgency]
-  (let [drag-over-section (:drag-over-urgency-section @state/*app-state)
+(defn- urgency-task-list [tasks target-urgency drag-enabled?]
+  (let [drag-task (:drag-task @state/*app-state)
+        drag-over-section (:drag-over-urgency-section @state/*app-state)
         is-section-drag-over (= drag-over-section target-urgency)]
     [:div.urgency-task-list
-     {:class (when is-section-drag-over "section-drag-over")
+     {:class (str (when is-section-drag-over "section-drag-over")
+                  (when-not drag-enabled? " drag-disabled"))
       :on-drag-over (fn [e]
-                      (.preventDefault e)
-                      (state/set-drag-over-urgency-section target-urgency))
+                      (when drag-enabled?
+                        (.preventDefault e)
+                        (state/set-drag-over-urgency-section target-urgency)))
       :on-drag-leave (fn [e]
                        (when (= (.-target e) (.-currentTarget e))
                          (state/set-drag-over-urgency-section nil)))
-      :on-drop (fn [e]
-                 (.preventDefault e)
-                 (let [drag-task-id (:drag-task @state/*app-state)]
-                   (when drag-task-id
-                     (ensure-urgency drag-task-id target-urgency)
-                     (when-let [last-task (last tasks)]
-                       (when (not= (:id last-task) drag-task-id)
-                         (state/reorder-task drag-task-id (:id last-task) "after")))
-                     (state/clear-drag-state))))}
+      :on-drop (drag-drop/make-urgency-section-drop-handler drag-task tasks target-urgency ensure-urgency state/reorder-task state/clear-drag-state drag-enabled?)}
      (if (seq tasks)
        (doall
         (for [task tasks]
           ^{:key (:id task)}
-          [draggable-urgent-task-item task target-urgency]))
+          [draggable-urgent-task-item task target-urgency drag-enabled?]))
        [:p.empty-urgency-message (t :today/no-tasks-in-section)])]))
 
 (defn- today-urgent-section [superurgent urgent]
-  [:div.today-section.urgent
-   [:h3 (t :today/urgent-matters)]
-   [:div.urgency-subsection.superurgent
-    [:h4 "🚨🚨"]
-    [urgency-task-list superurgent "superurgent"]]
-   [:div.urgency-subsection.urgent
-    [:h4 "🚨"]
-    [urgency-task-list urgent "urgent"]]])
+  (let [expanded-task (:today-page/expanded-task @state/*app-state)
+        editing-task (:editing-task @state/*app-state)
+        any-task-open? (or expanded-task editing-task)
+        drag-enabled? (not any-task-open?)]
+    [:div.today-section.urgent
+     [:h3 (t :today/urgent-matters)]
+     [:div.urgency-subsection.superurgent
+      [:h4 "🚨🚨"]
+      [urgency-task-list superurgent "superurgent" drag-enabled?]]
+     [:div.urgency-subsection.urgent
+      [:h4 "🚨"]
+      [urgency-task-list urgent "urgent" drag-enabled?]]]))
 
 (defn- today-upcoming-section [upcoming]
   [:div.today-section.upcoming

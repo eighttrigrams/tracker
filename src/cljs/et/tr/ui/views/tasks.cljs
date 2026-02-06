@@ -128,20 +128,6 @@
                              :collapsed? (contains? collapsed-filters filter-key)
                              :number (tasks-category-shortcut-numbers filter-key)}]))))
 
-(defn- handle-task-drag-start [task manual-mode?]
-  (fn [e]
-    (when manual-mode?
-      ((drag-drop/make-drag-start-handler task state/set-drag-task) e))))
-
-(defn- handle-task-drag-over [task manual-mode?]
-  (fn [e]
-    (when manual-mode?
-      ((drag-drop/make-drag-over-handler task state/set-drag-over-task) e))))
-
-(defn- handle-task-drop [drag-task task manual-mode?]
-  (fn [e]
-    (when manual-mode?
-      ((drag-drop/make-drop-handler drag-task task state/reorder-task) e))))
 
 (defn- task-expanded-details [task people places projects goals]
   [:div.item-details
@@ -203,7 +189,9 @@
         tasks (state/filtered-tasks)
         manual-mode? (= sort-mode :manual)
         due-date-mode? (= sort-mode :due-date)
-        done-mode? (= sort-mode :done)]
+        done-mode? (= sort-mode :done)
+        any-task-open? (or expanded-task editing-task)
+        drag-enabled? (and manual-mode? (not any-task-open?))]
     (into [:ul.items]
       (for [task tasks]
         (let [is-expanded (= expanded-task (:id task))
@@ -213,13 +201,14 @@
           ^{:key (:id task)}
           [:li {:class (str (when is-expanded "expanded")
                             (when is-dragging " dragging")
-                            (when is-drag-over " drag-over"))
-                :draggable (and manual-mode? (not is-editing))
-                :on-drag-start (handle-task-drag-start task manual-mode?)
+                            (when is-drag-over " drag-over")
+                            (when-not drag-enabled? " drag-disabled"))
+                :draggable drag-enabled?
+                :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task drag-enabled?)
                 :on-drag-end (fn [_] (state/clear-drag-state))
-                :on-drag-over (handle-task-drag-over task manual-mode?)
+                :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task drag-enabled?)
                 :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
-                :on-drop (handle-task-drop drag-task task manual-mode?)}
+                :on-drop (drag-drop/make-drop-handler drag-task task state/reorder-task drag-enabled?)}
            (if is-editing
              [task-item/task-edit-form task]
              [task-item-content task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?])])))))

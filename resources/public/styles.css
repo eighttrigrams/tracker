@@ -772,6 +772,7 @@ button:active { transform: translateY(0); }
 }
 .items li[draggable="true"] { cursor: grab; }
 .items li[draggable="true"]:active { cursor: grabbing; }
+.items li.drag-disabled { cursor: default; }
 .items li.dragging { opacity: 0.5; }
 .items li.drag-over {
   border-color: var(--accent);
@@ -1469,12 +1470,18 @@ button:active { transform: translateY(0); }
 .draggable-urgent-task:active {
   cursor: grabbing;
 }
+.draggable-urgent-task.drag-disabled {
+  cursor: default;
+}
 .draggable-urgent-task.dragging {
   opacity: 0.5;
 }
 .draggable-urgent-task.drag-over {
   border-color: var(--accent);
   border-style: dashed;
+}
+.urgency-task-list.drag-disabled {
+  cursor: default;
 }
 .empty-urgency-message {
   color: var(--text-secondary);
