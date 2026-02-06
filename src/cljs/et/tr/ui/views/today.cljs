@@ -45,7 +45,7 @@
         [task-item/task-attribute-selectors task]
         [task-item/task-combined-action-button task]]])))
 
-(defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue?] :or {show-day-of-week false show-day-prefix false overdue? false}}]
+(defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue? hide-date] :or {show-day-of-week false show-day-prefix false overdue? false hide-date false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/*app-state)
         editing-task (:editing-task @state/*app-state)
@@ -71,11 +71,11 @@
           [task-item/time-picker task])]
        (when-not is-expanded
          [task-item/task-category-badges task])]
-      [:span.task-date
-       (cond
-         show-prefix? (date/format-date-localized (:due_date task))
-         show-day-of-week (date/format-date-with-day (:due_date task))
-         :else (date/format-date-localized (:due_date task)))]]
+      (when-not hide-date
+        [:span.task-date
+         (if show-day-of-week
+           (date/format-date-with-day (:due_date task))
+           (date/format-date-localized (:due_date task)))])]
      (when is-expanded
        [today-task-expanded-details task])]))
 
@@ -190,16 +190,17 @@
      [today-exclusion-filter-section :projects projects excluded-projects collapsed-filters
       state/toggle-today-excluded-project state/clear-today-excluded-projects]]))
 
-(defn- task-list-section [tasks & opts]
-  (let [opts-map (apply hash-map opts)]
-    [:div.task-list
-     (doall
-      (for [task tasks]
-        ^{:key (:id task)}
-        [today-task-item task
-         :overdue? (get opts-map :overdue? false)
-         :show-day-of-week (get opts-map :show-day-of-week false)
-         :show-day-prefix (get opts-map :show-day-prefix false)]))]))
+(defn- task-list-section [tasks & {:keys [overdue? show-day-of-week show-day-prefix hide-date]
+                                      :or {overdue? false show-day-of-week false show-day-prefix false hide-date false}}]
+  [:div.task-list
+   (doall
+    (for [task tasks]
+      ^{:key (:id task)}
+      [today-task-item task
+       :overdue? overdue?
+       :show-day-of-week show-day-of-week
+       :show-day-prefix show-day-prefix
+       :hide-date hide-date]))])
 
 (defn- today-overdue-section [overdue]
   (when (seq overdue)
@@ -211,8 +212,16 @@
   [:div.today-section.today
    [:h3 (date/today-formatted)]
    (if (seq today)
-     [task-list-section today]
+     [task-list-section today :hide-date true]
      [:p.empty-message (t :today/no-today)])])
+
+(defn- find-task-by-id [task-id]
+  (first (filter #(= (:id %) task-id) (:tasks @state/*app-state))))
+
+(defn- ensure-urgency [task-id target-urgency]
+  (let [current-urgency (:urgency (find-task-by-id task-id))]
+    (when (not= current-urgency target-urgency)
+      (state/set-task-urgency task-id target-urgency))))
 
 (defn- draggable-urgent-task-item [task target-urgency]
   (let [drag-task (:drag-task @state/*app-state)
@@ -234,11 +243,8 @@
                      (let [rect (.getBoundingClientRect (.-currentTarget e))
                            y (.-clientY e)
                            mid-y (+ (.-top rect) (/ (.-height rect) 2))
-                           position (if (< y mid-y) "before" "after")
-                           dragged-task (first (filter #(= (:id %) current-drag-task) (:tasks @state/*app-state)))
-                           current-urgency (:urgency dragged-task)]
-                       (when (not= current-urgency target-urgency)
-                         (state/set-task-urgency current-drag-task target-urgency))
+                           position (if (< y mid-y) "before" "after")]
+                       (ensure-urgency current-drag-task target-urgency)
                        (state/reorder-task current-drag-task (:id task) position)))))}
      [today-task-item task :show-day-of-week true]]))
 
@@ -257,14 +263,11 @@
                  (.preventDefault e)
                  (let [drag-task-id (:drag-task @state/*app-state)]
                    (when drag-task-id
-                     (let [dragged-task (first (filter #(= (:id %) drag-task-id) (:tasks @state/*app-state)))
-                           current-urgency (:urgency dragged-task)]
-                       (when (not= current-urgency target-urgency)
-                         (state/set-task-urgency drag-task-id target-urgency))
-                       (when-let [last-task (last tasks)]
-                         (when (not= (:id last-task) drag-task-id)
-                           (state/reorder-task drag-task-id (:id last-task) "after")))
-                       (state/clear-drag-state)))))}
+                     (ensure-urgency drag-task-id target-urgency)
+                     (when-let [last-task (last tasks)]
+                       (when (not= (:id last-task) drag-task-id)
+                         (state/reorder-task drag-task-id (:id last-task) "after")))
+                     (state/clear-drag-state))))}
      (if (seq tasks)
        (doall
         (for [task tasks]
