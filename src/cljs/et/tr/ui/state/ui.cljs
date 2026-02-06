@@ -1,4 +1,5 @@
-(ns et.tr.ui.state.ui)
+(ns et.tr.ui.state.ui
+  (:require [et.tr.ui.state.mail :as mail-state]))
 
 (defn focus-tasks-search []
   (js/setTimeout #(when-let [el (.getElementById js/document "tasks-filter-search")]
@@ -55,6 +56,9 @@
          :tasks-page/expanded-task nil
          :today-page/expanded-task nil
          :task-dropdown-open nil)
+  (swap! mail-state/*mail-page-state assoc
+         :expanded-message nil
+         :editing-message nil)
   (when-let [init-fn (get tab-initializers tab)]
     (init-fn)))
 
