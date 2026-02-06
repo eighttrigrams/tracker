@@ -26,10 +26,10 @@
     (.preventDefault e)
     (state/add-task input-value clear-search-callback)))
 
-(defn- handle-combined-keys [input-value]
+(defn- handle-combined-keys [input-value done-mode?]
   (fn [e]
     (cond
-      (and (.-altKey e) (= (.-key e) "Enter"))
+      (and (.-altKey e) (= (.-key e) "Enter") (not done-mode?))
       (handle-add-task-shortcut e input-value)
 
       (= (.-key e) "Escape")
@@ -38,17 +38,20 @@
       :else nil)))
 
 (defn combined-search-add-form []
-  (let [input-value (:tasks-page/filter-search @state/*app-state)]
+  (let [app-state @state/*app-state
+        input-value (:tasks-page/filter-search app-state)
+        done-mode? (= (:sort-mode app-state) :done)]
     [:div.combined-search-add-form
      [:input#tasks-filter-search
       {:type "text"
-       :placeholder (t :tasks/search-or-add)
+       :placeholder (if done-mode? (t :tasks/search) (t :tasks/search-or-add))
        :value input-value
        :on-change #(state/set-filter-search (-> % .-target .-value))
-       :on-key-down (handle-combined-keys input-value)}]
-     [:button {:on-click #(when (seq input-value)
-                            (state/add-task input-value clear-search-callback))}
-      (t :tasks/add-button)]
+       :on-key-down (handle-combined-keys input-value done-mode?)}]
+     (when-not done-mode?
+       [:button {:on-click #(when (seq input-value)
+                              (state/add-task input-value clear-search-callback))}
+        (t :tasks/add-button)])
      (when (seq input-value)
        [:button.clear-search {:on-click #(state/set-filter-search "")} "x"])]))
 

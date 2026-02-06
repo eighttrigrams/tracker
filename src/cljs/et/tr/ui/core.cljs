@@ -119,8 +119,7 @@
              [:h2 {:title (t :tasks/title-tooltip)} (t :tasks/title)]
              [tasks/importance-filter-toggle]
              [tasks/sort-mode-toggle]]
-            (when (not= sort-mode :done)
-              [tasks/combined-search-add-form])
+            [tasks/combined-search-add-form]
             [tasks/tasks-list]]])])]))
 
 (defn- get-available-tabs []
