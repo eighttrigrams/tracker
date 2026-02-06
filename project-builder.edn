@@ -4,4 +4,4 @@
  :model "sonnet"
  :docs-dir "build-next-feature" 
  :log-file "logs/hooks.log"
- :prompts-log-file "logs/prompts.log"}
+ :prompts-log "logs/prompts.log"}
