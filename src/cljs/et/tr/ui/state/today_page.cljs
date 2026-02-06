@@ -135,9 +135,11 @@
          (sort-by-date-and-time))))
 
 (defn- tasks-by-urgency [app-state urgency-level]
-  (->> (:tasks @app-state)
-       (filter #(= urgency-level (:urgency %)))
-       (sort-by :sort_order)))
+  (let [today (today-str)]
+    (->> (:tasks @app-state)
+         (filter #(= urgency-level (:urgency %)))
+         (remove #(= (:due_date %) today))
+         (sort-by :sort_order))))
 
 (defn superurgent-tasks [app-state]
   (tasks-by-urgency app-state "superurgent"))
