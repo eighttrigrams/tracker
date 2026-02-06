@@ -6,6 +6,7 @@
         "@playwright/mcp@latest", 
         "--headless", 
         "--viewport-size=1400x900",
+        "--output-dir=.playwright-mcp",
         "--allowed-origins=http://localhost:3027"]
     }
   }
