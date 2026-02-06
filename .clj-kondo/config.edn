@@ -1,2 +1,3 @@
-{:linters {:unused-binding {:level :warning}}
+{:linters {:unused-binding {:level :warning}
+            :unresolved-var {:exclude [ajax.core/GET ajax.core/POST ajax.core/PUT ajax.core/DELETE]}}
  :hooks {:analyze-call {et.tr.server/with-admin-message-context hooks.with-admin-message-context/with-admin-message-context}}}

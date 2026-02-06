@@ -30,32 +30,35 @@
    :excluded-places (:today-page/excluded-places @app-state)
    :excluded-projects (:today-page/excluded-projects @app-state)})
 
-(defn toggle-today-excluded-place [app-state fetch-tasks-fn place-id]
-  (swap! app-state update :today-page/excluded-places
-         #(if (contains? % place-id)
-            (disj % place-id)
-            (conj % place-id)))
+(defn- toggle-today-excluded [app-state fetch-tasks-fn state-key item-id]
+  (swap! app-state update state-key
+         #(if (contains? % item-id)
+            (disj % item-id)
+            (conj % item-id)))
   (fetch-tasks-fn (current-fetch-opts app-state)))
+
+(defn- clear-today-excluded [app-state fetch-tasks-fn state-key]
+  (swap! app-state assoc state-key #{})
+  (fetch-tasks-fn (current-fetch-opts app-state)))
+
+(defn toggle-today-excluded-place [app-state fetch-tasks-fn place-id]
+  (toggle-today-excluded app-state fetch-tasks-fn :today-page/excluded-places place-id))
 
 (defn toggle-today-excluded-project [app-state fetch-tasks-fn project-id]
-  (swap! app-state update :today-page/excluded-projects
-         #(if (contains? % project-id)
-            (disj % project-id)
-            (conj % project-id)))
-  (fetch-tasks-fn (current-fetch-opts app-state)))
+  (toggle-today-excluded app-state fetch-tasks-fn :today-page/excluded-projects project-id))
 
 (defn clear-today-excluded-places [app-state fetch-tasks-fn]
-  (swap! app-state assoc :today-page/excluded-places #{})
-  (fetch-tasks-fn (current-fetch-opts app-state)))
+  (clear-today-excluded app-state fetch-tasks-fn :today-page/excluded-places))
 
 (defn clear-today-excluded-projects [app-state fetch-tasks-fn]
-  (swap! app-state assoc :today-page/excluded-projects #{})
-  (fetch-tasks-fn (current-fetch-opts app-state)))
+  (clear-today-excluded app-state fetch-tasks-fn :today-page/excluded-projects))
 
-(defn clear-uncollapsed-today-filters [app-state fetch-tasks-fn]
-  (let [collapsed (:today-page/collapsed-filters @app-state)
-        all-filters #{:places :projects}
-        uncollapsed (clojure.set/difference all-filters collapsed)]
+(defn- get-uncollapsed-filters [collapsed]
+  (let [all-filters #{:places :projects}]
+    (clojure.set/difference all-filters collapsed)))
+
+(defn- clear-filter-state [app-state uncollapsed]
+  (let [all-filters #{:places :projects}]
     (if (empty? uncollapsed)
       (swap! app-state assoc
              :today-page/excluded-places #{}
@@ -68,7 +71,12 @@
             :projects (swap! app-state assoc :today-page/excluded-projects #{})))
         (swap! app-state assoc
                :today-page/collapsed-filters all-filters
-               :today-page/category-search {:places "" :projects ""})))
+               :today-page/category-search {:places "" :projects ""})))))
+
+(defn clear-uncollapsed-today-filters [app-state fetch-tasks-fn]
+  (let [collapsed (:today-page/collapsed-filters @app-state)
+        uncollapsed (get-uncollapsed-filters collapsed)]
+    (clear-filter-state app-state uncollapsed)
     (fetch-tasks-fn (current-fetch-opts app-state))))
 
 (defn toggle-today-filter-collapsed [app-state filter-key]
@@ -126,12 +134,13 @@
                        (<= (:due_date %) end-date)))
          (sort-by-date-and-time))))
 
-(defn superurgent-tasks [app-state]
+(defn- tasks-by-urgency [app-state urgency-level]
   (->> (:tasks @app-state)
-       (filter #(= "superurgent" (:urgency %)))
+       (filter #(= urgency-level (:urgency %)))
        (sort-by :sort_order)))
 
+(defn superurgent-tasks [app-state]
+  (tasks-by-urgency app-state "superurgent"))
+
 (defn urgent-tasks [app-state]
-  (->> (:tasks @app-state)
-       (filter #(= "urgent" (:urgency %)))
-       (sort-by :sort_order)))
+  (tasks-by-urgency app-state "urgent"))
