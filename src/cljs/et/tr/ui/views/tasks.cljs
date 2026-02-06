@@ -18,13 +18,19 @@
 (defn get-tasks-category-shortcut-keys []
   tasks-category-shortcut-keys)
 
+(def ^:private clear-search-callback
+  (fn [] (state/set-filter-search "")))
+
+(defn- handle-add-task-shortcut [e input-value]
+  (when (seq input-value)
+    (.preventDefault e)
+    (state/add-task input-value clear-search-callback)))
+
 (defn- handle-combined-keys [input-value]
   (fn [e]
     (cond
       (and (.-altKey e) (= (.-key e) "Enter"))
-      (when (seq input-value)
-        (.preventDefault e)
-        (state/add-task input-value (fn [] (state/set-filter-search ""))))
+      (handle-add-task-shortcut e input-value)
 
       (= (.-key e) "Escape")
       (state/set-filter-search "")
@@ -41,8 +47,7 @@
        :on-change #(state/set-filter-search (-> % .-target .-value))
        :on-key-down (handle-combined-keys input-value)}]
      [:button {:on-click #(when (seq input-value)
-                            (state/add-task input-value
-                                          (fn [] (state/set-filter-search ""))))}
+                            (state/add-task input-value clear-search-callback))}
       (t :tasks/add-button)]
      (when (seq input-value)
        [:button.clear-search {:on-click #(state/set-filter-search "")} "x"])]))

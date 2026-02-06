@@ -111,6 +111,7 @@
           :mail [mail/mail-page]
           :users [users/users-tab]
           :settings [settings/settings-tab]
+          ;; Tasks tab layout: main-layout > [sidebar + main-content > [header + search + list]]
           [:div.main-layout
            [tasks/sidebar-filters]
            [:div.main-content
