@@ -21,8 +21,8 @@
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: rgba(52, 199, 89, 0.2);
-  color: #248a3d;
+  background: rgba(var(--cat-person-rgb), 0.2);
+  color: var(--cat-person-color);
   border-radius: 20px;
   font-size: 0.8em;
   font-weight: 500;
@@ -31,7 +31,7 @@
   background: none;
   border: none;
   padding: 0;
-  color: #248a3d;
+  color: var(--cat-person-color);
   opacity: 0.7;
   font-size: 0.9em;
   cursor: pointer;

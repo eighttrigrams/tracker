@@ -15,6 +15,14 @@
   --surface-subtle: rgba(0, 0, 0, 0.03);
   --badge-excluded-bg: rgba(255, 59, 48, 0.2);
   --badge-excluded-color: #ff3b30;
+  --cat-person-rgb: 52, 199, 89;
+  --cat-person-color: #248a3d;
+  --cat-place-rgb: 0, 122, 255;
+  --cat-place-color: #0066cc;
+  --cat-project-rgb: 255, 159, 10;
+  --cat-project-color: #c77800;
+  --cat-goal-rgb: 255, 69, 58;
+  --cat-goal-color: #d70015;
 }
 html.dark-mode {
   --glass-bg: rgba(30, 30, 32, 0.85);
