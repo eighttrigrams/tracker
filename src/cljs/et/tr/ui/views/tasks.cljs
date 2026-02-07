@@ -3,7 +3,7 @@
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
-            [et.tr.ui.views.today :as today]
+            [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private tasks-category-shortcut-keys
@@ -85,7 +85,7 @@
       "★★"]]))
 
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed? number]}]
-  [today/category-filter-section {:title title
+  [filter-section/category-filter-section {:title title
                                   :shortcut-number number
                                   :filter-key filter-key
                                   :items items
