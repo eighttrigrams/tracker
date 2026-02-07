@@ -85,7 +85,8 @@
    (t translation-key)])
 
 (defn- categories-subtabs []
-  (let [active-tab (:active-tab @state/*app-state)]
+  (let [raw-tab (:active-tab @state/*app-state)
+        active-tab (if (= raw-tab :categories) :people-places raw-tab)]
     [:div.categories-subtabs
      [subtab-button active-tab :people-places :nav/people-places]
      [subtab-button active-tab :projects-goals :nav/projects-goals]]))

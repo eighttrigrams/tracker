@@ -96,7 +96,7 @@
                                   :toggle-collapsed-fn state/toggle-filter-collapsed
                                   :set-search-fn state/set-category-search
                                   :search-state-path [:tasks-page/category-search filter-key]
-                                  :section-class nil
+                                  :section-class (name filter-key)
                                   :item-active-class "active"
                                   :label-class nil}])
 

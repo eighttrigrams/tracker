@@ -70,12 +70,49 @@
   background: none;
   border: none;
   padding: 0;
-  color: white;
+  color: inherit;
   opacity: 0.7;
   font-size: 0.9em;
   cursor: pointer;
 }
 .filter-item-label .remove-item:hover { opacity: 1; transform: none; }
+
+/* Category-specific highlight colors for filter sections */
+.filter-section.people .filter-item.active {
+  background: rgba(var(--cat-person-rgb), 0.2);
+  color: var(--cat-person-color);
+}
+.filter-section.people .filter-item-label {
+  background: rgba(var(--cat-person-rgb), 0.2);
+  color: var(--cat-person-color);
+}
+
+.filter-section.places .filter-item.active {
+  background: rgba(var(--cat-place-rgb), 0.2);
+  color: var(--cat-place-color);
+}
+.filter-section.places .filter-item-label {
+  background: rgba(var(--cat-place-rgb), 0.2);
+  color: var(--cat-place-color);
+}
+
+.filter-section.projects .filter-item.active {
+  background: rgba(var(--cat-project-rgb), 0.2);
+  color: var(--cat-project-color);
+}
+.filter-section.projects .filter-item-label {
+  background: rgba(var(--cat-project-rgb), 0.2);
+  color: var(--cat-project-color);
+}
+
+.filter-section.goals .filter-item.active {
+  background: rgba(var(--cat-goal-rgb), 0.2);
+  color: var(--cat-goal-color);
+}
+.filter-section.goals .filter-item-label {
+  background: rgba(var(--cat-goal-rgb), 0.2);
+  color: var(--cat-goal-color);
+}
 .exclusion-filter .filter-item.excluded {
   background: rgba(255, 59, 48, 0.15);
   color: #ff3b30;
