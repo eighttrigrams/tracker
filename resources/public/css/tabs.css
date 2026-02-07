@@ -1,0 +1,92 @@
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+}
+.tab {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+.tab:hover { color: var(--text-primary); background: var(--surface-subtle); transform: none; }
+.tab.active {
+  color: white;
+  background: var(--accent);
+}
+.categories-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.subtab {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: var(--glass-bg);
+  cursor: pointer;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.subtab:hover {
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  transform: none;
+}
+.subtab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.toggle-group {
+  display: flex;
+  gap: 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+}
+.toggle-group button,
+.toggle-group .toggle-option {
+  padding: 6px 12px;
+  font-size: 0.8em;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.toggle-group button.active,
+.toggle-group .toggle-option.active {
+  background: var(--accent);
+  color: white;
+}
+.toggle-group button:hover:not(.active),
+.toggle-group .toggle-option:hover:not(.active) {
+  background: var(--surface-subtle);
+  transform: none;
+}
+.toggle-group.compact {
+  padding: 2px;
+  border-radius: 6px;
+}
+.toggle-group.compact button,
+.toggle-group.compact .toggle-option {
+  padding: 4px 10px;
+  font-size: 0.75em;
+  border-radius: 4px;
+}

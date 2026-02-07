@@ -1,0 +1,102 @@
+.settings-section {
+  max-width: 400px;
+}
+.settings-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.settings-item:last-child {
+  border-bottom: none;
+}
+.settings-label {
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+.settings-value {
+  font-size: 0.9em;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.export-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.export-btn:hover {
+  background: var(--accent-hover);
+}
+.settings-page {
+  padding: 24px 0;
+}
+.settings-page .manage-tab {
+  padding: 0;
+}
+.settings-separator {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin: 24px 0;
+}
+.shortcuts-section {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+  padding: 20px;
+}
+.shortcuts-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.shortcuts-subsection {
+  margin-bottom: 20px;
+}
+.shortcuts-subsection:last-child {
+  margin-bottom: 0;
+}
+.shortcuts-subsection h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.shortcuts-list {
+  margin-top: 0;
+}
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.shortcut-item:last-child {
+  border-bottom: none;
+}
+.shortcut-key {
+  font-family: 'SF Mono', SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 0.8em;
+  background: var(--surface-subtle);
+  padding: 4px 8px;
+  border-radius: 4px;
+  min-width: 90px;
+  text-align: center;
+  color: var(--text-primary);
+}
+.shortcut-desc {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  margin-left: 12px;
+}

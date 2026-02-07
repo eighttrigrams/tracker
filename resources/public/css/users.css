@@ -1,0 +1,172 @@
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  position: relative;
+  z-index: 10;
+}
+.current-user {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  padding: 0 12px;
+}
+.logout-btn, .users-btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+.logout-btn:hover, .users-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-subtle);
+  transform: none;
+}
+.users-btn.active {
+  color: white;
+  background: var(--accent);
+}
+.user-switcher-wrapper {
+  position: relative;
+}
+.switch-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.switch-user-btn:hover {
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  transform: none;
+}
+.switch-user-btn .current-user {
+  padding: 0;
+}
+.dropdown-arrow {
+  font-size: 0.7em;
+  color: var(--text-secondary);
+}
+.user-switcher-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 150px;
+  z-index: 100;
+  overflow: hidden;
+}
+.user-switcher-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 0.9em;
+  color: var(--text-primary);
+  transition: background 0.2s ease;
+}
+.user-switcher-item:hover {
+  background: var(--surface-subtle);
+}
+.user-switcher-item.active {
+  background: var(--accent);
+  color: white;
+}
+.add-user-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.add-user-form input {
+  flex: 1;
+}
+.user-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-list .username {
+  flex: 1;
+}
+.admin-badge {
+  font-size: 0.75em;
+  padding: 2px 8px;
+  background: var(--accent);
+  color: white;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.delete-user-btn {
+  padding: 4px 10px;
+  font-size: 0.8em;
+  background: transparent;
+  color: #ff3b30;
+  border: 1px solid #ff3b30;
+}
+.delete-user-btn:hover {
+  background: #ff3b30;
+  color: white;
+}
+.login-form {
+  flex-direction: column;
+  max-width: 300px;
+  margin: 100px auto;
+  padding: 24px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+}
+.login-form h2 {
+  margin-bottom: 16px;
+  text-align: center;
+}
+.login-form input {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.login-form button {
+  width: 100%;
+}
+.username-btn, .settings-btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+.username-btn:hover, .settings-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-subtle);
+  transform: none;
+}
+.username-btn.active, .settings-btn.active {
+  color: white;
+  background: var(--accent);
+}

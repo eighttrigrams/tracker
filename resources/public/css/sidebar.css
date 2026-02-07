@@ -1,0 +1,91 @@
+.filter-section { margin-bottom: 20px; }
+.filter-section:last-child { margin-bottom: 0; }
+.filter-header {
+  font-weight: 600;
+  font-size: 0.8em;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.collapse-toggle {
+  padding: 2px 6px;
+  font-size: 0.75em;
+  background: var(--surface-subtle);
+  border-radius: 4px;
+  color: var(--text-secondary);
+}
+.collapse-toggle:hover { background: rgba(0, 0, 0, 0.06); transform: none; }
+.clear-filter {
+  margin-left: auto;
+  padding: 2px 6px;
+  font-size: 0.75em;
+  background: transparent;
+  color: var(--text-secondary);
+}
+.clear-filter:hover { background: var(--surface-subtle); transform: none; }
+.filter-items { display: flex; flex-direction: column; gap: 2px; }
+.category-search {
+  padding: 6px 10px;
+  font-size: 0.85em;
+  margin-bottom: 4px;
+  width: 100%;
+}
+.filter-item {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 0.9em;
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  border-radius: 8px;
+  font-weight: 400;
+}
+.filter-item:hover { background: var(--surface-subtle); transform: none; }
+.filter-item.active {
+  background: var(--accent);
+  color: white;
+}
+.filter-items.collapsed {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.filter-item-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--accent);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+.filter-item-label .remove-item {
+  background: none;
+  border: none;
+  padding: 0;
+  color: white;
+  opacity: 0.7;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.filter-item-label .remove-item:hover { opacity: 1; transform: none; }
+.exclusion-filter .filter-item.excluded {
+  background: rgba(255, 59, 48, 0.15);
+  color: #ff3b30;
+  text-decoration: line-through;
+}
+.exclusion-filter .filter-item:not(.excluded) {
+  background: rgba(52, 199, 89, 0.1);
+  color: #248a3d;
+}
+.exclusion-filter .filter-item-label.excluded {
+  background: var(--badge-excluded-bg);
+  color: var(--badge-excluded-color);
+}

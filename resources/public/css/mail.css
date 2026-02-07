@@ -1,0 +1,43 @@
+.mail-page {
+  padding: 24px 0;
+}
+.mail-page .items li {
+  cursor: default;
+}
+.mail-sender {
+  font-weight: 600;
+  color: var(--accent);
+  margin-right: 8px;
+  cursor: pointer;
+}
+.mail-sender:hover {
+  text-decoration: underline;
+}
+.mail-sender-filter {
+  margin-bottom: 16px;
+}
+.filter-item-label.included {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(52, 199, 89, 0.2);
+  color: #248a3d;
+  border-radius: 20px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+.filter-item-label.included .remove-item {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #248a3d;
+  opacity: 0.7;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.filter-item-label.included .remove-item:hover { opacity: 1; }
+.mail-title {
+  font-weight: 500;
+  color: var(--text-primary);
+}

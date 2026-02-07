@@ -1,0 +1,186 @@
+.today-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.today-section {
+  padding: 20px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+}
+.today-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 1em;
+  font-weight: 600;
+}
+.today-section.overdue h3 { color: #ff3b30; }
+.today-section.today h3 { color: var(--accent); }
+.today-section.upcoming h3 { color: var(--text-primary); }
+.today-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.today-section .section-header h3 { margin: 0; }
+.today-task-item {
+  padding: 10px 12px;
+  background: var(--glass-bg);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: all 0.2s ease;
+}
+.today-task-item:last-child { margin-bottom: 0; }
+.today-task-item.expanded {
+  background: var(--glass-bg-elevated);
+  box-shadow: var(--glass-shadow);
+}
+.today-task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  cursor: pointer;
+}
+.today-task-header:hover { opacity: 0.85; }
+.today-task-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.today-task-details {
+  margin-top: 12px;
+}
+.today-task-details .item-description {
+  margin-bottom: 12px;
+}
+.today-task-details .task-badges {
+  margin-bottom: 12px;
+}
+.today-task-details .item-actions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.today-task-item .task-title {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.task-time {
+  color: var(--accent);
+  margin-right: 8px;
+}
+.task-time.overdue-time {
+  color: lightgray;
+}
+.task-day-prefix {
+  color: var(--accent);
+  margin-right: 8px;
+}
+.today-task-item .task-date {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+.today-section.overdue .today-task-item .task-date { color: #ff3b30; }
+.today-section.upcoming .today-task-item .task-date { color: var(--accent); }
+.empty-message {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  margin: 0;
+}
+.horizon-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.horizon-selector span {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+}
+.horizon-selector button {
+  padding: 4px 10px;
+  font-size: 0.8em;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+}
+.horizon-selector button:hover {
+  background: var(--surface-subtle);
+  transform: none;
+}
+.horizon-selector button.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.today-view-switcher {
+  margin: 16px 0;
+  margin-left: auto;
+}
+.today-section.urgent h3 {
+  color: #ff9500;
+}
+.urgency-subsection {
+  margin-bottom: 16px;
+}
+.urgency-subsection:last-child {
+  margin-bottom: 0;
+}
+.urgency-subsection h4 {
+  margin: 0 0 8px 0;
+  font-size: 1em;
+}
+.urgency-task-list {
+  min-height: 40px;
+  padding: 4px;
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.urgency-task-list.section-drag-over {
+  border-color: var(--accent);
+  background: rgba(0, 113, 227, 0.05);
+}
+.draggable-urgent-task {
+  cursor: grab;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+.draggable-urgent-task:last-child {
+  margin-bottom: 0;
+}
+.draggable-urgent-task:active {
+  cursor: grabbing;
+}
+.draggable-urgent-task.drag-disabled {
+  cursor: default !important;
+}
+.draggable-urgent-task.drag-disabled:active {
+  cursor: default !important;
+}
+.draggable-urgent-task.dragging {
+  opacity: 0.5;
+}
+.draggable-urgent-task.drag-over {
+  border-color: var(--accent);
+  border-style: dashed;
+}
+.urgency-task-list.drag-disabled {
+  cursor: default;
+}
+.empty-urgency-message {
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: 8px 0;
+  margin: 0;
+}
