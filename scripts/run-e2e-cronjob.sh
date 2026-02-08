@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# cron runs with a minimal PATH, so docker, make, etc. won't be found
+export PATH="/opt/homebrew/bin:/usr/local/bin:/Users/daniel/.docker/bin:$PATH"
+
 REPO_DIR="$1"
 
 if [ -z "$REPO_DIR" ]; then
