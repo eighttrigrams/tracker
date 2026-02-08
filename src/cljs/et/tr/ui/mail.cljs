@@ -53,42 +53,51 @@
         [:button.cancel {:on-click #(state/clear-editing-message)}
          (t :task/cancel)]]])))
 
+(defn- mail-message-header [{:keys [id sender title created_at]} expanded?]
+  [:div.item-header {:on-click #(state/set-expanded-message (when-not expanded? id))}
+   [:span.item-title
+    [:span.mail-sender {:on-click (fn [e]
+                                    (.stopPropagation e)
+                                    (state/set-mail-sender-filter sender))}
+     sender]
+    [:span.mail-title title]
+    (when expanded?
+      [:button.edit-icon {:on-click (fn [e]
+                                      (.stopPropagation e)
+                                      (state/set-editing-message id))}
+       "✎"])]
+   [:span.item-date (format-message-datetime created_at)]])
+
+(defn- mail-message-actions [{:keys [id done] :as message}]
+  [:div.item-actions
+   (if (= done 1)
+     [:button.undone-btn {:on-click #(state/set-message-done id false)}
+      (t :mail/set-unarchived)]
+     [:button.done-btn {:on-click #(state/set-message-done id true)}
+      (t :mail/archive)])
+   [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
+    (t :task/delete)]])
+
+(defn- mail-message-expanded-content [{:keys [title description annotation] :as message} editing?]
+  [:div.item-details
+   [youtube-preview title]
+   (when (seq description)
+     [:div.item-description description])
+   (if editing?
+     [message-annotation-edit-form message]
+     [:<>
+      (when (seq annotation)
+        [:div.item-annotation annotation])
+      [mail-message-actions message]])])
+
 (defn- mail-message-item [message expanded-id editing-id]
-  (let [{:keys [id sender title description annotation created_at done]} message
+  (let [{:keys [id]} message
         expanded? (= expanded-id id)
         editing? (= editing-id id)]
     [:li {:class (when expanded? "expanded")}
-     [:div.item-header {:on-click #(state/set-expanded-message (when-not expanded? id))}
-      [:span.item-title
-       [:span.mail-sender {:on-click (fn [e]
-                                       (.stopPropagation e)
-                                       (state/set-mail-sender-filter sender))}
-        sender]
-       [:span.mail-title title]
-       (when expanded?
-         [:button.edit-icon {:on-click (fn [e]
-                                         (.stopPropagation e)
-                                         (state/set-editing-message id))}
-          "✎"])]
-      [:span.item-date (format-message-datetime created_at)]]
+     [mail-message-header message expanded?]
      (when expanded?
-       [:div.item-details
-        [youtube-preview title]
-        (when (seq description)
-          [:div.item-description description])
-        (if editing?
-          [message-annotation-edit-form message]
-          [:<>
-           (when (seq annotation)
-             [:div.item-annotation annotation])
-           [:div.item-actions
-            (if (= done 1)
-              [:button.undone-btn {:on-click #(state/set-message-done id false)}
-               (t :mail/set-unarchived)]
-              [:button.done-btn {:on-click #(state/set-message-done id true)}
-               (t :mail/archive)])
-            [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
-             (t :task/delete)]]])])]))
+       [mail-message-expanded-content message editing?])]))
 
 (defn- mail-sender-filter-badge []
   (let [sender-filter (:sender-filter @mail-state/*mail-page-state)]
