@@ -629,6 +629,7 @@
          done-filter (case sort-mode
                        :done [:= :done 1]
                        [:= :done 0])
+         order-dir (if (= sort-mode :reverse) :asc :desc)
          where-clause (if sender-filter
                         [:and user-where done-filter [:= :sender sender-filter]]
                         [:and user-where done-filter])]
@@ -636,7 +637,7 @@
        (sql/format {:select [:id :sender :title :description :created_at :done :annotation]
                     :from [:messages]
                     :where where-clause
-                    :order-by [[:created_at :desc]]})
+                    :order-by [[:created_at order-dir]]})
        jdbc-opts))))
 
 (defn message-owned-by-user? [ds message-id user-id]

@@ -113,17 +113,38 @@
      [:button {:class (when (= sort-mode :recent) "active")
                :on-click #(state/set-mail-sort-mode :recent)}
       (t :mail/sort-recent)]
+     [:button {:class (when (= sort-mode :reverse) "active")
+               :on-click #(state/set-mail-sort-mode :reverse)}
+      (t :mail/sort-reverse)]
      [:button {:class (when (= sort-mode :done) "active")
                :on-click #(state/set-mail-sort-mode :done)}
       (t :mail/sort-archived)]]))
 
+(defn- mail-add-form []
+  (let [input-val (r/atom "")]
+    (fn []
+      [:div.mail-add-form
+       [:input {:type "text"
+                :value @input-val
+                :placeholder (t :mail/add-placeholder)
+                :on-change #(reset! input-val (-> % .-target .-value))
+                :on-key-down #(when (and (= (.-key %) "Enter")
+                                         (not (str/blank? @input-val)))
+                                (state/add-message @input-val (fn [] (reset! input-val ""))))}]
+       [:button {:disabled (str/blank? @input-val)
+                 :on-click #(when-not (str/blank? @input-val)
+                              (state/add-message @input-val (fn [] (reset! input-val ""))))}
+        (t :tasks/add-button)]])))
+
 (defn mail-page []
   (let [{:keys [messages]} @state/*app-state
-        {:keys [expanded-message editing-message]} @mail-state/*mail-page-state]
+        {:keys [expanded-message editing-message sort-mode]} @mail-state/*mail-page-state]
     [:div.mail-page
      [:div.tasks-header
       [:h2 (t :nav/mail)]
       [mail-sort-toggle]]
+     (when (= sort-mode :recent)
+       [mail-add-form])
      [mail-sender-filter-badge]
      (if (empty? messages)
        [:p.empty-message (t :mail/no-messages)]

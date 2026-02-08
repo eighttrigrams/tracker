@@ -171,6 +171,9 @@
 (defn update-message-annotation [message-id annotation]
   (mail/update-message-annotation *app-state auth-headers message-id annotation))
 
+(defn add-message [title on-success]
+  (mail/add-message *app-state auth-headers title on-success))
+
 (defn fetch-users []
   (users/fetch-users *app-state auth-headers))
 

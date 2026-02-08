@@ -41,3 +41,34 @@
   font-weight: 500;
   color: var(--text-primary);
 }
+.mail-add-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.mail-add-form input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.95em;
+}
+.mail-add-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.mail-add-form button {
+  padding: 8px 16px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.mail-add-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

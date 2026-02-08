@@ -3,6 +3,8 @@
             [reagent.core :as r]
             [et.tr.ui.api :as api]))
 
+(def ^:const DEFAULT-SENDER "Daniel de Oliveira")
+
 (defonce *mail-page-state (r/atom {:sort-mode :recent
                                    :expanded-message nil
                                    :fetch-request-id 0
@@ -92,3 +94,15 @@
       (clear-editing-message))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update annotation")))))
+
+(defn add-message [app-state auth-headers title on-success]
+  (api/post-json "/api/messages"
+    {:sender DEFAULT-SENDER
+     :title title
+     :description ""}
+    (auth-headers)
+    (fn [_]
+      (fetch-messages app-state auth-headers)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add message")))))
