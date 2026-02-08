@@ -113,3 +113,26 @@
   background: rgba(var(--cat-goal-rgb), 0.2);
   color: var(--cat-goal-color);
 }
+
+/* Exclusion filter styles for Today page */
+.filter-section.places.exclusion-filter .filter-item.excluded {
+  background: rgba(var(--cat-place-rgb), 0.2);
+  color: var(--cat-place-color);
+  text-decoration: line-through;
+}
+.filter-section.places.exclusion-filter .filter-item-label {
+  background: rgba(var(--cat-place-rgb), 0.2);
+  color: var(--cat-place-color);
+  text-decoration: line-through;
+}
+
+.filter-section.projects.exclusion-filter .filter-item.excluded {
+  background: rgba(var(--cat-project-rgb), 0.2);
+  color: var(--cat-project-color);
+  text-decoration: line-through;
+}
+.filter-section.projects.exclusion-filter .filter-item-label {
+  background: rgba(var(--cat-project-rgb), 0.2);
+  color: var(--cat-project-color);
+  text-decoration: line-through;
+}

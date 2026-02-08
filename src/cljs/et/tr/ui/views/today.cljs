@@ -109,7 +109,7 @@
                             :toggle-collapsed-fn state/toggle-today-filter-collapsed
                             :set-search-fn state/set-today-category-search
                             :search-state-path [:today-page/category-search filter-key]
-                            :section-class "exclusion-filter"
+                            :section-class (str (name filter-key) " exclusion-filter")
                             :item-active-class "excluded"
                             :label-class "excluded"
                             :page-prefix "today"}])
