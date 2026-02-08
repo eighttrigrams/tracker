@@ -113,16 +113,3 @@
   background: rgba(var(--cat-goal-rgb), 0.2);
   color: var(--cat-goal-color);
 }
-.exclusion-filter .filter-item.excluded {
-  background: rgba(255, 59, 48, 0.15);
-  color: #ff3b30;
-  text-decoration: line-through;
-}
-.exclusion-filter .filter-item:not(.excluded) {
-  background: rgba(var(--cat-person-rgb), 0.1);
-  color: var(--cat-person-color);
-}
-.exclusion-filter .filter-item-label.excluded {
-  background: var(--badge-excluded-bg);
-  color: var(--badge-excluded-color);
-}
