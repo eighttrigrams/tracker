@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# cron runs with a minimal PATH, so docker, make, etc. won't be found
+# cron runs with a minimal PATH (/usr/bin:/bin) — docker is not found without this
 export PATH="/opt/homebrew/bin:/usr/local/bin:/Users/daniel/.docker/bin:$PATH"
 
 REPO_DIR="$1"
