@@ -9,6 +9,7 @@ const testDir = defineBddConfig({
 export default defineConfig({
   testDir,
   timeout: 30_000,
+  workers: 1,
   use: {
     baseURL: "http://localhost:3027",
     headless: !!process.env.CI,

@@ -671,3 +671,8 @@
                    :where [:and [:= :id message-id] (user-id-where-clause user-id)]
                    :returning [:id :annotation]})
       jdbc-opts)))
+
+(defn reset-all-data! [ds]
+  (let [conn (get-conn ds)]
+    (doseq [table [:task_categories :tasks :messages :people :places :projects :goals :users]]
+      (jdbc/execute-one! conn (sql/format {:delete-from table})))))

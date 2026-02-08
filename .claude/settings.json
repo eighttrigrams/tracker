@@ -39,6 +39,7 @@
       "Bash(gh issue list:*)",
       "Bash(ls:*)",
       "Skill(develop-ui)",
+      "Skill(write-e2e-tests)",
       "Edit(resources/**)",
       "Write(resources/**)",
       "Edit(src/**)",

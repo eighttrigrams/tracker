@@ -541,6 +541,12 @@
         (catch Exception e
           {:status 500 :body {:error "Export failed" :message (.getMessage e)}})))))
 
+(defn- reset-test-db-handler [_]
+  (if (prod-mode?)
+    {:status 403 :body {:error "Not available in production"}}
+    (do (db/reset-all-data! (ensure-ds))
+        {:status 200 :body {:success true}})))
+
 (defn- serve-index [_]
   {:status 200
    :headers {"Content-Type" "text/html"}
@@ -610,7 +616,10 @@
       (PUT "/:id/annotation" [] update-message-annotation-handler)
       (DELETE "/:id" [] delete-message-handler))
 
-    (DELETE "/:category/:id" [] delete-category-handler)))
+    (DELETE "/:category/:id" [] delete-category-handler)
+
+    (context "/test" []
+      (POST "/reset" [] reset-test-db-handler))))
 
 (defroutes app-routes
   api-routes
