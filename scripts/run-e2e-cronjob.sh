@@ -2,6 +2,7 @@
 set -e
 
 # cron runs with a minimal PATH (/usr/bin:/bin), so git, make, docker etc. won't be found
+# TODO that is just speculation, lets remove this and test if it continues to work
 export PATH="/opt/homebrew/bin:/usr/local/bin:/Users/daniel/.docker/bin:$PATH"
 
 REPO_DIR="$1"
