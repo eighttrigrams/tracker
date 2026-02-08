@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+export PATH="/opt/homebrew/bin:/usr/local/bin:/Users/daniel/.docker/bin:$PATH"
+
 REPO_DIR="$1"
 
 if [ -z "$REPO_DIR" ]; then
