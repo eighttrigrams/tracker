@@ -26,8 +26,9 @@
          [:span.importance-badge {:class importance} importance-stars])
        (doall
         (for [category all-categories]
-          (let [type-has-filter? (state/has-filter-for-type? (:type category))
-                clickable? (not type-has-filter?)]
+          (let [on-tasks-page? (= :tasks (:active-tab @state/*app-state))
+                type-has-filter? (state/has-filter-for-type? (:type category))
+                clickable? (and on-tasks-page? (not type-has-filter?))]
             ^{:key (str (:type category) "-" (:id category))}
             [:span.tag {:class (:type category)
                         :style (when clickable? {:cursor "pointer"})
