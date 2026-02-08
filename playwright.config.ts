@@ -1,0 +1,23 @@
+import { defineConfig } from "@playwright/test";
+import { defineBddConfig } from "playwright-bdd";
+
+const testDir = defineBddConfig({
+  features: "./e2e/features",
+  steps: "./e2e/steps/*.ts",
+});
+
+export default defineConfig({
+  testDir,
+  timeout: 30_000,
+  use: {
+    baseURL: "http://localhost:3027",
+    headless: !!process.env.CI,
+  },
+  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+  webServer: {
+    command: "make start",
+    url: "http://localhost:3027",
+    timeout: 120_000,
+    reuseExistingServer: true,
+  },
+});

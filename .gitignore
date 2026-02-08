@@ -25,3 +25,6 @@ build-next-feature/*
 !build-next-feature/NEXT_FEATURES.md
 .env
 *.png
+test-results/
+playwright-report/
+.features-gen/

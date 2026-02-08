@@ -1,0 +1,33 @@
+FROM clojure:temurin-21-tools-deps-bookworm
+
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY deps.edn build.clj package.json package-lock.json shadow-cljs.edn ./
+RUN npm install
+RUN npx playwright install --with-deps chromium
+
+COPY src ./src
+COPY resources ./resources
+COPY e2e ./e2e
+COPY playwright.config.ts ./
+COPY scripts ./scripts
+COPY Makefile ./
+
+RUN npx shadow-cljs release app
+
+RUN mkdir -p data
+
+RUN cat > config.edn <<'EOF'
+{:db {:type :sqlite-file
+      :path "data/tracker.db"}
+ :dangerously-skip-logins? true}
+EOF
+
+ENV CI=1
+
+CMD ["sh", "-c", "npx bddgen && npx playwright test"]

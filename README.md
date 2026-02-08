@@ -50,43 +50,19 @@ With `scripts/start.sh`, you can use `PORT=<port>` for a custom port (default: 3
 $ make start-prod
 ```
 
+## Testing
+
+See [docs/TESTING.md](docs/TESTING.md).
+
 ## Deployment
 
 ```bash
 $ make deploy
 ```
 
-## API
+## Messaging
 
-### Sending messages (Admin only)
-
-Messages can be sent to the app via the API using admin credentials:
-
-```bash
-curl -X POST http://localhost:3027/api/messages \
-  -H "Content-Type: application/json" \
-  -H "X-User-Id: null" \
-  -d '{"sender": "John", "title": "Hello", "description": "Message body"}'
-```
-
-The `X-User-Id: null` header indicates the admin user (dev mode only). Messages are visible in the Mail tab (admin only).
-
-### Sending messages in production
-
-Create a `.credentials` file (gitignored):
-
-```
-TRACKER_USERNAME=admin
-TRACKER_PASSWORD=your-admin-password
-TRACKER_API_URL=https://your-prod-url.fly.dev
-```
-
-Then use the script:
-
-```bash
-./scripts/send-message.sh "Title" "Message body"
-./scripts/send-message.sh "Title" "Message body" "CustomSender"
-```
+See [docs/MESSAGING.md](docs/MESSAGING.md).
 
 ## Automated Feature Building
 

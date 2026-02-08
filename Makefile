@@ -1,4 +1,4 @@
-.PHONY: start stop start-prod build test lint deploy clean backup backup-replay
+.PHONY: start stop start-prod build test e2e e2e-docker lint deploy clean backup backup-replay
 
 start:
 	@if [ -f .env ]; then set -a && . ./.env && set +a; fi && ./scripts/start.sh
@@ -16,6 +16,12 @@ build:
 
 test:
 	clj -X:test
+
+e2e:
+	npx bddgen && npx playwright test
+
+e2e-docker:
+	./scripts/run-e2e-docker.sh
 
 lint:
 	clj-kondo --lint src/clj src/cljc test/clj
