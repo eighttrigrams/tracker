@@ -63,4 +63,24 @@ make e2e-docker
 
 This builds a Docker image with the app and Playwright/Chromium, starts the server inside the container, runs the tests headless, and exits with the test result code (0 = pass).
 
-The cronjob is responsible for cloning/pulling the repo into a separate directory before running `make e2e-docker`.
+On completion, a test report message is sent to the running Tracker instance (requires `.credentials` file).
+
+### Cronjob Setup
+
+`scripts/run-e2e-cronjob.sh` pulls the latest main and runs the Docker E2E tests. It expects a repo directory as argument:
+
+```bash
+./scripts/run-e2e-cronjob.sh /path/to/tracker-copy
+```
+
+To set up a cronjob (e.g. every 5 minutes):
+
+```bash
+crontab -e
+```
+
+```
+*/5 * * * * /path/to/tracker-copy/scripts/run-e2e-cronjob.sh /path/to/tracker-copy >> /path/to/tracker-copy/logs/cronjob.log 2>&1
+```
+
+Use a separate clone of the repo so the cronjob doesn't interfere with local development.
