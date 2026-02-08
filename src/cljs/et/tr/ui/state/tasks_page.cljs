@@ -21,6 +21,9 @@
     CATEGORY-TYPE-PROJECT :tasks-page/filter-projects
     CATEGORY-TYPE-GOAL :tasks-page/filter-goals))
 
+(defn has-filter-for-type? [app-state filter-type]
+  (seq (get @app-state (filter-type->key filter-type))))
+
 (defn- current-fetch-opts [app-state]
   {:search-term (:tasks-page/filter-search @app-state)
    :importance (:tasks-page/importance-filter @app-state)

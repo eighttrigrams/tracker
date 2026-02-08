@@ -19,22 +19,23 @@
         importance-stars (case importance
                            "important" "★"
                            "critical" "★★"
-                           nil)
-        has-filters? (state/has-active-filters?)]
+                           nil)]
     (when (or importance-stars (seq all-categories))
       [:div.task-badges
        (when importance-stars
          [:span.importance-badge {:class importance} importance-stars])
        (doall
         (for [category all-categories]
-          ^{:key (str (:type category) "-" (:id category))}
-          [:span.tag {:class (:type category)
-                      :style (when-not has-filters? {:cursor "pointer"})
-                      :on-click (when-not has-filters?
-                                  (fn [e]
-                                    (.stopPropagation e)
-                                    (state/toggle-filter (:type category) (:id category))))}
-           (:name category)]))])))
+          (let [type-has-filter? (state/has-filter-for-type? (:type category))
+                clickable? (not type-has-filter?)]
+            ^{:key (str (:type category) "-" (:id category))}
+            [:span.tag {:class (:type category)
+                        :style (when clickable? {:cursor "pointer"})
+                        :on-click (when clickable?
+                                    (fn [e]
+                                      (.stopPropagation e)
+                                      (state/toggle-filter (:type category) (:id category))))}
+             (:name category)])))])))
 
 (defn task-scope-selector [task]
   (let [scope (or (:scope task) "both")]

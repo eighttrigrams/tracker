@@ -350,6 +350,9 @@
 (defn has-active-filters? []
   (tasks-page/has-active-filters? *app-state))
 
+(defn has-filter-for-type? [filter-type]
+  (tasks-page/has-filter-for-type? *app-state filter-type))
+
 (defn toggle-filter [filter-type id]
   (tasks-page/toggle-filter *app-state fetch-tasks filter-type id))
 
