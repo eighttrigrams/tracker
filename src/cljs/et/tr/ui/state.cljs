@@ -276,8 +276,25 @@
                                fetch-people fetch-places fetch-projects fetch-goals
                                category-type category-id target-category-id position))
 
+(defn- fetch-opts-for-current-tab []
+  (case (:active-tab @*app-state)
+    :tasks {:search-term (:tasks-page/filter-search @*app-state)
+            :importance (:tasks-page/importance-filter @*app-state)
+            :context (:work-private-mode @*app-state)
+            :strict (:strict-mode @*app-state)
+            :filter-people (:tasks-page/filter-people @*app-state)
+            :filter-places (:tasks-page/filter-places @*app-state)
+            :filter-projects (:tasks-page/filter-projects @*app-state)
+            :filter-goals (:tasks-page/filter-goals @*app-state)}
+    :today {:context (:work-private-mode @*app-state)
+            :strict (:strict-mode @*app-state)
+            :excluded-places (:today-page/excluded-places @*app-state)
+            :excluded-projects (:today-page/excluded-projects @*app-state)}
+    {:context (:work-private-mode @*app-state)
+     :strict (:strict-mode @*app-state)}))
+
 (defn fetch-tasks
-  ([] (fetch-tasks nil))
+  ([] (fetch-tasks (fetch-opts-for-current-tab)))
   ([opts]
    (tasks/fetch-tasks *app-state auth-headers today-page/calculate-best-horizon opts)))
 
