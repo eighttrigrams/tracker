@@ -1,12 +1,9 @@
 (ns et.tr.ui.state.tasks
   (:require [ajax.core :refer [GET POST]]
             [clojure.string :as str]
-            [et.tr.ui.api :as api]))
-
-(def ^:const CATEGORY-TYPE-PERSON "person")
-(def ^:const CATEGORY-TYPE-PLACE "place")
-(def ^:const CATEGORY-TYPE-PROJECT "project")
-(def ^:const CATEGORY-TYPE-GOAL "goal")
+            [et.tr.ui.api :as api]
+            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE
+                                        CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
 
 (defn- ids-to-names [ids category-list]
   (let [id-set (set ids)]

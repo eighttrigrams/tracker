@@ -1,5 +1,6 @@
 (ns et.tr.ui.state
   (:require [reagent.core :as r]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.state.auth :as auth]
             [et.tr.ui.state.mail :as mail]
             [et.tr.ui.state.users :as users]
@@ -9,10 +10,10 @@
             [et.tr.ui.state.today-page :as today-page]
             [et.tr.ui.state.ui :as ui]))
 
-(def ^:const CATEGORY-TYPE-PERSON "person")
-(def ^:const CATEGORY-TYPE-PLACE "place")
-(def ^:const CATEGORY-TYPE-PROJECT "project")
-(def ^:const CATEGORY-TYPE-GOAL "goal")
+(def ^:const CATEGORY-TYPE-PERSON constants/CATEGORY-TYPE-PERSON)
+(def ^:const CATEGORY-TYPE-PLACE constants/CATEGORY-TYPE-PLACE)
+(def ^:const CATEGORY-TYPE-PROJECT constants/CATEGORY-TYPE-PROJECT)
+(def ^:const CATEGORY-TYPE-GOAL constants/CATEGORY-TYPE-GOAL)
 
 (def initial-collection-state
   {:tasks []
