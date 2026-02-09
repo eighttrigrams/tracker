@@ -58,7 +58,6 @@
     (validate-preconditions)
     (setup-feature-branch feature-name)
     (cleanup-workspace)
-    (send-notification "Build Started" (str "Building feature: " feature-name))
     (log "Start building ...")
 
     (shell "builder" feature-name)
