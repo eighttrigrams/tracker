@@ -27,8 +27,8 @@
         (tel/log! :info "Loading configuration from config.edn")
         (edn/read-string (slurp config-file)))
       (do
-        (tel/log! :info "config.edn not found, using default in-memory database")
-        {:db {:type :sqlite-memory}}))))
+        (tel/log! :info "config.edn not found, using defaults")
+        {}))))
 
 (defn ensure-ds []
   (when (nil? @ds)
@@ -673,9 +673,23 @@
     (.mkdirs log-dir)
     (tel/add-handler! :file (tel/handler:file {:path "logs/tracker.log"}))))
 
-(defn -main [& _args]
+(defn -main [& args]
   (reset! config (load-config))
-  (let [prod? (prod-mode?)]
+  (let [prod? (prod-mode?)
+        cli-opts (if (map? (first args)) (first args) {})
+        cli-flags (set (filter string? args))
+        with-memory-db? (or (cli-flags "--with-sqlite-in-memory-db")
+                            (:with-sqlite-in-memory-db cli-opts))
+        skip-logins? (or (cli-flags "--dangerously-skip-logins")
+                         (:dangerously-skip-logins cli-opts))]
+    (when with-memory-db?
+      (if prod?
+        (throw (ex-info "Cannot use --with-sqlite-in-memory-db in production mode" {}))
+        (swap! config assoc :db {:type :sqlite-memory})))
+    (when skip-logins?
+      (if prod?
+        (throw (ex-info "Cannot use --dangerously-skip-logins in production mode" {}))
+        (swap! config assoc :dangerously-skip-logins? true)))
     (when-not prod? (setup-file-logging))
     (when (and (true? (:dangerously-skip-logins? @config)) prod?)
       (throw (ex-info "Cannot use :dangerously-skip-logins? in production mode" {})))

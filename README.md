@@ -10,22 +10,28 @@ Run
 
 ```bash
 $ make start
-```
-
-Visit http://localhost:3027.
-
-To stop:
-
-```bash
+# Visit http://localhost:3027.
 $ make stop
 ```
 
 ## Configuration
 
-On first run, `config.edn` is auto-created with defaults. Modify it to customize:
+On first run, a `config.edn` is auto-created with defaults,
+which allows to navigate the UI without having to log in, as well as
+creating an initial (persistent) database.
 
-- `:shadow? true` - enable hot reload for ClojureScript development
+For development, you can customise:
+
 - `:db {:type :sqlite-file :path "data/tracker.db"}` - database location
+- `:db {:type :sqlite-memory}` - use an in-memory database
+- `:shadow? true` - enable hot reload for ClojureScript development
+- `:dangerously-skip-permissions? true` allows to navigate the app without requiring a login step, to facilitate development
+
+When not in production mode, one can also pass
+- `--dangerously-skip-permissions`
+- `--with-sqlite-in-memory`
+
+These are CLI flags passed to `clojure -X:run` (e.g. `:with-sqlite-in-memory true`) or `java -jar` (e.g. `--with-sqlite-in-memory`).
 
 ## Development
 

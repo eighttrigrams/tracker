@@ -20,14 +20,6 @@ COPY Makefile ./
 
 RUN npx shadow-cljs release app
 
-RUN mkdir -p data
-
-RUN cat > config.edn <<'EOF'
-{:db {:type :sqlite-file
-      :path "data/tracker.db"}
- :dangerously-skip-logins? true}
-EOF
-
 ENV CI=1
 
 CMD ["sh", "-c", "npx bddgen && npx playwright test"]

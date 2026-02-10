@@ -16,7 +16,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   webServer: {
-    command: "make start",
+    command: "DEV=true clojure -X:run :with-sqlite-in-memory-db true :dangerously-skip-logins true",
     url: "http://localhost:3027",
     timeout: 120_000,
     reuseExistingServer: true,
