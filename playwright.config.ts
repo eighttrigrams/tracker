@@ -11,14 +11,14 @@ export default defineConfig({
   timeout: 30_000,
   workers: 1,
   use: {
-    baseURL: "http://localhost:3027",
+    baseURL: "http://localhost:3029",
     headless: !!process.env.CI,
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   webServer: {
-    command: "DEV=true clojure -X:run :with-sqlite-in-memory-db true :dangerously-skip-logins true",
-    url: "http://localhost:3027",
+    command: "PORT=3029 ./scripts/stop.sh && PORT=3029 NREPL_PORT=7899 DEV=true clojure -X:run :with-sqlite-in-memory-db true :dangerously-skip-logins true",
+    url: "http://localhost:3029",
     timeout: 120_000,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
   },
 });

@@ -1,12 +1,7 @@
 #!/bin/bash
 
-if [ -f .server.port ]; then
-  PORT=$(cat .server.port)
-else
-  PORT=${PORT:-3027}
-fi
-
-echo "Stopping application..."
+EXPLICIT_PORT=$PORT
+PORT=${PORT:-$(cat .server.port 2>/dev/null || echo 3027)}
 
 echo "Stopping server on port $PORT..."
 PID=$(lsof -ti:$PORT)
@@ -17,9 +12,9 @@ else
   echo "No server found on port $PORT"
 fi
 
-echo "Stopping shadow-cljs server..."
-npx shadow-cljs stop 2>/dev/null || true
-rm -f .shadow-cljs.pid
-
-rm -f .nrepl-port .server.port
+if [ -z "$EXPLICIT_PORT" ]; then
+  echo "Stopping shadow-cljs server..."
+  npx shadow-cljs stop 2>/dev/null || true
+  rm -f .shadow-cljs.pid .nrepl-port .server.port
+fi
 echo "Done."
