@@ -39,16 +39,12 @@
           (if-let [text (:text message)]
             (if (= text "/start")
               {:status 200 :body {:ok true :skipped "start command"}}
-              (let [from (:from message)
-                    chat-id (get-in message [:chat :id])
+              (let [chat-id (get-in message [:chat :id])
                     message-id (:message_id message)
-                    sender (or (:username from)
-                               (str (:first_name from) (when (:last_name from) (str " " (:last_name from))))
-                               "Unknown")
                     title (if (> (count text) 50)
                             (str (subs text 0 47) "...")
                             text)]
-                (db/add-message ds nil sender title text)
+                (db/add-message ds nil "Note" title text)
                 (delete-telegram-message chat-id message-id)
                 {:status 200 :body {:ok true}}))
             {:status 200 :body {:ok true :skipped "no text"}}))))))

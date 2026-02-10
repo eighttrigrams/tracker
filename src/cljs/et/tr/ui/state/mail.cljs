@@ -3,7 +3,7 @@
             [reagent.core :as r]
             [et.tr.ui.api :as api]))
 
-(def ^:const DEFAULT-SENDER "Daniel de Oliveira")
+(def ^:const DEFAULT-SENDER "Note")
 
 (defonce *mail-page-state (r/atom {:sort-mode :recent
                                    :expanded-message nil
