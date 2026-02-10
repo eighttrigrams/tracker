@@ -13,15 +13,15 @@ docker run --rm tracker-e2e 2>&1 | tee "$LOG_FILE"
 TEST_EXIT="${PIPESTATUS[0]}"
 
 if [ "$TEST_EXIT" -eq 0 ]; then
-  TITLE="E2E Tests Passed"
+  TITLE="Tracker E2E Tests Passed"
 else
-  TITLE="E2E Tests Failed"
+  TITLE="Tracker E2E Tests Failed"
 fi
 
 BODY=$(cat "$LOG_FILE")
 
 if [ -f "$PROJECT_DIR/.credentials" ]; then
-  "$SCRIPT_DIR/send-message.sh" "$TITLE" "$BODY" "Tracker E2E Testing"
+  "$SCRIPT_DIR/send-message.sh" "$TITLE" "$BODY" "E2E Testing"
 fi
 
 exit "$TEST_EXIT"
