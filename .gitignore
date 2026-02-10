@@ -28,3 +28,4 @@ build-next-feature/*
 test-results/
 playwright-report/
 .features-gen/
+.DS_Store
