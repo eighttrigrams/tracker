@@ -1,3 +1,4 @@
 {:db {:type :sqlite-memory}
+ :nrepl-port 7898
  :dangerously-skip-logins? true
  :shadow? true}

@@ -25,13 +25,10 @@ For development, you can customise:
 - `:db {:type :sqlite-file :path "data/tracker.db"}` - database location
 - `:db {:type :sqlite-memory}` - use an in-memory database
 - `:shadow? true` - enable hot reload for ClojureScript development
-- `:dangerously-skip-permissions? true` allows to navigate the app without requiring a login step, to facilitate development
+- `:dangerously-skip-logins? true` allows to navigate the app without requiring a login step, to facilitate development
+- `:nrepl-port 7898` - nREPL port (required for dev mode)
 
-When not in production mode, one can also pass
-- `--dangerously-skip-permissions`
-- `--with-sqlite-in-memory`
-
-These are CLI flags passed to `clojure -X:run` (e.g. `:with-sqlite-in-memory true`) or `java -jar` (e.g. `--with-sqlite-in-memory`).
+For E2E testing, pass `:e2e true` via `clojure -X:run` to use an in-memory DB, skip logins, and skip nREPL.
 
 ## Development
 

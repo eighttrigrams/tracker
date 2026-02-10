@@ -16,7 +16,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   webServer: {
-    command: "PORT=3029 ./scripts/stop.sh && PORT=3029 NREPL_PORT=7899 DEV=true clojure -X:run :with-sqlite-in-memory-db true :dangerously-skip-logins true",
+    command: "PORT=3029 ./scripts/stop.sh && PORT=3029 DEV=true clojure -X:run :e2e true",
     url: "http://localhost:3029",
     timeout: 120_000,
     reuseExistingServer: false,

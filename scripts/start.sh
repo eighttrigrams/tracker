@@ -8,6 +8,7 @@ if [ ! -f config.edn ]; then
   cat > config.edn << 'EOF'
 {:db {:type :sqlite-file
       :path "data/tracker.db"}
+ :nrepl-port 7898
  :dangerously-skip-logins? true}
 EOF
 fi

@@ -677,26 +677,18 @@
   (reset! config (load-config))
   (let [prod? (prod-mode?)
         cli-opts (if (map? (first args)) (first args) {})
-        cli-flags (set (filter string? args))
-        with-memory-db? (or (cli-flags "--with-sqlite-in-memory-db")
-                            (:with-sqlite-in-memory-db cli-opts))
-        skip-logins? (or (cli-flags "--dangerously-skip-logins")
-                         (:dangerously-skip-logins cli-opts))]
-    (when with-memory-db?
+        e2e? (:e2e cli-opts)]
+    (when e2e?
       (if prod?
-        (throw (ex-info "Cannot use --with-sqlite-in-memory-db in production mode" {}))
-        (swap! config assoc :db {:type :sqlite-memory})))
-    (when skip-logins?
-      (if prod?
-        (throw (ex-info "Cannot use --dangerously-skip-logins in production mode" {}))
-        (swap! config assoc :dangerously-skip-logins? true)))
+        (throw (ex-info "Cannot use --e2e in production mode" {}))
+        (reset! config {:db {:type :sqlite-memory} :dangerously-skip-logins? true})))
     (when-not prod? (setup-file-logging))
     (when (and (true? (:dangerously-skip-logins? @config)) prod?)
       (throw (ex-info "Cannot use :dangerously-skip-logins? in production mode" {})))
     (tel/log! :info (str "Starting system in " (if prod? "production" "development") " mode"))
     (ensure-ds)
-    (when-not prod?
-      (let [nrepl-port (env-int "NREPL_PORT" 7898)]
+    (when (and (not prod?) (not e2e?))
+      (when-let [nrepl-port (:nrepl-port @config)] 
         (nrepl/start-server :port nrepl-port)
         (spit ".nrepl-port" nrepl-port)
         (tel/log! :info (str "nREPL server started on port " nrepl-port))))
