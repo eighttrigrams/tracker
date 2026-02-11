@@ -1,4 +1,6 @@
 {:db {:type :sqlite-memory}
+ :port 3027
  :nrepl-port 7898
  :dangerously-skip-logins? true
- :shadow? true}
+ :shadow? true
+ :logfile "logs/tracker.log"}

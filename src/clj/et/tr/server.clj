@@ -18,7 +18,7 @@
   (:gen-class))
 
 (defonce ds (atom nil))
-(defonce config (atom nil))
+(defonce *config (atom nil))
 
 (defn- load-config []
   (let [config-file (io/file "config.edn")]
@@ -32,9 +32,9 @@
 
 (defn ensure-ds []
   (when (nil? @ds)
-    (when (nil? @config)
-      (reset! config (load-config)))
-    (let [conn (db/init-conn (get @config :db {:type :sqlite-memory}))]
+    (when (nil? @*config)
+      (reset! *config (load-config)))
+    (let [conn (db/init-conn (get @*config :db {:type :sqlite-memory}))]
       (reset! ds conn)))
   @ds)
 
@@ -58,7 +58,7 @@
       false)))
 
 (defn- allow-skip-logins? []
-  (and (true? (:dangerously-skip-logins? @config))
+  (and (true? (:dangerously-skip-logins? @*config))
        (not (prod-mode?))))
 
 (defn- get-user-from-request [req]
@@ -668,31 +668,34 @@
     (tel/log! :info (str "Binding to " host ":" port))
     (jetty/run-jetty (app prod?) {:port port :host host :join? false})))
 
-(defn- setup-file-logging []
-  (let [log-dir (io/file "logs")]
+(defn- setup-file-logging [path]
+  (let [log-dir (.getParentFile (io/file path))]
     (.mkdirs log-dir)
-    (tel/add-handler! :file (tel/handler:file {:path "logs/tracker.log"}))))
+    (tel/add-handler! :file (tel/handler:file {:path path}))))
 
 (defn -main [& args]
-  (reset! config (load-config))
+  (reset! *config (load-config))
   (let [prod? (prod-mode?)
         cli-opts (if (map? (first args)) (first args) {})
         e2e? (:e2e cli-opts)]
     (when e2e?
       (if prod?
         (throw (ex-info "Cannot use --e2e in production mode" {}))
-        (reset! config {:db {:type :sqlite-memory} :dangerously-skip-logins? true})))
-    (when-not prod? (setup-file-logging))
-    (when (and (true? (:dangerously-skip-logins? @config)) prod?)
+        (swap! *config merge {:db {:type :sqlite-memory} :dangerously-skip-logins? true})))
+    (when-let [logfile (and (not prod?) (:logfile @*config))]
+      (setup-file-logging logfile))
+    (when (and (true? (:dangerously-skip-logins? @*config)) prod?)
       (throw (ex-info "Cannot use :dangerously-skip-logins? in production mode" {})))
     (tel/log! :info (str "Starting system in " (if prod? "production" "development") " mode"))
     (ensure-ds)
     (when (and (not prod?) (not e2e?))
-      (when-let [nrepl-port (:nrepl-port @config)] 
+      (when-let [nrepl-port (:nrepl-port @*config)] 
         (nrepl/start-server :port nrepl-port)
         (spit ".nrepl-port" nrepl-port)
         (tel/log! :info (str "nREPL server started on port " nrepl-port))))
-    (let [port (env-int "PORT" 3027)]
-      (tel/log! :info (str "Starting server on port " port))
-      (run-server port prod?)
-      @(promise))))
+    (if-let [port (env-int "PORT" (:port @*config))]
+      (do
+        (tel/log! :info (str "Starting server on port " port))
+        (run-server port prod?)
+        @(promise))
+      (throw (ex-info "No port defined" {})))))

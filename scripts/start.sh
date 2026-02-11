@@ -13,13 +13,16 @@ if [ ! -f config.edn ]; then
 EOF
 fi
 
-PORT=${PORT:-3027}
-echo $PORT > .server.port
+PORT=$(bb -e '(:port (read-string (slurp "config.edn")))')
+if [ -z "$PORT" ]; then
+  echo "ERROR: Could not read :port from config.edn"
+  exit 1
+fi
 
-SKIP_LOGINS=$(grep -o ':dangerously-skip-logins? true' config.edn || true)
+SKIP_LOGINS=$(bb -e '(:dangerously-skip-logins? (read-string (slurp "config.edn")))')
 
 if [ "$MODE" = "prod" ]; then
-  if [ -n "$SKIP_LOGINS" ]; then
+  if [ "$SKIP_LOGINS" = "true" ]; then
     echo "ERROR: Cannot start in prod mode with :dangerously-skip-logins? true"
     exit 1
   fi
@@ -35,9 +38,9 @@ else
     npm install
   fi
 
-  SHADOW=$(grep -o ':shadow? true' config.edn || true)
+  SHADOW=$(bb -e '(:shadow? (read-string (slurp "config.edn")))')
 
-  if [ -n "$SHADOW" ]; then
+  if [ "$SHADOW" = "true" ]; then
     echo "Starting shadow-cljs watch..."
     npx shadow-cljs watch app &
     echo $! > .shadow-cljs.pid
