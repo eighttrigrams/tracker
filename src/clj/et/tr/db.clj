@@ -622,10 +622,11 @@
     result))
 
 (defn list-messages
-  ([ds user-id] (list-messages ds user-id :recent nil))
-  ([ds user-id sort-mode] (list-messages ds user-id sort-mode nil))
-  ([ds user-id sort-mode sender-filter]
-   (let [user-where (user-id-where-clause user-id)
+  ([ds user-id] (list-messages ds user-id {}))
+  ([ds user-id opts]
+   (let [{:keys [sort-mode sender-filter]
+          :or {sort-mode :recent}} opts
+         user-where (user-id-where-clause user-id)
          done-filter (case sort-mode
                        :done [:= :done 1]
                        [:= :done 0])

@@ -24,7 +24,7 @@
     (let [m1 (db/add-message *ds* nil "A" "Msg1" "")
           _m2 (db/add-message *ds* nil "B" "Msg2" "")]
       (db/set-message-done *ds* nil (:id m1) true)
-      (let [messages (db/list-messages *ds* nil :recent)]
+      (let [messages (db/list-messages *ds* nil {:sort-mode :recent})]
         (is (= 1 (count messages)))
         (is (= "Msg2" (:title (first messages))))))))
 
@@ -33,7 +33,7 @@
     (let [m1 (db/add-message *ds* nil "A" "Msg1" "")
           _m2 (db/add-message *ds* nil "B" "Msg2" "")]
       (db/set-message-done *ds* nil (:id m1) true)
-      (let [messages (db/list-messages *ds* nil :done)]
+      (let [messages (db/list-messages *ds* nil {:sort-mode :done})]
         (is (= 1 (count messages)))
         (is (= "Msg1" (:title (first messages))))))))
 

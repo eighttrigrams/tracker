@@ -462,7 +462,8 @@
     (let [user-id (get-user-id req)
           sort-mode (keyword (get-in req [:params "sort"] "recent"))
           sender (get-in req [:params "sender"])]
-      {:status 200 :body (db/list-messages (ensure-ds) user-id sort-mode sender)})
+      {:status 200 :body (db/list-messages (ensure-ds) user-id {:sort-mode sort-mode
+                                                                 :sender-filter sender})})
     {:status 403 :body {:error "Admin access required"}}))
 
 (defn add-message-handler [req]

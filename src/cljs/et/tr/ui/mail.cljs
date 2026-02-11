@@ -100,7 +100,7 @@
                   (reset! archiving? true)
                   (js/setTimeout #(state/set-message-done (:id message) true) 1000))}]])
 
-(defn- mail-message-item [message expanded-id editing-id sort-mode]
+(defn- mail-message-item [_message _expanded-id _editing-id _sort-mode]
   (let [archiving? (r/atom false)]
     (fn [message expanded-id editing-id sort-mode]
       (let [{:keys [id]} message
