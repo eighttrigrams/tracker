@@ -72,3 +72,77 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.mail-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mail-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.archive-checkbox-wrapper {
+  flex-shrink: 0;
+  padding-top: 2px;
+  transition: opacity 0.3s ease;
+}
+
+.archive-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.archive-checkbox:hover {
+  transform: scale(1.1);
+  border-color: var(--accent);
+}
+
+.archive-checkbox:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: checkbox-pop 0.3s ease;
+}
+
+.archive-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  animation: checkmark-fade-in 0.3s ease;
+}
+
+@keyframes checkbox-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes checkmark-fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.mail-page .items li.archiving-out {
+  animation: card-fade-out 1s ease forwards;
+}
+
+@keyframes card-fade-out {
+  0% { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(20px); }
+}

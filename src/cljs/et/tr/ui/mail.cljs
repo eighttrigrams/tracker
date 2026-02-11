@@ -90,14 +90,32 @@
         [:div.item-annotation annotation])
       [mail-message-actions message]])])
 
-(defn- mail-message-item [message expanded-id editing-id]
-  (let [{:keys [id]} message
-        expanded? (= expanded-id id)
-        editing? (= editing-id id)]
-    [:li {:class (when expanded? "expanded")}
-     [mail-message-header message expanded?]
-     (when expanded?
-       [mail-message-expanded-content message editing?])]))
+(defn- archive-checkbox [message archiving?]
+  [:div.archive-checkbox-wrapper
+   [:input.archive-checkbox
+    {:type "checkbox"
+     :checked @archiving?
+     :on-click #(.stopPropagation %)
+     :on-change (fn [_]
+                  (reset! archiving? true)
+                  (js/setTimeout #(state/set-message-done (:id message) true) 1000))}]])
+
+(defn- mail-message-item [message expanded-id editing-id sort-mode]
+  (let [archiving? (r/atom false)]
+    (fn [message expanded-id editing-id sort-mode]
+      (let [{:keys [id]} message
+            expanded? (= expanded-id id)
+            editing? (= editing-id id)
+            show-checkbox? (and (not expanded?) (#{:recent :reverse} sort-mode))]
+        [:li {:class (str (when expanded? "expanded")
+                          (when @archiving? " archiving-out"))}
+         [:div.mail-item-row
+          (when show-checkbox?
+            [archive-checkbox message archiving?])
+          [:div.mail-item-content
+           [mail-message-header message expanded?]
+           (when expanded?
+             [mail-message-expanded-content message editing?])]]]))))
 
 (defn- mail-sender-filter-badge []
   (let [sender-filter (:sender-filter @mail-state/*mail-page-state)]
@@ -151,4 +169,4 @@
        [:ul.items
         (for [message messages]
           ^{:key (:id message)}
-          [mail-message-item message expanded-message editing-message])])]))
+          [mail-message-item message expanded-message editing-message sort-mode])])]))
