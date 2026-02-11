@@ -6,7 +6,7 @@ const ci = !!process.env.CI;
 
 let port = "3027";
 try {
-  const result = execSync(`bb -e '(:port (read-string (slurp "config.edn")))'`, { encoding: "utf-8" }).trim();
+  const result = execSync(`bb -e '(:port (read-string (slurp "config.edn")))' 2>/dev/null`, { encoding: "utf-8" }).trim();
   if (result) port = result;
 } catch {}
 
