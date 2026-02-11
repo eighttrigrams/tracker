@@ -1,10 +1,7 @@
 #!/bin/bash
 
-PORT=$(bb -e '(:port (read-string (slurp "config.edn")))')
-if [ -z "$PORT" ]; then
-  echo "ERROR: Could not read :port from config.edn"
-  exit 1
-fi
+PORT=$(bb -e '(:port (read-string (slurp "config.edn")))' 2>/dev/null)
+PORT=${PORT:-3027}
 
 echo "Stopping server on port $PORT..."
 PID=$(lsof -ti:$PORT)

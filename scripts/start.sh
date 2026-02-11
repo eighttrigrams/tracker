@@ -9,6 +9,7 @@ if [ ! -f config.edn ]; then
 {:db {:type :sqlite-file
       :path "data/tracker.db"}
  :nrepl-port 7898
+ :port 3027
  :dangerously-skip-logins? true}
 EOF
 fi

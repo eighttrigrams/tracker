@@ -2,8 +2,11 @@ import { execSync } from "child_process";
 import { defineConfig } from "@playwright/test";
 import { defineBddConfig } from "playwright-bdd";
 
-const port = execSync(`bb -e '(:port (read-string (slurp "config.edn")))'`, { encoding: "utf-8" }).trim();
-if (!port) throw new Error("Could not read :port from config.edn");
+let port = "3027";
+try {
+  const result = execSync(`bb -e '(:port (read-string (slurp "config.edn")))'`, { encoding: "utf-8" }).trim();
+  if (result) port = result;
+} catch {}
 
 const testDir = defineBddConfig({
   features: "./e2e/features",
