@@ -58,7 +58,10 @@
    [:span.item-title
     [:span.mail-sender {:on-click (fn [e]
                                     (.stopPropagation e)
-                                    (state/set-mail-sender-filter sender))}
+                                    (if (and (.-shiftKey e)
+                                             (nil? (:sender-filter @mail-state/*mail-page-state)))
+                                      (state/toggle-excluded-sender sender)
+                                      (state/set-mail-sender-filter sender)))}
      sender]
     [:span.mail-title title]
     (when expanded?
@@ -118,12 +121,19 @@
              [mail-message-expanded-content message editing?])]]]))))
 
 (defn- mail-sender-filter-badge []
-  (let [sender-filter (:sender-filter @mail-state/*mail-page-state)]
-    (when sender-filter
+  (let [sender-filter (:sender-filter @mail-state/*mail-page-state)
+        excluded-senders (:excluded-senders @mail-state/*mail-page-state)]
+    (when (or sender-filter (seq excluded-senders))
       [:div.mail-sender-filter
-       [:span.filter-item-label.included
-        sender-filter
-        [:button.remove-item {:on-click #(state/clear-mail-sender-filter)} "x"]]])))
+       (when sender-filter
+         [:span.filter-item-label.included
+          sender-filter
+          [:button.remove-item {:on-click #(state/clear-mail-sender-filter)} "x"]])
+       (for [sender excluded-senders]
+         ^{:key sender}
+         [:span.filter-item-label.excluded
+          sender
+          [:button.remove-item {:on-click #(state/clear-excluded-sender sender)} "x"]])])))
 
 (defn- mail-sort-toggle []
   (let [sort-mode (:sort-mode @mail-state/*mail-page-state)]

@@ -163,6 +163,12 @@
 (defn clear-mail-sender-filter []
   (mail/clear-mail-sender-filter *app-state auth-headers))
 
+(defn toggle-excluded-sender [sender]
+  (mail/toggle-excluded-sender *app-state auth-headers sender))
+
+(defn clear-excluded-sender [sender]
+  (mail/clear-excluded-sender *app-state auth-headers sender))
+
 (defn set-editing-message [id]
   (mail/set-editing-message id))
 

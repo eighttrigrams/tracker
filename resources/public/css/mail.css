@@ -41,6 +41,14 @@
 .filter-item-label.included .remove-item {
   color: var(--cat-person-color);
 }
+.filter-item-label.excluded {
+  background: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+  margin-left: 4px;
+}
+.filter-item-label.excluded .remove-item {
+  color: #dc3545;
+}
 .mail-title {
   font-weight: 500;
   color: var(--text-primary);

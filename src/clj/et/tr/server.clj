@@ -461,9 +461,13 @@
   (if (is-admin? req)
     (let [user-id (get-user-id req)
           sort-mode (keyword (get-in req [:params "sort"] "recent"))
-          sender (get-in req [:params "sender"])]
+          sender (get-in req [:params "sender"])
+          excluded-senders-param (get-in req [:params "excludedSenders"])
+          excluded-senders (when (and excluded-senders-param (not (str/blank? excluded-senders-param)))
+                             (set (str/split excluded-senders-param #",")))]
       {:status 200 :body (db/list-messages (ensure-ds) user-id {:sort-mode sort-mode
-                                                                 :sender-filter sender})})
+                                                                 :sender-filter sender
+                                                                 :excluded-senders excluded-senders})})
     {:status 403 :body {:error "Admin access required"}}))
 
 (defn add-message-handler [req]

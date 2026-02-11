@@ -1,5 +1,6 @@
 (ns et.tr.ui.state.mail
   (:require [ajax.core :refer [GET]]
+            [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.ui.api :as api]))
 
@@ -9,6 +10,7 @@
                                    :expanded-message nil
                                    :fetch-request-id 0
                                    :sender-filter nil
+                                   :excluded-senders #{}
                                    :editing-message nil
                                    :confirm-delete-message nil}))
 
@@ -16,8 +18,10 @@
   (let [request-id (:fetch-request-id (swap! *mail-page-state update :fetch-request-id inc))
         sort-mode (name (:sort-mode @*mail-page-state))
         sender-filter (:sender-filter @*mail-page-state)
+        excluded-senders (:excluded-senders @*mail-page-state)
         url (cond-> (str "/api/messages?sort=" sort-mode)
-              sender-filter (str "&sender=" (js/encodeURIComponent sender-filter)))]
+              sender-filter (str "&sender=" (js/encodeURIComponent sender-filter))
+              (seq excluded-senders) (str "&excludedSenders=" (js/encodeURIComponent (str/join "," excluded-senders))))]
     (GET url
       {:response-format :json
        :keywords? true
@@ -62,11 +66,23 @@
       (clear-confirm-delete-message))))
 
 (defn set-mail-sender-filter [app-state auth-headers sender]
-  (swap! *mail-page-state assoc :sender-filter sender)
+  (swap! *mail-page-state assoc :sender-filter sender :excluded-senders #{})
   (fetch-messages app-state auth-headers))
 
 (defn clear-mail-sender-filter [app-state auth-headers]
   (swap! *mail-page-state assoc :sender-filter nil)
+  (fetch-messages app-state auth-headers))
+
+(defn toggle-excluded-sender [app-state auth-headers sender]
+  (swap! *mail-page-state update :excluded-senders
+         (fn [excluded]
+           (if (contains? excluded sender)
+             (disj excluded sender)
+             (conj excluded sender))))
+  (fetch-messages app-state auth-headers))
+
+(defn clear-excluded-sender [app-state auth-headers sender]
+  (swap! *mail-page-state update :excluded-senders disj sender)
   (fetch-messages app-state auth-headers))
 
 (defn set-editing-message [id]

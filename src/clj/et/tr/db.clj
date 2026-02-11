@@ -624,16 +624,16 @@
 (defn list-messages
   ([ds user-id] (list-messages ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [sort-mode sender-filter]
+   (let [{:keys [sort-mode sender-filter excluded-senders]
           :or {sort-mode :recent}} opts
          user-where (user-id-where-clause user-id)
          done-filter (case sort-mode
                        :done [:= :done 1]
                        [:= :done 0])
          order-dir (if (= sort-mode :reverse) :asc :desc)
-         where-clause (if sender-filter
-                        [:and user-where done-filter [:= :sender sender-filter]]
-                        [:and user-where done-filter])]
+         where-clause (cond-> [:and user-where done-filter]
+                        sender-filter (conj [:= :sender sender-filter])
+                        (seq excluded-senders) (conj [:not-in :sender excluded-senders]))]
      (jdbc/execute! (get-conn ds)
        (sql/format {:select [:id :sender :title :description :created_at :done :annotation]
                     :from [:messages]

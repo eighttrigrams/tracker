@@ -79,3 +79,26 @@
       (is (= 1 (count (db/list-messages *ds* user-id))))
       (db/delete-user *ds* user-id)
       (is (= 0 (count (db/list-messages *ds* user-id)))))))
+
+(deftest list-messages-sender-filter-test
+  (testing "filters messages by sender"
+    (db/add-message *ds* nil "Alice" "From Alice" "")
+    (db/add-message *ds* nil "Bob" "From Bob" "")
+    (db/add-message *ds* nil "Alice" "Also from Alice" "")
+    (let [filtered (db/list-messages *ds* nil {:sender-filter "Alice"})]
+      (is (= 2 (count filtered)))
+      (is (every? #(= "Alice" (:sender %)) filtered)))))
+
+(deftest list-messages-excluded-senders-test
+  (testing "excludes messages by sender"
+    (db/add-message *ds* nil "Alice" "From Alice" "")
+    (db/add-message *ds* nil "Bob" "From Bob" "")
+    (db/add-message *ds* nil "Charlie" "From Charlie" "")
+    (let [filtered (db/list-messages *ds* nil {:excluded-senders #{"Alice"}})]
+      (is (= 2 (count filtered)))
+      (is (not-any? #(= "Alice" (:sender %)) filtered))))
+
+  (testing "excludes multiple senders"
+    (let [filtered (db/list-messages *ds* nil {:excluded-senders #{"Alice" "Bob"}})]
+      (is (= 1 (count filtered)))
+      (is (= "Charlie" (:sender (first filtered)))))))
