@@ -18,7 +18,7 @@ test:
 	clj -X:test
 
 e2e:
-	npx bddgen && npx playwright test
+	./scripts/stop.sh && npx shadow-cljs release app && npx bddgen && npx playwright test
 
 e2e-docker:
 	./scripts/run-e2e-docker.sh

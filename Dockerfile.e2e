@@ -21,5 +21,6 @@ COPY Makefile ./
 RUN npx shadow-cljs release app
 
 ENV CI=1
+ENV PORT=3027
 
 CMD ["sh", "-c", "npx bddgen && npx playwright test"]

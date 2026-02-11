@@ -4,15 +4,15 @@ import { defineBddConfig } from "playwright-bdd";
 
 const ci = !!process.env.CI;
 
-let port = "3027";
-try {
-  const result = execSync(`bb -e '(:port (read-string (slurp "config.edn")))' 2>/dev/null`, { encoding: "utf-8" }).trim();
-  if (result) port = result;
-} catch {}
+let port = process.env.PORT;
+if (!port) {
+  try {
+    port = execSync(`bb -e '(:port (read-string (slurp "config.edn")))' 2>/dev/null`, { encoding: "utf-8" }).trim();
+  } catch {}
+}
+if (!port) throw new Error("PORT env var not set and could not read :port from config.edn");
 
-const command = ci
-  ? `DEV=true clojure -X:run :e2e true`
-  : `./scripts/stop.sh && npx shadow-cljs release app && DEV=true clojure -X:run :e2e true`;
+const command = `DEV=true clojure -X:run :e2e true`;
 
 const testDir = defineBddConfig({
   features: "./e2e/features",

@@ -681,7 +681,7 @@
     (when e2e?
       (if prod?
         (throw (ex-info "Cannot use --e2e in production mode" {}))
-        (swap! *config #(merge {:port 3027} % {:db {:type :sqlite-memory} :dangerously-skip-logins? true}))))
+        (swap! *config merge {:db {:type :sqlite-memory} :dangerously-skip-logins? true})))
     (when-let [logfile (and (not prod?) (:logfile @*config))]
       (setup-file-logging logfile))
     (when (and (true? (:dangerously-skip-logins? @*config)) prod?)
