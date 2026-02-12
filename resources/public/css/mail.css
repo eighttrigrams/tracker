@@ -1,5 +1,7 @@
 .mail-page {
   padding: 24px 0;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .mail-page .items li {
   cursor: default;
