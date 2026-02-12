@@ -7,32 +7,22 @@
             [et.tr.ui.components.task-item :refer [markdown]]
             [et.tr.ui.date :as date]))
 
-(defn- youtube-video-id [url]
-  (when (string? url)
-    (cond
-      (str/includes? url "youtube.com/watch")
-      (second (re-find #"[?&]v=([^&\s]+)" url))
+(defn- first-youtube-video-id [& texts]
+  (some (fn [text]
+          (when (string? text)
+            (or (second (re-find #"(?:youtube\.com/watch[^\s]*[?&]v=)([^&\s]+)" text))
+                (second (re-find #"youtube\.com/shorts/([^?/\s]+)" text))
+                (second (re-find #"youtu\.be/([^?/\s]+)" text)))))
+        texts))
 
-      (str/includes? url "youtube.com/shorts/")
-      (second (re-find #"shorts/([^?/\s]+)" url))
-
-      (str/includes? url "youtu.be/")
-      (second (re-find #"youtu\.be/([^?/\s]+)" url))
-
-      :else nil)))
-
-(defn- youtube-preview [title]
-  (when-let [video-id (youtube-video-id title)]
-    [:div.youtube-preview
-     [:img.youtube-thumbnail
-      {:src (str "https://img.youtube.com/vi/" video-id "/hqdefault.jpg")
-       :alt "YouTube thumbnail"}]
-     [:iframe
-      {:width "420"
-       :height "315"
-       :src (str "https://www.youtube.com/embed/" video-id)
-       :allowFullScreen true
-       :frameBorder "0"}]]))
+(defn- youtube-embed [video-id]
+  [:div.youtube-preview
+   [:iframe
+    {:width "420"
+     :height "315"
+     :src (str "https://www.youtube.com/embed/" video-id)
+     :allowFullScreen true
+     :frameBorder "0"}]])
 
 (defn- format-message-datetime [date-str]
   (when date-str
@@ -86,7 +76,8 @@
 
 (defn- mail-message-expanded-content [{:keys [title description annotation type] :as message} editing?]
   [:div.item-details
-   [youtube-preview title]
+   (when-let [video-id (first-youtube-video-id title description)]
+     [youtube-embed video-id])
    (when (seq description)
      (if (= type "markdown")
        [markdown description]
