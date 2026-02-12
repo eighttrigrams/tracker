@@ -181,9 +181,12 @@
     (when (and (:due_date task) (not done-mode?))
       (let [today (date/today-str)
             overdue? (< (:due_date task) today)]
-        [:span.due-date {:class (when overdue? "overdue")} (date/format-date-with-day (:due_date task))]))
+        [:span.due-date {:class (when overdue? "overdue")
+                         :data-tooltip (date/get-day-name (:due_date task))}
+         (date/format-date-localized (:due_date task))]))
     (when (and (not due-date-mode?) (not manual-mode?))
-      [:span (date/format-datetime-localized (:modified_at task))])]])
+      [:span {:data-tooltip (some-> (:modified_at task) (.substring 0 10) date/get-day-name)}
+       (date/format-datetime-localized (:modified_at task))])]])
 
 (defn- task-item-content [task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?]
   [:div

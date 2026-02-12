@@ -45,7 +45,7 @@
         [task-item/task-attribute-selectors task]
         [task-item/task-combined-action-button task]]])))
 
-(defn today-task-item [task & {:keys [show-day-of-week show-day-prefix overdue? hide-date] :or {show-day-of-week false show-day-prefix false overdue? false hide-date false}}]
+(defn today-task-item [task & {:keys [show-day-prefix overdue? hide-date] :or {show-day-prefix false overdue? false hide-date false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/*app-state)
         editing-task (:editing-task @state/*app-state)
@@ -72,10 +72,8 @@
        (when-not is-expanded
          [task-item/task-category-badges task])]
       (when-not hide-date
-        [:span.task-date
-         (if show-day-of-week
-           (date/format-date-with-day (:due_date task))
-           (date/format-date-localized (:due_date task)))])]
+        [:span.task-date {:data-tooltip (date/get-day-name (:due_date task))}
+         (date/format-date-localized (:due_date task))])]
      (when is-expanded
        [today-task-expanded-details task])]))
 
@@ -125,15 +123,14 @@
      [today-exclusion-filter-section :projects projects excluded-projects collapsed-filters
       state/toggle-today-excluded-project state/clear-today-excluded-projects]]))
 
-(defn- task-list-section [tasks & {:keys [overdue? show-day-of-week show-day-prefix hide-date]
-                                      :or {overdue? false show-day-of-week false show-day-prefix false hide-date false}}]
+(defn- task-list-section [tasks & {:keys [overdue? show-day-prefix hide-date]
+                                      :or {overdue? false show-day-prefix false hide-date false}}]
   [:div.task-list
    (doall
     (for [task tasks]
       ^{:key (:id task)}
       [today-task-item task
        :overdue? overdue?
-       :show-day-of-week show-day-of-week
        :show-day-prefix show-day-prefix
        :hide-date hide-date]))])
 
@@ -173,7 +170,7 @@
       :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task drag-enabled?)
       :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
       :on-drop (drag-drop/make-urgency-task-drop-handler drag-task task target-urgency ensure-urgency state/reorder-task drag-enabled?)}
-     [today-task-item task :show-day-of-week true]]))
+     [today-task-item task]]))
 
 (defn- urgency-task-list [tasks target-urgency drag-enabled?]
   (let [drag-task (:drag-task @state/*app-state)
@@ -217,7 +214,7 @@
     [:h3 (t :today/upcoming)]
     [horizon-selector]]
    (if (seq upcoming)
-     [task-list-section upcoming :show-day-of-week true :show-day-prefix true]
+     [task-list-section upcoming :show-day-prefix true]
      [:p.empty-message (t :today/no-upcoming)])])
 
 (defn- today-view-switcher []

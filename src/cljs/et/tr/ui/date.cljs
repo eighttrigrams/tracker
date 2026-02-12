@@ -46,7 +46,7 @@
           day (.getDate d)
           month-key (month-number->translation-key (.getMonth d))
           year (.getFullYear d)]
-      (str day " " (i18n/t month-key) " " year))))
+      (str day " " (i18n/t month-key) ", " year))))
 
 (defn format-datetime-localized [datetime-str]
   (when datetime-str

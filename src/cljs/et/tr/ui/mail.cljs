@@ -4,7 +4,8 @@
             [et.tr.i18n :refer [t]]
             [reagent.core :as r]
             [clojure.string :as str]
-            [et.tr.ui.components.task-item :refer [markdown]]))
+            [et.tr.ui.components.task-item :refer [markdown]]
+            [et.tr.ui.date :as date]))
 
 (defn- youtube-video-id [url]
   (when (string? url)
@@ -70,7 +71,8 @@
                                       (.stopPropagation e)
                                       (state/set-editing-message id))}
        "✎"])]
-   [:span.item-date (format-message-datetime created_at)]])
+   [:span.item-date {:data-tooltip (some-> created_at (.substring 0 10) date/get-day-name)}
+    (format-message-datetime created_at)]])
 
 (defn- mail-message-actions [{:keys [id done] :as message}]
   [:div.item-actions
