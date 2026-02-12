@@ -44,6 +44,7 @@
     [:div.combined-search-add-form
      [:input#tasks-filter-search
       {:type "text"
+       :auto-complete "off"
        :placeholder (if done-mode? (t :tasks/search) (t :tasks/search-or-add))
        :value input-value
        :on-change #(state/set-filter-search (-> % .-target .-value))

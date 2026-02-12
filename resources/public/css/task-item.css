@@ -17,7 +17,7 @@
 .item-header { display: flex; justify-content: space-between; align-items: baseline; cursor: pointer; }
 .item-header:hover { opacity: 0.85; }
 .item-title { font-weight: 500; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-.edit-icon, .calendar-icon {
+.edit-icon, .copy-icon, .calendar-icon {
   padding: 2px 6px;
   font-size: 0.85em;
   background: transparent;
@@ -26,7 +26,7 @@
   border-radius: 4px;
   opacity: 0.6;
 }
-.edit-icon:hover, .calendar-icon:hover, .clock-icon:hover { opacity: 1; background: var(--surface-subtle); transform: none; }
+.edit-icon:hover, .copy-icon:hover, .calendar-icon:hover, .clock-icon:hover { opacity: 1; background: var(--surface-subtle); transform: none; }
 .date-picker-wrapper, .time-picker-wrapper {
   display: inline-flex;
   align-items: center;
@@ -122,6 +122,8 @@
   border-radius: 8px;
   max-width: 100%;
 }
+.description-wrapper { position: relative; }
+.description-wrapper .copy-icon { position: absolute; top: 4px; right: 4px; }
 .item-description {
   color: var(--text-secondary);
   white-space: pre-wrap;
