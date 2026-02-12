@@ -49,6 +49,23 @@
 .filter-item-label.excluded .remove-item {
   color: #dc3545;
 }
+.remove-all-filters {
+  background: none;
+  border: 1px solid var(--text-secondary);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 0.75em;
+  cursor: pointer;
+  color: var(--text-secondary);
+  margin-left: 6px;
+  padding: 0;
+  line-height: 1;
+}
+.remove-all-filters:hover {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+}
 .mail-title {
   font-weight: 500;
   color: var(--text-primary);

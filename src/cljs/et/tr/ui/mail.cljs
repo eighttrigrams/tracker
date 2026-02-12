@@ -129,7 +129,9 @@
          ^{:key sender}
          [:span.filter-item-label.excluded
           sender
-          [:button.remove-item {:on-click #(state/clear-excluded-sender sender)} "x"]])])))
+          [:button.remove-item {:on-click #(state/clear-excluded-sender sender)} "x"]])
+       (when (>= (count excluded-senders) 2)
+         [:button.remove-all-filters {:on-click #(state/clear-all-mail-filters)} "x"])])))
 
 (defn- mail-sort-toggle []
   (let [sort-mode (:sort-mode @mail-state/*mail-page-state)]

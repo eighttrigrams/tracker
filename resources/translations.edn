@@ -126,7 +126,7 @@
   :settings/shortcut-arrow-right "Next tab"
   :settings/shortcut-toggle-today-tasks "Toggle between Today and Tasks"
   :settings/shortcut-toggle-filter "Toggle nth filter in sidebar"
-  :settings/shortcut-clear-uncollapsed "Clear filter selections (expanded filter or all if none expanded)"
+  :settings/shortcut-clear-uncollapsed "Clear active filters (Tasks/Today: expanded or all; Mail: all sender filters)"
   :settings/shortcut-enter-filter "Toggle first item in expanded filter"
   :settings/shortcut-add-task "Create task with search field text"
 
@@ -282,7 +282,7 @@
   :settings/shortcut-arrow-right "Nächster Tab"
   :settings/shortcut-toggle-today-tasks "Zwischen Heute und Aufgaben wechseln"
   :settings/shortcut-toggle-filter "n-ten Filter in Seitenleiste umschalten"
-  :settings/shortcut-clear-uncollapsed "Filter-Auswahl löschen (erweiterter Filter oder alle, wenn keiner erweitert)"
+  :settings/shortcut-clear-uncollapsed "Aktive Filter löschen (Tasks/Today: erweitert oder alle; Mail: alle Absenderfilter)"
   :settings/shortcut-enter-filter "Erstes Element im erweiterten Filter umschalten"
   :settings/shortcut-add-task "Aufgabe mit Suchfeld-Text erstellen"
 
@@ -438,7 +438,7 @@
   :settings/shortcut-arrow-right "Próximo separador"
   :settings/shortcut-toggle-today-tasks "Alternar entre Hoje e Tarefas"
   :settings/shortcut-toggle-filter "Alternar n-ésimo filtro na barra lateral"
-  :settings/shortcut-clear-uncollapsed "Limpar seleções do filtro (filtro expandido ou todos se nenhum expandido)"
+  :settings/shortcut-clear-uncollapsed "Limpar filtros ativos (Tasks/Today: expandido ou todos; Mail: todos os filtros de remetente)"
   :settings/shortcut-enter-filter "Alternar primeiro item no filtro expandido"
   :settings/shortcut-add-task "Criar tarefa com texto do campo de pesquisa"
 

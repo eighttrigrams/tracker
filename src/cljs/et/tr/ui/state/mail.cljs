@@ -85,6 +85,10 @@
   (swap! *mail-page-state update :excluded-senders disj sender)
   (fetch-messages app-state auth-headers))
 
+(defn clear-all-mail-filters [app-state auth-headers]
+  (swap! *mail-page-state assoc :sender-filter nil :excluded-senders #{})
+  (fetch-messages app-state auth-headers))
+
 (defn set-editing-message [id]
   (swap! *mail-page-state assoc :editing-message id))
 

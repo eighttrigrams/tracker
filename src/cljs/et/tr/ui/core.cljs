@@ -168,7 +168,8 @@
           (.preventDefault e)
           (cond
             (= :tasks active-tab) (state/clear-uncollapsed-task-filters)
-            (= :today active-tab) (state/clear-uncollapsed-today-filters)))
+            (= :today active-tab) (state/clear-uncollapsed-today-filters)
+            (= :mail active-tab) (state/clear-all-mail-filters)))
 
         (= :tasks active-tab)
         (when-let [filter-key (tasks-shortcut-keys code)]
