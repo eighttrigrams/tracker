@@ -473,7 +473,7 @@
 (defn add-message-handler [req]
   (if (is-admin? req)
     (let [user-id (get-user-id req)
-          {:keys [sender title description]} (:body req)]
+          {:keys [sender title description type]} (:body req)]
       (cond
         (str/blank? sender)
         {:status 400 :body {:success false :error "Sender is required"}}
@@ -481,8 +481,12 @@
         (str/blank? title)
         {:status 400 :body {:success false :error "Title is required"}}
 
+        (and (not (str/blank? type))
+             (not (#{"text" "markdown" "html"} type)))
+        {:status 400 :body {:success false :error "Type must be one of: text, markdown, html"}}
+
         :else
-        (let [message (db/add-message (ensure-ds) user-id sender title description)]
+        (let [message (db/add-message (ensure-ds) user-id sender title description type)]
           {:status 201 :body message})))
     {:status 403 :body {:error "Admin access required"}}))
 

@@ -3,7 +3,7 @@
             [next.jdbc.result-set :as rs]
             [et.tr.migrations :as migrations]
             [buddy.hashers :as hashers]
-            [clojure.string]
+            [clojure.string :as str]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]))
 
@@ -140,10 +140,10 @@
         tasks))
 
 (defn- build-search-clause [search-term]
-  (when (and search-term (not (clojure.string/blank? search-term)))
-    (let [terms (->> (clojure.string/split (clojure.string/trim search-term) #"\s+")
-                     (map clojure.string/lower-case)
-                     (filter (complement clojure.string/blank?)))]
+  (when (and search-term (not (str/blank? search-term)))
+    (let [terms (->> (str/split (str/trim search-term) #"\s+")
+                     (map str/lower-case)
+                     (filter (complement str/blank?)))]
       (when (seq terms)
         (into [:and]
               (map (fn [term]
@@ -609,14 +609,15 @@
      :projects projects
      :goals goals}))
 
-(defn add-message [ds user-id sender title description]
+(defn add-message [ds user-id sender title description type]
   (let [result (jdbc/execute-one! (get-conn ds)
                  (sql/format {:insert-into :messages
                               :values [{:sender sender
                                         :title title
                                         :description (or description "")
+                                        :type (when-not (str/blank? type) type)
                                         :user_id user-id}]
-                              :returning [:id :sender :title :description :created_at :done :user_id]})
+                              :returning [:id :sender :title :description :created_at :done :type :user_id]})
                  jdbc-opts)]
     (tel/log! {:level :info :data {:message-id (:id result) :user-id user-id}} "Message added")
     result))
@@ -635,7 +636,7 @@
                         sender-filter (conj [:= :sender sender-filter])
                         (seq excluded-senders) (conj [:not-in :sender excluded-senders]))]
      (jdbc/execute! (get-conn ds)
-       (sql/format {:select [:id :sender :title :description :created_at :done :annotation]
+       (sql/format {:select [:id :sender :title :description :created_at :done :annotation :type]
                     :from [:messages]
                     :where where-clause
                     :order-by [[:created_at order-dir]]})

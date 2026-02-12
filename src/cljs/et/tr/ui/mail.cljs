@@ -3,7 +3,8 @@
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.i18n :refer [t]]
             [reagent.core :as r]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [et.tr.ui.components.task-item :refer [markdown]]))
 
 (defn- youtube-video-id [url]
   (when (string? url)
@@ -81,16 +82,18 @@
    [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
     (t :task/delete)]])
 
-(defn- mail-message-expanded-content [{:keys [title description annotation] :as message} editing?]
+(defn- mail-message-expanded-content [{:keys [title description annotation type] :as message} editing?]
   [:div.item-details
    [youtube-preview title]
    (when (seq description)
-     [:div.item-description description])
+     (if (= type "markdown")
+       [markdown description]
+       [:div.item-description description]))
    (if editing?
      [message-annotation-edit-form message]
      [:<>
       (when (seq annotation)
-        [:div.item-annotation annotation])
+        [markdown annotation])
       [mail-message-actions message]])])
 
 (defn- archive-checkbox [message archiving?]
