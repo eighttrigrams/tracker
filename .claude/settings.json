@@ -1,17 +1,4 @@
 {
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "./pre-tool-use-hook.sh"
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "allow": [
       "Bash(make start)",
@@ -40,6 +27,10 @@
       "Bash(ls:*)",
       "Skill(develop-ui)",
       "Skill(write-e2e-tests)",
+      "Skill(write-e2e-tests)",
+      "Skill(writing-clojure:using-the-repl-to-eval-clojure-code)",
+      "Skill(writing-clojure:clojure-coding-conventions)",
+      "Skill(writing-clojure:writing-tests)",
       "Edit(resources/**)",
       "Write(resources/**)",
       "Edit(src/**)",
@@ -50,5 +41,18 @@
     "ask": [
       "Bash(git push:*)"
     ]
+  },
+  "enabledPlugins": {
+    "writing-clojure@claude-stuff": true,
+    "architecture@claude-stuff": true,
+    "tools@claude-stuff": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-stuff": {
+      "source": {
+        "source": "github",
+        "repo": "eighttrigrams/claude-stuff"
+      }
+    }
   }
 }
