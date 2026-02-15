@@ -400,9 +400,22 @@
                         :where [:and [:= :id task-id] (user-id-where-clause user-id)]})
            jdbc-opts)))
 
+(defn- category-owned-by-user? [ds category-type category-id user-id]
+  (let [table-name (case category-type
+                     "person" :people
+                     "place" :places
+                     "project" :projects
+                     "goal" :goals)]
+    (some? (jdbc/execute-one! (get-conn ds)
+             (sql/format {:select [:id]
+                          :from [table-name]
+                          :where [:and [:= :id category-id] (user-id-where-clause user-id)]})
+             jdbc-opts))))
+
 (defn categorize-task [ds user-id task-id category-type category-id]
   (validate-category-type! category-type)
-  (when (task-owned-by-user? ds task-id user-id)
+  (when (and (task-owned-by-user? ds task-id user-id)
+             (category-owned-by-user? ds category-type category-id user-id))
     (let [conn (get-conn ds)]
       (jdbc/with-transaction [tx conn]
         (jdbc/execute-one! tx
@@ -419,7 +432,8 @@
 
 (defn uncategorize-task [ds user-id task-id category-type category-id]
   (validate-category-type! category-type)
-  (when (task-owned-by-user? ds task-id user-id)
+  (when (and (task-owned-by-user? ds task-id user-id)
+             (category-owned-by-user? ds category-type category-id user-id))
     (let [conn (get-conn ds)]
       (jdbc/with-transaction [tx conn]
         (jdbc/execute-one! tx
@@ -575,6 +589,14 @@
       (update :sort_order #(or % 0.0))
       (update :due_time #(when (and % (not= % "")) %))))
 
+(defn- associate-categories-with-resources-for-export [resources categories-by-resource people-by-id projects-by-id]
+  (mapv (fn [resource]
+          (let [resource-categories (get categories-by-resource (:id resource) [])]
+            (assoc resource
+                   :people (extract-category resource-categories "person" people-by-id)
+                   :projects (extract-category resource-categories "project" projects-by-id))))
+        resources))
+
 (defn export-all-data [ds user-id]
   (let [conn (get-conn ds)
         user-where (user-id-where-clause user-id)
@@ -616,19 +638,28 @@
                                  :where user-where
                                  :order-by [[:created_at :asc]]})
                     jdbc-opts)
+        resource-ids (mapv :id resources)
+        resource-categories (when (seq resource-ids)
+                              (jdbc/execute! conn
+                                (sql/format {:select [:resource_id :category_type :category_id]
+                                             :from [:resource_categories]
+                                             :where [:in :resource_id resource-ids]})
+                                jdbc-opts))
         people-by-id (into {} (map (juxt :id :name) people))
         places-by-id (into {} (map (juxt :id :name) places))
         projects-by-id (into {} (map (juxt :id :name) projects))
         goals-by-id (into {} (map (juxt :id :name) goals))
         categories-by-task (group-by :task_id categories)
+        categories-by-resource (group-by :resource_id resource-categories)
         tasks-with-categories (->> (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id)
-                                   (mapv normalize-task))]
+                                   (mapv normalize-task))
+        resources-with-categories (associate-categories-with-resources-for-export resources categories-by-resource people-by-id projects-by-id)]
     {:tasks tasks-with-categories
      :people people
      :places places
      :projects projects
      :goals goals
-     :resources resources}))
+     :resources resources-with-categories}))
 
 (defn add-message [ds user-id sender title description type]
   (let [result (jdbc/execute-one! (get-conn ds)
@@ -811,7 +842,8 @@
 
 (defn categorize-resource [ds user-id resource-id category-type category-id]
   (validate-category-type! category-type)
-  (when (resource-owned-by-user? ds resource-id user-id)
+  (when (and (resource-owned-by-user? ds resource-id user-id)
+             (category-owned-by-user? ds category-type category-id user-id))
     (let [conn (get-conn ds)]
       (jdbc/with-transaction [tx conn]
         (jdbc/execute-one! tx
@@ -828,7 +860,8 @@
 
 (defn uncategorize-resource [ds user-id resource-id category-type category-id]
   (validate-category-type! category-type)
-  (when (resource-owned-by-user? ds resource-id user-id)
+  (when (and (resource-owned-by-user? ds resource-id user-id)
+             (category-owned-by-user? ds category-type category-id user-id))
     (let [conn (get-conn ds)]
       (jdbc/with-transaction [tx conn]
         (jdbc/execute-one! tx

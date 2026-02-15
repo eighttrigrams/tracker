@@ -302,16 +302,34 @@
     (let [user-id (get-user-id req)
           entity-id (Integer/parseInt (get-in req [:params :id]))
           {:keys [category-type category-id]} (:body req)]
-      (db-fn (ensure-ds) user-id entity-id category-type category-id)
-      {:status 200 :body {:success true}})))
+      (cond
+        (or (nil? category-type) (str/blank? category-type))
+        {:status 400 :body {:success false :error "category-type is required"}}
+
+        (or (nil? category-id) (not (integer? category-id)) (< category-id 1))
+        {:status 400 :body {:success false :error "category-id must be a positive integer"}}
+
+        :else
+        (do
+          (db-fn (ensure-ds) user-id entity-id category-type category-id)
+          {:status 200 :body {:success true}})))))
 
 (defn- make-uncategorize-handler [db-fn]
   (fn [req]
     (let [user-id (get-user-id req)
           entity-id (Integer/parseInt (get-in req [:params :id]))
           {:keys [category-type category-id]} (:body req)]
-      (db-fn (ensure-ds) user-id entity-id category-type category-id)
-      {:status 200 :body {:success true}})))
+      (cond
+        (or (nil? category-type) (str/blank? category-type))
+        {:status 400 :body {:success false :error "category-type is required"}}
+
+        (or (nil? category-id) (not (integer? category-id)) (< category-id 1))
+        {:status 400 :body {:success false :error "category-id must be a positive integer"}}
+
+        :else
+        (do
+          (db-fn (ensure-ds) user-id entity-id category-type category-id)
+          {:status 200 :body {:success true}})))))
 
 (def categorize-task-handler (make-categorize-handler db/categorize-task))
 (def uncategorize-task-handler (make-uncategorize-handler db/uncategorize-task))

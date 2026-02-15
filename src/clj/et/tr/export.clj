@@ -47,6 +47,8 @@
                          "importance: \"" (:importance resource) "\"\n"
                          "sort_order: " (:sort_order resource) "\n"
                          (when (seq (:tags resource)) (str "tags: \"" (:tags resource) "\"\n"))
+                         (when (seq (:people resource)) (str "people: " (pr-str (:people resource)) "\n"))
+                         (when (seq (:projects resource)) (str "projects: " (pr-str (:projects resource)) "\n"))
                          "---\n\n")
         title (str "# " (:title resource) "\n\n")
         description (or (:description resource) "")]
