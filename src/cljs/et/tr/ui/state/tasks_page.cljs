@@ -4,17 +4,17 @@
             [et.tr.ui.constants :as constants]))
 
 (defn has-active-filters? [app-state]
-  (let [filter-people (:tasks-page/filter-people @app-state)
+  (let [filter-people (:shared/filter-people @app-state)
         filter-places (:tasks-page/filter-places @app-state)
-        filter-projects (:tasks-page/filter-projects @app-state)
+        filter-projects (:shared/filter-projects @app-state)
         filter-goals (:tasks-page/filter-goals @app-state)]
     (or (seq filter-people) (seq filter-places) (seq filter-projects) (seq filter-goals))))
 
 (defn- filter-type->key [filter-type]
   (case filter-type
-    constants/CATEGORY-TYPE-PERSON :tasks-page/filter-people
+    constants/CATEGORY-TYPE-PERSON :shared/filter-people
     constants/CATEGORY-TYPE-PLACE :tasks-page/filter-places
-    constants/CATEGORY-TYPE-PROJECT :tasks-page/filter-projects
+    constants/CATEGORY-TYPE-PROJECT :shared/filter-projects
     constants/CATEGORY-TYPE-GOAL :tasks-page/filter-goals))
 
 (defn has-filter-for-type? [app-state filter-type]
@@ -25,9 +25,9 @@
    :importance (:tasks-page/importance-filter @app-state)
    :context (:work-private-mode @app-state)
    :strict (:strict-mode @app-state)
-   :filter-people (:tasks-page/filter-people @app-state)
+   :filter-people (:shared/filter-people @app-state)
    :filter-places (:tasks-page/filter-places @app-state)
-   :filter-projects (:tasks-page/filter-projects @app-state)
+   :filter-projects (:shared/filter-projects @app-state)
    :filter-goals (:tasks-page/filter-goals @app-state)})
 
 (defn toggle-filter [app-state fetch-tasks-fn filter-type id]
@@ -68,9 +68,9 @@
         uncollapsed (clojure.set/difference all-filters collapsed)]
     (if (empty? uncollapsed)
       (swap! app-state assoc
-             :tasks-page/filter-people #{}
+             :shared/filter-people #{}
              :tasks-page/filter-places #{}
-             :tasks-page/filter-projects #{}
+             :shared/filter-projects #{}
              :tasks-page/filter-goals #{}
              :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
              :tasks-page/importance-filter nil
@@ -78,9 +78,9 @@
       (do
         (doseq [filter-key uncollapsed]
           (case filter-key
-            :people (swap! app-state assoc :tasks-page/filter-people #{})
+            :people (swap! app-state assoc :shared/filter-people #{})
             :places (swap! app-state assoc :tasks-page/filter-places #{})
-            :projects (swap! app-state assoc :tasks-page/filter-projects #{})
+            :projects (swap! app-state assoc :shared/filter-projects #{})
             :goals (swap! app-state assoc :tasks-page/filter-goals #{})))
         (swap! app-state assoc
                :tasks-page/collapsed-filters all-filters
@@ -146,9 +146,9 @@
   (:tasks @app-state))
 
 (defn set-pending-new-task [app-state title on-success]
-  (let [filter-people (:tasks-page/filter-people @app-state)
+  (let [filter-people (:shared/filter-people @app-state)
         filter-places (:tasks-page/filter-places @app-state)
-        filter-projects (:tasks-page/filter-projects @app-state)
+        filter-projects (:shared/filter-projects @app-state)
         filter-goals (:tasks-page/filter-goals @app-state)]
     (swap! app-state assoc :pending-new-task
            {:title title

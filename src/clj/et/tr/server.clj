@@ -316,6 +316,9 @@
 (def categorize-task-handler (make-categorize-handler db/categorize-task))
 (def uncategorize-task-handler (make-uncategorize-handler db/uncategorize-task))
 
+(def categorize-resource-handler (make-categorize-handler db/categorize-resource))
+(def uncategorize-resource-handler (make-uncategorize-handler db/uncategorize-resource))
+
 (defn reorder-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -402,8 +405,15 @@
         search-term (get-in req [:params "q"])
         importance (get-in req [:params "importance"])
         context (get-in req [:params "context"])
-        strict (= "true" (get-in req [:params "strict"]))]
-    {:status 200 :body (db/list-resources (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict})}))
+        strict (= "true" (get-in req [:params "strict"]))
+        people (parse-category-param (get-in req [:params "people"]))
+        projects (parse-category-param (get-in req [:params "projects"]))
+        categories (when (or people projects)
+                     {:people people :projects projects})]
+    {:status 200 :body (db/list-resources (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
+
+(defn- valid-url? [link]
+  (some? (re-matches #"https?://\S+" link)))
 
 (defn add-resource-handler [req]
   (let [user-id (get-user-id req)
@@ -414,6 +424,9 @@
 
       (str/blank? link)
       {:status 400 :body {:success false :error "Link is required"}}
+
+      (not (valid-url? link))
+      {:status 400 :body {:success false :error "Invalid URL. Must start with http:// or https://"}}
 
       :else
       (let [resource (db/add-resource (ensure-ds) user-id title link (or scope "both"))]
@@ -429,6 +442,9 @@
 
       (str/blank? link)
       {:status 400 :body {:success false :error "Link is required"}}
+
+      (not (valid-url? link))
+      {:status 400 :body {:success false :error "Invalid URL. Must start with http:// or https://"}}
 
       :else
       (let [resource (db/update-resource (ensure-ds) user-id resource-id {:title title :link link :description (or description "") :tags (or tags "")})]
@@ -693,6 +709,8 @@
       (POST "/" [] add-resource-handler)
       (PUT "/:id" [] update-resource-handler)
       (DELETE "/:id" [] delete-resource-handler)
+      (POST "/:id/categorize" [] categorize-resource-handler)
+      (DELETE "/:id/categorize" [] uncategorize-resource-handler)
       (PUT "/:id/scope" [] set-resource-scope-handler)
       (PUT "/:id/importance" [] set-resource-importance-handler))
 

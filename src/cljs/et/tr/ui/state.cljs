@@ -1,5 +1,6 @@
 (ns et.tr.ui.state
-  (:require [reagent.core :as r]
+  (:require [clojure.set]
+            [reagent.core :as r]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.state.auth :as auth]
             [et.tr.ui.state.mail :as mail]
@@ -37,10 +38,12 @@
                             :users []
                             :available-users []
 
+                            ;; Shared category filters (between tasks and resources)
+                            :shared/filter-people #{}
+                            :shared/filter-projects #{}
+
                             ;; Tasks page state
-                            :tasks-page/filter-people #{}
                             :tasks-page/filter-places #{}
-                            :tasks-page/filter-projects #{}
                             :tasks-page/filter-goals #{}
                             :tasks-page/filter-search ""
                             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
@@ -59,6 +62,10 @@
                             :today-page/expanded-task nil
                             :today-page/selected-view :urgent
                             :upcoming-horizon nil
+
+                            ;; Resources page state
+                            :resources-page/collapsed-filters #{:people :projects}
+                            :resources-page/category-search {:people "" :projects ""}
 
                             ;; Task dropdown state
                             :task-dropdown-open nil
@@ -192,7 +199,9 @@
   {:search-term (:filter-search @resources-state/*resources-page-state)
    :importance (:importance-filter @resources-state/*resources-page-state)
    :context (:work-private-mode @*app-state)
-   :strict (:strict-mode @*app-state)})
+   :strict (:strict-mode @*app-state)
+   :filter-people (:shared/filter-people @*app-state)
+   :filter-projects (:shared/filter-projects @*app-state)})
 
 (defn fetch-resources
   ([] (fetch-resources (resources-fetch-opts)))
@@ -237,6 +246,69 @@
 
 (defn clear-all-resource-filters []
   (resources-state/clear-all-resource-filters fetch-resources))
+
+(defn categorize-resource [resource-id category-type category-id]
+  (resources-state/categorize-resource *app-state auth-headers fetch-resources resource-id category-type category-id))
+
+(defn uncategorize-resource [resource-id category-type category-id]
+  (resources-state/uncategorize-resource *app-state auth-headers fetch-resources resource-id category-type category-id))
+
+(defn toggle-resources-filter-collapsed [filter-key]
+  (let [all-filters #{:people :projects}]
+    (swap! *app-state update :resources-page/collapsed-filters
+           (fn [collapsed]
+             (if (contains? collapsed filter-key)
+               (disj all-filters filter-key)
+               (conj collapsed filter-key))))
+    (swap! *app-state update :resources-page/category-search
+           (fn [searches]
+             (reduce #(assoc %1 %2 "") searches all-filters)))))
+
+(defn set-resources-category-search [category-key search-term]
+  (swap! *app-state assoc-in [:resources-page/category-search category-key] search-term))
+
+(defn toggle-shared-filter [filter-type id]
+  (let [filter-key (case filter-type
+                     constants/CATEGORY-TYPE-PERSON :shared/filter-people
+                     constants/CATEGORY-TYPE-PROJECT :shared/filter-projects)]
+    (swap! *app-state update filter-key
+           #(if (contains? % id)
+              (disj % id)
+              (conj % id)))
+    (case (:active-tab @*app-state)
+      :tasks (fetch-tasks)
+      :resources (fetch-resources)
+      nil)))
+
+(defn clear-shared-filter [filter-type]
+  (let [filter-key (case filter-type
+                     constants/CATEGORY-TYPE-PERSON :shared/filter-people
+                     constants/CATEGORY-TYPE-PROJECT :shared/filter-projects)]
+    (swap! *app-state assoc filter-key #{})
+    (case (:active-tab @*app-state)
+      :tasks (fetch-tasks)
+      :resources (fetch-resources)
+      nil)))
+
+(defn clear-uncollapsed-resource-filters []
+  (let [collapsed (:resources-page/collapsed-filters @*app-state)
+        all-filters #{:people :projects}
+        uncollapsed (clojure.set/difference all-filters collapsed)]
+    (if (empty? uncollapsed)
+      (swap! *app-state assoc
+             :shared/filter-people #{}
+             :shared/filter-projects #{}
+             :resources-page/category-search {:people "" :projects ""})
+      (do
+        (doseq [filter-key uncollapsed]
+          (case filter-key
+            :people (swap! *app-state assoc :shared/filter-people #{})
+            :projects (swap! *app-state assoc :shared/filter-projects #{})))
+        (swap! *app-state assoc
+               :resources-page/collapsed-filters all-filters
+               :resources-page/category-search {:people "" :projects ""})))
+    (resources-state/set-importance-filter fetch-resources nil)
+    (fetch-resources)))
 
 (defn fetch-users []
   (users/fetch-users *app-state auth-headers))
@@ -345,9 +417,9 @@
             :importance (:tasks-page/importance-filter @*app-state)
             :context (:work-private-mode @*app-state)
             :strict (:strict-mode @*app-state)
-            :filter-people (:tasks-page/filter-people @*app-state)
+            :filter-people (:shared/filter-people @*app-state)
             :filter-places (:tasks-page/filter-places @*app-state)
-            :filter-projects (:tasks-page/filter-projects @*app-state)
+            :filter-projects (:shared/filter-projects @*app-state)
             :filter-goals (:tasks-page/filter-goals @*app-state)}
     :today {:context (:work-private-mode @*app-state)
             :strict (:strict-mode @*app-state)

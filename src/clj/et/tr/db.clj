@@ -698,7 +698,7 @@
 
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
-    (doseq [table [:task_categories :tasks :messages :resources :people :places :projects :goals :users]]
+    (doseq [table [:task_categories :resource_categories :tasks :messages :resources :people :places :projects :goals :users]]
       (jdbc/execute-one! conn (sql/format {:delete-from table})))))
 
 (defn add-resource [ds user-id title link scope]
@@ -722,25 +722,50 @@
                               :returning (conj resource-select-columns :user_id)})
                  jdbc-opts)]
     (tel/log! {:level :info :data {:resource-id (:id result) :user-id user-id}} "Resource added")
-    result))
+    (assoc result :people [] :projects [])))
+
+(defn- build-resource-category-clauses [categories]
+  (let [people-clause (build-category-subquery :resource_categories :resource_id :resources "person" (:people categories))
+        projects-clause (build-category-subquery :resource_categories :resource_id :resources "project" (:projects categories))]
+    (filterv some? [people-clause projects-clause])))
+
+(defn- associate-categories-with-resources [resources categories-by-resource people-by-id projects-by-id]
+  (mapv (fn [resource]
+          (let [resource-categories (get categories-by-resource (:id resource) [])]
+            (assoc resource
+                   :people (extract-category resource-categories "person" people-by-id)
+                   :projects (extract-category resource-categories "project" projects-by-id))))
+        resources))
 
 (defn list-resources
   ([ds user-id] (list-resources ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict]} opts
+   (let [{:keys [search-term importance context strict categories]} opts
          conn (get-conn ds)
          user-where (user-id-where-clause user-id)
          search-clause (build-search-clause search-term [:title :tags :link])
          importance-clause (build-importance-clause importance)
          scope-clause (build-scope-clause context strict)
+         category-clauses (build-resource-category-clauses categories)
          where-clause (into [:and user-where]
-                            (filter some? [search-clause importance-clause scope-clause]))]
-     (jdbc/execute! conn
-       (sql/format {:select resource-select-columns
-                    :from [:resources]
-                    :where where-clause
-                    :order-by [[:modified_at :desc]]})
-       jdbc-opts))))
+                            (concat (filter some? [search-clause importance-clause scope-clause])
+                                    category-clauses))
+         resources (jdbc/execute! conn
+                     (sql/format {:select resource-select-columns
+                                  :from [:resources]
+                                  :where where-clause
+                                  :order-by [[:modified_at :desc]]})
+                     jdbc-opts)
+         resource-ids (mapv :id resources)
+         categories-data (when (seq resource-ids)
+                           (jdbc/execute! conn
+                             (sql/format {:select [:resource_id :category_type :category_id]
+                                          :from [:resource_categories]
+                                          :where [:in :resource_id resource-ids]})
+                             jdbc-opts))
+         {:keys [people-by-id projects-by-id]} (fetch-category-lookups conn user-where)
+         categories-by-resource (group-by :resource_id categories-data)]
+     (associate-categories-with-resources resources categories-by-resource people-by-id projects-by-id))))
 
 (defn resource-owned-by-user? [ds resource-id user-id]
   (some? (jdbc/execute-one! (get-conn ds)
@@ -762,11 +787,16 @@
 
 (defn delete-resource [ds user-id resource-id]
   (when (resource-owned-by-user? ds resource-id user-id)
-    (let [result (jdbc/execute-one! (get-conn ds)
-                   (sql/format {:delete-from :resources
-                                :where [:= :id resource-id]}))]
-      (tel/log! {:level :info :data {:resource-id resource-id :user-id user-id}} "Resource deleted")
-      {:success (pos? (:next.jdbc/update-count result))})))
+    (let [conn (get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :resource_categories
+                       :where [:= :resource_id resource-id]}))
+        (let [result (jdbc/execute-one! tx
+                       (sql/format {:delete-from :resources
+                                    :where [:= :id resource-id]}))]
+          (tel/log! {:level :info :data {:resource-id resource-id :user-id user-id}} "Resource deleted")
+          {:success (pos? (:next.jdbc/update-count result))})))))
 
 (defn set-resource-field [ds user-id resource-id field value]
   (let [normalize-fn (get field-normalizers field identity)
@@ -778,3 +808,36 @@
                    :where [:and [:= :id resource-id] (user-id-where-clause user-id)]
                    :returning [:id field :modified_at]})
       jdbc-opts)))
+
+(defn categorize-resource [ds user-id resource-id category-type category-id]
+  (validate-category-type! category-type)
+  (when (resource-owned-by-user? ds resource-id user-id)
+    (let [conn (get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:insert-into :resource_categories
+                       :values [{:resource_id resource-id
+                                 :category_type category-type
+                                 :category_id category-id}]
+                       :on-conflict []
+                       :do-nothing true}))
+        (jdbc/execute-one! tx
+          (sql/format {:update :resources
+                       :set {:modified_at [:raw "datetime('now')"]}
+                       :where [:= :id resource-id]}))))))
+
+(defn uncategorize-resource [ds user-id resource-id category-type category-id]
+  (validate-category-type! category-type)
+  (when (resource-owned-by-user? ds resource-id user-id)
+    (let [conn (get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :resource_categories
+                       :where [:and
+                               [:= :resource_id resource-id]
+                               [:= :category_type category-type]
+                               [:= :category_id category-id]]}))
+        (jdbc/execute-one! tx
+          (sql/format {:update :resources
+                       :set {:modified_at [:raw "datetime('now')"]}
+                       :where [:= :id resource-id]}))))))

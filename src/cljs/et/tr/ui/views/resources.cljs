@@ -3,6 +3,8 @@
             [et.tr.ui.state :as state]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.components.task-item :as task-item]
+            [et.tr.ui.components.filter-section :as filter-section]
+            [et.tr.ui.components.category-selector :as category-selector]
             [et.tr.i18n :refer [t]]))
 
 (defn- youtube-video-id [url]
@@ -75,7 +77,28 @@
         [:button.cancel {:on-click #(state/clear-editing-resource)}
          (t :task/cancel)]]])))
 
-(defn- resource-expanded-view [resource]
+(defn- resource-category-selector [resource category-type entities label]
+  (let [current-categories (case category-type
+                             state/CATEGORY-TYPE-PERSON (:people resource)
+                             state/CATEGORY-TYPE-PROJECT (:projects resource)
+                             [])]
+    [category-selector/category-selector
+     {:entity resource
+      :entity-id-key :id
+      :category-type category-type
+      :entities entities
+      :label label
+      :current-categories current-categories
+      :on-categorize #(state/categorize-resource (:id resource) category-type %)
+      :on-uncategorize #(state/uncategorize-resource (:id resource) category-type %)
+      :on-close-focus-fn nil
+      :open-selector-state (:category-selector/open @state/*app-state)
+      :search-state (:category-selector/search @state/*app-state)
+      :open-selector-fn state/open-category-selector
+      :close-selector-fn state/close-category-selector
+      :set-search-fn state/set-category-selector-search}]))
+
+(defn- resource-expanded-view [resource people projects]
   (let [video-id (youtube-video-id (:link resource))]
     [:div.item-details
      (when video-id
@@ -85,6 +108,9 @@
        (:link resource)]]
      (when (seq (:description resource))
        [:div.item-description [task-item/markdown (:description resource)]])
+     [:div.item-tags
+      [resource-category-selector resource state/CATEGORY-TYPE-PERSON people (t :category/person)]
+      [resource-category-selector resource state/CATEGORY-TYPE-PROJECT projects (t :category/project)]]
      [:div.item-actions
       [resource-scope-selector resource]
       [resource-importance-selector resource]
@@ -113,7 +139,19 @@
         :on-click #(.stopPropagation %)}
        "🔗"]]]))
 
-(defn- resource-item [resource expanded-id editing-id]
+(defn- resource-categories-readonly [resource]
+  (let [people (:people resource)
+        projects (:projects resource)]
+    (when (or (seq people) (seq projects))
+      [:div.item-categories
+       (for [person people]
+         ^{:key (str "person-" (:id person))}
+         [:span.category-tag.person (:name person)])
+       (for [project projects]
+         ^{:key (str "project-" (:id project))}
+         [:span.category-tag.project (:name project)])])))
+
+(defn- resource-item [resource expanded-id editing-id people projects]
   (let [is-expanded (= expanded-id (:id resource))
         is-editing (= editing-id (:id resource))]
     [:li {:class (when is-expanded "expanded")}
@@ -121,8 +159,9 @@
        [resource-edit-form resource]
        [:<>
         [resource-header resource is-expanded]
-        (when is-expanded
-          [resource-expanded-view resource])])]))
+        (if is-expanded
+          [resource-expanded-view resource people projects]
+          [resource-categories-readonly resource])])]))
 
 (defn- importance-filter-toggle []
   (let [importance-filter (:importance-filter @resources-state/*resources-page-state)]
@@ -166,17 +205,61 @@
      (when (seq input-value)
        [:button.clear-search {:on-click #(state/set-resource-filter-search "")} "x"])]))
 
+(defn- resources-filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
+  [filter-section/category-filter-section {:title title
+                                           :shortcut-number nil
+                                           :filter-key filter-key
+                                           :items items
+                                           :marked-ids selected-ids
+                                           :toggle-fn toggle-fn
+                                           :clear-fn clear-fn
+                                           :collapsed? collapsed?
+                                           :toggle-collapsed-fn state/toggle-resources-filter-collapsed
+                                           :set-search-fn state/set-resources-category-search
+                                           :search-state-path [:resources-page/category-search filter-key]
+                                           :section-class (name filter-key)
+                                           :item-active-class "active"
+                                           :label-class nil
+                                           :page-prefix "resources"}])
+
+(def ^:private resources-sidebar-filter-configs
+  [{:filter-key :people
+    :title-key :category/people
+    :items-key :people
+    :filter-state-key :shared/filter-people
+    :category-type state/CATEGORY-TYPE-PERSON}
+   {:filter-key :projects
+    :title-key :category/projects
+    :items-key :projects
+    :filter-state-key :shared/filter-projects
+    :category-type state/CATEGORY-TYPE-PROJECT}])
+
+(defn- sidebar-filters []
+  (let [app-state @state/*app-state
+        collapsed-filters (:resources-page/collapsed-filters app-state)]
+    (into [:div.sidebar]
+          (for [{:keys [filter-key title-key items-key filter-state-key category-type]} resources-sidebar-filter-configs]
+            [resources-filter-section {:title (t title-key)
+                                       :filter-key filter-key
+                                       :items (get app-state items-key)
+                                       :selected-ids (get app-state filter-state-key)
+                                       :toggle-fn #(state/toggle-shared-filter category-type %)
+                                       :clear-fn #(state/clear-shared-filter category-type)
+                                       :collapsed? (contains? collapsed-filters filter-key)}]))))
+
 (defn resources-tab []
-  (let [{:keys [resources]} @state/*app-state
+  (let [{:keys [resources people projects]} @state/*app-state
         {:keys [expanded-resource editing-resource]} @resources-state/*resources-page-state]
-    [:div.resources-page
-     [:div.tasks-header
-      [:h2 (t :nav/resources)]
-      [importance-filter-toggle]]
-     [search-add-form]
-     (if (empty? resources)
-       [:p.empty-message (t :resources/no-resources)]
-       [:ul.items
-        (for [resource resources]
-          ^{:key (:id resource)}
-          [resource-item resource expanded-resource editing-resource])])]))
+    [:div.main-layout
+     [sidebar-filters]
+     [:div.main-content.resources-page
+      [:div.tasks-header
+       [:h2 (t :nav/resources)]
+       [importance-filter-toggle]]
+      [search-add-form]
+      (if (empty? resources)
+        [:p.empty-message (t :resources/no-resources)]
+        [:ul.items
+         (for [resource resources]
+           ^{:key (:id resource)}
+           [resource-item resource expanded-resource editing-resource people projects])])]]))

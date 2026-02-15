@@ -1,5 +1,6 @@
 (ns et.tr.ui.state.resources
   (:require [ajax.core :refer [GET]]
+            [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.ui.api :as api]))
 
@@ -10,14 +11,23 @@
                                         :importance-filter nil
                                         :fetch-request-id 0}))
 
+(defn- ids->names [ids collection]
+  (let [id-set (set ids)
+        matching (filter #(contains? id-set (:id %)) collection)]
+    (mapv :name matching)))
+
 (defn fetch-resources [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *resources-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict]} opts
+        {:keys [search-term importance context strict filter-people filter-projects]} opts
+        people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
+        project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
         url (cond-> "/api/resources?"
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
               importance (str "importance=" (name importance) "&")
               context (str "context=" (name context) "&")
-              strict (str "strict=true&"))]
+              strict (str "strict=true&")
+              (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
+              (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&"))]
     (GET url
       {:response-format :json
        :keywords? true
@@ -92,6 +102,22 @@
                      resources))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))))
+
+(defn categorize-resource [app-state auth-headers fetch-resources-fn resource-id category-type category-id]
+  (api/post-json (str "/api/resources/" resource-id "/categorize")
+    {:category-type category-type :category-id category-id}
+    (auth-headers)
+    (fn [_] (fetch-resources-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to categorize resource")))))
+
+(defn uncategorize-resource [app-state auth-headers fetch-resources-fn resource-id category-type category-id]
+  (api/delete-json (str "/api/resources/" resource-id "/categorize")
+    {:category-type category-type :category-id category-id}
+    (auth-headers)
+    (fn [_] (fetch-resources-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize resource")))))
 
 (defn set-expanded-resource [id]
   (swap! *resources-page-state assoc :expanded-resource id :editing-resource nil))

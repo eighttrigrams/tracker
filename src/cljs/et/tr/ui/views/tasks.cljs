@@ -105,7 +105,7 @@
   [{:filter-key :people
     :title-key :category/people
     :items-key :people
-    :filter-state-key :tasks-page/filter-people
+    :filter-state-key :shared/filter-people
     :category-type state/CATEGORY-TYPE-PERSON}
    {:filter-key :places
     :title-key :category/places
@@ -115,7 +115,7 @@
    {:filter-key :projects
     :title-key :category/projects
     :items-key :projects
-    :filter-state-key :tasks-page/filter-projects
+    :filter-state-key :shared/filter-projects
     :category-type state/CATEGORY-TYPE-PROJECT}
    {:filter-key :goals
     :title-key :category/goals
