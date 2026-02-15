@@ -701,6 +701,13 @@
                         :where [:and [:= :id message-id] (user-id-where-clause user-id)]})
            jdbc-opts)))
 
+(defn get-message [ds user-id message-id]
+  (jdbc/execute-one! (get-conn ds)
+    (sql/format {:select [:id :sender :title :description :annotation]
+                 :from [:messages]
+                 :where [:and [:= :id message-id] (user-id-where-clause user-id)]})
+    jdbc-opts))
+
 (defn set-message-done [ds user-id message-id done?]
   (let [done-val (if done? 1 0)]
     (jdbc/execute-one! (get-conn ds)
