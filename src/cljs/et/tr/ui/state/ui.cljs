@@ -1,5 +1,6 @@
 (ns et.tr.ui.state.ui
-  (:require [et.tr.ui.state.mail :as mail-state]))
+  (:require [et.tr.ui.state.mail :as mail-state]
+            [et.tr.ui.state.resources :as resources-state]))
 
 (defn focus-tasks-search []
   (js/setTimeout #(when-let [el (.getElementById js/document "tasks-filter-search")]
@@ -34,7 +35,7 @@
   (focus-tasks-search)
   (fetch-tasks-fn (tasks-fetch-opts app-state)))
 
-(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-messages is-admin]}]
+(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-messages fetch-resources is-admin]}]
   {:tasks (fn []
             (initialize-tasks-page app-state fetch-tasks))
    :today (fn []
@@ -44,7 +45,9 @@
             (fetch-tasks (today-fetch-opts app-state)))
    :mail (fn []
            (when (is-admin)
-             (fetch-messages)))})
+             (fetch-messages)))
+   :resources (fn []
+                (fetch-resources))})
 
 (defn set-active-tab [app-state tab-initializers tab]
   (swap! app-state assoc
@@ -57,6 +60,7 @@
          :today-page/expanded-task nil
          :task-dropdown-open nil)
   (mail-state/reset-mail-page-view-state!)
+  (resources-state/reset-resources-page-view-state!)
   (when-let [init-fn (get tab-initializers tab)]
     (init-fn)))
 
@@ -79,14 +83,18 @@
     :today (today-fetch-opts app-state context strict)
     {:context context :strict strict}))
 
-(defn set-work-private-mode [app-state fetch-tasks-fn mode]
+(defn set-work-private-mode [app-state fetch-tasks-fn fetch-resources-fn mode]
   (swap! app-state assoc :work-private-mode mode)
-  (fetch-tasks-fn (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state))))
+  (case (:active-tab @app-state)
+    :resources (fetch-resources-fn)
+    (fetch-tasks-fn (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state)))))
 
-(defn toggle-strict-mode [app-state fetch-tasks-fn]
+(defn toggle-strict-mode [app-state fetch-tasks-fn fetch-resources-fn]
   (let [new-strict (not (:strict-mode @app-state))]
     (swap! app-state assoc :strict-mode new-strict)
-    (fetch-tasks-fn (fetch-opts-for-current-tab app-state (:work-private-mode @app-state) new-strict))))
+    (case (:active-tab @app-state)
+      :resources (fetch-resources-fn)
+      (fetch-tasks-fn (fetch-opts-for-current-tab app-state (:work-private-mode @app-state) new-strict)))))
 
 (defn toggle-dark-mode [app-state]
   (swap! app-state update :dark-mode not))

@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.state.mail :as mail-state]
+            [et.tr.ui.state.resources :as resources-state]
             [et.tr.i18n :refer [t tf]]))
 
 (defn- generic-confirm-modal
@@ -93,6 +94,16 @@
     :title-key :title
     :clear-fn state/clear-confirm-delete-message
     :delete-fn state/delete-message}))
+
+(def confirm-delete-resource-modal
+  (make-confirm-delete-modal
+   {:state-atom resources-state/*resources-page-state
+    :state-key :confirm-delete-resource
+    :header-i18n :modal/delete-resource
+    :confirm-i18n :modal/delete-resource-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-resource
+    :delete-fn state/delete-resource}))
 
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable

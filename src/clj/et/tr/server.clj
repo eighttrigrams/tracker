@@ -392,6 +392,61 @@
   (make-entity-property-handler :urgency db/valid-urgencies
                                 "Invalid urgency. Must be 'default', 'urgent', or 'superurgent'"))
 
+(defn list-resources-handler [req]
+  (let [user-id (get-user-id req)
+        search-term (get-in req [:params "q"])
+        importance (get-in req [:params "importance"])
+        context (get-in req [:params "context"])
+        strict (= "true" (get-in req [:params "strict"]))]
+    {:status 200 :body (db/list-resources (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict})}))
+
+(defn add-resource-handler [req]
+  (let [user-id (get-user-id req)
+        {:keys [title link scope]} (:body req)]
+    (cond
+      (str/blank? title)
+      {:status 400 :body {:success false :error "Title is required"}}
+
+      (str/blank? link)
+      {:status 400 :body {:success false :error "Link is required"}}
+
+      :else
+      (let [resource (db/add-resource (ensure-ds) user-id title link (or scope "both"))]
+        {:status 201 :body resource}))))
+
+(defn update-resource-handler [req]
+  (let [user-id (get-user-id req)
+        resource-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [title link description tags]} (:body req)]
+    (cond
+      (str/blank? title)
+      {:status 400 :body {:success false :error "Title is required"}}
+
+      (str/blank? link)
+      {:status 400 :body {:success false :error "Link is required"}}
+
+      :else
+      (let [resource (db/update-resource (ensure-ds) user-id resource-id {:title title :link link :description (or description "") :tags (or tags "")})]
+        {:status 200 :body resource}))))
+
+(defn delete-resource-handler [req]
+  (let [user-id (get-user-id req)
+        resource-id (Integer/parseInt (get-in req [:params :id]))
+        result (db/delete-resource (ensure-ds) user-id resource-id)]
+    (if (:success result)
+      {:status 200 :body {:success true}}
+      {:status 404 :body {:success false :error "Resource not found"}})))
+
+(def set-resource-scope-handler
+  (make-entity-property-handler :scope db/valid-scopes
+                                "Invalid scope. Must be 'private', 'both', or 'work'"
+                                {:entity-type :resource :set-fn db/set-resource-field}))
+
+(def set-resource-importance-handler
+  (make-entity-property-handler :importance db/valid-importances
+                                "Invalid importance. Must be 'normal', 'important', or 'critical'"
+                                {:entity-type :resource :set-fn db/set-resource-field}))
+
 (defn delete-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -627,6 +682,14 @@
       (PUT "/:id/done" [] set-message-done-handler)
       (PUT "/:id/annotation" [] update-message-annotation-handler)
       (DELETE "/:id" [] delete-message-handler))
+
+    (context "/resources" []
+      (GET "/" [] list-resources-handler)
+      (POST "/" [] add-resource-handler)
+      (PUT "/:id" [] update-resource-handler)
+      (DELETE "/:id" [] delete-resource-handler)
+      (PUT "/:id/scope" [] set-resource-scope-handler)
+      (PUT "/:id/importance" [] set-resource-importance-handler))
 
     (DELETE "/:category/:id" [] delete-category-handler)
 

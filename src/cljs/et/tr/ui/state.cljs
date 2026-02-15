@@ -8,6 +8,7 @@
             [et.tr.ui.state.tasks :as tasks]
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.ui.state.today-page :as today-page]
+            [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.ui :as ui]))
 
 (def ^:const CATEGORY-TYPE-PERSON constants/CATEGORY-TYPE-PERSON)
@@ -22,6 +23,7 @@
    :projects []
    :goals []
    :messages []
+   :resources []
    :upcoming-horizon nil})
 
 (defonce *app-state (r/atom {;; Data collections
@@ -31,6 +33,7 @@
                             :projects []
                             :goals []
                             :messages []
+                            :resources []
                             :users []
                             :available-users []
 
@@ -108,6 +111,7 @@
 
 (declare fetch-tasks)
 (declare fetch-messages)
+(declare fetch-resources)
 (declare fetch-users)
 (declare fetch-people)
 (declare fetch-places)
@@ -183,6 +187,56 @@
 
 (defn add-message [title on-success]
   (mail/add-message *app-state auth-headers title on-success))
+
+(defn- resources-fetch-opts []
+  {:search-term (:filter-search @resources-state/*resources-page-state)
+   :importance (:importance-filter @resources-state/*resources-page-state)
+   :context (:work-private-mode @*app-state)
+   :strict (:strict-mode @*app-state)})
+
+(defn fetch-resources
+  ([] (fetch-resources (resources-fetch-opts)))
+  ([opts]
+   (resources-state/fetch-resources *app-state auth-headers opts)))
+
+(defn add-resource [title link on-success]
+  (resources-state/add-resource *app-state auth-headers current-scope title link on-success fetch-resources))
+
+(defn update-resource [resource-id title link description tags on-success]
+  (resources-state/update-resource *app-state auth-headers resource-id title link description tags on-success))
+
+(defn delete-resource [resource-id]
+  (resources-state/delete-resource *app-state auth-headers resource-id))
+
+(defn set-resource-scope [resource-id scope]
+  (resources-state/set-resource-scope *app-state auth-headers resource-id scope))
+
+(defn set-resource-importance [resource-id importance]
+  (resources-state/set-resource-importance *app-state auth-headers resource-id importance))
+
+(defn set-expanded-resource [id]
+  (resources-state/set-expanded-resource id))
+
+(defn set-editing-resource [id]
+  (resources-state/set-editing-resource id))
+
+(defn clear-editing-resource []
+  (resources-state/clear-editing-resource))
+
+(defn set-confirm-delete-resource [resource]
+  (resources-state/set-confirm-delete-resource resource))
+
+(defn clear-confirm-delete-resource []
+  (resources-state/clear-confirm-delete-resource))
+
+(defn set-resource-filter-search [search-term]
+  (resources-state/set-filter-search *app-state fetch-resources search-term))
+
+(defn set-resource-importance-filter [level]
+  (resources-state/set-importance-filter *app-state fetch-resources level))
+
+(defn clear-all-resource-filters []
+  (resources-state/clear-all-resource-filters *app-state fetch-resources))
 
 (defn fetch-users []
   (users/fetch-users *app-state auth-headers))
@@ -491,6 +545,7 @@
 (def tab-initializers
   (ui/make-tab-initializers *app-state {:fetch-tasks fetch-tasks
                                         :fetch-messages fetch-messages
+                                        :fetch-resources fetch-resources
                                         :is-admin is-admin?}))
 
 (defn set-active-tab [tab]
@@ -506,10 +561,10 @@
   (ui/clear-editing *app-state))
 
 (defn set-work-private-mode [mode]
-  (ui/set-work-private-mode *app-state fetch-tasks mode))
+  (ui/set-work-private-mode *app-state fetch-tasks fetch-resources mode))
 
 (defn toggle-strict-mode []
-  (ui/toggle-strict-mode *app-state fetch-tasks))
+  (ui/toggle-strict-mode *app-state fetch-tasks fetch-resources))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))

@@ -93,6 +93,8 @@
 
 (def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :scope :importance :urgency])
 
+(def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance])
+
 (defn- user-id-where-clause [user-id]
   (if user-id
     [:= :user_id user-id]
@@ -685,5 +687,83 @@
 
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
-    (doseq [table [:task_categories :tasks :messages :people :places :projects :goals :users]]
+    (doseq [table [:task_categories :tasks :messages :resources :people :places :projects :goals :users]]
       (jdbc/execute-one! conn (sql/format {:delete-from table})))))
+
+(defn add-resource [ds user-id title link scope]
+  (let [conn (get-conn ds)
+        valid-scope (normalize-scope scope)
+        min-order (or (:min_order (jdbc/execute-one! conn
+                                    (sql/format {:select [[[:min :sort_order] :min_order]]
+                                                 :from [:resources]
+                                                 :where (user-id-where-clause user-id)})
+                                    jdbc-opts))
+                      1.0)
+        new-order (- min-order 1.0)
+        result (jdbc/execute-one! conn
+                 (sql/format {:insert-into :resources
+                              :values [{:title title
+                                        :link link
+                                        :sort_order new-order
+                                        :user_id user-id
+                                        :modified_at [:raw "datetime('now')"]
+                                        :scope valid-scope}]
+                              :returning (conj resource-select-columns :user_id)})
+                 jdbc-opts)]
+    (tel/log! {:level :info :data {:resource-id (:id result) :user-id user-id}} "Resource added")
+    result))
+
+(defn list-resources
+  ([ds user-id] (list-resources ds user-id {}))
+  ([ds user-id opts]
+   (let [{:keys [search-term importance context strict]} opts
+         conn (get-conn ds)
+         user-where (user-id-where-clause user-id)
+         search-clause (build-search-clause search-term [:title :tags :link])
+         importance-clause (build-importance-clause importance)
+         scope-clause (build-scope-clause context strict)
+         where-clause (into [:and user-where]
+                            (filter some? [search-clause importance-clause scope-clause]))]
+     (jdbc/execute! conn
+       (sql/format {:select resource-select-columns
+                    :from [:resources]
+                    :where where-clause
+                    :order-by [[:modified_at :desc]]})
+       jdbc-opts))))
+
+(defn resource-owned-by-user? [ds resource-id user-id]
+  (some? (jdbc/execute-one! (get-conn ds)
+           (sql/format {:select [:id]
+                        :from [:resources]
+                        :where [:and [:= :id resource-id] (user-id-where-clause user-id)]})
+           jdbc-opts)))
+
+(defn update-resource [ds user-id resource-id fields]
+  (let [field-names (keys fields)
+        set-map (assoc fields :modified_at [:raw "datetime('now')"])
+        return-cols (into [:id :created_at :modified_at] field-names)]
+    (jdbc/execute-one! (get-conn ds)
+      (sql/format {:update :resources
+                   :set set-map
+                   :where [:and [:= :id resource-id] (user-id-where-clause user-id)]
+                   :returning return-cols})
+      jdbc-opts)))
+
+(defn delete-resource [ds user-id resource-id]
+  (when (resource-owned-by-user? ds resource-id user-id)
+    (let [result (jdbc/execute-one! (get-conn ds)
+                   (sql/format {:delete-from :resources
+                                :where [:= :id resource-id]}))]
+      (tel/log! {:level :info :data {:resource-id resource-id :user-id user-id}} "Resource deleted")
+      {:success (pos? (:next.jdbc/update-count result))})))
+
+(defn set-resource-field [ds user-id resource-id field value]
+  (let [normalize-fn (get field-normalizers field identity)
+        valid-value (normalize-fn value)]
+    (jdbc/execute-one! (get-conn ds)
+      (sql/format {:update :resources
+                   :set {field valid-value
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id resource-id] (user-id-where-clause user-id)]
+                   :returning [:id field :modified_at]})
+      jdbc-opts)))

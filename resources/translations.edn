@@ -152,7 +152,15 @@
   :mail/sort-reverse "Reverse"
   :mail/add-placeholder "Add message..."
   :modal/delete-message "Delete Message"
-  :modal/delete-message-confirm "Are you sure you want to delete this message?"}
+  :modal/delete-message-confirm "Are you sure you want to delete this message?"
+
+  :nav/resources "Resources"
+  :resources/title-placeholder "Title"
+  :resources/link-placeholder "Link (URL)"
+  :resources/search-or-add "Search or add resource..."
+  :resources/no-resources "No resources"
+  :modal/delete-resource "Delete Resource"
+  :modal/delete-resource-confirm "Are you sure you want to delete this resource?"}
 
  :de
  {:date/sunday "Sonntag"
@@ -308,7 +316,15 @@
   :mail/sort-reverse "Umgekehrt"
   :mail/add-placeholder "Nachricht hinzufügen..."
   :modal/delete-message "Nachricht löschen"
-  :modal/delete-message-confirm "Möchten Sie diese Nachricht wirklich löschen?"}
+  :modal/delete-message-confirm "Möchten Sie diese Nachricht wirklich löschen?"
+
+  :nav/resources "Ressourcen"
+  :resources/title-placeholder "Titel"
+  :resources/link-placeholder "Link (URL)"
+  :resources/search-or-add "Suchen oder Ressource hinzufügen..."
+  :resources/no-resources "Keine Ressourcen"
+  :modal/delete-resource "Ressource löschen"
+  :modal/delete-resource-confirm "Möchten Sie diese Ressource wirklich löschen?"}
 
  :pt
  {:date/sunday "Domingo"
@@ -464,4 +480,12 @@
   :mail/sort-reverse "Inverso"
   :mail/add-placeholder "Adicionar mensagem..."
   :modal/delete-message "Eliminar Mensagem"
-  :modal/delete-message-confirm "Tem a certeza de que pretende eliminar esta mensagem?"}}
+  :modal/delete-message-confirm "Tem a certeza de que pretende eliminar esta mensagem?"
+
+  :nav/resources "Recursos"
+  :resources/title-placeholder "Título"
+  :resources/link-placeholder "Link (URL)"
+  :resources/search-or-add "Pesquisar ou adicionar recurso..."
+  :resources/no-resources "Sem recursos"
+  :modal/delete-resource "Eliminar Recurso"
+  :modal/delete-resource-confirm "Tem a certeza de que pretende eliminar este recurso?"}}
