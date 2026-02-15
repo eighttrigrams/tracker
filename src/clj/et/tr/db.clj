@@ -824,16 +824,44 @@
       jdbc-opts)))
 
 (defn convert-message-to-resource [ds user-id message-id link]
-  (when-let [message (get-message ds user-id message-id)]
-    (let [description (str (or (:description message) "")
-                          (when (and (seq (:description message)) (seq (:annotation message))) "\n")
-                          (or (:annotation message) ""))
-          resource (add-resource ds user-id (:title message) link "both")]
-      (when (seq description)
-        (update-resource ds user-id (:id resource) {:description description}))
-      (delete-message ds user-id message-id)
-      (tel/log! {:level :info :data {:message-id message-id :resource-id (:id resource) :user-id user-id}} "Message converted to resource")
-      (assoc resource :description description))))
+  (let [conn (get-conn ds)]
+    (jdbc/with-transaction [tx conn]
+      (when-let [message (jdbc/execute-one! tx
+                           (sql/format {:select [:id :sender :title :description :annotation]
+                                        :from [:messages]
+                                        :where [:and [:= :id message-id] (user-id-where-clause user-id)]})
+                           jdbc-opts)]
+        (let [description (str (or (:description message) "")
+                              (when (and (seq (:description message)) (seq (:annotation message))) "\n")
+                              (or (:annotation message) ""))
+              min-order (or (:min_order (jdbc/execute-one! tx
+                                          (sql/format {:select [[[:min :sort_order] :min_order]]
+                                                       :from [:resources]
+                                                       :where (user-id-where-clause user-id)})
+                                          jdbc-opts))
+                            1.0)
+              new-order (- min-order 1.0)
+              resource (jdbc/execute-one! tx
+                         (sql/format {:insert-into :resources
+                                      :values [{:title (:title message)
+                                                :link link
+                                                :sort_order new-order
+                                                :user_id user-id
+                                                :modified_at [:raw "datetime('now')"]
+                                                :scope "both"}]
+                                      :returning (conj resource-select-columns :user_id)})
+                         jdbc-opts)]
+          (when (seq description)
+            (jdbc/execute-one! tx
+              (sql/format {:update :resources
+                           :set {:description description :modified_at [:raw "datetime('now')"]}
+                           :where [:and [:= :id (:id resource)] (user-id-where-clause user-id)]})
+              jdbc-opts))
+          (jdbc/execute-one! tx
+            (sql/format {:delete-from :messages
+                         :where [:= :id message-id]}))
+          (tel/log! {:level :info :data {:message-id message-id :resource-id (:id resource) :user-id user-id}} "Message converted to resource")
+          (assoc resource :description description :people [] :projects []))))))
 
 (defn delete-resource [ds user-id resource-id]
   (when (resource-owned-by-user? ds resource-id user-id)
