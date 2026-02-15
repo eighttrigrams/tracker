@@ -1,7 +1,7 @@
 (ns et.tr.ui.components.task-item
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
-            [et.tr.ui.state.tasks-page :as tasks-page]
+            [et.tr.ui.components.category-selector :as category-selector]
             [et.tr.i18n :refer [t]]
             ["marked" :refer [marked]]))
 
@@ -176,78 +176,25 @@
   [:div.item-tags-readonly
    [task-category-badges task]])
 
-(defn category-selector [task category-type entities label]
-  (let [selector-id (str (:id task) "-" category-type)
-        input-id (str "category-selector-input-" selector-id)]
-    (fn [task category-type _ _]
-      (let [task-categories (case category-type
-                              state/CATEGORY-TYPE-PERSON (:people task)
-                              state/CATEGORY-TYPE-PLACE (:places task)
-                              state/CATEGORY-TYPE-PROJECT (:projects task)
-                              state/CATEGORY-TYPE-GOAL (:goals task))
-            task-category-ids (set (map :id task-categories))
-            open-selector (:category-selector/open @state/*app-state)
-            is-open (= open-selector selector-id)
-            search-term (:category-selector/search @state/*app-state)
-            available-entities (remove #(contains? task-category-ids (:id %)) entities)
-            filtered-entities (if (and is-open (seq search-term))
-                                (filter #(tasks-page/prefix-matches? (:name %) search-term) available-entities)
-                                available-entities)]
-        [:div.tag-selector
-         [:div.category-selector-dropdown
-          [:button.category-selector-trigger
-           {:class (str category-type (when is-open " open"))
-            :on-click (fn [e]
-                        (.stopPropagation e)
-                        (if is-open
-                          (do
-                            (state/close-category-selector)
-                            (state/focus-tasks-search))
-                          (do
-                            (state/open-category-selector selector-id)
-                            (js/setTimeout #(when-let [el (.getElementById js/document input-id)]
-                                              (.focus el)) 0))))}
-           (str "+ " label)]
-          (when is-open
-            [:div.category-selector-panel
-             {:on-click #(.stopPropagation %)}
-             [:input.category-selector-search
-              {:id input-id
-               :type "text"
-               :placeholder (t :category/search)
-               :value search-term
-               :auto-focus true
-               :on-change #(state/set-category-selector-search (-> % .-target .-value))
-               :on-key-down (fn [e]
-                              (case (.-key e)
-                                "Escape" (do
-                                           (state/close-category-selector)
-                                           (state/focus-tasks-search))
-                                "Enter" (when (= 1 (count filtered-entities))
-                                          (state/categorize-task (:id task) category-type (:id (first filtered-entities)))
-                                          (state/close-category-selector)
-                                          (state/focus-tasks-search))
-                                nil))}]
-             [:div.category-selector-items
-              (if (seq filtered-entities)
-                (doall
-                 (for [entity filtered-entities]
-                   ^{:key (:id entity)}
-                   [:button.category-selector-item
-                    {:class category-type
-                     :on-click (fn [e]
-                                 (.stopPropagation e)
-                                 (state/categorize-task (:id task) category-type (:id entity))
-                                 (state/close-category-selector)
-                                 (state/focus-tasks-search))}
-                    (:name entity)]))
-                [:div.category-selector-empty (t :category/no-results)])]])]
-         (doall
-          (for [category task-categories]
-            ^{:key (str category-type "-" (:id category))}
-            [:span.tag
-             {:class category-type}
-             (:name category)
-             [:button.remove-tag
-              {:on-click #(state/uncategorize-task (:id task) category-type (:id category))}
-              "x"]]))]))))
+(defn category-selector [_task _category-type _entities _label]
+  (fn [task* category-type* entities* label*]
+    (let [task-categories (case category-type*
+                            state/CATEGORY-TYPE-PERSON (:people task*)
+                            state/CATEGORY-TYPE-PLACE (:places task*)
+                            state/CATEGORY-TYPE-PROJECT (:projects task*)
+                            state/CATEGORY-TYPE-GOAL (:goals task*))]
+      [category-selector/category-selector
+       {:entity task*
+        :entity-id-key :id
+        :category-type category-type*
+        :entities entities*
+        :label label*
+        :current-categories task-categories
+        :on-categorize #(state/categorize-task (:id task*) category-type* %)
+        :on-uncategorize #(state/uncategorize-task (:id task*) category-type* %)
+        :on-close-focus-fn state/focus-tasks-search
+        :open-selector-state (:category-selector/open @state/*app-state)
+        :search-state (:category-selector/search @state/*app-state)
+        :open-selector-fn state/open-category-selector
+        :close-selector-fn state/close-category-selector
+        :set-search-fn state/set-category-selector-search}])))

@@ -297,19 +297,24 @@
     (db/reorder-category (ensure-ds) user-id category-id new-order table-name)
     {:status 200 :body {:success true :sort_order new-order}}))
 
-(defn categorize-task-handler [req]
-  (let [user-id (get-user-id req)
-        task-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [category-type category-id]} (:body req)]
-    (db/categorize-task (ensure-ds) user-id task-id category-type category-id)
-    {:status 200 :body {:success true}}))
+(defn- make-categorize-handler [db-fn]
+  (fn [req]
+    (let [user-id (get-user-id req)
+          entity-id (Integer/parseInt (get-in req [:params :id]))
+          {:keys [category-type category-id]} (:body req)]
+      (db-fn (ensure-ds) user-id entity-id category-type category-id)
+      {:status 200 :body {:success true}})))
 
-(defn uncategorize-task-handler [req]
-  (let [user-id (get-user-id req)
-        task-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [category-type category-id]} (:body req)]
-    (db/uncategorize-task (ensure-ds) user-id task-id category-type category-id)
-    {:status 200 :body {:success true}}))
+(defn- make-uncategorize-handler [db-fn]
+  (fn [req]
+    (let [user-id (get-user-id req)
+          entity-id (Integer/parseInt (get-in req [:params :id]))
+          {:keys [category-type category-id]} (:body req)]
+      (db-fn (ensure-ds) user-id entity-id category-type category-id)
+      {:status 200 :body {:success true}})))
+
+(def categorize-task-handler (make-categorize-handler db/categorize-task))
+(def uncategorize-task-handler (make-uncategorize-handler db/uncategorize-task))
 
 (defn reorder-task-handler [req]
   (let [user-id (get-user-id req)

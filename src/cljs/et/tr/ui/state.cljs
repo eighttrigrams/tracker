@@ -230,13 +230,13 @@
   (resources-state/clear-confirm-delete-resource))
 
 (defn set-resource-filter-search [search-term]
-  (resources-state/set-filter-search *app-state fetch-resources search-term))
+  (resources-state/set-filter-search fetch-resources search-term))
 
 (defn set-resource-importance-filter [level]
-  (resources-state/set-importance-filter *app-state fetch-resources level))
+  (resources-state/set-importance-filter fetch-resources level))
 
 (defn clear-all-resource-filters []
-  (resources-state/clear-all-resource-filters *app-state fetch-resources))
+  (resources-state/clear-all-resource-filters fetch-resources))
 
 (defn fetch-users []
   (users/fetch-users *app-state auth-headers))

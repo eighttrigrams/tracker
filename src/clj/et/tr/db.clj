@@ -158,20 +158,24 @@
                                     columns)))
                     terms)))))))
 
-(defn- build-category-subquery [category-type category-names]
-  (when (seq category-names)
-    (let [table-name (case category-type
-                       "person" :people
-                       "place" :places
-                       "project" :projects
-                       "goal" :goals)]
-      [:exists {:select [1]
-                :from [:task_categories]
-                :join [[table-name] [:= (keyword (str (name table-name) ".id")) :task_categories.category_id]]
-                :where [:and
-                        [:= :task_categories.task_id :tasks.id]
-                        [:= :task_categories.category_type category-type]
-                        [:in (keyword (str (name table-name) ".name")) category-names]]}])))
+(defn- build-category-subquery
+  ([category-type category-names]
+   (build-category-subquery :task_categories :task_id :tasks category-type category-names))
+  ([join-table entity-id-col entity-ref category-type category-names]
+   (when (seq category-names)
+     (let [table-name (case category-type
+                        "person" :people
+                        "place" :places
+                        "project" :projects
+                        "goal" :goals)
+           entity-ref-id (keyword (str (name entity-ref) ".id"))]
+       [:exists {:select [1]
+                 :from [join-table]
+                 :join [[table-name] [:= (keyword (str (name table-name) ".id")) (keyword (str (name join-table) ".category_id"))]]
+                 :where [:and
+                         [:= (keyword (str (name join-table) "." (name entity-id-col))) entity-ref-id]
+                         [:= (keyword (str (name join-table) ".category_type")) category-type]
+                         [:in (keyword (str (name table-name) ".name")) category-names]]}]))))
 
 (defn- build-category-clauses [categories]
   (let [people-clause (build-category-subquery "person" (:people categories))

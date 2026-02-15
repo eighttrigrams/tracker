@@ -1,11 +1,7 @@
 (ns et.tr.ui.state.tasks-page
   (:require [clojure.set]
-            [et.tr.filters :as filters]))
-
-(def ^:const CATEGORY-TYPE-PERSON "person")
-(def ^:const CATEGORY-TYPE-PLACE "place")
-(def ^:const CATEGORY-TYPE-PROJECT "project")
-(def ^:const CATEGORY-TYPE-GOAL "goal")
+            [et.tr.filters :as filters]
+            [et.tr.ui.constants :as constants]))
 
 (defn has-active-filters? [app-state]
   (let [filter-people (:tasks-page/filter-people @app-state)
@@ -16,10 +12,10 @@
 
 (defn- filter-type->key [filter-type]
   (case filter-type
-    CATEGORY-TYPE-PERSON :tasks-page/filter-people
-    CATEGORY-TYPE-PLACE :tasks-page/filter-places
-    CATEGORY-TYPE-PROJECT :tasks-page/filter-projects
-    CATEGORY-TYPE-GOAL :tasks-page/filter-goals))
+    constants/CATEGORY-TYPE-PERSON :tasks-page/filter-people
+    constants/CATEGORY-TYPE-PLACE :tasks-page/filter-places
+    constants/CATEGORY-TYPE-PROJECT :tasks-page/filter-projects
+    constants/CATEGORY-TYPE-GOAL :tasks-page/filter-goals))
 
 (defn has-filter-for-type? [app-state filter-type]
   (seq (get @app-state (filter-type->key filter-type))))
@@ -47,16 +43,16 @@
   (fetch-tasks-fn (current-fetch-opts app-state)))
 
 (defn clear-filter-people [app-state fetch-tasks-fn]
-  (clear-filter app-state fetch-tasks-fn CATEGORY-TYPE-PERSON))
+  (clear-filter app-state fetch-tasks-fn constants/CATEGORY-TYPE-PERSON))
 
 (defn clear-filter-places [app-state fetch-tasks-fn]
-  (clear-filter app-state fetch-tasks-fn CATEGORY-TYPE-PLACE))
+  (clear-filter app-state fetch-tasks-fn constants/CATEGORY-TYPE-PLACE))
 
 (defn clear-filter-projects [app-state fetch-tasks-fn]
-  (clear-filter app-state fetch-tasks-fn CATEGORY-TYPE-PROJECT))
+  (clear-filter app-state fetch-tasks-fn constants/CATEGORY-TYPE-PROJECT))
 
 (defn clear-filter-goals [app-state fetch-tasks-fn]
-  (clear-filter app-state fetch-tasks-fn CATEGORY-TYPE-GOAL))
+  (clear-filter app-state fetch-tasks-fn constants/CATEGORY-TYPE-GOAL))
 
 (defn set-importance-filter [app-state fetch-tasks-fn level]
   (swap! app-state assoc :tasks-page/importance-filter level)
@@ -167,10 +163,10 @@
 
 (defn update-pending-category [app-state category-type id]
   (let [key (case category-type
-              CATEGORY-TYPE-PERSON :people
-              CATEGORY-TYPE-PLACE :places
-              CATEGORY-TYPE-PROJECT :projects
-              CATEGORY-TYPE-GOAL :goals
+              constants/CATEGORY-TYPE-PERSON :people
+              constants/CATEGORY-TYPE-PLACE :places
+              constants/CATEGORY-TYPE-PROJECT :projects
+              constants/CATEGORY-TYPE-GOAL :goals
               (keyword category-type))]
     (swap! app-state update-in [:pending-new-task :categories key]
            #(if (contains? % id) (disj % id) (conj (or % #{}) id)))))

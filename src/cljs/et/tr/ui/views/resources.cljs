@@ -1,6 +1,5 @@
 (ns et.tr.ui.views.resources
   (:require [reagent.core :as r]
-            [clojure.string :as str]
             [et.tr.ui.state :as state]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.components.task-item :as task-item]

@@ -108,15 +108,15 @@
 (defn clear-confirm-delete-resource []
   (swap! *resources-page-state assoc :confirm-delete-resource nil))
 
-(defn set-filter-search [app-state fetch-resources-fn search-term]
+(defn set-filter-search [fetch-resources-fn search-term]
   (swap! *resources-page-state assoc :filter-search search-term)
   (fetch-resources-fn))
 
-(defn set-importance-filter [app-state fetch-resources-fn level]
+(defn set-importance-filter [fetch-resources-fn level]
   (swap! *resources-page-state assoc :importance-filter level)
   (fetch-resources-fn))
 
-(defn clear-all-resource-filters [app-state fetch-resources-fn]
+(defn clear-all-resource-filters [fetch-resources-fn]
   (swap! *resources-page-state assoc :filter-search "" :importance-filter nil)
   (fetch-resources-fn))
 

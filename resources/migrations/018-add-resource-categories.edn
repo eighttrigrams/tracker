@@ -1,0 +1,8 @@
+{:up ["CREATE TABLE resource_categories (
+         resource_id INTEGER NOT NULL,
+         category_type TEXT NOT NULL,
+         category_id INTEGER NOT NULL,
+         PRIMARY KEY (resource_id, category_type, category_id),
+         FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+       )"]
+ :down ["DROP TABLE IF EXISTS resource_categories"]}
