@@ -139,20 +139,22 @@
                    :goals (extract-category task-categories "goal" goals-by-id))))
         tasks))
 
-(defn- build-search-clause [search-term]
-  (when (and search-term (not (str/blank? search-term)))
-    (let [terms (->> (str/split (str/trim search-term) #"\s+")
-                     (map str/lower-case)
-                     (filter (complement str/blank?)))]
-      (when (seq terms)
-        (into [:and]
-              (map (fn [term]
-                     [:or
-                      [:like [:lower :title] (str term "%")]
-                      [:like [:lower :title] (str "% " term "%")]
-                      [:like [:lower :tags] (str term "%")]
-                      [:like [:lower :tags] (str "% " term "%")]])
-                   terms))))))
+(defn- build-search-clause
+  ([search-term] (build-search-clause search-term [:title :tags]))
+  ([search-term columns]
+   (when (and search-term (not (str/blank? search-term)))
+     (let [terms (->> (str/split (str/trim search-term) #"\s+")
+                      (map str/lower-case)
+                      (filter (complement str/blank?)))]
+       (when (seq terms)
+         (into [:and]
+               (map (fn [term]
+                      (into [:or]
+                            (mapcat (fn [col]
+                                      [[:like [:lower col] (str term "%")]
+                                       [:like [:lower col] (str "% " term "%")]])
+                                    columns)))
+                    terms)))))))
 
 (defn- build-category-subquery [category-type category-names]
   (when (seq category-names)
@@ -215,6 +217,21 @@
      :projects-by-id (into {} (map (juxt :id :name) projects))
      :goals-by-id (into {} (map (juxt :id :name) goals))}))
 
+(defn- build-importance-clause [importance]
+  (case importance
+    "important" [:in :importance ["important" "critical"]]
+    "critical" [:= :importance "critical"]
+    nil))
+
+(defn- build-scope-clause [context strict]
+  (when context
+    (if strict
+      [:= :scope context]
+      (case context
+        "private" [:in :scope ["private" "both"]]
+        "work" [:in :scope ["work" "both"]]
+        nil))))
+
 (defn list-tasks
   ([ds user-id] (list-tasks ds user-id :recent))
   ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
@@ -231,17 +248,8 @@
                                    [:in :urgency ["urgent" "superurgent"]]]]
                       [:and user-where [:= :done 0]])
          search-clause (build-search-clause search-term)
-         importance-clause (case importance
-                             "important" [:in :importance ["important" "critical"]]
-                             "critical" [:= :importance "critical"]
-                             nil)
-         scope-clause (when context
-                        (if strict
-                          [:= :scope context]
-                          (case context
-                            "private" [:in :scope ["private" "both"]]
-                            "work" [:in :scope ["work" "both"]]
-                            nil)))
+         importance-clause (build-importance-clause importance)
+         scope-clause (build-scope-clause context strict)
          category-clauses (build-category-clauses categories)
          exclusion-clauses (filterv some? [(build-exclusion-subquery "place" excluded-places)
                                            (build-exclusion-subquery "project" excluded-projects)])

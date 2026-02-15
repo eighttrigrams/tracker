@@ -19,14 +19,25 @@
      [:button.cancel {:on-click on-cancel} (t :modal/cancel)]
      [:button.confirm-delete {:on-click on-confirm} (t :modal/delete)]]]])
 
-(defn confirm-delete-modal []
-  (when-let [task (:confirm-delete-task @state/*app-state)]
-    [generic-confirm-modal
-     {:header (t :modal/delete-task)
-      :body-paragraphs [{:text (t :modal/delete-task-confirm)}
-                        {:text (:title task) :class "task-title"}]
-      :on-cancel state/clear-confirm-delete
-      :on-confirm #(state/delete-task (:id task))}]))
+(defn- make-confirm-delete-modal [{:keys [state-atom state-key header-i18n confirm-i18n title-key clear-fn delete-fn]}]
+  (fn []
+    (when-let [entity (state-key @state-atom)]
+      [generic-confirm-modal
+       {:header (t header-i18n)
+        :body-paragraphs [{:text (t confirm-i18n)}
+                          {:text (title-key entity) :class "task-title"}]
+        :on-cancel clear-fn
+        :on-confirm #(delete-fn (:id entity))}])))
+
+(def confirm-delete-modal
+  (make-confirm-delete-modal
+   {:state-atom state/*app-state
+    :state-key :confirm-delete-task
+    :header-i18n :modal/delete-task
+    :confirm-i18n :modal/delete-task-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete
+    :delete-fn state/delete-task}))
 
 (defn confirm-delete-user-modal []
   (let [confirmation-input (r/atom "")]
@@ -73,14 +84,15 @@
         :on-cancel state/clear-confirm-delete-category
         :on-confirm #(delete-fn (:id category))}])))
 
-(defn confirm-delete-message-modal []
-  (when-let [message (:confirm-delete-message @mail-state/*mail-page-state)]
-    [generic-confirm-modal
-     {:header (t :modal/delete-message)
-      :body-paragraphs [{:text (t :modal/delete-message-confirm)}
-                        {:text (:title message) :class "task-title"}]
-      :on-cancel state/clear-confirm-delete-message
-      :on-confirm #(state/delete-message (:id message))}]))
+(def confirm-delete-message-modal
+  (make-confirm-delete-modal
+   {:state-atom mail-state/*mail-page-state
+    :state-key :confirm-delete-message
+    :header-i18n :modal/delete-message
+    :confirm-i18n :modal/delete-message-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-message
+    :delete-fn state/delete-message}))
 
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable

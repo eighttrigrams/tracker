@@ -34,17 +34,17 @@
   (focus-tasks-search)
   (fetch-tasks-fn (tasks-fetch-opts app-state)))
 
-(defn make-tab-initializers [app-state fetch-tasks-fn fetch-messages-fn is-admin-fn]
+(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-messages is-admin]}]
   {:tasks (fn []
-            (initialize-tasks-page app-state fetch-tasks-fn))
+            (initialize-tasks-page app-state fetch-tasks))
    :today (fn []
             (swap! app-state assoc
                    :today-page/collapsed-filters #{:places :projects}
                    :sort-mode :today)
-            (fetch-tasks-fn (today-fetch-opts app-state)))
+            (fetch-tasks (today-fetch-opts app-state)))
    :mail (fn []
-           (when (is-admin-fn)
-             (fetch-messages-fn)))})
+           (when (is-admin)
+             (fetch-messages)))})
 
 (defn set-active-tab [app-state tab-initializers tab]
   (swap! app-state assoc

@@ -489,7 +489,9 @@
   (today-page/urgent-tasks *app-state))
 
 (def tab-initializers
-  (ui/make-tab-initializers *app-state fetch-tasks fetch-messages is-admin?))
+  (ui/make-tab-initializers *app-state {:fetch-tasks fetch-tasks
+                                        :fetch-messages fetch-messages
+                                        :is-admin is-admin?}))
 
 (defn set-active-tab [tab]
   (ui/set-active-tab *app-state tab-initializers tab))
