@@ -195,6 +195,12 @@
 (defn add-message [title on-success]
   (mail/add-message *app-state auth-headers title on-success))
 
+(defn set-message-dropdown-open [message-id]
+  (mail/set-message-dropdown-open message-id))
+
+(defn convert-message-to-resource [message-id link]
+  (mail/convert-message-to-resource *app-state auth-headers message-id link))
+
 (defn- resources-fetch-opts []
   {:search-term (:filter-search @resources-state/*resources-page-state)
    :importance (:importance-filter @resources-state/*resources-page-state)

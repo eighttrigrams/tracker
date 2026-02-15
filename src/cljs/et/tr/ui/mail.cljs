@@ -7,6 +7,12 @@
             [et.tr.ui.components.task-item :refer [markdown]]
             [et.tr.ui.date :as date]))
 
+(defn- first-url [& texts]
+  (some (fn [text]
+          (when (string? text)
+            (first (re-seq #"https?://[^\s]+" text))))
+        texts))
+
 (defn- first-youtube-video-id [& texts]
   (some (fn [text]
           (when (string? text)
@@ -69,13 +75,33 @@
    [:span.item-date {:data-tooltip (some-> created_at (.substring 0 10) date/get-day-name)}
     (format-message-datetime created_at)]])
 
-(defn- mail-message-actions [{:keys [id done] :as message}]
+(defn- archive-button-with-dropdown [{:keys [id title description done] :as message}]
+  (let [url (first-url title description)
+        dropdown-open? (= id (:message-dropdown-open @mail-state/*mail-page-state))]
+    (if (and url (not= done 1))
+      [:div.combined-button-wrapper
+       [:button.combined-main-btn.done
+        {:on-click #(state/set-message-done id true)}
+        (t :mail/archive)]
+       [:button.combined-dropdown-btn.done
+        {:on-click #(state/set-message-dropdown-open (when-not dropdown-open? id))}
+        "▼"]
+       (when dropdown-open?
+         [:div.task-dropdown-menu
+          [:button.dropdown-item.convert-to-resource
+           {:on-click #(do
+                         (state/set-message-dropdown-open nil)
+                         (state/convert-message-to-resource id url))}
+           (t :mail/convert-to-resource)]])]
+      (if (= done 1)
+        [:button.undone-btn {:on-click #(state/set-message-done id false)}
+         (t :mail/set-unarchived)]
+        [:button.done-btn {:on-click #(state/set-message-done id true)}
+         (t :mail/archive)]))))
+
+(defn- mail-message-actions [message]
   [:div.item-actions
-   (if (= done 1)
-     [:button.undone-btn {:on-click #(state/set-message-done id false)}
-      (t :mail/set-unarchived)]
-     [:button.done-btn {:on-click #(state/set-message-done id true)}
-      (t :mail/archive)])
+   [archive-button-with-dropdown message]
    [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
     (t :task/delete)]])
 

@@ -823,6 +823,18 @@
                    :returning return-cols})
       jdbc-opts)))
 
+(defn convert-message-to-resource [ds user-id message-id link]
+  (when-let [message (get-message ds user-id message-id)]
+    (let [description (str (or (:description message) "")
+                          (when (and (seq (:description message)) (seq (:annotation message))) "\n")
+                          (or (:annotation message) ""))
+          resource (add-resource ds user-id (:title message) link "both")]
+      (when (seq description)
+        (update-resource ds user-id (:id resource) {:description description}))
+      (delete-message ds user-id message-id)
+      (tel/log! {:level :info :data {:message-id message-id :resource-id (:id resource) :user-id user-id}} "Message converted to resource")
+      (assoc resource :description description))))
+
 (defn delete-resource [ds user-id resource-id]
   (when (resource-owned-by-user? ds resource-id user-id)
     (let [conn (get-conn ds)]

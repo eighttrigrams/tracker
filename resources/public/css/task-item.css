@@ -309,6 +309,9 @@
 .task-dropdown-menu .dropdown-item:hover {
   background-color: #f5f5f5;
 }
+.task-dropdown-menu .dropdown-item.convert-to-resource {
+  color: #007aff;
+}
 @media (prefers-color-scheme: dark) {
   .task-dropdown-menu {
     background: #2c2c2c;

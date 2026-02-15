@@ -612,6 +612,15 @@
         {:status 200 :body result}
         {:status 404 :body {:error "Message not found"}}))))
 
+(defn convert-message-to-resource-handler [req]
+  (with-admin-message-context req user-id message-id
+    (let [link (get-in req [:body :link])]
+      (if (or (str/blank? link) (not (re-matches #"https?://.*" link)))
+        {:status 400 :body {:error "Invalid or missing link URL"}}
+        (if-let [result (db/convert-message-to-resource (ensure-ds) user-id message-id link)]
+          {:status 200 :body result}
+          {:status 404 :body {:error "Message not found"}})))))
+
 (defonce translations-cache (atom nil))
 
 (defn- load-translations []
@@ -720,6 +729,7 @@
       (POST "/" [] add-message-handler)
       (PUT "/:id/done" [] set-message-done-handler)
       (PUT "/:id/annotation" [] update-message-annotation-handler)
+      (POST "/:id/convert-to-resource" [] convert-message-to-resource-handler)
       (DELETE "/:id" [] delete-message-handler))
 
     (context "/resources" []
