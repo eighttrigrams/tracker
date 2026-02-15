@@ -606,6 +606,12 @@
                              :where user-where
                              :order-by [[:sort_order :asc] [:name :asc]]})
                 jdbc-opts)
+        resources (jdbc/execute! conn
+                    (sql/format {:select [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance]
+                                 :from [:resources]
+                                 :where user-where
+                                 :order-by [[:created_at :asc]]})
+                    jdbc-opts)
         people-by-id (into {} (map (juxt :id :name) people))
         places-by-id (into {} (map (juxt :id :name) places))
         projects-by-id (into {} (map (juxt :id :name) projects))
@@ -617,7 +623,8 @@
      :people people
      :places places
      :projects projects
-     :goals goals}))
+     :goals goals
+     :resources resources}))
 
 (defn add-message [ds user-id sender title description type]
   (let [result (jdbc/execute-one! (get-conn ds)

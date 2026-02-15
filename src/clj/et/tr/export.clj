@@ -37,12 +37,27 @@
         description (or (:description task) "")]
     (str frontmatter title description)))
 
+(defn- resource-to-markdown [resource]
+  (let [frontmatter (str "---\n"
+                         "id: " (:id resource) "\n"
+                         "link: \"" (:link resource) "\"\n"
+                         "created_at: \"" (:created_at resource) "\"\n"
+                         "modified_at: \"" (:modified_at resource) "\"\n"
+                         "scope: \"" (:scope resource) "\"\n"
+                         "importance: \"" (:importance resource) "\"\n"
+                         "sort_order: " (:sort_order resource) "\n"
+                         (when (seq (:tags resource)) (str "tags: \"" (:tags resource) "\"\n"))
+                         "---\n\n")
+        title (str "# " (:title resource) "\n\n")
+        description (or (:description resource) "")]
+    (str frontmatter title description)))
+
 (defn create-export-zip [username data]
   (let [baos (ByteArrayOutputStream.)
         timestamp (.format (java.time.LocalDateTime/now) (java.time.format.DateTimeFormatter/ofPattern "yyyy-MM-dd-HHmmss"))]
     (with-open [zos (ZipOutputStream. baos StandardCharsets/UTF_8)]
       (.putNextEntry zos (ZipEntry. "metadata.edn"))
-      (.write zos (.getBytes (pr-str {:export_version 1
+      (.write zos (.getBytes (pr-str {:export_version 2
                                        :exported_at timestamp
                                        :username username}) "UTF-8"))
       (.closeEntry zos)
@@ -50,6 +65,11 @@
         (let [filename (str "tasks/" (:id task) "-" (sanitize-filename (:title task)) ".md")]
           (.putNextEntry zos (ZipEntry. filename))
           (.write zos (.getBytes (task-to-markdown task) "UTF-8"))
+          (.closeEntry zos)))
+      (doseq [resource (:resources data)]
+        (let [filename (str "resources/" (:id resource) "-" (sanitize-filename (:title resource)) ".md")]
+          (.putNextEntry zos (ZipEntry. filename))
+          (.write zos (.getBytes (resource-to-markdown resource) "UTF-8"))
           (.closeEntry zos)))
       (.putNextEntry zos (ZipEntry. "people.edn"))
       (.write zos (.getBytes (pr-str (:people data)) "UTF-8"))
