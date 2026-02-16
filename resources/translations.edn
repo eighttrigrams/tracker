@@ -161,7 +161,14 @@
   :resources/search-or-add "Search or add resource..."
   :resources/no-resources "No resources"
   :modal/delete-resource "Delete Resource"
-  :modal/delete-resource-confirm "Are you sure you want to delete this resource?"}
+  :modal/delete-resource-confirm "Are you sure you want to delete this resource?"
+
+  :nav/meets "Meets"
+  :meets/title-placeholder "Title"
+  :meets/search-or-add "Search or add meet..."
+  :meets/no-meets "No meets"
+  :modal/delete-meet "Delete Meet"
+  :modal/delete-meet-confirm "Are you sure you want to delete this meet?"}
 
  :de
  {:date/sunday "Sonntag"
@@ -326,7 +333,14 @@
   :resources/search-or-add "Suchen oder Ressource hinzufügen..."
   :resources/no-resources "Keine Ressourcen"
   :modal/delete-resource "Ressource löschen"
-  :modal/delete-resource-confirm "Möchten Sie diese Ressource wirklich löschen?"}
+  :modal/delete-resource-confirm "Möchten Sie diese Ressource wirklich löschen?"
+
+  :nav/meets "Treffen"
+  :meets/title-placeholder "Titel"
+  :meets/search-or-add "Suchen oder Treffen hinzufügen..."
+  :meets/no-meets "Keine Treffen"
+  :modal/delete-meet "Treffen löschen"
+  :modal/delete-meet-confirm "Möchten Sie dieses Treffen wirklich löschen?"}
 
  :pt
  {:date/sunday "Domingo"
@@ -491,4 +505,11 @@
   :resources/search-or-add "Pesquisar ou adicionar recurso..."
   :resources/no-resources "Sem recursos"
   :modal/delete-resource "Eliminar Recurso"
-  :modal/delete-resource-confirm "Tem a certeza de que pretende eliminar este recurso?"}}
+  :modal/delete-resource-confirm "Tem a certeza de que pretende eliminar este recurso?"
+
+  :nav/meets "Encontros"
+  :meets/title-placeholder "Título"
+  :meets/search-or-add "Pesquisar ou adicionar encontro..."
+  :meets/no-meets "Sem encontros"
+  :modal/delete-meet "Eliminar Encontro"
+  :modal/delete-meet-confirm "Tem a certeza de que pretende eliminar este encontro?"}}

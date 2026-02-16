@@ -10,6 +10,7 @@
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.ui.state.today-page :as today-page]
             [et.tr.ui.state.resources :as resources-state]
+            [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.ui :as ui]))
 
 (def ^:const CATEGORY-TYPE-PERSON constants/CATEGORY-TYPE-PERSON)
@@ -25,6 +26,7 @@
    :goals []
    :messages []
    :resources []
+   :meets []
    :upcoming-horizon nil})
 
 (defonce *app-state (r/atom {;; Data collections
@@ -35,6 +37,7 @@
                             :goals []
                             :messages []
                             :resources []
+                            :meets []
                             :users []
                             :available-users []
 
@@ -66,6 +69,10 @@
                             ;; Resources page state
                             :resources-page/collapsed-filters #{:people :places :projects}
                             :resources-page/category-search {:people "" :places "" :projects ""}
+
+                            ;; Meets page state
+                            :meets-page/collapsed-filters #{:people :places :projects}
+                            :meets-page/category-search {:people "" :places "" :projects ""}
 
                             ;; Task dropdown state
                             :task-dropdown-open nil
@@ -119,6 +126,7 @@
 (declare fetch-tasks)
 (declare fetch-messages)
 (declare fetch-resources)
+(declare fetch-meets)
 (declare fetch-users)
 (declare fetch-people)
 (declare fetch-places)
@@ -260,6 +268,111 @@
 (defn uncategorize-resource [resource-id category-type category-id]
   (resources-state/uncategorize-resource *app-state auth-headers fetch-resources resource-id category-type category-id))
 
+(defn- meets-fetch-opts []
+  {:search-term (:filter-search @meets-state/*meets-page-state)
+   :importance (:importance-filter @meets-state/*meets-page-state)
+   :context (:work-private-mode @*app-state)
+   :strict (:strict-mode @*app-state)
+   :filter-people (:shared/filter-people @*app-state)
+   :filter-places (:shared/filter-places @*app-state)
+   :filter-projects (:shared/filter-projects @*app-state)})
+
+(defn fetch-meets
+  ([] (fetch-meets (meets-fetch-opts)))
+  ([opts]
+   (meets-state/fetch-meets *app-state auth-headers opts)))
+
+(defn add-meet [title on-success]
+  (meets-state/add-meet *app-state auth-headers current-scope title on-success fetch-meets))
+
+(defn update-meet [meet-id title description tags on-success]
+  (meets-state/update-meet *app-state auth-headers meet-id title description tags on-success))
+
+(defn delete-meet [meet-id]
+  (meets-state/delete-meet *app-state auth-headers meet-id))
+
+(defn set-meet-scope [meet-id scope]
+  (meets-state/set-meet-scope *app-state auth-headers meet-id scope))
+
+(defn set-meet-importance [meet-id importance]
+  (meets-state/set-meet-importance *app-state auth-headers meet-id importance))
+
+(defn set-expanded-meet [id]
+  (meets-state/set-expanded-meet id))
+
+(defn set-editing-meet [id]
+  (meets-state/set-editing-meet id))
+
+(defn clear-editing-meet []
+  (meets-state/clear-editing-meet))
+
+(defn set-confirm-delete-meet [meet]
+  (meets-state/set-confirm-delete-meet meet))
+
+(defn clear-confirm-delete-meet []
+  (meets-state/clear-confirm-delete-meet))
+
+(defn set-meet-filter-search [search-term]
+  (meets-state/set-filter-search fetch-meets search-term))
+
+(defn set-meet-importance-filter [level]
+  (meets-state/set-importance-filter fetch-meets level))
+
+(defn clear-all-meet-filters []
+  (meets-state/clear-all-meet-filters fetch-meets))
+
+(defn categorize-meet [meet-id category-type category-id]
+  (meets-state/categorize-meet *app-state auth-headers fetch-meets meet-id category-type category-id))
+
+(defn uncategorize-meet [meet-id category-type category-id]
+  (meets-state/uncategorize-meet *app-state auth-headers fetch-meets meet-id category-type category-id))
+
+(defn toggle-meets-filter-collapsed [filter-key]
+  (let [was-collapsed (contains? (:meets-page/collapsed-filters @*app-state) filter-key)
+        all-filters #{:people :places :projects}]
+    (swap! *app-state update :meets-page/collapsed-filters
+           (fn [collapsed]
+             (if (contains? collapsed filter-key)
+               (disj all-filters filter-key)
+               (conj collapsed filter-key))))
+    (when was-collapsed
+      (swap! *app-state update :meets-page/category-search
+             (fn [searches]
+               (reduce #(assoc %1 %2 "") searches all-filters))))
+    (js/setTimeout
+     (fn []
+       (when-let [el (.getElementById js/document
+                                      (if was-collapsed
+                                        (str "meets-filter-" (name filter-key))
+                                        "meets-filter-search"))]
+         (.focus el)))
+     0)))
+
+(defn set-meets-category-search [category-key search-term]
+  (swap! *app-state assoc-in [:meets-page/category-search category-key] search-term))
+
+(defn clear-uncollapsed-meet-filters []
+  (let [collapsed (:meets-page/collapsed-filters @*app-state)
+        all-filters #{:people :places :projects}
+        uncollapsed (clojure.set/difference all-filters collapsed)]
+    (if (empty? uncollapsed)
+      (swap! *app-state assoc
+             :shared/filter-people #{}
+             :shared/filter-places #{}
+             :shared/filter-projects #{}
+             :meets-page/category-search {:people "" :places "" :projects ""})
+      (do
+        (doseq [filter-key uncollapsed]
+          (case filter-key
+            :people (swap! *app-state assoc :shared/filter-people #{})
+            :places (swap! *app-state assoc :shared/filter-places #{})
+            :projects (swap! *app-state assoc :shared/filter-projects #{})))
+        (swap! *app-state assoc
+               :meets-page/collapsed-filters all-filters
+               :meets-page/category-search {:people "" :places "" :projects ""})))
+    (meets-state/set-importance-filter fetch-meets nil)
+    (fetch-meets)))
+
 (defn toggle-resources-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:resources-page/collapsed-filters @*app-state) filter-key)
         all-filters #{:people :places :projects}]
@@ -296,6 +409,7 @@
     (case (:active-tab @*app-state)
       :tasks (fetch-tasks)
       :resources (fetch-resources)
+      :meets (fetch-meets)
       nil)))
 
 (defn clear-shared-filter [filter-type]
@@ -307,6 +421,7 @@
     (case (:active-tab @*app-state)
       :tasks (fetch-tasks)
       :resources (fetch-resources)
+      :meets (fetch-meets)
       nil)))
 
 (defn clear-uncollapsed-resource-filters []
@@ -639,6 +754,7 @@
   (ui/make-tab-initializers *app-state {:fetch-tasks fetch-tasks
                                         :fetch-messages fetch-messages
                                         :fetch-resources fetch-resources
+                                        :fetch-meets fetch-meets
                                         :is-admin is-admin?}))
 
 (defn set-active-tab [tab]
@@ -654,10 +770,10 @@
   (ui/clear-editing *app-state))
 
 (defn set-work-private-mode [mode]
-  (ui/set-work-private-mode *app-state fetch-tasks fetch-resources mode))
+  (ui/set-work-private-mode *app-state fetch-tasks fetch-resources fetch-meets mode))
 
 (defn toggle-strict-mode []
-  (ui/toggle-strict-mode *app-state fetch-tasks fetch-resources))
+  (ui/toggle-strict-mode *app-state fetch-tasks fetch-resources fetch-meets))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))

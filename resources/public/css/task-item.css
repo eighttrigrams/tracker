@@ -1,5 +1,5 @@
 .items { list-style: none; padding: 0; margin: 0; }
-.items li {
+.items > li {
   padding: 16px;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
@@ -10,7 +10,7 @@
   box-shadow: var(--glass-shadow);
   transition: all 0.2s ease;
 }
-.items li:hover {
+.items > li:hover {
   box-shadow: 0 6px 32px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
 }
@@ -96,7 +96,7 @@
 .add-entity-form { display: flex; gap: 8px; }
 .add-entity-form input { width: 150px; }
 .add-entity-form button { padding: 10px 14px; }
-.items li.expanded {
+.items > li.expanded {
   background: var(--glass-bg-elevated);
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
   position: relative;
@@ -183,12 +183,12 @@
 .clear-search:hover { color: var(--text-primary); background: none; transform: translateY(-50%); }
 .tasks-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .tasks-header h2 { margin: 0; }
-.items li[draggable="true"] { cursor: grab; }
-.items li[draggable="true"]:active { cursor: grabbing; }
-.items li.drag-disabled { cursor: default !important; }
-.items li.drag-disabled:active { cursor: default !important; }
-.items li.dragging { opacity: 0.5; }
-.items li.drag-over {
+.items > li[draggable="true"] { cursor: grab; }
+.items > li[draggable="true"]:active { cursor: grabbing; }
+.items > li.drag-disabled { cursor: default !important; }
+.items > li.drag-disabled:active { cursor: default !important; }
+.items > li.dragging { opacity: 0.5; }
+.items > li.drag-over {
   border-color: var(--accent);
   border-style: dashed;
   background: rgba(0, 113, 227, 0.05);

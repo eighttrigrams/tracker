@@ -487,6 +487,55 @@
                                 "Invalid importance. Must be 'normal', 'important', or 'critical'"
                                 {:entity-type :resource :set-fn db/set-resource-field}))
 
+(defn list-meets-handler [req]
+  (let [user-id (get-user-id req)
+        search-term (get-in req [:params "q"])
+        importance (get-in req [:params "importance"])
+        context (get-in req [:params "context"])
+        strict (= "true" (get-in req [:params "strict"]))
+        people (parse-category-param (get-in req [:params "people"]))
+        places (parse-category-param (get-in req [:params "places"]))
+        projects (parse-category-param (get-in req [:params "projects"]))
+        categories (when (or people places projects)
+                     {:people people :places places :projects projects})]
+    {:status 200 :body (db/list-meets (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
+
+(defn add-meet-handler [req]
+  (let [user-id (get-user-id req)
+        {:keys [title scope]} (:body req)]
+    (if (str/blank? title)
+      {:status 400 :body {:success false :error "Title is required"}}
+      {:status 201 :body (db/add-meet (ensure-ds) user-id title (or scope "both"))})))
+
+(defn update-meet-handler [req]
+  (let [user-id (get-user-id req)
+        meet-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [title description tags]} (:body req)]
+    (if (str/blank? title)
+      {:status 400 :body {:success false :error "Title is required"}}
+      {:status 200 :body (db/update-meet (ensure-ds) user-id meet-id {:title title :description (or description "") :tags (or tags "")})})))
+
+(defn delete-meet-handler [req]
+  (let [user-id (get-user-id req)
+        meet-id (Integer/parseInt (get-in req [:params :id]))
+        result (db/delete-meet (ensure-ds) user-id meet-id)]
+    (if (:success result)
+      {:status 200 :body {:success true}}
+      {:status 404 :body {:success false :error "Meet not found"}})))
+
+(def categorize-meet-handler (make-categorize-handler db/categorize-meet))
+(def uncategorize-meet-handler (make-uncategorize-handler db/uncategorize-meet))
+
+(def set-meet-scope-handler
+  (make-entity-property-handler :scope db/valid-scopes
+                                "Invalid scope. Must be 'private', 'both', or 'work'"
+                                {:entity-type :meet :set-fn db/set-meet-field}))
+
+(def set-meet-importance-handler
+  (make-entity-property-handler :importance db/valid-importances
+                                "Invalid importance. Must be 'normal', 'important', or 'critical'"
+                                {:entity-type :meet :set-fn db/set-meet-field}))
+
 (defn delete-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -742,6 +791,16 @@
       (DELETE "/:id/categorize" [] uncategorize-resource-handler)
       (PUT "/:id/scope" [] set-resource-scope-handler)
       (PUT "/:id/importance" [] set-resource-importance-handler))
+
+    (context "/meets" []
+      (GET "/" [] list-meets-handler)
+      (POST "/" [] add-meet-handler)
+      (PUT "/:id" [] update-meet-handler)
+      (DELETE "/:id" [] delete-meet-handler)
+      (POST "/:id/categorize" [] categorize-meet-handler)
+      (DELETE "/:id/categorize" [] uncategorize-meet-handler)
+      (PUT "/:id/scope" [] set-meet-scope-handler)
+      (PUT "/:id/importance" [] set-meet-importance-handler))
 
     (DELETE "/:category/:id" [] delete-category-handler)
 

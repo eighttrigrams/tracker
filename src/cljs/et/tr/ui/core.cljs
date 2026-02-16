@@ -10,6 +10,7 @@
             [et.tr.ui.views.tasks :as tasks]
             [et.tr.ui.views.categories :as categories]
             [et.tr.ui.views.resources :as resources]
+            [et.tr.ui.views.meets :as meets]
             [et.tr.ui.components.controls :as controls]
             [et.tr.i18n :as i18n :refer [t]]))
 
@@ -17,6 +18,7 @@
   [{:key :today      :translation :nav/today}
    {:key :tasks      :translation :nav/tasks}
    {:key :resources  :translation :nav/resources}
+   {:key :meets      :translation :nav/meets}
    {:key :categories :translation :nav/categories :children [:people-places :projects-goals]}
    {:key :mail       :translation :nav/mail       :admin-only true}
    {:key :users      :translation :nav/users      :admin-only true}
@@ -75,6 +77,7 @@
      [tab-button active-tab :today :nav/today]
      [tab-button active-tab :tasks :nav/tasks]
      [tab-button active-tab :resources :nav/resources]
+     [tab-button active-tab :meets :nav/meets]
      [tab-button active-tab :categories :nav/categories
       #(contains? #{:categories :people-places :projects-goals} %)]
      (when (state/is-admin?)
@@ -88,6 +91,7 @@
      [modals/confirm-delete-category-modal]
      [modals/confirm-delete-message-modal]
      [modals/confirm-delete-resource-modal]
+     [modals/confirm-delete-meet-modal]
      [modals/pending-task-modal]
      (cond
        (nil? auth-required?)
@@ -103,13 +107,14 @@
         [:div.top-bar
          [tabs]
          [:div.top-bar-right
-          (when (contains? #{:today :tasks :resources} active-tab)
+          (when (contains? #{:today :tasks :resources :meets} active-tab)
             [controls/work-private-toggle])
           [controls/dark-mode-toggle]
           [controls/user-info]]]
         (case active-tab
           :today [today/today-tab]
           :resources [resources/resources-tab]
+          :meets [meets/meets-tab]
           :categories [categories/categories-tab]
           :people-places [categories/categories-tab]
           :projects-goals [categories/categories-tab]
@@ -148,7 +153,8 @@
         {:keys [active-tab]} @state/*app-state
         tasks-shortcut-keys (tasks/get-tasks-category-shortcut-keys)
         today-shortcut-keys (today/get-today-category-shortcut-keys)
-        resources-shortcut-keys (resources/get-resources-category-shortcut-keys)]
+        resources-shortcut-keys (resources/get-resources-category-shortcut-keys)
+        meets-shortcut-keys (meets/get-meets-category-shortcut-keys)]
     (when (.-shiftKey e)
       (cond
         (= "ArrowLeft" code)
@@ -174,6 +180,11 @@
           (.preventDefault e)
           (state/set-active-tab :resources))
 
+        (= "KeyM" code)
+        (do
+          (.preventDefault e)
+          (state/set-active-tab :meets))
+
         (= "Escape" code)
         (do
           (.preventDefault e)
@@ -181,7 +192,8 @@
             (= :tasks active-tab) (state/clear-uncollapsed-task-filters)
             (= :today active-tab) (state/clear-uncollapsed-today-filters)
             (= :mail active-tab) (state/clear-all-mail-filters)
-            (= :resources active-tab) (state/clear-uncollapsed-resource-filters)))
+            (= :resources active-tab) (state/clear-uncollapsed-resource-filters)
+            (= :meets active-tab) (state/clear-uncollapsed-meet-filters)))
 
         (= :tasks active-tab)
         (when-let [filter-key (tasks-shortcut-keys code)]
@@ -196,7 +208,12 @@
         (= :resources active-tab)
         (when-let [filter-key (resources-shortcut-keys code)]
           (.preventDefault e)
-          (state/toggle-resources-filter-collapsed filter-key))))))
+          (state/toggle-resources-filter-collapsed filter-key))
+
+        (= :meets active-tab)
+        (when-let [filter-key (meets-shortcut-keys code)]
+          (.preventDefault e)
+          (state/toggle-meets-filter-collapsed filter-key))))))
 
 (defn init []
   (i18n/load-translations!

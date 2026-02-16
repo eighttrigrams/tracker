@@ -3,7 +3,7 @@
   user-select: none;
   -webkit-user-select: none;
 }
-.mail-page .items li {
+.mail-page .items > li {
   cursor: default;
 }
 .mail-sender {
@@ -177,7 +177,7 @@
   100% { opacity: 0; transform: rotate(45deg) scale(2); }
 }
 
-.mail-page .items li.archiving-out {
+.mail-page .items > li.archiving-out {
   animation: card-fade-out 1s ease forwards;
 }
 

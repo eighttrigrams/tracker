@@ -1,6 +1,9 @@
 (ns et.tr.categories-db-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [et.tr.db :as db]
+            [next.jdbc :as jdbc]
+            [next.jdbc.result-set :as rs]
+            [honey.sql :as sql]
             [et.tr.test-helpers :refer [*ds* with-in-memory-db]]))
 
 (use-fixtures :each with-in-memory-db)
@@ -65,3 +68,32 @@
           user-id (:id user)]
       (db/add-person *ds* user-id "Alice")
       (is (thrown? Exception (db/add-person *ds* user-id "Alice"))))))
+
+(defn- count-join-rows [table]
+  (:cnt (jdbc/execute-one! (:conn *ds*)
+          (sql/format {:select [[[:count :*] :cnt]] :from [table]})
+          {:builder-fn rs/as-unqualified-maps})))
+
+(deftest delete-category-cleans-up-task-categories-test
+  (let [task (db/add-task *ds* nil "My task")
+        person (db/add-person *ds* nil "Alice")]
+    (db/categorize-task *ds* nil (:id task) "person" (:id person))
+    (is (= 1 (count-join-rows :task_categories)))
+    (db/delete-category *ds* nil (:id person) "person" "people")
+    (is (= 0 (count-join-rows :task_categories)))))
+
+(deftest delete-category-cleans-up-resource-categories-test
+  (let [resource (db/add-resource *ds* nil "My resource" "https://example.com" "both")
+        person (db/add-person *ds* nil "Alice")]
+    (db/categorize-resource *ds* nil (:id resource) "person" (:id person))
+    (is (= 1 (count-join-rows :resource_categories)))
+    (db/delete-category *ds* nil (:id person) "person" "people")
+    (is (= 0 (count-join-rows :resource_categories)))))
+
+(deftest delete-category-cleans-up-meet-categories-test
+  (let [meet (db/add-meet *ds* nil "My meet")
+        person (db/add-person *ds* nil "Alice")]
+    (db/categorize-meet *ds* nil (:id meet) "person" (:id person))
+    (is (= 1 (count-join-rows :meet_categories)))
+    (db/delete-category *ds* nil (:id person) "person" "people")
+    (is (= 0 (count-join-rows :meet_categories)))))

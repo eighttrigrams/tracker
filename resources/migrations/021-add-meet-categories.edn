@@ -1,0 +1,8 @@
+{:up ["CREATE TABLE meet_categories (
+         meet_id INTEGER NOT NULL,
+         category_type TEXT NOT NULL,
+         category_id INTEGER NOT NULL,
+         PRIMARY KEY (meet_id, category_type, category_id),
+         FOREIGN KEY (meet_id) REFERENCES meets(id) ON DELETE CASCADE
+       )"]
+ :down ["DROP TABLE IF EXISTS meet_categories"]}

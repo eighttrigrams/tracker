@@ -3,6 +3,7 @@
             [et.tr.ui.state :as state]
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
+            [et.tr.ui.state.meets :as meets-state]
             [et.tr.i18n :refer [t tf]]))
 
 (defn- generic-confirm-modal
@@ -104,6 +105,16 @@
     :title-key :title
     :clear-fn state/clear-confirm-delete-resource
     :delete-fn state/delete-resource}))
+
+(def confirm-delete-meet-modal
+  (make-confirm-delete-modal
+   {:state-atom meets-state/*meets-page-state
+    :state-key :confirm-delete-meet
+    :header-i18n :modal/delete-meet
+    :confirm-i18n :modal/delete-meet-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-meet
+    :delete-fn state/delete-meet}))
 
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable

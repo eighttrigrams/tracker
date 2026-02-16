@@ -95,6 +95,8 @@
 
 (def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance])
 
+(def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance])
+
 (defn- user-id-where-clause [user-id]
   (if user-id
     [:= :user_id user-id]
@@ -377,16 +379,19 @@
 (defn delete-category [ds user-id category-id category-type table-name]
   (validate-table-name! table-name)
   (validate-category-type! category-type)
-  (let [conn (get-conn ds)]
+  (let [conn (get-conn ds)
+        category-where [:and [:= :category_type category-type] [:= :category_id category-id]]]
     (jdbc/with-transaction [tx conn]
-      (jdbc/execute-one! tx
-        (sql/format {:delete-from :task_categories
-                     :where [:and
-                             [:= :category_type category-type]
-                             [:= :category_id category-id]
-                             [:in :task_id {:select [:id]
-                                            :from [:tasks]
-                                            :where (user-id-where-clause user-id)}]]}))
+      (doseq [[join-table entity-col entity-table]
+              [[:task_categories :task_id :tasks]
+               [:resource_categories :resource_id :resources]
+               [:meet_categories :meet_id :meets]]]
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from join-table
+                       :where (conj category-where
+                                    [:in entity-col {:select [:id]
+                                                     :from [entity-table]
+                                                     :where (user-id-where-clause user-id)}])})))
       (let [result (jdbc/execute-one! tx
                      (sql/format {:delete-from (keyword table-name)
                                   :where [:and [:= :id category-id] (user-id-where-clause user-id)]}))]
@@ -736,7 +741,7 @@
 
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
-    (doseq [table [:task_categories :resource_categories :tasks :messages :resources :people :places :projects :goals :users]]
+    (doseq [table [:task_categories :resource_categories :meet_categories :tasks :messages :resources :meets :people :places :projects :goals :users]]
       (jdbc/execute-one! conn (sql/format {:delete-from table})))))
 
 (defn add-resource [ds user-id title link scope]
@@ -923,3 +928,148 @@
           (sql/format {:update :resources
                        :set {:modified_at [:raw "datetime('now')"]}
                        :where [:= :id resource-id]}))))))
+
+(defn add-meet
+  ([ds user-id title] (add-meet ds user-id title "both"))
+  ([ds user-id title scope]
+   (let [conn (get-conn ds)
+         valid-scope (normalize-scope scope)
+         min-order (or (:min_order (jdbc/execute-one! conn
+                                     (sql/format {:select [[[:min :sort_order] :min_order]]
+                                                  :from [:meets]
+                                                  :where (user-id-where-clause user-id)})
+                                     jdbc-opts))
+                       1.0)
+         new-order (- min-order 1.0)]
+     (let [result (jdbc/execute-one! conn
+                    (sql/format {:insert-into :meets
+                                 :values [{:title title
+                                           :sort_order new-order
+                                           :user_id user-id
+                                           :modified_at [:raw "datetime('now')"]
+                                           :scope valid-scope}]
+                                 :returning (conj meet-select-columns :user_id)})
+                    jdbc-opts)]
+       (tel/log! {:level :info :data {:meet-id (:id result) :user-id user-id}} "Meet added")
+       (assoc result :people [] :places [] :projects [])))))
+
+(defn- build-meet-category-clauses [categories]
+  (let [people-clause (build-category-subquery :meet_categories :meet_id :meets "person" (:people categories))
+        places-clause (build-category-subquery :meet_categories :meet_id :meets "place" (:places categories))
+        projects-clause (build-category-subquery :meet_categories :meet_id :meets "project" (:projects categories))]
+    (filterv some? [people-clause places-clause projects-clause])))
+
+(defn- associate-categories-with-meets [meets categories-by-meet people-by-id places-by-id projects-by-id]
+  (mapv (fn [meet]
+          (let [meet-categories (get categories-by-meet (:id meet) [])]
+            (assoc meet
+                   :people (extract-category meet-categories "person" people-by-id)
+                   :places (extract-category meet-categories "place" places-by-id)
+                   :projects (extract-category meet-categories "project" projects-by-id))))
+        meets))
+
+(defn list-meets
+  ([ds user-id] (list-meets ds user-id {}))
+  ([ds user-id opts]
+   (let [{:keys [search-term importance context strict categories]} opts
+         conn (get-conn ds)
+         user-where (user-id-where-clause user-id)
+         search-clause (build-search-clause search-term [:title :tags])
+         importance-clause (build-importance-clause importance)
+         scope-clause (build-scope-clause context strict)
+         category-clauses (build-meet-category-clauses categories)
+         where-clause (into [:and user-where]
+                            (concat (filter some? [search-clause importance-clause scope-clause])
+                                    category-clauses))
+         meets (jdbc/execute! conn
+                 (sql/format {:select meet-select-columns
+                              :from [:meets]
+                              :where where-clause
+                              :order-by [[:modified_at :desc]]})
+                 jdbc-opts)
+         meet-ids (mapv :id meets)
+         categories-data (when (seq meet-ids)
+                           (jdbc/execute! conn
+                             (sql/format {:select [:meet_id :category_type :category_id]
+                                          :from [:meet_categories]
+                                          :where [:in :meet_id meet-ids]})
+                             jdbc-opts))
+         {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
+         categories-by-meet (group-by :meet_id categories-data)]
+     (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id))))
+
+(defn meet-owned-by-user? [ds meet-id user-id]
+  (some? (jdbc/execute-one! (get-conn ds)
+           (sql/format {:select [:id]
+                        :from [:meets]
+                        :where [:and [:= :id meet-id] (user-id-where-clause user-id)]})
+           jdbc-opts)))
+
+(defn update-meet [ds user-id meet-id fields]
+  (let [set-map (assoc fields :modified_at [:raw "datetime('now')"])
+        return-cols (into [:id :created_at :modified_at] (keys fields))]
+    (jdbc/execute-one! (get-conn ds)
+      (sql/format {:update :meets
+                   :set set-map
+                   :where [:and [:= :id meet-id] (user-id-where-clause user-id)]
+                   :returning return-cols})
+      jdbc-opts)))
+
+(defn delete-meet [ds user-id meet-id]
+  (when (meet-owned-by-user? ds meet-id user-id)
+    (let [conn (get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :meet_categories
+                       :where [:= :meet_id meet-id]}))
+        (let [result (jdbc/execute-one! tx
+                       (sql/format {:delete-from :meets
+                                    :where [:= :id meet-id]}))]
+          (tel/log! {:level :info :data {:meet-id meet-id :user-id user-id}} "Meet deleted")
+          {:success (pos? (:next.jdbc/update-count result))})))))
+
+(defn set-meet-field [ds user-id meet-id field value]
+  (let [normalize-fn (get field-normalizers field identity)
+        valid-value (normalize-fn value)]
+    (jdbc/execute-one! (get-conn ds)
+      (sql/format {:update :meets
+                   :set {field valid-value
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id meet-id] (user-id-where-clause user-id)]
+                   :returning [:id field :modified_at]})
+      jdbc-opts)))
+
+(defn categorize-meet [ds user-id meet-id category-type category-id]
+  (validate-category-type! category-type)
+  (when (and (meet-owned-by-user? ds meet-id user-id)
+             (category-owned-by-user? ds category-type category-id user-id))
+    (let [conn (get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:insert-into :meet_categories
+                       :values [{:meet_id meet-id
+                                 :category_type category-type
+                                 :category_id category-id}]
+                       :on-conflict []
+                       :do-nothing true}))
+        (jdbc/execute-one! tx
+          (sql/format {:update :meets
+                       :set {:modified_at [:raw "datetime('now')"]}
+                       :where [:= :id meet-id]}))))))
+
+(defn uncategorize-meet [ds user-id meet-id category-type category-id]
+  (validate-category-type! category-type)
+  (when (and (meet-owned-by-user? ds meet-id user-id)
+             (category-owned-by-user? ds category-type category-id user-id))
+    (let [conn (get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :meet_categories
+                       :where [:and
+                               [:= :meet_id meet-id]
+                               [:= :category_type category-type]
+                               [:= :category_id category-id]]}))
+        (jdbc/execute-one! tx
+          (sql/format {:update :meets
+                       :set {:modified_at [:raw "datetime('now')"]}
+                       :where [:= :id meet-id]}))))))
