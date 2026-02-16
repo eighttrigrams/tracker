@@ -101,8 +101,9 @@
    [:div.item-actions
     [meet-scope-selector meet]
     [meet-importance-selector meet]
-    [:button.delete-btn {:on-click #(state/set-confirm-delete-meet meet)}
-     (t :task/delete)]]])
+    [:div.combined-button-wrapper
+     [:button.delete-btn {:on-click #(state/set-confirm-delete-meet meet)}
+      (t :task/delete)]]]])
 
 (defn- meet-header [meet is-expanded]
   (let [importance (:importance meet)]

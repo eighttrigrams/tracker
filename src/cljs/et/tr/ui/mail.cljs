@@ -102,8 +102,9 @@
 (defn- mail-message-actions [message]
   [:div.item-actions
    [archive-button-with-dropdown message]
-   [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
-    (t :task/delete)]])
+   [:div.combined-button-wrapper
+    [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
+     (t :task/delete)]]])
 
 (defn- mail-message-expanded-content [{:keys [title description annotation type] :as message} editing?]
   [:div.item-details

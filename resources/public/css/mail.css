@@ -185,3 +185,4 @@
   0% { opacity: 1; transform: translateX(0); }
   100% { opacity: 0; transform: translateX(20px); }
 }
+.mail-page .item-actions > .combined-button-wrapper:first-child { margin-left: 0; margin-right: 0; }

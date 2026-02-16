@@ -127,8 +127,9 @@
      [:div.item-actions
       [resource-scope-selector resource]
       [resource-importance-selector resource]
-      [:button.delete-btn {:on-click #(state/set-confirm-delete-resource resource)}
-       (t :task/delete)]]]))
+      [:div.combined-button-wrapper
+       [:button.delete-btn {:on-click #(state/set-confirm-delete-resource resource)}
+        (t :task/delete)]]]]))
 
 (defn- resource-header [resource is-expanded]
   (let [importance (:importance resource)]
