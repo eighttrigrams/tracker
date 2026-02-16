@@ -1,6 +1,7 @@
 (ns et.tr.ui.views.today
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
@@ -77,6 +78,63 @@
      (when is-expanded
        [today-task-expanded-details task])]))
 
+(defn- today-meet-expanded-details [meet]
+  [:div.today-task-details
+   (when (seq (:description meet))
+     [:div.item-description [task-item/markdown (:description meet)]])
+   (when (or (seq (:people meet)) (seq (:places meet)) (seq (:projects meet)))
+     [:div.item-categories
+      (for [person (:people meet)]
+        ^{:key (str "person-" (:id person))}
+        [:span.category-tag.person (:name person)])
+      (for [place (:places meet)]
+        ^{:key (str "place-" (:id place))}
+        [:span.category-tag.place (:name place)])
+      (for [project (:projects meet)]
+        ^{:key (str "project-" (:id project))}
+        [:span.category-tag.project (:name project)])])])
+
+(defn- today-meet-item [meet & {:keys [show-day-prefix hide-date] :or {show-day-prefix false hide-date false}}]
+  (let [show-prefix? (and show-day-prefix (date/within-days? (:start_date meet) 6))
+        expanded-meet (:today-page/expanded-meet @state/*app-state)
+        is-expanded (= expanded-meet (:id meet))]
+    [:div.today-task-item.meet-item {:class (when is-expanded "expanded")}
+     [:div.today-task-header
+      {:on-click #(state/toggle-expanded :today-page/expanded-meet (:id meet))}
+      [:div.today-task-content
+       [:span.task-title
+        (when show-prefix?
+          [:span.task-day-prefix (str (date/get-day-name (:start_date meet))
+                                      (when (seq (:start_time meet)) ","))])
+        (when (seq (:start_time meet))
+          [:span.task-time (:start_time meet)])
+        (:title meet)]
+       (when-not is-expanded
+         (when (or (seq (:people meet)) (seq (:places meet)) (seq (:projects meet)))
+           [:div.item-categories
+            (for [person (:people meet)]
+              ^{:key (str "person-" (:id person))}
+              [:span.category-tag.person (:name person)])
+            (for [place (:places meet)]
+              ^{:key (str "place-" (:id place))}
+              [:span.category-tag.place (:name place)])
+            (for [project (:projects meet)]
+              ^{:key (str "project-" (:id project))}
+              [:span.category-tag.project (:name project)])]))]
+      (when-not hide-date
+        [:span.task-date {:data-tooltip (date/get-day-name (:start_date meet))}
+         (date/format-date-localized (:start_date meet))])]
+     (when is-expanded
+       [today-meet-expanded-details meet])]))
+
+(defn- interleave-by-date [tasks meets]
+  (sort-by (fn [item]
+             [(or (:due_date item) (:start_date item))
+              (if (or (:due_time item) (:start_time item)) 1 0)
+              (or (:due_time item) (:start_time item) "")])
+           (concat (map #(assoc % :item-type :task) tasks)
+                   (map #(assoc % :item-type :meet) meets))))
+
 (defn horizon-selector []
   (let [horizon (:upcoming-horizon @state/*app-state)]
     [:div.horizon-selector
@@ -140,12 +198,20 @@
      [:h3 (t :today/overdue)]
      [task-list-section overdue :overdue? true]]))
 
-(defn- today-today-section [today]
-  [:div.today-section.today
-   [:h3 (date/today-formatted)]
-   (if (seq today)
-     [task-list-section today :hide-date true]
-     [:p.empty-message (t :today/no-today)])])
+(defn- today-today-section [today-tasks today-meets]
+  (let [items (interleave-by-date today-tasks today-meets)]
+    [:div.today-section.today
+     [:h3 (date/today-formatted)]
+     (if (seq items)
+       [:div.task-list
+        (doall
+         (for [item items]
+           (if (= (:item-type item) :meet)
+             ^{:key (str "meet-" (:id item))}
+             [today-meet-item item :hide-date true]
+             ^{:key (str "task-" (:id item))}
+             [today-task-item item :hide-date true])))]
+       [:p.empty-message (t :today/no-today)])]))
 
 (defn- find-task-by-id [task-id]
   (first (filter #(= (:id %) task-id) (:tasks @state/*app-state))))
@@ -208,14 +274,22 @@
       [:h4 "🚨"]
       [urgency-task-list urgent "urgent" drag-enabled?]]]))
 
-(defn- today-upcoming-section [upcoming]
-  [:div.today-section.upcoming
-   [:div.section-header
-    [:h3 (t :today/upcoming)]
-    [horizon-selector]]
-   (if (seq upcoming)
-     [task-list-section upcoming :show-day-prefix true]
-     [:p.empty-message (t :today/no-upcoming)])])
+(defn- today-upcoming-section [upcoming-tasks upcoming-meets]
+  (let [items (interleave-by-date upcoming-tasks upcoming-meets)]
+    [:div.today-section.upcoming
+     [:div.section-header
+      [:h3 (t :today/upcoming)]
+      [horizon-selector]]
+     (if (seq items)
+       [:div.task-list
+        (doall
+         (for [item items]
+           (if (= (:item-type item) :meet)
+             ^{:key (str "meet-" (:id item))}
+             [today-meet-item item :show-day-prefix true]
+             ^{:key (str "task-" (:id item))}
+             [today-task-item item :show-day-prefix true])))]
+       [:p.empty-message (t :today/no-upcoming)])]))
 
 (defn- today-view-switcher []
   (let [selected-view (:today-page/selected-view @state/*app-state)]
@@ -230,17 +304,19 @@
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
         today (state/today-tasks)
+        today-m (state/today-meets)
         superurgent (state/superurgent-tasks)
         urgent (state/urgent-tasks)
         upcoming (state/upcoming-tasks)
+        upcoming-m (state/upcoming-meets)
         selected-view (:today-page/selected-view @state/*app-state)]
     [:div.main-layout
      [today-sidebar-filters]
      [:div.main-content.today-content
       [today-overdue-section overdue]
-      [today-today-section today]
+      [today-today-section today today-m]
       [today-view-switcher]
       (when (= selected-view :urgent)
         [today-urgent-section superurgent urgent])
       (when (= selected-view :upcoming)
-        [today-upcoming-section upcoming])]]))
+        [today-upcoming-section upcoming upcoming-m])]]))

@@ -289,7 +289,7 @@
      [sidebar-filters]
      [:div.main-content.meets-page
       [:div.tasks-header
-       [:h2 (t :nav/meets)]
+       [:h2 (t :meets/heading)]
        [importance-filter-toggle]
        [sort-mode-toggle]]
       [search-add-form]

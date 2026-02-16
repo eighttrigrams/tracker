@@ -50,7 +50,7 @@
         :handler (fn [tasks]
                    (swap! app-state assoc :tasks tasks)
                    (when (nil? (:upcoming-horizon @app-state))
-                     (swap! app-state assoc :upcoming-horizon (calculate-best-horizon-fn tasks))))}))))
+                     (swap! app-state assoc :upcoming-horizon (calculate-best-horizon-fn app-state))))}))))
 
 (defn- categorize-task-batch [auth-headers task-id category-type ids]
   (doseq [id ids]

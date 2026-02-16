@@ -186,18 +186,21 @@
         goals-clause (build-category-subquery "goal" (:goals categories))]
     (filterv some? [people-clause places-clause projects-clause goals-clause])))
 
-(defn- build-exclusion-subquery [category-type category-names]
-  (when (seq category-names)
-    (let [table-name (case category-type
-                       "place" :places
-                       "project" :projects)]
-      [:not [:exists {:select [1]
-                      :from [:task_categories]
-                      :join [[table-name] [:= (keyword (str (name table-name) ".id")) :task_categories.category_id]]
-                      :where [:and
-                              [:= :task_categories.task_id :tasks.id]
-                              [:= :task_categories.category_type category-type]
-                              [:in (keyword (str (name table-name) ".name")) category-names]]}]])))
+(defn- build-exclusion-subquery
+  ([category-type category-names]
+   (build-exclusion-subquery :task_categories :task_id :tasks category-type category-names))
+  ([join-table entity-id-col entity-ref category-type category-names]
+   (when (seq category-names)
+     (let [table-name (case category-type
+                        "place" :places
+                        "project" :projects)]
+       [:not [:exists {:select [1]
+                       :from [join-table]
+                       :join [[table-name] [:= (keyword (str (name table-name) ".id")) (keyword (str (name join-table) ".category_id"))]]
+                       :where [:and
+                               [:= (keyword (str (name join-table) "." (name entity-id-col))) (keyword (str (name entity-ref) ".id"))]
+                               [:= (keyword (str (name join-table) ".category_type")) category-type]
+                               [:in (keyword (str (name table-name) ".name")) category-names]]}]]))))
 
 (defn- fetch-category-lookups [conn user-id-where-clause]
   (let [people (jdbc/execute! conn
@@ -973,7 +976,7 @@
 (defn list-meets
   ([ds user-id] (list-meets ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories sort-mode]} opts
+   (let [{:keys [search-term importance context strict categories sort-mode excluded-places excluded-projects]} opts
          conn (get-conn ds)
          user-where (user-id-where-clause user-id)
          date-clause (case sort-mode
@@ -983,9 +986,12 @@
          importance-clause (build-importance-clause importance)
          scope-clause (build-scope-clause context strict)
          category-clauses (build-meet-category-clauses categories)
+         exclusion-clauses (filterv some? [(build-exclusion-subquery :meet_categories :meet_id :meets "place" excluded-places)
+                                           (build-exclusion-subquery :meet_categories :meet_id :meets "project" excluded-projects)])
          where-clause (into [:and user-where date-clause]
                             (concat (filter some? [search-clause importance-clause scope-clause])
-                                    category-clauses))
+                                    category-clauses
+                                    exclusion-clauses))
          order-by (case sort-mode
                     :past [[:start_date :desc] [:start_time :desc]]
                     [[:start_date :asc] [:start_time :asc]])

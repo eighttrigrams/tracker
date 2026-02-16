@@ -12,6 +12,8 @@
                                      :sort-mode :upcoming
                                      :fetch-request-id 0}))
 
+(defonce *today-meets-request-id (atom 0))
+
 (defn- ids->names [ids collection]
   (let [id-set (set ids)
         matching (filter #(contains? id-set (:id %)) collection)]
@@ -174,3 +176,26 @@
   (swap! *meets-page-state assoc
          :expanded-meet nil
          :editing-meet nil))
+
+(defn fetch-today-meets [app-state auth-headers calculate-best-horizon-fn opts]
+  (let [request-id (swap! *today-meets-request-id inc)
+        {:keys [context strict excluded-places excluded-projects]} opts
+        excluded-place-names (when (seq excluded-places) (ids->names excluded-places (:places @app-state)))
+        excluded-project-names (when (seq excluded-projects) (ids->names excluded-projects (:projects @app-state)))
+        url (cond-> "/api/meets?"
+              context (str "context=" (name context) "&")
+              strict (str "strict=true&")
+              (seq excluded-place-names) (str "excluded-places=" (js/encodeURIComponent (str/join "," excluded-place-names)) "&")
+              (seq excluded-project-names) (str "excluded-projects=" (js/encodeURIComponent (str/join "," excluded-project-names)) "&"))]
+    (GET url
+      {:response-format :json
+       :keywords? true
+       :headers (auth-headers)
+       :handler (fn [meets]
+                  (when (= request-id @*today-meets-request-id)
+                    (swap! app-state assoc :today-meets meets)
+                    (when (nil? (:upcoming-horizon @app-state))
+                      (swap! app-state assoc :upcoming-horizon (calculate-best-horizon-fn app-state)))))
+       :error-handler (fn [_]
+                        (when (= request-id @*today-meets-request-id)
+                          (swap! app-state assoc :today-meets [])))})))

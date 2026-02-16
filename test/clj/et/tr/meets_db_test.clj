@@ -79,3 +79,24 @@
     (let [meet (db/add-meet *ds* nil "Meet2")]
       (db/set-meet-start-time *ds* nil (:id meet) "09:00")
       (is (nil? (:start_time (db/set-meet-start-time *ds* nil (:id meet) "")))))))
+
+(deftest list-meets-exclude-by-place-test
+  (let [place (db/add-place *ds* nil "Office")
+        m1 (db/add-meet *ds* nil "At office")
+        m2 (db/add-meet *ds* nil "Remote")]
+    (db/set-meet-start-date *ds* nil (:id m1) "2099-01-01")
+    (db/set-meet-start-date *ds* nil (:id m2) "2099-01-01")
+    (db/categorize-meet *ds* nil (:id m1) "place" (:id place))
+    (let [meets (db/list-meets *ds* nil {:excluded-places ["Office"]})]
+      (is (= 1 (count meets)))
+      (is (= "Remote" (:title (first meets)))))))
+
+(deftest list-meets-exclude-by-project-test
+  (let [project (db/add-project *ds* nil "Alpha")
+        m1 (db/add-meet *ds* nil "Alpha standup")
+        m2 (db/add-meet *ds* nil "General")]
+    (db/set-meet-start-date *ds* nil (:id m1) "2099-01-01")
+    (db/set-meet-start-date *ds* nil (:id m2) "2099-01-01")
+    (db/categorize-meet *ds* nil (:id m1) "project" (:id project))
+    (let [meets (db/list-meets *ds* nil {:excluded-projects ["Alpha"]})]
+      (is (= ["General"] (mapv :title meets))))))
