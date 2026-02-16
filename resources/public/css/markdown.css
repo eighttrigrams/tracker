@@ -1,5 +1,6 @@
 .markdown-content {
   line-height: 1.5;
+  white-space: normal;
 }
 .markdown-content p {
   margin: 0 0 0.5em 0;
@@ -8,11 +9,14 @@
   margin-bottom: 0;
 }
 .markdown-content ul, .markdown-content ol {
-  margin: 0.5em 0;
+  margin: 0.25em 0;
   padding-left: 1.5em;
 }
 .markdown-content li {
-  margin: 0.25em 0;
+  margin: 0;
+}
+.markdown-content li p {
+  margin: 0;
 }
 .markdown-content code {
   background: var(--surface-subtle);
