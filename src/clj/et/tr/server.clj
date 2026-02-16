@@ -493,12 +493,13 @@
         importance (get-in req [:params "importance"])
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))
+        sort-mode (if (= "past" (get-in req [:params "sort"])) :past :upcoming)
         people (parse-category-param (get-in req [:params "people"]))
         places (parse-category-param (get-in req [:params "places"]))
         projects (parse-category-param (get-in req [:params "projects"]))
         categories (when (or people places projects)
                      {:people people :places places :projects projects})]
-    {:status 200 :body (db/list-meets (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
+    {:status 200 :body (db/list-meets (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode})}))
 
 (defn add-meet-handler [req]
   (let [user-id (get-user-id req)
@@ -535,6 +536,20 @@
   (make-entity-property-handler :importance db/valid-importances
                                 "Invalid importance. Must be 'normal', 'important', or 'critical'"
                                 {:entity-type :meet :set-fn db/set-meet-field}))
+
+(defn set-meet-start-date-handler [req]
+  (let [user-id (get-user-id req)
+        meet-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [start-date]} (:body req)]
+    {:status 200 :body (db/set-meet-start-date (ensure-ds) user-id meet-id start-date)}))
+
+(defn set-meet-start-time-handler [req]
+  (let [user-id (get-user-id req)
+        meet-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [start-time]} (:body req)]
+    (if (valid-time-format? start-time)
+      {:status 200 :body (db/set-meet-start-time (ensure-ds) user-id meet-id start-time)}
+      {:status 400 :body {:error "Invalid time format. Use HH:MM (24-hour format)"}})))
 
 (defn delete-task-handler [req]
   (let [user-id (get-user-id req)
@@ -799,6 +814,8 @@
       (DELETE "/:id" [] delete-meet-handler)
       (POST "/:id/categorize" [] categorize-meet-handler)
       (DELETE "/:id/categorize" [] uncategorize-meet-handler)
+      (PUT "/:id/start-date" [] set-meet-start-date-handler)
+      (PUT "/:id/start-time" [] set-meet-start-time-handler)
       (PUT "/:id/scope" [] set-meet-scope-handler)
       (PUT "/:id/importance" [] set-meet-importance-handler))
 

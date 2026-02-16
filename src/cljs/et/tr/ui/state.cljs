@@ -271,6 +271,7 @@
 (defn- meets-fetch-opts []
   {:search-term (:filter-search @meets-state/*meets-page-state)
    :importance (:importance-filter @meets-state/*meets-page-state)
+   :sort-mode (:sort-mode @meets-state/*meets-page-state)
    :context (:work-private-mode @*app-state)
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
@@ -296,6 +297,15 @@
 
 (defn set-meet-importance [meet-id importance]
   (meets-state/set-meet-importance *app-state auth-headers meet-id importance))
+
+(defn set-meet-start-date [meet-id start-date]
+  (meets-state/set-meet-start-date *app-state auth-headers fetch-meets meet-id start-date))
+
+(defn set-meet-start-time [meet-id start-time]
+  (meets-state/set-meet-start-time *app-state auth-headers fetch-meets meet-id start-time))
+
+(defn set-meets-sort-mode [mode]
+  (meets-state/set-sort-mode fetch-meets mode))
 
 (defn set-expanded-meet [id]
   (meets-state/set-expanded-meet id))

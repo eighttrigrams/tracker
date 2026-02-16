@@ -9,6 +9,7 @@
                                      :confirm-delete-meet nil
                                      :filter-search ""
                                      :importance-filter nil
+                                     :sort-mode :upcoming
                                      :fetch-request-id 0}))
 
 (defn- ids->names [ids collection]
@@ -18,7 +19,7 @@
 
 (defn fetch-meets [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *meets-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-places filter-projects]} opts
+        {:keys [search-term importance context strict filter-people filter-places filter-projects sort-mode]} opts
         people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
@@ -27,6 +28,7 @@
               importance (str "importance=" (name importance) "&")
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
+              (= sort-mode :past) (str "sort=past&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&"))]
@@ -105,6 +107,22 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))))
 
+(defn set-meet-start-date [app-state auth-headers fetch-meets-fn meet-id start-date]
+  (api/put-json (str "/api/meets/" meet-id "/start-date")
+    {:start-date start-date}
+    (auth-headers)
+    (fn [_] (fetch-meets-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set start date")))))
+
+(defn set-meet-start-time [app-state auth-headers fetch-meets-fn meet-id start-time]
+  (api/put-json (str "/api/meets/" meet-id "/start-time")
+    {:start-time start-time}
+    (auth-headers)
+    (fn [_] (fetch-meets-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set start time")))))
+
 (defn categorize-meet [app-state auth-headers fetch-meets-fn meet-id category-type category-id]
   (api/post-json (str "/api/meets/" meet-id "/categorize")
     {:category-type category-type :category-id category-id}
@@ -142,6 +160,10 @@
 
 (defn set-importance-filter [fetch-meets-fn level]
   (swap! *meets-page-state assoc :importance-filter level)
+  (fetch-meets-fn))
+
+(defn set-sort-mode [fetch-meets-fn mode]
+  (swap! *meets-page-state assoc :sort-mode mode)
   (fetch-meets-fn))
 
 (defn clear-all-meet-filters [fetch-meets-fn]

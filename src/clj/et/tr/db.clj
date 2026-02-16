@@ -95,7 +95,7 @@
 
 (def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance])
 
-(def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance])
+(def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time])
 
 (defn- user-id-where-clause [user-id]
   (if user-id
@@ -947,6 +947,8 @@
                                            :sort_order new-order
                                            :user_id user-id
                                            :modified_at [:raw "datetime('now')"]
+                                           :start_date [:raw "date('now','localtime')"]
+                                           :start_time [:raw "strftime('%H:%M','now','localtime')"]
                                            :scope valid-scope}]
                                  :returning (conj meet-select-columns :user_id)})
                     jdbc-opts)]
@@ -971,21 +973,27 @@
 (defn list-meets
   ([ds user-id] (list-meets ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories]} opts
+   (let [{:keys [search-term importance context strict categories sort-mode]} opts
          conn (get-conn ds)
          user-where (user-id-where-clause user-id)
+         date-clause (case sort-mode
+                       :past [:< :start_date [:raw "date('now','localtime')"]]
+                       [:>= :start_date [:raw "date('now','localtime')"]])
          search-clause (build-search-clause search-term [:title :tags])
          importance-clause (build-importance-clause importance)
          scope-clause (build-scope-clause context strict)
          category-clauses (build-meet-category-clauses categories)
-         where-clause (into [:and user-where]
+         where-clause (into [:and user-where date-clause]
                             (concat (filter some? [search-clause importance-clause scope-clause])
                                     category-clauses))
+         order-by (case sort-mode
+                    :past [[:start_date :desc] [:start_time :desc]]
+                    [[:start_date :asc] [:start_time :asc]])
          meets (jdbc/execute! conn
                  (sql/format {:select meet-select-columns
                               :from [:meets]
                               :where where-clause
-                              :order-by [[:modified_at :desc]]})
+                              :order-by order-by})
                  jdbc-opts)
          meet-ids (mapv :id meets)
          categories-data (when (seq meet-ids)
@@ -1037,6 +1045,25 @@
                          :modified_at [:raw "datetime('now')"]}
                    :where [:and [:= :id meet-id] (user-id-where-clause user-id)]
                    :returning [:id field :modified_at]})
+      jdbc-opts)))
+
+(defn set-meet-start-date [ds user-id meet-id start-date]
+  (jdbc/execute-one! (get-conn ds)
+    (sql/format {:update :meets
+                 :set {:start_date start-date
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id meet-id] (user-id-where-clause user-id)]
+                 :returning [:id :start_date :start_time :modified_at]})
+    jdbc-opts))
+
+(defn set-meet-start-time [ds user-id meet-id start-time]
+  (let [normalized-time (if (empty? start-time) nil start-time)]
+    (jdbc/execute-one! (get-conn ds)
+      (sql/format {:update :meets
+                   :set {:start_time normalized-time
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id meet-id] (user-id-where-clause user-id)]
+                   :returning [:id :start_date :start_time :modified_at]})
       jdbc-opts)))
 
 (defn categorize-meet [ds user-id meet-id category-type category-id]

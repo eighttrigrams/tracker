@@ -1,0 +1,6 @@
+{:id "022-add-meet-due-date-time"
+ :up ["ALTER TABLE meets ADD COLUMN start_date TEXT"
+      "ALTER TABLE meets ADD COLUMN start_time TEXT"
+      "UPDATE meets SET start_date = date(created_at), start_time = strftime('%H:%M', created_at)"]
+ :down ["ALTER TABLE meets DROP COLUMN start_time"
+        "ALTER TABLE meets DROP COLUMN start_date"]}

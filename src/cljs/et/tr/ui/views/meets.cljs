@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.state.meets :as meets-state]
+            [et.tr.ui.date :as date]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
@@ -55,7 +56,7 @@
        [:textarea {:value @description
                    :on-change #(reset! description (-> % .-target .-value))
                    :placeholder (t :task/description-placeholder)
-                   :rows 3}]
+                   :rows 20}]
        [:input {:type "text"
                 :value @tags
                 :on-change #(reset! tags (-> % .-target .-value))
@@ -90,10 +91,38 @@
       :close-selector-fn state/close-category-selector
       :set-search-fn state/set-category-selector-search}]))
 
+(defn- meet-date-time-pickers [meet]
+  [:div.meet-date-time-pickers
+   [:span.date-picker-wrapper
+    {:on-click #(.stopPropagation %)}
+    [:input.date-picker-input
+     {:type "date"
+      :value (or (:start_date meet) "")
+      :on-change (fn [e]
+                   (let [v (.. e -target -value)]
+                     (state/set-meet-start-date (:id meet) (when (seq v) v))))}]
+    [:button.calendar-icon {:on-click (fn [e]
+                                        (.stopPropagation e)
+                                        (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+     "📅"]]
+   [:span.time-picker-wrapper
+    {:on-click #(.stopPropagation %)}
+    [:input.time-picker-input
+     {:type "time"
+      :value (or (:start_time meet) "")
+      :on-change (fn [e]
+                   (let [v (.. e -target -value)]
+                     (state/set-meet-start-time (:id meet) (when (seq v) v))))}]
+    [:button.clock-icon {:on-click (fn [e]
+                                     (.stopPropagation e)
+                                     (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+     "🕐"]]])
+
 (defn- meet-expanded-view [meet people places projects]
   [:div.item-details
    (when (seq (:description meet))
      [:div.item-description [task-item/markdown (:description meet)]])
+   [meet-date-time-pickers meet]
    [:div.item-tags
     [meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -113,12 +142,18 @@
       (when (and importance (not= importance "normal"))
         [:span.importance-badge {:class importance}
          (case importance "important" "★" "critical" "★★" nil)])
+      (when (seq (:start_time meet))
+        [:span.task-time (:start_time meet)])
       (:title meet)
       (when is-expanded
         [:button.edit-icon {:on-click (fn [e]
                                         (.stopPropagation e)
                                         (state/set-editing-meet (:id meet)))}
-         "✎"])]]))
+         "✎"])]
+     [:div.item-date
+      (when (:start_date meet)
+        [:span.due-date {:data-tooltip (date/get-day-name (:start_date meet))}
+         (date/format-date-localized (:start_date meet))])]]))
 
 (defn- meet-categories-readonly [meet]
   (let [people (:people meet)
@@ -163,6 +198,16 @@
                :on-click #(state/set-meet-importance-filter :critical)
                :title (t :importance/filter-critical)}
       "★★"]]))
+
+(defn- sort-mode-toggle []
+  (let [sort-mode (:sort-mode @meets-state/*meets-page-state)]
+    [:div.sort-mode-toggle.toggle-group
+     [:button {:class (when (= sort-mode :upcoming) "active")
+               :on-click #(state/set-meets-sort-mode :upcoming)}
+      (t :meets/upcoming)]
+     [:button {:class (when (= sort-mode :past) "active")
+               :on-click #(state/set-meets-sort-mode :past)}
+      (t :meets/past)]]))
 
 (defn- search-add-form []
   (let [input-value (:filter-search @meets-state/*meets-page-state)]
@@ -245,7 +290,8 @@
      [:div.main-content.meets-page
       [:div.tasks-header
        [:h2 (t :nav/meets)]
-       [importance-filter-toggle]]
+       [importance-filter-toggle]
+       [sort-mode-toggle]]
       [search-add-form]
       (if (empty? meets)
         [:p.empty-message (t :meets/no-meets)]
