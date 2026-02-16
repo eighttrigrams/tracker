@@ -27,6 +27,7 @@
    :messages []
    :resources []
    :meets []
+   :today-meets []
    :upcoming-horizon nil})
 
 (defonce *app-state (r/atom {;; Data collections
@@ -57,12 +58,16 @@
                             :pending-new-task nil
                             :confirm-delete-task nil
 
+                            ;; Today meets
+                            :today-meets []
+
                             ;; Today page state
                             :today-page/excluded-places #{}
                             :today-page/excluded-projects #{}
                             :today-page/collapsed-filters #{:places :projects}
                             :today-page/category-search {:places "" :projects ""}
                             :today-page/expanded-task nil
+                            :today-page/expanded-meet nil
                             :today-page/selected-view :urgent
                             :upcoming-horizon nil
 
@@ -124,6 +129,7 @@
   (name (:work-private-mode @*app-state)))
 
 (declare fetch-tasks)
+(declare fetch-today-meets)
 (declare fetch-messages)
 (declare fetch-resources)
 (declare fetch-meets)
@@ -579,6 +585,18 @@
   ([opts]
    (tasks/fetch-tasks *app-state auth-headers today-page/calculate-best-horizon opts)))
 
+(defn- today-fetch-opts []
+  (today-page/current-fetch-opts *app-state))
+
+(defn fetch-today-meets
+  ([] (fetch-today-meets (today-fetch-opts)))
+  ([opts]
+   (meets-state/fetch-today-meets *app-state auth-headers today-page/calculate-best-horizon opts)))
+
+(defn- fetch-today-all [opts]
+  (fetch-tasks opts)
+  (fetch-today-meets opts))
+
 (declare add-task-with-categories)
 (declare has-active-filters?)
 (declare set-pending-new-task)
@@ -722,19 +740,19 @@
   (today-page/set-upcoming-horizon *app-state horizon))
 
 (defn toggle-today-excluded-place [place-id]
-  (today-page/toggle-today-excluded-place *app-state fetch-tasks place-id))
+  (today-page/toggle-today-excluded-place *app-state fetch-today-all place-id))
 
 (defn toggle-today-excluded-project [project-id]
-  (today-page/toggle-today-excluded-project *app-state fetch-tasks project-id))
+  (today-page/toggle-today-excluded-project *app-state fetch-today-all project-id))
 
 (defn clear-today-excluded-places []
-  (today-page/clear-today-excluded-places *app-state fetch-tasks))
+  (today-page/clear-today-excluded-places *app-state fetch-today-all))
 
 (defn clear-today-excluded-projects []
-  (today-page/clear-today-excluded-projects *app-state fetch-tasks))
+  (today-page/clear-today-excluded-projects *app-state fetch-today-all))
 
 (defn clear-uncollapsed-today-filters []
-  (today-page/clear-uncollapsed-today-filters *app-state fetch-tasks))
+  (today-page/clear-uncollapsed-today-filters *app-state fetch-today-all))
 
 (defn toggle-today-filter-collapsed [filter-key]
   (today-page/toggle-today-filter-collapsed *app-state filter-key))
@@ -760,8 +778,15 @@
 (defn urgent-tasks []
   (today-page/urgent-tasks *app-state))
 
+(defn today-meets []
+  (today-page/today-meets *app-state))
+
+(defn upcoming-meets []
+  (today-page/upcoming-meets *app-state))
+
 (def tab-initializers
   (ui/make-tab-initializers *app-state {:fetch-tasks fetch-tasks
+                                        :fetch-today-meets fetch-today-meets
                                         :fetch-messages fetch-messages
                                         :fetch-resources fetch-resources
                                         :fetch-meets fetch-meets
@@ -780,10 +805,10 @@
   (ui/clear-editing *app-state))
 
 (defn set-work-private-mode [mode]
-  (ui/set-work-private-mode *app-state fetch-tasks fetch-resources fetch-meets mode))
+  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets mode))
 
 (defn toggle-strict-mode []
-  (ui/toggle-strict-mode *app-state fetch-tasks fetch-resources fetch-meets))
+  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))

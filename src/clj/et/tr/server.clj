@@ -371,6 +371,11 @@
       (empty? time-str)
       (re-matches #"^([01]\d|2[0-3]):([0-5]\d)$" time-str)))
 
+(defn valid-date-format? [date-str]
+  (or (nil? date-str)
+      (empty? date-str)
+      (re-matches #"^\d{4}-\d{2}-\d{2}$" date-str)))
+
 (defn set-due-time-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -497,9 +502,11 @@
         people (parse-category-param (get-in req [:params "people"]))
         places (parse-category-param (get-in req [:params "places"]))
         projects (parse-category-param (get-in req [:params "projects"]))
+        excluded-places (parse-category-param (get-in req [:params "excluded-places"]))
+        excluded-projects (parse-category-param (get-in req [:params "excluded-projects"]))
         categories (when (or people places projects)
                      {:people people :places places :projects projects})]
-    {:status 200 :body (db/list-meets (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode})}))
+    {:status 200 :body (db/list-meets (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects})}))
 
 (defn add-meet-handler [req]
   (let [user-id (get-user-id req)
@@ -541,7 +548,9 @@
   (let [user-id (get-user-id req)
         meet-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [start-date]} (:body req)]
-    {:status 200 :body (db/set-meet-start-date (ensure-ds) user-id meet-id start-date)}))
+    (if (valid-date-format? start-date)
+      {:status 200 :body (db/set-meet-start-date (ensure-ds) user-id meet-id start-date)}
+      {:status 400 :body {:error "Invalid date format. Use YYYY-MM-DD"}})))
 
 (defn set-meet-start-time-handler [req]
   (let [user-id (get-user-id req)
