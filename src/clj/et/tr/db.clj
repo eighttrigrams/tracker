@@ -129,8 +129,8 @@
 (defn- extract-category [task-categories category-type lookup-map]
   (->> task-categories
        (filter #(= (:category_type %) category-type))
-       (keep #(when-let [name (lookup-map (:category_id %))]
-                {:id (:category_id %) :name name}))
+       (keep #(when-let [entry (lookup-map (:category_id %))]
+                {:id (:category_id %) :name (:name entry) :badge_title (:badge_title entry)}))
        vec))
 
 (defn- associate-categories-with-tasks [tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id]
@@ -203,30 +203,32 @@
                                [:in (keyword (str (name table-name) ".name")) category-names]]}]]))))
 
 (defn- fetch-category-lookups [conn user-id-where-clause]
-  (let [people (jdbc/execute! conn
-                 (sql/format {:select [:id :name]
+  (let [cols [:id :name :badge_title]
+        people (jdbc/execute! conn
+                 (sql/format {:select cols
                               :from [:people]
                               :where user-id-where-clause})
                  jdbc-opts)
         places (jdbc/execute! conn
-                 (sql/format {:select [:id :name]
+                 (sql/format {:select cols
                               :from [:places]
                               :where user-id-where-clause})
                  jdbc-opts)
         projects (jdbc/execute! conn
-                   (sql/format {:select [:id :name]
+                   (sql/format {:select cols
                                 :from [:projects]
                                 :where user-id-where-clause})
                    jdbc-opts)
         goals (jdbc/execute! conn
-                (sql/format {:select [:id :name]
+                (sql/format {:select cols
                               :from [:goals]
                               :where user-id-where-clause})
-                jdbc-opts)]
-    {:people-by-id (into {} (map (juxt :id :name) people))
-     :places-by-id (into {} (map (juxt :id :name) places))
-     :projects-by-id (into {} (map (juxt :id :name) projects))
-     :goals-by-id (into {} (map (juxt :id :name) goals))}))
+                jdbc-opts)
+        to-map (fn [items] (into {} (map (fn [i] [(:id i) (select-keys i [:name :badge_title])]) items)))]
+    {:people-by-id (to-map people)
+     :places-by-id (to-map places)
+     :projects-by-id (to-map projects)
+     :goals-by-id (to-map goals)}))
 
 (defn- build-importance-clause [importance]
   (case importance
@@ -320,7 +322,7 @@
         result (jdbc/execute-one! conn
                  (sql/format {:insert-into (keyword table-name)
                               :values [{:name name :user_id user-id :sort_order new-order}]
-                              :returning [:id :name :tags :sort_order]})
+                              :returning [:id :name :tags :sort_order :badge_title]})
                  jdbc-opts)]
     (tel/log! {:level :info :data {:category table-name :id (:id result) :user-id user-id}} "Category added")
     result))
@@ -334,7 +336,7 @@
 (defn- list-category [ds user-id table-name]
   (validate-table-name! table-name)
   (jdbc/execute! (get-conn ds)
-    (sql/format {:select [:id :name :description :tags :sort_order]
+    (sql/format {:select [:id :name :description :tags :sort_order :badge_title]
                  :from [(keyword table-name)]
                  :where (user-id-where-clause user-id)
                  :order-by [[:sort_order :asc] [:name :asc]]})
@@ -358,26 +360,26 @@
 (defn list-goals [ds user-id]
   (list-category ds user-id "goals"))
 
-(defn- update-category [ds user-id category-id name description tags table-name]
+(defn- update-category [ds user-id category-id name description tags badge-title table-name]
   (validate-table-name! table-name)
   (jdbc/execute-one! (get-conn ds)
     (sql/format {:update (keyword table-name)
-                 :set {:name name :description description :tags tags}
+                 :set {:name name :description description :tags tags :badge_title (or badge-title "")}
                  :where [:and [:= :id category-id] (user-id-where-clause user-id)]
-                 :returning [:id :name :description :tags]})
+                 :returning [:id :name :description :tags :badge_title]})
     jdbc-opts))
 
-(defn update-person [ds user-id person-id name description tags]
-  (update-category ds user-id person-id name description tags "people"))
+(defn update-person [ds user-id person-id name description tags badge-title]
+  (update-category ds user-id person-id name description tags badge-title "people"))
 
-(defn update-place [ds user-id place-id name description tags]
-  (update-category ds user-id place-id name description tags "places"))
+(defn update-place [ds user-id place-id name description tags badge-title]
+  (update-category ds user-id place-id name description tags badge-title "places"))
 
-(defn update-project [ds user-id project-id name description tags]
-  (update-category ds user-id project-id name description tags "projects"))
+(defn update-project [ds user-id project-id name description tags badge-title]
+  (update-category ds user-id project-id name description tags badge-title "projects"))
 
-(defn update-goal [ds user-id goal-id name description tags]
-  (update-category ds user-id goal-id name description tags "goals"))
+(defn update-goal [ds user-id goal-id name description tags badge-title]
+  (update-category ds user-id goal-id name description tags badge-title "goals"))
 
 (defn delete-category [ds user-id category-id category-type table-name]
   (validate-table-name! table-name)
@@ -617,25 +619,25 @@
         task-ids (mapv :id tasks)
         categories (query-categories-chunked conn task-ids)
         people (jdbc/execute! conn
-                 (sql/format {:select [:id :name :description :sort_order]
+                 (sql/format {:select [:id :name :description :sort_order :badge_title]
                               :from [:people]
                               :where user-where
                               :order-by [[:sort_order :asc] [:name :asc]]})
                  jdbc-opts)
         places (jdbc/execute! conn
-                 (sql/format {:select [:id :name :description :sort_order]
+                 (sql/format {:select [:id :name :description :sort_order :badge_title]
                               :from [:places]
                               :where user-where
                               :order-by [[:sort_order :asc] [:name :asc]]})
                  jdbc-opts)
         projects (jdbc/execute! conn
-                   (sql/format {:select [:id :name :description :sort_order]
+                   (sql/format {:select [:id :name :description :sort_order :badge_title]
                                 :from [:projects]
                                 :where user-where
                                 :order-by [[:sort_order :asc] [:name :asc]]})
                    jdbc-opts)
         goals (jdbc/execute! conn
-                (sql/format {:select [:id :name :description :sort_order]
+                (sql/format {:select [:id :name :description :sort_order :badge_title]
                              :from [:goals]
                              :where user-where
                              :order-by [[:sort_order :asc] [:name :asc]]})

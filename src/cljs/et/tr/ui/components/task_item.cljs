@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.components.category-selector :as category-selector]
+            [et.tr.filters :as filters]
             [et.tr.i18n :refer [t]]
             ["marked" :refer [marked]]))
 
@@ -36,7 +37,7 @@
                                     (fn [e]
                                       (.stopPropagation e)
                                       (state/toggle-filter (:type category) (:id category))))}
-             (:name category)])))])))
+             (filters/badge-label category)])))])))
 
 (defn task-scope-selector [task]
   (let [scope (or (:scope task) "both")]
@@ -133,6 +134,7 @@
 
 (defn item-edit-form
   [{:keys [title-atom description-atom tags-atom
+           badge-title-atom badge-title-placeholder
            title-placeholder description-placeholder tags-placeholder
            on-save on-cancel on-delete]}]
   [:div.item-edit-form
@@ -149,6 +151,11 @@
               :value @tags-atom
               :on-change #(reset! tags-atom (-> % .-target .-value))
               :placeholder tags-placeholder}])
+   (when badge-title-atom
+     [:input {:type "text"
+              :value @badge-title-atom
+              :on-change #(reset! badge-title-atom (-> % .-target .-value))
+              :placeholder badge-title-placeholder}])
    [:div.edit-buttons
     [:button {:on-click on-save} (t :task/save)]
     [:button.cancel {:on-click on-cancel} (t :task/cancel)]

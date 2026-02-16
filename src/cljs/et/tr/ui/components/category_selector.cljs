@@ -1,5 +1,6 @@
 (ns et.tr.ui.components.category-selector
   (:require [et.tr.ui.state.tasks-page :as tasks-page]
+            [et.tr.filters :as filters]
             [et.tr.i18n :refer [t]]))
 
 (defn category-selector
@@ -14,7 +15,7 @@
             is-open (= open-selector-state selector-id)
             available-entities (remove #(contains? category-ids (:id %)) entities)
             filtered-entities (if (and is-open (seq search-state))
-                                (filter #(tasks-page/prefix-matches? (:name %) search-state) available-entities)
+                                (filter #(tasks-page/prefix-matches? (str (:name %) " " (:badge_title %)) search-state) available-entities)
                                 available-entities)
             do-close (fn []
                        (close-selector-fn)
@@ -67,7 +68,7 @@
             ^{:key (str category-type "-" (:id category))}
             [:span.tag
              {:class category-type}
-             (:name category)
+             (filters/badge-label category)
              [:button.remove-tag
               {:on-click #(on-uncategorize (:id category))}
               "x"]]))]))))

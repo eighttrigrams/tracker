@@ -97,3 +97,21 @@
     (is (= 1 (count-join-rows :meet_categories)))
     (db/delete-category *ds* nil (:id person) "person" "people")
     (is (= 0 (count-join-rows :meet_categories)))))
+
+(deftest update-category-badge-title-test
+  (let [person (db/add-person *ds* nil "Alice Johnson")]
+    (is (= "" (:badge_title person)))
+    (let [updated (db/update-person *ds* nil (:id person) "Alice Johnson" "" "" "AJ")]
+      (is (= "AJ" (:badge_title updated))))
+    (let [listed (first (db/list-people *ds* nil))]
+      (is (= "AJ" (:badge_title listed))))))
+
+(deftest badge-title-appears-on-tasks-test
+  (let [person (db/add-person *ds* nil "Alice Johnson")
+        _ (db/update-person *ds* nil (:id person) "Alice Johnson" "" "" "AJ")
+        task (db/add-task *ds* nil "My task")]
+    (db/categorize-task *ds* nil (:id task) "person" (:id person))
+    (let [tasks (db/list-tasks *ds* nil)
+          t (first tasks)
+          p (first (:people t))]
+      (is (= "AJ" (:badge_title p))))))

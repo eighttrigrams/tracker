@@ -35,7 +35,7 @@
             retrieved (first tasks)]
         (is (= 1 (count tasks)))
         (is (= "Task with categories" (:title retrieved)))
-        (is (= [{:id (:id person) :name "Alice"}] (:people retrieved)))
+        (is (= [{:id (:id person) :name "Alice" :badge_title ""}] (:people retrieved)))
         (is (= [] (:places retrieved)))
         (is (= [] (:projects retrieved)))
         (is (= [] (:goals retrieved)))))))

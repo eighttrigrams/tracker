@@ -86,6 +86,7 @@
   :category/no-results "No matches"
   :category/name-placeholder "Name"
   :category/description-placeholder "Description (optional)"
+  :category/badge-title-placeholder "Badge title (optional short name)"
   :category/delete "Delete"
 
   :modal/delete-task "Delete Task"
@@ -261,6 +262,7 @@
   :category/no-results "Keine Treffer"
   :category/name-placeholder "Name"
   :category/description-placeholder "Beschreibung (optional)"
+  :category/badge-title-placeholder "Badge-Titel (optionaler Kurzname)"
   :category/delete "Löschen"
 
   :modal/delete-task "Aufgabe löschen"
@@ -436,6 +438,7 @@
   :category/no-results "Sem resultados"
   :category/name-placeholder "Nome"
   :category/description-placeholder "Descrição (opcional)"
+  :category/badge-title-placeholder "Título do badge (nome curto opcional)"
   :category/delete "Eliminar"
 
   :modal/delete-task "Eliminar Tarefa"

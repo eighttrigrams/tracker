@@ -6,6 +6,7 @@
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
+            [et.tr.filters :as filters]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private today-category-shortcut-keys
@@ -83,16 +84,16 @@
    (when (seq (:description meet))
      [:div.item-description [task-item/markdown (:description meet)]])
    (when (or (seq (:people meet)) (seq (:places meet)) (seq (:projects meet)))
-     [:div.item-categories
+     [:div.task-badges
       (for [person (:people meet)]
         ^{:key (str "person-" (:id person))}
-        [:span.category-tag.person (:name person)])
+        [:span.tag.person (filters/badge-label person)])
       (for [place (:places meet)]
         ^{:key (str "place-" (:id place))}
-        [:span.category-tag.place (:name place)])
+        [:span.tag.place (filters/badge-label place)])
       (for [project (:projects meet)]
         ^{:key (str "project-" (:id project))}
-        [:span.category-tag.project (:name project)])])])
+        [:span.tag.project (filters/badge-label project)])])])
 
 (defn- today-meet-item [meet & {:keys [show-day-prefix hide-date] :or {show-day-prefix false hide-date false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:start_date meet) 6))
@@ -111,16 +112,16 @@
         (:title meet)]
        (when-not is-expanded
          (when (or (seq (:people meet)) (seq (:places meet)) (seq (:projects meet)))
-           [:div.item-categories
+           [:div.task-badges
             (for [person (:people meet)]
               ^{:key (str "person-" (:id person))}
-              [:span.category-tag.person (:name person)])
+              [:span.tag.person (filters/badge-label person)])
             (for [place (:places meet)]
               ^{:key (str "place-" (:id place))}
-              [:span.category-tag.place (:name place)])
+              [:span.tag.place (filters/badge-label place)])
             (for [project (:projects meet)]
               ^{:key (str "project-" (:id project))}
-              [:span.category-tag.project (:name project)])]))]
+              [:span.tag.project (filters/badge-label project)])]))]
       (when-not hide-date
         [:span.task-date {:data-tooltip (date/get-day-name (:start_date meet))}
          (date/format-date-localized (:start_date meet))])]

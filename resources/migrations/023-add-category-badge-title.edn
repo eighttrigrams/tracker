@@ -1,0 +1,9 @@
+{:id "023-add-category-badge-title"
+ :up ["ALTER TABLE people ADD COLUMN badge_title TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE places ADD COLUMN badge_title TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE projects ADD COLUMN badge_title TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE goals ADD COLUMN badge_title TEXT NOT NULL DEFAULT ''"]
+ :down ["ALTER TABLE goals DROP COLUMN badge_title"
+        "ALTER TABLE projects DROP COLUMN badge_title"
+        "ALTER TABLE places DROP COLUMN badge_title"
+        "ALTER TABLE people DROP COLUMN badge_title"]}

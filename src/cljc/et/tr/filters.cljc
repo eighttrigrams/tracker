@@ -22,10 +22,14 @@
                 (some #(str/starts-with? % prefix) text-words))
               search-prefixes))))
 
+(defn badge-label [category]
+  (let [bt (:badge_title category)]
+    (if (and bt (not (str/blank? bt))) bt (:name category))))
+
 (defn filter-by-name [items filter-text]
   (if (empty? filter-text)
     items
-    (filter #(multi-prefix-matches? (str (:name %) " " (:tags %)) filter-text) items)))
+    (filter #(multi-prefix-matches? (str (:name %) " " (:tags %) " " (:badge_title %)) filter-text) items)))
 
 (defn apply-exclusion-filter [tasks excluded-places excluded-projects]
   (let [has-excluded-place? (fn [task]

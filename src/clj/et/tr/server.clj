@@ -204,11 +204,11 @@
 (defn update-person-handler [req]
   (let [user-id (get-user-id req)
         person-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags]} (:body req)]
+        {:keys [name description tags badge-title]} (:body req)]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        (let [result (db/update-person (ensure-ds) user-id person-id name (or description "") (or tags ""))]
+        (let [result (db/update-person (ensure-ds) user-id person-id name (or description "") (or tags "") badge-title)]
           (if result
             {:status 200 :body result}
             {:status 404 :body {:success false :error "Person not found"}}))
@@ -218,11 +218,11 @@
 (defn update-place-handler [req]
   (let [user-id (get-user-id req)
         place-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags]} (:body req)]
+        {:keys [name description tags badge-title]} (:body req)]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        (let [result (db/update-place (ensure-ds) user-id place-id name (or description "") (or tags ""))]
+        (let [result (db/update-place (ensure-ds) user-id place-id name (or description "") (or tags "") badge-title)]
           (if result
             {:status 200 :body result}
             {:status 404 :body {:success false :error "Place not found"}}))
@@ -232,11 +232,11 @@
 (defn update-project-handler [req]
   (let [user-id (get-user-id req)
         project-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags]} (:body req)]
+        {:keys [name description tags badge-title]} (:body req)]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        (let [result (db/update-project (ensure-ds) user-id project-id name (or description "") (or tags ""))]
+        (let [result (db/update-project (ensure-ds) user-id project-id name (or description "") (or tags "") badge-title)]
           (if result
             {:status 200 :body result}
             {:status 404 :body {:success false :error "Project not found"}}))
@@ -246,11 +246,11 @@
 (defn update-goal-handler [req]
   (let [user-id (get-user-id req)
         goal-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags]} (:body req)]
+        {:keys [name description tags badge-title]} (:body req)]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        (let [result (db/update-goal (ensure-ds) user-id goal-id name (or description "") (or tags ""))]
+        (let [result (db/update-goal (ensure-ds) user-id goal-id name (or description "") (or tags "") badge-title)]
           (if result
             {:status 200 :body result}
             {:status 404 :body {:success false :error "Goal not found"}}))
