@@ -760,18 +760,20 @@
                               :returning (conj resource-select-columns :user_id)})
                  jdbc-opts)]
     (tel/log! {:level :info :data {:resource-id (:id result) :user-id user-id}} "Resource added")
-    (assoc result :people [] :projects [])))
+    (assoc result :people [] :places [] :projects [])))
 
 (defn- build-resource-category-clauses [categories]
   (let [people-clause (build-category-subquery :resource_categories :resource_id :resources "person" (:people categories))
+        places-clause (build-category-subquery :resource_categories :resource_id :resources "place" (:places categories))
         projects-clause (build-category-subquery :resource_categories :resource_id :resources "project" (:projects categories))]
-    (filterv some? [people-clause projects-clause])))
+    (filterv some? [people-clause places-clause projects-clause])))
 
-(defn- associate-categories-with-resources [resources categories-by-resource people-by-id projects-by-id]
+(defn- associate-categories-with-resources [resources categories-by-resource people-by-id places-by-id projects-by-id]
   (mapv (fn [resource]
           (let [resource-categories (get categories-by-resource (:id resource) [])]
             (assoc resource
                    :people (extract-category resource-categories "person" people-by-id)
+                   :places (extract-category resource-categories "place" places-by-id)
                    :projects (extract-category resource-categories "project" projects-by-id))))
         resources))
 
@@ -801,9 +803,9 @@
                                           :from [:resource_categories]
                                           :where [:in :resource_id resource-ids]})
                              jdbc-opts))
-         {:keys [people-by-id projects-by-id]} (fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
          categories-by-resource (group-by :resource_id categories-data)]
-     (associate-categories-with-resources resources categories-by-resource people-by-id projects-by-id))))
+     (associate-categories-with-resources resources categories-by-resource people-by-id places-by-id projects-by-id))))
 
 (defn resource-owned-by-user? [ds resource-id user-id]
   (some? (jdbc/execute-one! (get-conn ds)

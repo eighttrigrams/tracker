@@ -5,7 +5,7 @@
 
 (defn has-active-filters? [app-state]
   (let [filter-people (:shared/filter-people @app-state)
-        filter-places (:tasks-page/filter-places @app-state)
+        filter-places (:shared/filter-places @app-state)
         filter-projects (:shared/filter-projects @app-state)
         filter-goals (:tasks-page/filter-goals @app-state)]
     (or (seq filter-people) (seq filter-places) (seq filter-projects) (seq filter-goals))))
@@ -13,7 +13,7 @@
 (defn- filter-type->key [filter-type]
   (case filter-type
     constants/CATEGORY-TYPE-PERSON :shared/filter-people
-    constants/CATEGORY-TYPE-PLACE :tasks-page/filter-places
+    constants/CATEGORY-TYPE-PLACE :shared/filter-places
     constants/CATEGORY-TYPE-PROJECT :shared/filter-projects
     constants/CATEGORY-TYPE-GOAL :tasks-page/filter-goals))
 
@@ -26,7 +26,7 @@
    :context (:work-private-mode @app-state)
    :strict (:strict-mode @app-state)
    :filter-people (:shared/filter-people @app-state)
-   :filter-places (:tasks-page/filter-places @app-state)
+   :filter-places (:shared/filter-places @app-state)
    :filter-projects (:shared/filter-projects @app-state)
    :filter-goals (:tasks-page/filter-goals @app-state)})
 
@@ -69,7 +69,7 @@
     (if (empty? uncollapsed)
       (swap! app-state assoc
              :shared/filter-people #{}
-             :tasks-page/filter-places #{}
+             :shared/filter-places #{}
              :shared/filter-projects #{}
              :tasks-page/filter-goals #{}
              :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
@@ -79,7 +79,7 @@
         (doseq [filter-key uncollapsed]
           (case filter-key
             :people (swap! app-state assoc :shared/filter-people #{})
-            :places (swap! app-state assoc :tasks-page/filter-places #{})
+            :places (swap! app-state assoc :shared/filter-places #{})
             :projects (swap! app-state assoc :shared/filter-projects #{})
             :goals (swap! app-state assoc :tasks-page/filter-goals #{})))
         (swap! app-state assoc
@@ -147,7 +147,7 @@
 
 (defn set-pending-new-task [app-state title on-success]
   (let [filter-people (:shared/filter-people @app-state)
-        filter-places (:tasks-page/filter-places @app-state)
+        filter-places (:shared/filter-places @app-state)
         filter-projects (:shared/filter-projects @app-state)
         filter-goals (:tasks-page/filter-goals @app-state)]
     (swap! app-state assoc :pending-new-task

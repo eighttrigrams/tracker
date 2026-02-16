@@ -40,10 +40,10 @@
 
                             ;; Shared category filters (between tasks and resources)
                             :shared/filter-people #{}
+                            :shared/filter-places #{}
                             :shared/filter-projects #{}
 
                             ;; Tasks page state
-                            :tasks-page/filter-places #{}
                             :tasks-page/filter-goals #{}
                             :tasks-page/filter-search ""
                             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
@@ -64,8 +64,8 @@
                             :upcoming-horizon nil
 
                             ;; Resources page state
-                            :resources-page/collapsed-filters #{:people :projects}
-                            :resources-page/category-search {:people "" :projects ""}
+                            :resources-page/collapsed-filters #{:people :places :projects}
+                            :resources-page/category-search {:people "" :places "" :projects ""}
 
                             ;; Task dropdown state
                             :task-dropdown-open nil
@@ -207,6 +207,7 @@
    :context (:work-private-mode @*app-state)
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
+   :filter-places (:shared/filter-places @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)})
 
 (defn fetch-resources
@@ -260,7 +261,7 @@
   (resources-state/uncategorize-resource *app-state auth-headers fetch-resources resource-id category-type category-id))
 
 (defn toggle-resources-filter-collapsed [filter-key]
-  (let [all-filters #{:people :projects}]
+  (let [all-filters #{:people :places :projects}]
     (swap! *app-state update :resources-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
@@ -276,6 +277,7 @@
 (defn toggle-shared-filter [filter-type id]
   (let [filter-key (case filter-type
                      constants/CATEGORY-TYPE-PERSON :shared/filter-people
+                     constants/CATEGORY-TYPE-PLACE :shared/filter-places
                      constants/CATEGORY-TYPE-PROJECT :shared/filter-projects)]
     (swap! *app-state update filter-key
            #(if (contains? % id)
@@ -289,6 +291,7 @@
 (defn clear-shared-filter [filter-type]
   (let [filter-key (case filter-type
                      constants/CATEGORY-TYPE-PERSON :shared/filter-people
+                     constants/CATEGORY-TYPE-PLACE :shared/filter-places
                      constants/CATEGORY-TYPE-PROJECT :shared/filter-projects)]
     (swap! *app-state assoc filter-key #{})
     (case (:active-tab @*app-state)
@@ -298,21 +301,23 @@
 
 (defn clear-uncollapsed-resource-filters []
   (let [collapsed (:resources-page/collapsed-filters @*app-state)
-        all-filters #{:people :projects}
+        all-filters #{:people :places :projects}
         uncollapsed (clojure.set/difference all-filters collapsed)]
     (if (empty? uncollapsed)
       (swap! *app-state assoc
              :shared/filter-people #{}
+             :shared/filter-places #{}
              :shared/filter-projects #{}
-             :resources-page/category-search {:people "" :projects ""})
+             :resources-page/category-search {:people "" :places "" :projects ""})
       (do
         (doseq [filter-key uncollapsed]
           (case filter-key
             :people (swap! *app-state assoc :shared/filter-people #{})
+            :places (swap! *app-state assoc :shared/filter-places #{})
             :projects (swap! *app-state assoc :shared/filter-projects #{})))
         (swap! *app-state assoc
                :resources-page/collapsed-filters all-filters
-               :resources-page/category-search {:people "" :projects ""})))
+               :resources-page/category-search {:people "" :places "" :projects ""})))
     (resources-state/set-importance-filter fetch-resources nil)
     (fetch-resources)))
 
@@ -424,7 +429,7 @@
             :context (:work-private-mode @*app-state)
             :strict (:strict-mode @*app-state)
             :filter-people (:shared/filter-people @*app-state)
-            :filter-places (:tasks-page/filter-places @*app-state)
+            :filter-places (:shared/filter-places @*app-state)
             :filter-projects (:shared/filter-projects @*app-state)
             :filter-goals (:tasks-page/filter-goals @*app-state)}
     :today {:context (:work-private-mode @*app-state)

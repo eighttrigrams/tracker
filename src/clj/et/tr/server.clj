@@ -425,9 +425,10 @@
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))
         people (parse-category-param (get-in req [:params "people"]))
+        places (parse-category-param (get-in req [:params "places"]))
         projects (parse-category-param (get-in req [:params "projects"]))
-        categories (when (or people projects)
-                     {:people people :projects projects})]
+        categories (when (or people places projects)
+                     {:people people :places places :projects projects})]
     {:status 200 :body (db/list-resources (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
 
 (defn- valid-url? [link]

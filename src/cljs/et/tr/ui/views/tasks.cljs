@@ -110,7 +110,7 @@
    {:filter-key :places
     :title-key :category/places
     :items-key :places
-    :filter-state-key :tasks-page/filter-places
+    :filter-state-key :shared/filter-places
     :category-type state/CATEGORY-TYPE-PLACE}
    {:filter-key :projects
     :title-key :category/projects

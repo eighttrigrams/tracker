@@ -15,7 +15,7 @@
     :context context
     :strict strict
     :filter-people (:tasks-page/filter-people @app-state)
-    :filter-places (:tasks-page/filter-places @app-state)
+    :filter-places (:shared/filter-places @app-state)
     :filter-projects (:tasks-page/filter-projects @app-state)
     :filter-goals (:tasks-page/filter-goals @app-state)}))
 

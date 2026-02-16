@@ -80,6 +80,7 @@
 (defn- resource-category-selector [resource category-type entities label]
   (let [current-categories (case category-type
                              state/CATEGORY-TYPE-PERSON (:people resource)
+                             state/CATEGORY-TYPE-PLACE (:places resource)
                              state/CATEGORY-TYPE-PROJECT (:projects resource)
                              [])]
     [category-selector/category-selector
@@ -98,7 +99,7 @@
       :close-selector-fn state/close-category-selector
       :set-search-fn state/set-category-selector-search}]))
 
-(defn- resource-expanded-view [resource people projects]
+(defn- resource-expanded-view [resource people places projects]
   (let [video-id (youtube-video-id (:link resource))]
     [:div.item-details
      (when video-id
@@ -110,6 +111,7 @@
        [:div.item-description [task-item/markdown (:description resource)]])
      [:div.item-tags
       [resource-category-selector resource state/CATEGORY-TYPE-PERSON people (t :category/person)]
+      [resource-category-selector resource state/CATEGORY-TYPE-PLACE places (t :category/place)]
       [resource-category-selector resource state/CATEGORY-TYPE-PROJECT projects (t :category/project)]]
      [:div.item-actions
       [resource-scope-selector resource]
@@ -141,17 +143,21 @@
 
 (defn- resource-categories-readonly [resource]
   (let [people (:people resource)
+        places (:places resource)
         projects (:projects resource)]
-    (when (or (seq people) (seq projects))
+    (when (or (seq people) (seq places) (seq projects))
       [:div.item-categories
        (for [person people]
          ^{:key (str "person-" (:id person))}
          [:span.category-tag.person (:name person)])
+       (for [place places]
+         ^{:key (str "place-" (:id place))}
+         [:span.category-tag.place (:name place)])
        (for [project projects]
          ^{:key (str "project-" (:id project))}
          [:span.category-tag.project (:name project)])])))
 
-(defn- resource-item [resource expanded-id editing-id people projects]
+(defn- resource-item [resource expanded-id editing-id people places projects]
   (let [is-expanded (= expanded-id (:id resource))
         is-editing (= editing-id (:id resource))]
     [:li {:class (when is-expanded "expanded")}
@@ -160,7 +166,7 @@
        [:<>
         [resource-header resource is-expanded]
         (if is-expanded
-          [resource-expanded-view resource people projects]
+          [resource-expanded-view resource people places projects]
           [resource-categories-readonly resource])])]))
 
 (defn- importance-filter-toggle []
@@ -228,6 +234,11 @@
     :items-key :people
     :filter-state-key :shared/filter-people
     :category-type state/CATEGORY-TYPE-PERSON}
+   {:filter-key :places
+    :title-key :category/places
+    :items-key :places
+    :filter-state-key :shared/filter-places
+    :category-type state/CATEGORY-TYPE-PLACE}
    {:filter-key :projects
     :title-key :category/projects
     :items-key :projects
@@ -248,7 +259,7 @@
                                        :collapsed? (contains? collapsed-filters filter-key)}]))))
 
 (defn resources-tab []
-  (let [{:keys [resources people projects]} @state/*app-state
+  (let [{:keys [resources people places projects]} @state/*app-state
         {:keys [expanded-resource editing-resource]} @resources-state/*resources-page-state]
     [:div.main-layout
      [sidebar-filters]
@@ -262,4 +273,4 @@
         [:ul.items
          (for [resource resources]
            ^{:key (:id resource)}
-           [resource-item resource expanded-resource editing-resource people projects])])]]))
+           [resource-item resource expanded-resource editing-resource people places projects])])]]))

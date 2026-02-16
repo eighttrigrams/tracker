@@ -18,8 +18,9 @@
 
 (defn fetch-resources [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *resources-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-projects]} opts
+        {:keys [search-term importance context strict filter-people filter-places filter-projects]} opts
         people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
+        place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
         url (cond-> "/api/resources?"
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
@@ -27,6 +28,7 @@
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
+              (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&"))]
     (GET url
       {:response-format :json
