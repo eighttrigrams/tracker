@@ -1,0 +1,8 @@
+{:up ["ALTER TABLE people ADD COLUMN tags TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE places ADD COLUMN tags TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE projects ADD COLUMN tags TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE goals ADD COLUMN tags TEXT NOT NULL DEFAULT ''"]
+ :down ["ALTER TABLE people DROP COLUMN tags"
+        "ALTER TABLE places DROP COLUMN tags"
+        "ALTER TABLE projects DROP COLUMN tags"
+        "ALTER TABLE goals DROP COLUMN tags"]}

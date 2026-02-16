@@ -382,17 +382,17 @@
 (defn add-goal [name on-success]
   (categories/add-goal *app-state auth-headers name on-success))
 
-(defn update-person [id name description on-success]
-  (categories/update-person *app-state auth-headers fetch-tasks id name description on-success))
+(defn update-person [id name description tags on-success]
+  (categories/update-person *app-state auth-headers fetch-tasks id name description tags on-success))
 
-(defn update-place [id name description on-success]
-  (categories/update-place *app-state auth-headers fetch-tasks id name description on-success))
+(defn update-place [id name description tags on-success]
+  (categories/update-place *app-state auth-headers fetch-tasks id name description tags on-success))
 
-(defn update-project [id name description on-success]
-  (categories/update-project *app-state auth-headers fetch-tasks id name description on-success))
+(defn update-project [id name description tags on-success]
+  (categories/update-project *app-state auth-headers fetch-tasks id name description tags on-success))
 
-(defn update-goal [id name description on-success]
-  (categories/update-goal *app-state auth-headers fetch-tasks id name description on-success))
+(defn update-goal [id name description tags on-success]
+  (categories/update-goal *app-state auth-headers fetch-tasks id name description tags on-success))
 
 (defn set-confirm-delete-category [category-type category]
   (categories/set-confirm-delete-category *app-state category-type category))

@@ -19,15 +19,18 @@
 
 (defn category-edit-form [item category-type update-fn]
   (let [name-val (r/atom (:name item))
-        description-val (r/atom (or (:description item) ""))]
+        description-val (r/atom (or (:description item) ""))
+        tags-val (r/atom (or (:tags item) ""))]
     (fn []
       [task-item/item-edit-form
        {:title-atom name-val
         :description-atom description-val
+        :tags-atom tags-val
         :title-placeholder (t :category/name-placeholder)
         :description-placeholder (t :category/description-placeholder)
+        :tags-placeholder (t :task/tags-placeholder)
         :on-save (fn []
-                   (update-fn (:id item) @name-val @description-val
+                   (update-fn (:id item) @name-val @description-val @tags-val
                               #(state/clear-editing-category)))
         :on-cancel #(state/clear-editing-category)
         :on-delete #(state/set-confirm-delete-category category-type item)}])))

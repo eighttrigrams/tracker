@@ -17,7 +17,7 @@
   (let [marked-items (filter #(contains? marked-ids (:id %)) items)
         search-term (get-in @state/*app-state search-state-path "")
         visible-items (if (seq search-term)
-                        (filter #(tasks-page/prefix-matches? (:name %) search-term) items)
+                        (filter #(tasks-page/prefix-matches? (str (:name %) " " (:tags %)) search-term) items)
                         items)
         input-id (str (or page-prefix "tasks") "-filter-" (name filter-key))
         handle-key-down (fn [e]

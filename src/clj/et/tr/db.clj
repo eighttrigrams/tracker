@@ -315,7 +315,7 @@
         result (jdbc/execute-one! conn
                  (sql/format {:insert-into (keyword table-name)
                               :values [{:name name :user_id user-id :sort_order new-order}]
-                              :returning [:id :name :sort_order]})
+                              :returning [:id :name :tags :sort_order]})
                  jdbc-opts)]
     (tel/log! {:level :info :data {:category table-name :id (:id result) :user-id user-id}} "Category added")
     result))
@@ -329,7 +329,7 @@
 (defn- list-category [ds user-id table-name]
   (validate-table-name! table-name)
   (jdbc/execute! (get-conn ds)
-    (sql/format {:select [:id :name :description :sort_order]
+    (sql/format {:select [:id :name :description :tags :sort_order]
                  :from [(keyword table-name)]
                  :where (user-id-where-clause user-id)
                  :order-by [[:sort_order :asc] [:name :asc]]})
@@ -353,26 +353,26 @@
 (defn list-goals [ds user-id]
   (list-category ds user-id "goals"))
 
-(defn- update-category [ds user-id category-id name description table-name]
+(defn- update-category [ds user-id category-id name description tags table-name]
   (validate-table-name! table-name)
   (jdbc/execute-one! (get-conn ds)
     (sql/format {:update (keyword table-name)
-                 :set {:name name :description description}
+                 :set {:name name :description description :tags tags}
                  :where [:and [:= :id category-id] (user-id-where-clause user-id)]
-                 :returning [:id :name :description]})
+                 :returning [:id :name :description :tags]})
     jdbc-opts))
 
-(defn update-person [ds user-id person-id name description]
-  (update-category ds user-id person-id name description "people"))
+(defn update-person [ds user-id person-id name description tags]
+  (update-category ds user-id person-id name description tags "people"))
 
-(defn update-place [ds user-id place-id name description]
-  (update-category ds user-id place-id name description "places"))
+(defn update-place [ds user-id place-id name description tags]
+  (update-category ds user-id place-id name description tags "places"))
 
-(defn update-project [ds user-id project-id name description]
-  (update-category ds user-id project-id name description "projects"))
+(defn update-project [ds user-id project-id name description tags]
+  (update-category ds user-id project-id name description tags "projects"))
 
-(defn update-goal [ds user-id goal-id name description]
-  (update-category ds user-id goal-id name description "goals"))
+(defn update-goal [ds user-id goal-id name description tags]
+  (update-category ds user-id goal-id name description tags "goals"))
 
 (defn delete-category [ds user-id category-id category-type table-name]
   (validate-table-name! table-name)

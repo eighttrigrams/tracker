@@ -25,7 +25,7 @@
 (defn filter-by-name [items filter-text]
   (if (empty? filter-text)
     items
-    (filter #(multi-prefix-matches? (:name %) filter-text) items)))
+    (filter #(multi-prefix-matches? (str (:name %) " " (:tags %)) filter-text) items)))
 
 (defn apply-exclusion-filter [tasks excluded-places excluded-projects]
   (let [has-excluded-place? (fn [task]
