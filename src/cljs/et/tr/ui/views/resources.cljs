@@ -7,6 +7,17 @@
             [et.tr.ui.components.category-selector :as category-selector]
             [et.tr.i18n :refer [t]]))
 
+(def ^:private resources-category-shortcut-keys
+  {"Digit1" :people
+   "Digit2" :places
+   "Digit3" :projects})
+
+(def resources-category-shortcut-numbers
+  (into {} (map (fn [[k v]] [v (subs k 5)]) resources-category-shortcut-keys)))
+
+(defn get-resources-category-shortcut-keys []
+  resources-category-shortcut-keys)
+
 (defn- youtube-video-id [url]
   (when (string? url)
     (or (second (re-find #"(?:youtube\.com/watch[^\s]*[?&]v=)([^&\s]+)" url))
@@ -213,7 +224,7 @@
 
 (defn- resources-filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
   [filter-section/category-filter-section {:title title
-                                           :shortcut-number nil
+                                           :shortcut-number (resources-category-shortcut-numbers filter-key)
                                            :filter-key filter-key
                                            :items items
                                            :marked-ids selected-ids

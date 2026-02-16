@@ -261,15 +261,25 @@
   (resources-state/uncategorize-resource *app-state auth-headers fetch-resources resource-id category-type category-id))
 
 (defn toggle-resources-filter-collapsed [filter-key]
-  (let [all-filters #{:people :places :projects}]
+  (let [was-collapsed (contains? (:resources-page/collapsed-filters @*app-state) filter-key)
+        all-filters #{:people :places :projects}]
     (swap! *app-state update :resources-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
                (disj all-filters filter-key)
                (conj collapsed filter-key))))
-    (swap! *app-state update :resources-page/category-search
-           (fn [searches]
-             (reduce #(assoc %1 %2 "") searches all-filters)))))
+    (when was-collapsed
+      (swap! *app-state update :resources-page/category-search
+             (fn [searches]
+               (reduce #(assoc %1 %2 "") searches all-filters))))
+    (js/setTimeout
+     (fn []
+       (when-let [el (.getElementById js/document
+                                      (if was-collapsed
+                                        (str "resources-filter-" (name filter-key))
+                                        "resources-filter-search"))]
+         (.focus el)))
+     0)))
 
 (defn set-resources-category-search [category-key search-term]
   (swap! *app-state assoc-in [:resources-page/category-search category-key] search-term))

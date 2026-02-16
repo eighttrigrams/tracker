@@ -147,7 +147,8 @@
   (let [code (.-code e)
         {:keys [active-tab]} @state/*app-state
         tasks-shortcut-keys (tasks/get-tasks-category-shortcut-keys)
-        today-shortcut-keys (today/get-today-category-shortcut-keys)]
+        today-shortcut-keys (today/get-today-category-shortcut-keys)
+        resources-shortcut-keys (resources/get-resources-category-shortcut-keys)]
     (when (.-shiftKey e)
       (cond
         (= "ArrowLeft" code)
@@ -180,7 +181,7 @@
             (= :tasks active-tab) (state/clear-uncollapsed-task-filters)
             (= :today active-tab) (state/clear-uncollapsed-today-filters)
             (= :mail active-tab) (state/clear-all-mail-filters)
-            (= :resources active-tab) (state/clear-all-resource-filters)))
+            (= :resources active-tab) (state/clear-uncollapsed-resource-filters)))
 
         (= :tasks active-tab)
         (when-let [filter-key (tasks-shortcut-keys code)]
@@ -190,7 +191,12 @@
         (= :today active-tab)
         (when-let [filter-key (today-shortcut-keys code)]
           (.preventDefault e)
-          (state/toggle-today-filter-collapsed filter-key))))))
+          (state/toggle-today-filter-collapsed filter-key))
+
+        (= :resources active-tab)
+        (when-let [filter-key (resources-shortcut-keys code)]
+          (.preventDefault e)
+          (state/toggle-resources-filter-collapsed filter-key))))))
 
 (defn init []
   (i18n/load-translations!

@@ -29,7 +29,9 @@
                                 (clear-fn)
                                 (set-search-fn filter-key ""))
                               (toggle-collapsed-fn filter-key)
-                              (state/focus-tasks-search))
+                              (js/setTimeout
+                               #(when-let [el (.getElementById js/document (str (or page-prefix "tasks") "-filter-search"))]
+                                  (.focus el)) 0))
 
                             (= (.-key e) "Enter")
                             (when-let [first-item (first visible-items)]
