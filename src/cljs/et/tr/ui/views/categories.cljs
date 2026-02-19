@@ -17,33 +17,8 @@
      [:button {:on-click #(add-fn @name-atom (fn [] (reset! name-atom "")))}
       "+"]]))
 
-(defn category-edit-form [item category-type update-fn]
-  (let [name-val (r/atom (:name item))
-        description-val (r/atom (or (:description item) ""))
-        tags-val (r/atom (or (:tags item) ""))
-        badge-title-val (r/atom (or (:badge_title item) ""))]
-    (fn []
-      [task-item/item-edit-form
-       {:title-atom name-val
-        :description-atom description-val
-        :tags-atom tags-val
-        :badge-title-atom badge-title-val
-        :badge-title-placeholder (t :category/badge-title-placeholder)
-        :title-placeholder (t :category/name-placeholder)
-        :description-placeholder (t :category/description-placeholder)
-        :tags-placeholder (t :task/tags-placeholder)
-        :on-save (fn []
-                   (update-fn (:id item) @name-val @description-val @tags-val @badge-title-val
-                              #(state/clear-editing-category)))
-        :on-cancel #(state/clear-editing-category)
-        :on-delete #(state/set-confirm-delete-category category-type item)}])))
-
-(defn category-item [item category-type update-fn state-key]
-  (let [editing (:category-page/editing @state/*app-state)
-        is-editing (and editing
-                        (= (:type editing) category-type)
-                        (= (:id editing) (:id item)))
-        drag-cat (:drag-category @state/*app-state)
+(defn category-item [item category-type _update-fn state-key]
+  (let [drag-cat (:drag-category @state/*app-state)
         drag-over-cat (:drag-over-category @state/*app-state)
         is-dragging (and drag-cat
                          (= (:type drag-cat) state-key)
@@ -51,12 +26,10 @@
         is-drag-over (and drag-over-cat
                           (= (:type drag-over-cat) state-key)
                           (= (:id drag-over-cat) (:id item)))]
-    (if is-editing
-      [category-edit-form item category-type update-fn]
-      [:li {:class (str (when is-dragging "dragging")
-                        (when is-drag-over " drag-over"))
-            :draggable (not is-editing)
-            :on-click #(state/set-editing-category category-type (:id item))
+    [:li {:class (str (when is-dragging "dragging")
+                      (when is-drag-over " drag-over"))
+          :draggable true
+          :on-click #(state/set-editing-modal (keyword (str "category-" category-type)) item)
             :on-drag-start (fn [e]
                              (.setData (.-dataTransfer e) "text/plain" (str (:id item)))
                              (state/set-drag-category state-key (:id item)))
@@ -82,7 +55,7 @@
                            (state/reorder-category state-key (:id drag-cat) (:id item) position))))}
        [:span.category-name (:name item)]
        (when (seq (:description item))
-         [:span.category-description [task-item/markdown (:description item)]])])))
+         [:span.category-description [task-item/markdown (:description item)]])]))
 
 (defn- subtab-button [active-tab tab-key translation-key]
   [:button.subtab

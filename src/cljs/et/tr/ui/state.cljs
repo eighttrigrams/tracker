@@ -56,6 +56,7 @@
                             :tasks-page/expanded-task nil
                             :editing-task nil
                             :pending-new-item nil
+                            :editing-modal nil
                             :confirm-delete-task nil
 
                             ;; Today meets
@@ -823,6 +824,12 @@
 
 (defn clear-editing []
   (ui/clear-editing *app-state))
+
+(defn set-editing-modal [entity-type entity]
+  (swap! *app-state assoc :editing-modal {:type entity-type :entity entity}))
+
+(defn clear-editing-modal []
+  (swap! *app-state assoc :editing-modal nil))
 
 (defn set-work-private-mode [mode]
   (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets mode))

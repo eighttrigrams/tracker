@@ -108,6 +108,10 @@
   :modal/add-task "Add Task"
   :modal/add-resource "Add Resource"
   :modal/add-meet "Add Meet"
+  :modal/edit-task "Edit Task"
+  :modal/edit-resource "Edit Resource"
+  :modal/edit-meet "Edit Meet"
+  :modal/edit-category "Edit Category"
 
   :users/title "Users"
   :users/add-button "Add User"
@@ -286,6 +290,10 @@
   :modal/add-task "Aufgabe hinzufügen"
   :modal/add-resource "Ressource hinzufügen"
   :modal/add-meet "Treffen hinzufügen"
+  :modal/edit-task "Aufgabe bearbeiten"
+  :modal/edit-resource "Ressource bearbeiten"
+  :modal/edit-meet "Treffen bearbeiten"
+  :modal/edit-category "Kategorie bearbeiten"
 
   :users/title "Benutzer"
   :users/add-button "Benutzer hinzufügen"
@@ -464,6 +472,10 @@
   :modal/add-task "Adicionar Tarefa"
   :modal/add-resource "Adicionar Recurso"
   :modal/add-meet "Adicionar Encontro"
+  :modal/edit-task "Editar Tarefa"
+  :modal/edit-resource "Editar Recurso"
+  :modal/edit-meet "Editar Encontro"
+  :modal/edit-category "Editar Categoria"
 
   :users/title "Utilizadores"
   :users/add-button "Adicionar Utilizador"

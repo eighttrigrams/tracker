@@ -1,6 +1,5 @@
 (ns et.tr.ui.views.meets
-  (:require [reagent.core :as r]
-            [et.tr.ui.state :as state]
+  (:require [et.tr.ui.state :as state]
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.task-item :as task-item]
@@ -42,32 +41,6 @@
                      (.stopPropagation e)
                      (state/set-meet-importance (:id meet) level))}
         label])]))
-
-(defn- meet-edit-form [meet]
-  (let [title (r/atom (:title meet))
-        description (r/atom (or (:description meet) ""))
-        tags (r/atom (or (:tags meet) ""))]
-    (fn []
-      [:div.item-edit-form
-       [:input {:type "text"
-                :value @title
-                :on-change #(reset! title (-> % .-target .-value))
-                :placeholder (t :meets/title-placeholder)}]
-       [:textarea {:value @description
-                   :on-change #(reset! description (-> % .-target .-value))
-                   :placeholder (t :task/description-placeholder)
-                   :rows 20}]
-       [:input {:type "text"
-                :value @tags
-                :on-change #(reset! tags (-> % .-target .-value))
-                :placeholder (t :task/tags-placeholder)}]
-       [:div.edit-buttons
-        [:button {:on-click (fn []
-                              (state/update-meet (:id meet) @title @description @tags
-                                                 state/clear-editing-meet))}
-         (t :task/save)]
-        [:button.cancel {:on-click #(state/clear-editing-meet)}
-         (t :task/cancel)]]])))
 
 (defn- meet-category-selector [meet category-type entities label]
   (let [current-categories (case category-type
@@ -148,7 +121,7 @@
       (when is-expanded
         [:button.edit-icon {:on-click (fn [e]
                                         (.stopPropagation e)
-                                        (state/set-editing-meet (:id meet)))}
+                                        (state/set-editing-modal :meet meet))}
          "✎"])]
      [:div.item-date
       (when (:start_date meet)
@@ -164,17 +137,13 @@
     :toggle-fn state/toggle-shared-filter
     :has-filter-fn state/has-filter-for-type?}])
 
-(defn- meet-item [meet expanded-id editing-id people places projects]
-  (let [is-expanded (= expanded-id (:id meet))
-        is-editing (= editing-id (:id meet))]
+(defn- meet-item [meet expanded-id people places projects]
+  (let [is-expanded (= expanded-id (:id meet))]
     [:li {:class (when is-expanded "expanded")}
-     (if is-editing
-       [meet-edit-form meet]
-       [:<>
-        [meet-header meet is-expanded]
-        (if is-expanded
-          [meet-expanded-view meet people places projects]
-          [meet-categories-readonly meet])])]))
+     [meet-header meet is-expanded]
+     (if is-expanded
+       [meet-expanded-view meet people places projects]
+       [meet-categories-readonly meet])]))
 
 (defn- importance-filter-toggle []
   (let [importance-filter (:importance-filter @meets-state/*meets-page-state)]
@@ -277,7 +246,7 @@
 
 (defn meets-tab []
   (let [{:keys [meets people places projects]} @state/*app-state
-        {:keys [expanded-meet editing-meet]} @meets-state/*meets-page-state]
+        {:keys [expanded-meet]} @meets-state/*meets-page-state]
     [:div.main-layout
      [sidebar-filters]
      [:div.main-content.meets-page
@@ -291,4 +260,4 @@
         [:ul.items
          (for [meet meets]
            ^{:key (:id meet)}
-           [meet-item meet expanded-meet editing-meet people places projects])])]]))
+           [meet-item meet expanded-meet people places projects])])]]))

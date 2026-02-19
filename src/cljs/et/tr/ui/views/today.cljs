@@ -1,7 +1,5 @@
 (ns et.tr.ui.views.today
-  (:require [reagent.core :as r]
-            [et.tr.ui.state :as state]
-            [et.tr.ui.state.meets :as meets-state]
+  (:require [et.tr.ui.state :as state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
@@ -19,40 +17,19 @@
 (defn get-today-category-shortcut-keys []
   today-category-shortcut-keys)
 
-(defn- today-task-edit-form [task]
-  (let [title (r/atom (:title task))
-        description (r/atom (or (:description task) ""))]
-    (fn []
-      [task-item/item-edit-form
-       {:title-atom title
-        :description-atom description
-        :tags-atom nil
-        :title-placeholder (t :task/title-placeholder)
-        :description-placeholder (t :task/description-placeholder)
-        :on-save (fn []
-                   (state/update-task (:id task) @title @description (:tags task)
-                                      #(state/clear-editing)))
-        :on-cancel #(state/clear-editing)}])))
-
 (defn- today-task-expanded-details [task]
-  (let [editing-task (:editing-task @state/*app-state)
-        is-editing (= editing-task (:id task))]
-    (if is-editing
-      [today-task-edit-form task]
-      [:div.today-task-details
-       (when (seq (:description task))
-         [:div.item-description [task-item/markdown (:description task)]])
-       [task-item/task-category-badges task]
-       [:div.item-actions
-        [task-item/task-attribute-selectors task]
-        [task-item/task-combined-action-button task]]])))
+  [:div.today-task-details
+   (when (seq (:description task))
+     [:div.item-description [task-item/markdown (:description task)]])
+   [task-item/task-category-badges task]
+   [:div.item-actions
+    [task-item/task-attribute-selectors task]
+    [task-item/task-combined-action-button task]]])
 
 (defn today-task-item [task & {:keys [show-day-prefix overdue? hide-date] :or {show-day-prefix false overdue? false hide-date false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/*app-state)
-        editing-task (:editing-task @state/*app-state)
-        is-expanded (= expanded-task (:id task))
-        is-editing (= editing-task (:id task))]
+        is-expanded (= expanded-task (:id task))]
     [:div.today-task-item {:class (when is-expanded "expanded")}
      [:div.today-task-header
       {:on-click #(state/toggle-expanded :today-page/expanded-task (:id task))}
@@ -64,10 +41,10 @@
         (when (seq (:due_time task))
           [:span.task-time {:class (when overdue? "overdue-time")} (:due_time task)])
         (:title task)
-        (when (and is-expanded (not is-editing))
+        (when is-expanded
           [:button.edit-icon {:on-click (fn [e]
                                           (.stopPropagation e)
-                                          (state/set-editing (:id task)))}
+                                          (state/set-editing-modal :task task))}
            "✎"])
         (when (and is-expanded (seq (:due_time task)))
           [task-item/time-picker task])]
@@ -263,9 +240,7 @@
 
 (defn- today-urgent-section [superurgent urgent]
   (let [expanded-task (:today-page/expanded-task @state/*app-state)
-        editing-task (:editing-task @state/*app-state)
-        any-task-open? (or expanded-task editing-task)
-        drag-enabled? (not any-task-open?)]
+        drag-enabled? (not expanded-task)]
     [:div.today-section.urgent
      [:h3 (t :today/urgent-matters)]
      [:div.urgency-subsection.superurgent

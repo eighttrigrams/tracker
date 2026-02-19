@@ -1,6 +1,5 @@
 (ns et.tr.ui.views.resources
-  (:require [reagent.core :as r]
-            [et.tr.ui.state :as state]
+  (:require [et.tr.ui.state :as state]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
@@ -57,37 +56,6 @@
                      (state/set-resource-importance (:id resource) level))}
         label])]))
 
-(defn- resource-edit-form [resource]
-  (let [title (r/atom (:title resource))
-        link (r/atom (:link resource))
-        description (r/atom (or (:description resource) ""))
-        tags (r/atom (or (:tags resource) ""))]
-    (fn []
-      [:div.item-edit-form
-       [:input {:type "text"
-                :value @title
-                :on-change #(reset! title (-> % .-target .-value))
-                :placeholder (t :resources/title-placeholder)}]
-       [:input {:type "text"
-                :value @link
-                :on-change #(reset! link (-> % .-target .-value))
-                :placeholder (t :resources/link-placeholder)}]
-       [:textarea {:value @description
-                   :on-change #(reset! description (-> % .-target .-value))
-                   :placeholder (t :task/description-placeholder)
-                   :rows 3}]
-       [:input {:type "text"
-                :value @tags
-                :on-change #(reset! tags (-> % .-target .-value))
-                :placeholder (t :task/tags-placeholder)}]
-       [:div.edit-buttons
-        [:button {:on-click (fn []
-                              (state/update-resource (:id resource) @title @link @description @tags
-                                                     state/clear-editing-resource))}
-         (t :task/save)]
-        [:button.cancel {:on-click #(state/clear-editing-resource)}
-         (t :task/cancel)]]])))
-
 (defn- resource-category-selector [resource category-type entities label]
   (let [current-categories (case category-type
                              state/CATEGORY-TYPE-PERSON (:people resource)
@@ -143,7 +111,7 @@
       (when is-expanded
         [:button.edit-icon {:on-click (fn [e]
                                         (.stopPropagation e)
-                                        (state/set-editing-resource (:id resource)))}
+                                        (state/set-editing-modal :resource resource))}
          "✎"])]
      [:div.item-date
       [:a.resource-link-icon
@@ -162,17 +130,13 @@
     :toggle-fn state/toggle-shared-filter
     :has-filter-fn state/has-filter-for-type?}])
 
-(defn- resource-item [resource expanded-id editing-id people places projects]
-  (let [is-expanded (= expanded-id (:id resource))
-        is-editing (= editing-id (:id resource))]
+(defn- resource-item [resource expanded-id people places projects]
+  (let [is-expanded (= expanded-id (:id resource))]
     [:li {:class (when is-expanded "expanded")}
-     (if is-editing
-       [resource-edit-form resource]
-       [:<>
-        [resource-header resource is-expanded]
-        (if is-expanded
-          [resource-expanded-view resource people places projects]
-          [resource-categories-readonly resource])])]))
+     [resource-header resource is-expanded]
+     (if is-expanded
+       [resource-expanded-view resource people places projects]
+       [resource-categories-readonly resource])]))
 
 (defn- importance-filter-toggle []
   (let [importance-filter (:importance-filter @resources-state/*resources-page-state)]
@@ -265,7 +229,7 @@
 
 (defn resources-tab []
   (let [{:keys [resources people places projects]} @state/*app-state
-        {:keys [expanded-resource editing-resource]} @resources-state/*resources-page-state]
+        {:keys [expanded-resource]} @resources-state/*resources-page-state]
     [:div.main-layout
      [sidebar-filters]
      [:div.main-content.resources-page
@@ -278,4 +242,4 @@
         [:ul.items
          (for [resource resources]
            ^{:key (:id resource)}
-           [resource-item resource expanded-resource editing-resource people places projects])])]]))
+           [resource-item resource expanded-resource people places projects])])]]))

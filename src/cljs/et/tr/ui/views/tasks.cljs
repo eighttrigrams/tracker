@@ -162,7 +162,7 @@
       [:<>
        [:button.edit-icon {:on-click (fn [e]
                                        (.stopPropagation e)
-                                       (state/set-editing (:id task)))}
+                                       (state/set-editing-modal :task task))}
         "✎"]
        [:span.date-picker-wrapper
         {:on-click #(.stopPropagation %)}
@@ -197,17 +197,16 @@
      [task-item/task-categories-readonly task])])
 
 (defn tasks-list []
-  (let [{:keys [people places projects goals tasks-page/expanded-task editing-task sort-mode drag-task drag-over-task]} @state/*app-state
+  (let [{:keys [people places projects goals tasks-page/expanded-task sort-mode drag-task drag-over-task]} @state/*app-state
         tasks (state/filtered-tasks)
         manual-mode? (= sort-mode :manual)
         due-date-mode? (= sort-mode :due-date)
         done-mode? (= sort-mode :done)
-        any-task-open? (or expanded-task editing-task)
+        any-task-open? (some? expanded-task)
         drag-enabled? (and manual-mode? (not any-task-open?))]
     (into [:ul.items]
       (for [task tasks]
         (let [is-expanded (= expanded-task (:id task))
-              is-editing (= editing-task (:id task))
               is-dragging (= drag-task (:id task))
               is-drag-over (= drag-over-task (:id task))]
           ^{:key (:id task)}
@@ -221,6 +220,4 @@
                 :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task drag-enabled?)
                 :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
                 :on-drop (drag-drop/make-drop-handler drag-task task state/reorder-task drag-enabled?)}
-           (if is-editing
-             [task-item/task-edit-form task]
-             [task-item-content task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?])])))))
+           [task-item-content task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?]])))))

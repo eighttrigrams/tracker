@@ -8,7 +8,7 @@
 
 (defn- generic-confirm-modal
   [{:keys [header body-paragraphs on-cancel on-confirm]}]
-  [:div.modal-overlay {:on-click on-cancel}
+  [:div.modal-overlay
    [:div.modal {:on-click #(.stopPropagation %)}
     [:div.modal-header header]
     [:div.modal-body
@@ -47,7 +47,7 @@
       (when-let [user (:confirm-delete-user @state/*app-state)]
         (let [username (:username user)
               matches? (= @confirmation-input username)]
-          [:div.modal-overlay {:on-click #(do (reset! confirmation-input "") (state/clear-confirm-delete-user))}
+          [:div.modal-overlay
            [:div.modal {:on-click #(.stopPropagation %)}
             [:div.modal-header (t :modal/delete-user)]
             [:div.modal-body
@@ -159,3 +159,87 @@
         [:div.modal-footer
          [:button.cancel {:on-click #(state/clear-pending-new-item)} (t :modal/cancel)]
          [:button.confirm {:on-click #(state/confirm-pending-new-item)} (t confirm-key)]]]])))
+
+(defn- edit-modal-fields [{:keys [type entity]}]
+  (let [field-atoms (case type
+                      :task {:title (r/atom (:title entity))
+                             :description (r/atom (or (:description entity) ""))
+                             :tags (r/atom (or (:tags entity) ""))}
+                      :meet {:title (r/atom (:title entity))
+                             :description (r/atom (or (:description entity) ""))
+                             :tags (r/atom (or (:tags entity) ""))}
+                      :resource {:title (r/atom (:title entity))
+                                 :link (r/atom (:link entity))
+                                 :description (r/atom (or (:description entity) ""))
+                                 :tags (r/atom (or (:tags entity) ""))}
+                      {:title (r/atom (:name entity))
+                       :description (r/atom (or (:description entity) ""))
+                       :tags (r/atom (or (:tags entity) ""))
+                       :badge-title (r/atom (or (:badge_title entity) ""))})]
+    (assoc field-atoms :type type :entity entity)))
+
+(defn- edit-modal-save [{:keys [type entity title description tags link badge-title]}]
+  (let [id (:id entity)]
+    (case type
+      :task (state/update-task id @title @description @tags state/clear-editing-modal)
+      :meet (state/update-meet id @title @description @tags state/clear-editing-modal)
+      :resource (state/update-resource id @title @link @description @tags state/clear-editing-modal)
+      (let [category-type (subs (name type) 9)
+            update-fn (case category-type
+                        "person" state/update-person
+                        "place" state/update-place
+                        "project" state/update-project
+                        "goal" state/update-goal)]
+        (update-fn id @title @description @tags @badge-title state/clear-editing-modal)))))
+
+(defn edit-item-modal []
+  (let [fields-state (r/atom nil)
+        prev-entity (r/atom nil)]
+    (fn []
+      (when-let [{:keys [type entity]} (:editing-modal @state/*app-state)]
+        (when (not= entity @prev-entity)
+          (reset! prev-entity entity)
+          (reset! fields-state (edit-modal-fields {:type type :entity entity})))
+        (when-let [{:keys [title description tags link badge-title]} @fields-state]
+          (let [header-key (case type
+                             :task :modal/edit-task
+                             :meet :modal/edit-meet
+                             :resource :modal/edit-resource
+                             :modal/edit-category)
+                is-category (not (#{:task :meet :resource} type))]
+            [:div.modal-overlay
+             [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
+              [:div.modal-header (t header-key)]
+              [:div.modal-body
+               [:div.item-edit-form
+                [:input {:type "text"
+                         :value @title
+                         :on-change #(reset! title (-> % .-target .-value))
+                         :placeholder (if is-category (t :category/name-placeholder) (t :task/title-placeholder))}]
+                (when link
+                  [:input {:type "text"
+                           :value @link
+                           :on-change #(reset! link (-> % .-target .-value))
+                           :placeholder (t :resources/link-placeholder)}])
+                [:textarea {:value @description
+                            :on-change #(reset! description (-> % .-target .-value))
+                            :placeholder (t :task/description-placeholder)
+                            :rows (if (= type :meet) 20 3)}]
+                [:input {:type "text"
+                         :value @tags
+                         :on-change #(reset! tags (-> % .-target .-value))
+                         :placeholder (t :task/tags-placeholder)}]
+                (when badge-title
+                  [:input {:type "text"
+                           :value @badge-title
+                           :on-change #(reset! badge-title (-> % .-target .-value))
+                           :placeholder (t :category/badge-title-placeholder)}])]]
+              [:div.modal-footer
+               (when is-category
+                 (let [category-type (subs (name type) 9)]
+                   [:button.confirm-delete
+                    {:on-click #(do (state/clear-editing-modal)
+                                    (state/set-confirm-delete-category category-type entity))}
+                    (t :category/delete)]))
+               [:button.cancel {:on-click #(state/clear-editing-modal)} (t :modal/cancel)]
+               [:button.confirm {:on-click #(edit-modal-save @fields-state)} (t :task/save)]]]]))))))

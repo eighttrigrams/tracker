@@ -83,9 +83,27 @@
      (when (state/is-admin?)
        [tab-button active-tab :mail :nav/mail])]))
 
+(defn- any-modal-open? []
+  (or (:pending-new-item @state/*app-state)
+      (:editing-modal @state/*app-state)
+      (:confirm-delete-task @state/*app-state)
+      (:confirm-delete-user @state/*app-state)
+      (:confirm-delete-category @state/*app-state)
+      (:confirm-delete-message @state/*app-state)
+      (:confirm-delete-resource @state/*app-state)
+      (:confirm-delete-meet @state/*app-state)))
+
+(defn- body-scroll-lock []
+  (let [modal-open? (any-modal-open?)]
+    (if modal-open?
+      (set! (.. js/document -body -style -overflow) "hidden")
+      (set! (.. js/document -body -style -overflow) ""))
+    nil))
+
 (defn app []
   (let [{:keys [auth-required? logged-in? active-tab]} @state/*app-state]
     [:div
+     (body-scroll-lock)
      [modals/confirm-delete-modal]
      [modals/confirm-delete-user-modal]
      [modals/confirm-delete-category-modal]
@@ -93,6 +111,7 @@
      [modals/confirm-delete-resource-modal]
      [modals/confirm-delete-meet-modal]
      [modals/pending-item-modal]
+     [modals/edit-item-modal]
      (cond
        (nil? auth-required?)
        [:div (t :auth/loading)]
@@ -133,13 +152,14 @@
             [tasks/tasks-list]]])])]))
 
 (defn- handle-keyboard-shortcuts [e]
-  (let [code (.-code e)
-        {:keys [active-tab]} @state/*app-state
-        tasks-shortcut-keys (tasks/get-tasks-category-shortcut-keys)
-        today-shortcut-keys (today/get-today-category-shortcut-keys)
-        resources-shortcut-keys (resources/get-resources-category-shortcut-keys)
-        meets-shortcut-keys (meets/get-meets-category-shortcut-keys)]
-    (when (.-altKey e)
+  (when-not (any-modal-open?)
+    (let [code (.-code e)
+          {:keys [active-tab]} @state/*app-state
+          tasks-shortcut-keys (tasks/get-tasks-category-shortcut-keys)
+          today-shortcut-keys (today/get-today-category-shortcut-keys)
+          resources-shortcut-keys (resources/get-resources-category-shortcut-keys)
+          meets-shortcut-keys (meets/get-meets-category-shortcut-keys)]
+      (when (.-altKey e)
       (cond
         (= "KeyT" code)
         (do
@@ -186,7 +206,7 @@
         (= :meets active-tab)
         (when-let [filter-key (meets-shortcut-keys code)]
           (.preventDefault e)
-          (state/toggle-meets-filter-collapsed filter-key))))))
+          (state/toggle-meets-filter-collapsed filter-key)))))))
 
 (defn init []
   (i18n/load-translations!
