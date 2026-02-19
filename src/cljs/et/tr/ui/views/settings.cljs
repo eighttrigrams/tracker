@@ -41,12 +41,6 @@
        [:h4 (t :settings/shortcuts-navigation)]
        [:div.shortcuts-list
         [:div.shortcut-item
-         [:span.shortcut-key "Shift+←"]
-         [:span.shortcut-desc (t :settings/shortcut-arrow-left)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Shift+→"]
-         [:span.shortcut-desc (t :settings/shortcut-arrow-right)]]
-        [:div.shortcut-item
          [:span.shortcut-key "Option+T"]
          [:span.shortcut-desc (t :settings/shortcut-toggle-today-tasks)]]]]
       [:div.shortcuts-subsection

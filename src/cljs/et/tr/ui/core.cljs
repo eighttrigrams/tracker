@@ -132,22 +132,6 @@
             [tasks/combined-search-add-form]
             [tasks/tasks-list]]])])]))
 
-(defn- get-available-tabs []
-  (let [is-admin (state/is-admin?)]
-    (->> tab-config
-         (filter #(or (not (:admin-only %)) is-admin))
-         (mapv :key))))
-
-(defn- navigate-tab [direction]
-  (let [tabs (get-available-tabs)
-        current (:active-tab @state/*app-state)
-        effective-current (if (contains? #{:people-places :projects-goals} current)
-                            :categories
-                            current)
-        current-idx (.indexOf tabs effective-current)
-        next-idx (mod (+ current-idx direction) (count tabs))]
-    (state/set-active-tab (nth tabs next-idx))))
-
 (defn- handle-keyboard-shortcuts [e]
   (let [code (.-code e)
         {:keys [active-tab]} @state/*app-state
@@ -155,17 +139,6 @@
         today-shortcut-keys (today/get-today-category-shortcut-keys)
         resources-shortcut-keys (resources/get-resources-category-shortcut-keys)
         meets-shortcut-keys (meets/get-meets-category-shortcut-keys)]
-    (when (.-shiftKey e)
-      (cond
-        (= "ArrowLeft" code)
-        (do
-          (.preventDefault e)
-          (navigate-tab -1))
-
-        (= "ArrowRight" code)
-        (do
-          (.preventDefault e)
-          (navigate-tab 1))))
     (when (.-altKey e)
       (cond
         (= "KeyT" code)
