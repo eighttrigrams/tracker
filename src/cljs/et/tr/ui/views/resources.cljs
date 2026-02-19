@@ -5,7 +5,6 @@
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
-            [et.tr.filters :as filters]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private resources-category-shortcut-keys
@@ -155,20 +154,13 @@
        "🔗"]]]))
 
 (defn- resource-categories-readonly [resource]
-  (let [people (:people resource)
-        places (:places resource)
-        projects (:projects resource)]
-    (when (or (seq people) (seq places) (seq projects))
-      [:div.task-badges
-       (for [person people]
-         ^{:key (str "person-" (:id person))}
-         [:span.tag.person (filters/badge-label person)])
-       (for [place places]
-         ^{:key (str "place-" (:id place))}
-         [:span.tag.place (filters/badge-label place)])
-       (for [project projects]
-         ^{:key (str "project-" (:id project))}
-         [:span.tag.project (filters/badge-label project)])])))
+  [task-item/category-badges
+   {:item resource
+    :category-types [[state/CATEGORY-TYPE-PERSON :people]
+                     [state/CATEGORY-TYPE-PLACE :places]
+                     [state/CATEGORY-TYPE-PROJECT :projects]]
+    :toggle-fn state/toggle-shared-filter
+    :has-filter-fn state/has-filter-for-type?}])
 
 (defn- resource-item [resource expanded-id editing-id people places projects]
   (let [is-expanded (= expanded-id (:id resource))

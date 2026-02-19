@@ -10,34 +10,53 @@
   [:div.markdown-content
    {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
 
+(defn category-badges [{:keys [item category-types toggle-fn has-filter-fn]}]
+  (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]
+    (when (seq all-categories)
+      (into [:div.task-badges]
+            (for [category all-categories]
+              (let [type-has-filter? (has-filter-fn (:type category))
+                    clickable? (not type-has-filter?)]
+                ^{:key (str (:type category) "-" (:id category))}
+                [:span.tag {:class (:type category)
+                            :style (when clickable? {:cursor "pointer"})
+                            :on-click (when clickable?
+                                        (fn [e]
+                                          (.stopPropagation e)
+                                          (toggle-fn (:type category) (:id category))))}
+                 (filters/badge-label category)]))))))
+
 (defn task-category-badges [task]
-  (let [all-categories (concat
-                        (map #(assoc % :type state/CATEGORY-TYPE-PERSON) (:people task))
-                        (map #(assoc % :type state/CATEGORY-TYPE-PLACE) (:places task))
-                        (map #(assoc % :type state/CATEGORY-TYPE-PROJECT) (:projects task))
-                        (map #(assoc % :type state/CATEGORY-TYPE-GOAL) (:goals task)))
-        importance (:importance task)
+  (let [importance (:importance task)
         importance-stars (case importance
                            "important" "★"
                            "critical" "★★"
-                           nil)]
-    (when (or importance-stars (seq all-categories))
+                           nil)
+        on-tasks-page? (= :tasks (:active-tab @state/*app-state))
+        all-types [[state/CATEGORY-TYPE-PERSON :people]
+                   [state/CATEGORY-TYPE-PLACE :places]
+                   [state/CATEGORY-TYPE-PROJECT :projects]
+                   [state/CATEGORY-TYPE-GOAL :goals]]
+        has-categories? (some #(seq (get task (second %))) all-types)]
+    (when (or importance-stars has-categories?)
       [:div.task-badges
        (when importance-stars
          [:span.importance-badge {:class importance} importance-stars])
-       (doall
-        (for [category all-categories]
-          (let [on-tasks-page? (= :tasks (:active-tab @state/*app-state))
-                type-has-filter? (state/has-filter-for-type? (:type category))
-                clickable? (and on-tasks-page? (not type-has-filter?))]
-            ^{:key (str (:type category) "-" (:id category))}
-            [:span.tag {:class (:type category)
-                        :style (when clickable? {:cursor "pointer"})
-                        :on-click (when clickable?
-                                    (fn [e]
-                                      (.stopPropagation e)
-                                      (state/toggle-filter (:type category) (:id category))))}
-             (filters/badge-label category)])))])))
+       (when has-categories?
+         (into [:<>]
+               (for [category (mapcat (fn [[type k]] (map #(assoc % :type type) (get task k))) all-types)]
+                 (let [type-has-filter? (state/has-filter-for-type? (:type category))
+                       clickable? (not type-has-filter?)]
+                   ^{:key (str (:type category) "-" (:id category))}
+                   [:span.tag {:class (:type category)
+                               :style (when clickable? {:cursor "pointer"})
+                               :on-click (when clickable?
+                                           (fn [e]
+                                             (.stopPropagation e)
+                                             (if on-tasks-page?
+                                               (state/toggle-filter (:type category) (:id category))
+                                               (state/toggle-shared-filter (:type category) (:id category)))))}
+                    (filters/badge-label category)]))))])))
 
 (defn task-scope-selector [task]
   (let [scope (or (:scope task) "both")]
