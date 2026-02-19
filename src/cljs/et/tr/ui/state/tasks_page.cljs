@@ -145,21 +145,29 @@
 (defn filtered-tasks [app-state]
   (:tasks @app-state))
 
-(defn set-pending-new-task [app-state title on-success]
+(defn has-active-shared-filters? [app-state]
+  (let [filter-people (:shared/filter-people @app-state)
+        filter-places (:shared/filter-places @app-state)
+        filter-projects (:shared/filter-projects @app-state)]
+    (or (seq filter-people) (seq filter-places) (seq filter-projects))))
+
+(defn set-pending-new-item [app-state type title on-success & [extra]]
   (let [filter-people (:shared/filter-people @app-state)
         filter-places (:shared/filter-places @app-state)
         filter-projects (:shared/filter-projects @app-state)
-        filter-goals (:tasks-page/filter-goals @app-state)]
-    (swap! app-state assoc :pending-new-task
-           {:title title
-            :on-success on-success
-            :categories {:people filter-people
-                         :places filter-places
-                         :projects filter-projects
-                         :goals filter-goals}})))
+        categories (cond-> {:people filter-people
+                            :places filter-places
+                            :projects filter-projects}
+                     (= type :task) (assoc :goals (:tasks-page/filter-goals @app-state)))]
+    (swap! app-state assoc :pending-new-item
+           (cond-> {:type type
+                    :title title
+                    :on-success on-success
+                    :categories categories}
+             extra (merge extra)))))
 
-(defn clear-pending-new-task [app-state]
-  (swap! app-state assoc :pending-new-task nil))
+(defn clear-pending-new-item [app-state]
+  (swap! app-state assoc :pending-new-item nil))
 
 (defn update-pending-category [app-state category-type id]
   (let [key (case category-type
@@ -168,10 +176,14 @@
               constants/CATEGORY-TYPE-PROJECT :projects
               constants/CATEGORY-TYPE-GOAL :goals
               (keyword category-type))]
-    (swap! app-state update-in [:pending-new-task :categories key]
+    (swap! app-state update-in [:pending-new-item :categories key]
            #(if (contains? % id) (disj % id) (conj (or % #{}) id)))))
 
-(defn confirm-pending-new-task [app-state add-task-with-categories-fn]
-  (when-let [{:keys [title on-success categories]} (:pending-new-task @app-state)]
-    (add-task-with-categories-fn title categories on-success)
-    (clear-pending-new-task app-state)))
+(defn confirm-pending-new-item [app-state dispatch-fns]
+  (when-let [{:keys [type title on-success categories] :as item} (:pending-new-item @app-state)]
+    (let [add-fn (get dispatch-fns type)]
+      (case type
+        :task (add-fn title categories on-success)
+        :resource (add-fn title (:link item) categories on-success)
+        :meet (add-fn title categories on-success)))
+    (clear-pending-new-item app-state)))

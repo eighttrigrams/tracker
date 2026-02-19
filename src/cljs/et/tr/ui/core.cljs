@@ -92,7 +92,7 @@
      [modals/confirm-delete-message-modal]
      [modals/confirm-delete-resource-modal]
      [modals/confirm-delete-meet-modal]
-     [modals/pending-task-modal]
+     [modals/pending-item-modal]
      (cond
        (nil? auth-required?)
        [:div (t :auth/loading)]

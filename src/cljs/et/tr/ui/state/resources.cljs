@@ -1,8 +1,9 @@
 (ns et.tr.ui.state.resources
-  (:require [ajax.core :refer [GET]]
+  (:require [ajax.core :refer [GET POST]]
             [clojure.string :as str]
             [reagent.core :as r]
-            [et.tr.ui.api :as api]))
+            [et.tr.ui.api :as api]
+            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT]]))
 
 (defonce *resources-page-state (r/atom {:expanded-resource nil
                                         :editing-resource nil
@@ -120,6 +121,32 @@
     (fn [_] (fetch-resources-fn))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize resource")))))
+
+(defn- categorize-resource-batch [auth-headers resource-id category-type ids]
+  (doseq [id ids]
+    (api/post-json (str "/api/resources/" resource-id "/categorize")
+      {:category-type category-type :category-id id}
+      (auth-headers)
+      (fn [_]))))
+
+(defn add-resource-with-categories [app-state auth-headers fetch-resources-fn current-scope-fn title link categories on-success]
+  (POST "/api/resources"
+    {:params {:title title :link link :scope (current-scope-fn)}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [resource]
+                (let [resource-id (:id resource)
+                      {:keys [people places projects]} categories]
+                  (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-PERSON people)
+                  (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-PLACE places)
+                  (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-PROJECT projects)
+                  (js/setTimeout fetch-resources-fn 500)
+                  (swap! app-state update :resources #(cons resource %))
+                  (when on-success (on-success))))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add resource")))}))
 
 (defn set-expanded-resource [id]
   (swap! *resources-page-state assoc :expanded-resource id :editing-resource nil))

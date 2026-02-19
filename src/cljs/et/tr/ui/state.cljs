@@ -55,7 +55,7 @@
                             :tasks-page/collapsed-filters #{:people :places :projects :goals}
                             :tasks-page/expanded-task nil
                             :editing-task nil
-                            :pending-new-task nil
+                            :pending-new-item nil
                             :confirm-delete-task nil
 
                             ;; Today meets
@@ -230,7 +230,9 @@
    (resources-state/fetch-resources *app-state auth-headers opts)))
 
 (defn add-resource [title link on-success]
-  (resources-state/add-resource *app-state auth-headers current-scope title link on-success fetch-resources))
+  (if (has-active-shared-filters?)
+    (set-pending-new-item :resource title on-success {:link link})
+    (resources-state/add-resource *app-state auth-headers current-scope title link on-success fetch-resources)))
 
 (defn update-resource [resource-id title link description tags on-success]
   (resources-state/update-resource *app-state auth-headers resource-id title link description tags on-success))
@@ -290,7 +292,9 @@
    (meets-state/fetch-meets *app-state auth-headers opts)))
 
 (defn add-meet [title on-success]
-  (meets-state/add-meet *app-state auth-headers current-scope title on-success fetch-meets))
+  (if (has-active-shared-filters?)
+    (set-pending-new-item :meet title on-success)
+    (meets-state/add-meet *app-state auth-headers current-scope title on-success fetch-meets)))
 
 (defn update-meet [meet-id title description tags on-success]
   (meets-state/update-meet *app-state auth-headers meet-id title description tags on-success))
@@ -598,14 +602,23 @@
   (fetch-today-meets opts))
 
 (declare add-task-with-categories)
+(declare add-resource-with-categories)
+(declare add-meet-with-categories)
 (declare has-active-filters?)
-(declare set-pending-new-task)
+(declare has-active-shared-filters?)
+(declare set-pending-new-item)
 
 (defn add-task-with-categories [title categories on-success]
   (tasks/add-task-with-categories *app-state auth-headers fetch-tasks current-scope title categories on-success))
 
+(defn add-resource-with-categories [title link categories on-success]
+  (resources-state/add-resource-with-categories *app-state auth-headers fetch-resources current-scope title link categories on-success))
+
+(defn add-meet-with-categories [title categories on-success]
+  (meets-state/add-meet-with-categories *app-state auth-headers fetch-meets current-scope title categories on-success))
+
 (defn add-task [title on-success]
-  (tasks/add-task *app-state auth-headers current-scope has-active-filters? set-pending-new-task title on-success))
+  (tasks/add-task *app-state auth-headers current-scope has-active-filters? #(set-pending-new-item :task %1 %2) title on-success))
 
 (defn update-task [task-id title description tags on-success]
   (tasks/update-task *app-state auth-headers task-id title description tags on-success))
@@ -670,6 +683,9 @@
 (defn has-active-filters? []
   (tasks-page/has-active-filters? *app-state))
 
+(defn has-active-shared-filters? []
+  (tasks-page/has-active-shared-filters? *app-state))
+
 (defn has-filter-for-type? [filter-type]
   (tasks-page/has-filter-for-type? *app-state filter-type))
 
@@ -724,17 +740,20 @@
 (defn filtered-tasks []
   (tasks-page/filtered-tasks *app-state))
 
-(defn set-pending-new-task [title on-success]
-  (tasks-page/set-pending-new-task *app-state title on-success))
+(defn set-pending-new-item [type title on-success & [extra]]
+  (tasks-page/set-pending-new-item *app-state type title on-success extra))
 
-(defn clear-pending-new-task []
-  (tasks-page/clear-pending-new-task *app-state))
+(defn clear-pending-new-item []
+  (tasks-page/clear-pending-new-item *app-state))
 
 (defn update-pending-category [category-type id]
   (tasks-page/update-pending-category *app-state category-type id))
 
-(defn confirm-pending-new-task []
-  (tasks-page/confirm-pending-new-task *app-state add-task-with-categories))
+(defn confirm-pending-new-item []
+  (tasks-page/confirm-pending-new-item *app-state
+    {:task add-task-with-categories
+     :resource add-resource-with-categories
+     :meet add-meet-with-categories}))
 
 (defn set-upcoming-horizon [horizon]
   (today-page/set-upcoming-horizon *app-state horizon))

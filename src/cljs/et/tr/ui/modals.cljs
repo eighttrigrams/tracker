@@ -135,23 +135,26 @@
           (contains? selected-set (:id item))
           state/update-pending-category]))]]))
 
-(defn pending-task-modal []
-  (when-let [{:keys [title categories]} (:pending-new-task @state/*app-state)]
+(defn pending-item-modal []
+  (when-let [{:keys [type title categories]} (:pending-new-item @state/*app-state)]
     (let [{:keys [people places projects goals]} categories
           selected-people (or people #{})
           selected-places (or places #{})
           selected-projects (or projects #{})
-          selected-goals (or goals #{})]
-      [:div.modal-overlay {:on-click #(state/clear-pending-new-task)}
+          selected-goals (or goals #{})
+          header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories :meet :modal/add-meet-categories)
+          confirm-key (case type :task :modal/add-task :resource :modal/add-resource :meet :modal/add-meet)]
+      [:div.modal-overlay {:on-click #(state/clear-pending-new-item)}
        [:div.modal.pending-task-modal {:on-click #(.stopPropagation %)}
-        [:div.modal-header (t :modal/add-task-categories)]
+        [:div.modal-header (t header-key)]
         [:div.modal-body
          [:p.task-title title]
          [:p.modal-instruction (t :modal/select-categories)]
          [category-group :people state/CATEGORY-TYPE-PERSON selected-people :category/people]
          [category-group :places state/CATEGORY-TYPE-PLACE selected-places :category/places]
          [category-group :projects state/CATEGORY-TYPE-PROJECT selected-projects :category/projects]
-         [category-group :goals state/CATEGORY-TYPE-GOAL selected-goals :category/goals]]
+         (when (= type :task)
+           [category-group :goals state/CATEGORY-TYPE-GOAL selected-goals :category/goals])]
         [:div.modal-footer
-         [:button.cancel {:on-click #(state/clear-pending-new-task)} (t :modal/cancel)]
-         [:button.confirm {:on-click #(state/confirm-pending-new-task)} (t :modal/add-task)]]]])))
+         [:button.cancel {:on-click #(state/clear-pending-new-item)} (t :modal/cancel)]
+         [:button.confirm {:on-click #(state/confirm-pending-new-item)} (t confirm-key)]]]])))
