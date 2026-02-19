@@ -215,6 +215,9 @@
 (defn convert-message-to-resource [message-id link]
   (mail/convert-message-to-resource *app-state auth-headers message-id link))
 
+(declare has-active-shared-filters?)
+(declare set-pending-new-item)
+
 (defn- resources-fetch-opts []
   {:search-term (:filter-search @resources-state/*resources-page-state)
    :importance (:importance-filter @resources-state/*resources-page-state)
@@ -605,8 +608,6 @@
 (declare add-resource-with-categories)
 (declare add-meet-with-categories)
 (declare has-active-filters?)
-(declare has-active-shared-filters?)
-(declare set-pending-new-item)
 
 (defn add-task-with-categories [title categories on-success]
   (tasks/add-task-with-categories *app-state auth-headers fetch-tasks current-scope title categories on-success))

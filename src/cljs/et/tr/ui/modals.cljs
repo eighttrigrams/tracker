@@ -124,16 +124,17 @@
    (when selected? [:span.check " ✓"])])
 
 (defn- category-group [state-key category-type selected-set i18n-label-key]
-  (when (seq (state-key @state/*app-state))
-    [:div.category-group
-     [:label (str (t i18n-label-key) ":")]
-     [:div.category-tags
-      (doall
-       (for [item (state-key @state/*app-state)]
-         ^{:key (:id item)}
-         [category-tag-item category-type (:id item) (:name item)
-          (contains? selected-set (:id item))
-          state/update-pending-category]))]]))
+  (when (seq selected-set)
+    (let [items (filter #(contains? selected-set (:id %)) (state-key @state/*app-state))]
+      [:div.category-group
+       [:label (str (t i18n-label-key) ":")]
+       [:div.category-tags
+        (doall
+         (for [item items]
+           ^{:key (:id item)}
+           [category-tag-item category-type (:id item) (:name item)
+            true
+            state/update-pending-category]))]])))
 
 (defn pending-item-modal []
   (when-let [{:keys [type title categories]} (:pending-new-item @state/*app-state)]

@@ -181,9 +181,14 @@
 
 (defn confirm-pending-new-item [app-state dispatch-fns]
   (when-let [{:keys [type title on-success categories] :as item} (:pending-new-item @app-state)]
-    (let [add-fn (get dispatch-fns type)]
+    (let [add-fn (get dispatch-fns type)
+          {:keys [people places projects goals]} categories]
       (case type
         :task (add-fn title categories on-success)
         :resource (add-fn title (:link item) categories on-success)
-        :meet (add-fn title categories on-success)))
+        :meet (add-fn title categories on-success))
+      (when (empty? people) (swap! app-state assoc :shared/filter-people #{}))
+      (when (empty? places) (swap! app-state assoc :shared/filter-places #{}))
+      (when (empty? projects) (swap! app-state assoc :shared/filter-projects #{}))
+      (when (and (= type :task) (empty? goals)) (swap! app-state assoc :tasks-page/filter-goals #{})))
     (clear-pending-new-item app-state)))
