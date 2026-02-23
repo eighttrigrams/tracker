@@ -112,6 +112,8 @@
   :modal/edit-resource "Edit Resource"
   :modal/edit-meet "Edit Meet"
   :modal/edit-category "Edit Category"
+  :modal/preview "Preview"
+  :modal/edit "Edit"
 
   :users/title "Users"
   :users/add-button "Add User"
@@ -294,6 +296,8 @@
   :modal/edit-resource "Ressource bearbeiten"
   :modal/edit-meet "Treffen bearbeiten"
   :modal/edit-category "Kategorie bearbeiten"
+  :modal/preview "Vorschau"
+  :modal/edit "Bearbeiten"
 
   :users/title "Benutzer"
   :users/add-button "Benutzer hinzufügen"
@@ -476,6 +480,8 @@
   :modal/edit-resource "Editar Recurso"
   :modal/edit-meet "Editar Encontro"
   :modal/edit-category "Editar Categoria"
+  :modal/preview "Pré-visualização"
+  :modal/edit "Editar"
 
   :users/title "Utilizadores"
   :users/add-button "Adicionar Utilizador"
