@@ -1,3 +1,0 @@
-Fairly recently, we have implemented a feature that, when we click on the edit button of either a task or a resource or a meet, then a model opens up where I can edit the name/title and the description text. 
-
-I now want this model to have two tabs. Always, when we edit, we land on the second one, and the second one is the one that exists right now. And the first one is just marked on preview. Preview means it displays whatever we have temporarily in our text areas, which we are about to discard or save, but it should render that temporary state whatever that is.  
