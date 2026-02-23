@@ -945,20 +945,20 @@
                                                   :where (user-id-where-clause user-id)})
                                      jdbc-opts))
                        1.0)
-         new-order (- min-order 1.0)]
-     (let [result (jdbc/execute-one! conn
-                    (sql/format {:insert-into :meets
-                                 :values [{:title title
-                                           :sort_order new-order
-                                           :user_id user-id
-                                           :modified_at [:raw "datetime('now')"]
-                                           :start_date [:raw "date('now','localtime')"]
-                                           :start_time [:raw "strftime('%H:%M','now','localtime')"]
-                                           :scope valid-scope}]
-                                 :returning (conj meet-select-columns :user_id)})
-                    jdbc-opts)]
-       (tel/log! {:level :info :data {:meet-id (:id result) :user-id user-id}} "Meet added")
-       (assoc result :people [] :places [] :projects [])))))
+         new-order (- min-order 1.0)
+         result (jdbc/execute-one! conn
+                  (sql/format {:insert-into :meets
+                               :values [{:title title
+                                         :sort_order new-order
+                                         :user_id user-id
+                                         :modified_at [:raw "datetime('now')"]
+                                         :start_date [:raw "date('now','localtime')"]
+                                         :start_time [:raw "strftime('%H:%M','now','localtime')"]
+                                         :scope valid-scope}]
+                               :returning (conj meet-select-columns :user_id)})
+                  jdbc-opts)]
+     (tel/log! {:level :info :data {:meet-id (:id result) :user-id user-id}} "Meet added")
+     (assoc result :people [] :places [] :projects []))))
 
 (defn- build-meet-category-clauses [categories]
   (let [people-clause (build-category-subquery :meet_categories :meet_id :meets "person" (:people categories))

@@ -75,7 +75,7 @@
    [:span.item-date {:data-tooltip (some-> created_at (.substring 0 10) date/get-day-name)}
     (format-message-datetime created_at)]])
 
-(defn- archive-button-with-dropdown [{:keys [id title description done] :as message}]
+(defn- archive-button-with-dropdown [{:keys [id title description done] :as _message}]
   (let [url (first-url title description)
         dropdown-open? (= id (:message-dropdown-open @mail-state/*mail-page-state))]
     (if (and url (not= done 1))

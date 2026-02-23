@@ -162,12 +162,9 @@
 
 (defn- edit-modal-fields [{:keys [type entity]}]
   (let [field-atoms (case type
-                      :task {:title (r/atom (:title entity))
-                             :description (r/atom (or (:description entity) ""))
-                             :tags (r/atom (or (:tags entity) ""))}
-                      :meet {:title (r/atom (:title entity))
-                             :description (r/atom (or (:description entity) ""))
-                             :tags (r/atom (or (:tags entity) ""))}
+                      (:task :meet) {:title (r/atom (:title entity))
+                                     :description (r/atom (or (:description entity) ""))
+                                     :tags (r/atom (or (:tags entity) ""))}
                       :resource {:title (r/atom (:title entity))
                                  :link (r/atom (:link entity))
                                  :description (r/atom (or (:description entity) ""))
@@ -221,19 +218,19 @@
                            :value @link
                            :on-change #(reset! link (-> % .-target .-value))
                            :placeholder (t :resources/link-placeholder)}])
-                [:textarea {:value @description
-                            :on-change #(reset! description (-> % .-target .-value))
-                            :placeholder (t :task/description-placeholder)
-                            :rows (if (= type :meet) 20 3)}]
-                [:input {:type "text"
-                         :value @tags
-                         :on-change #(reset! tags (-> % .-target .-value))
-                         :placeholder (t :task/tags-placeholder)}]
                 (when badge-title
                   [:input {:type "text"
                            :value @badge-title
                            :on-change #(reset! badge-title (-> % .-target .-value))
-                           :placeholder (t :category/badge-title-placeholder)}])]]
+                           :placeholder (t :category/badge-title-placeholder)}])
+                [:input {:type "text"
+                         :value @tags
+                         :on-change #(reset! tags (-> % .-target .-value))
+                         :placeholder (t :task/tags-placeholder)}]
+                [:textarea {:value @description
+                            :on-change #(reset! description (-> % .-target .-value))
+                            :placeholder (t :task/description-placeholder)
+                            :rows (if (= type :meet) 20 3)}]]]
               [:div.modal-footer
                (when is-category
                  (let [category-type (subs (name type) 9)]

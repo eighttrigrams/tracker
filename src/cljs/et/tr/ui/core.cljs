@@ -14,16 +14,6 @@
             [et.tr.ui.components.controls :as controls]
             [et.tr.i18n :as i18n :refer [t]]))
 
-(def ^:private tab-config
-  [{:key :today      :translation :nav/today}
-   {:key :tasks      :translation :nav/tasks}
-   {:key :resources  :translation :nav/resources}
-   {:key :meets      :translation :nav/meets}
-   {:key :categories :translation :nav/categories :children [:people-places :projects-goals]}
-   {:key :mail       :translation :nav/mail       :admin-only true}
-   {:key :users      :translation :nav/users      :admin-only true}
-   {:key :settings   :translation :nav/settings}])
-
 (defn login-form []
   (let [username (r/atom "")
         password (r/atom "")]
