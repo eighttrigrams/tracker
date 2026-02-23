@@ -2,6 +2,8 @@
   (:require [clojure.set]
             [reagent.core :as r]
             [et.tr.ui.constants :as constants]
+            [et.tr.ui.url :as url]
+            [et.tr.ui.api :as api]
             [et.tr.ui.state.auth :as auth]
             [et.tr.ui.state.mail :as mail]
             [et.tr.ui.state.users :as users]
@@ -150,8 +152,19 @@
     (fetch-messages)
     (fetch-users)))
 
+(defn- restore-from-url []
+  (when-let [{:keys [type api-path]} (url/parse-item-path (.-pathname js/location))]
+    (let [section (-> (js/URLSearchParams. (.-search js/location)) (.get "section"))
+          tab (if (= section "edit") :edit :preview)]
+      (api/fetch-json api-path (auth-headers)
+        (fn [entity]
+          (swap! *app-state assoc :editing-modal {:type type :entity entity :tab tab}))))))
+
 (defn fetch-auth-required []
-  (auth/fetch-auth-required *app-state auth-headers initial-collection-state fetch-all))
+  (auth/fetch-auth-required *app-state auth-headers initial-collection-state
+    (fn [user]
+      (fetch-all user)
+      (restore-from-url))))
 
 (defn login [username password on-success]
   (auth/login *app-state fetch-messages fetch-users username password on-success))
@@ -826,10 +839,14 @@
   (ui/clear-editing *app-state))
 
 (defn set-editing-modal [entity-type entity]
-  (swap! *app-state assoc :editing-modal {:type entity-type :entity entity}))
+  (let [modal {:type entity-type :entity entity}]
+    (swap! *app-state assoc :editing-modal modal)
+    (when-let [path (url/entity->path modal)]
+      (url/push-state! (str path "?section=edit")))))
 
 (defn clear-editing-modal []
-  (swap! *app-state assoc :editing-modal nil))
+  (swap! *app-state assoc :editing-modal nil)
+  (url/push-state! "/"))
 
 (defn set-work-private-mode [mode]
   (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets mode))

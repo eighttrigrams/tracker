@@ -208,4 +208,8 @@
                             (state/close-category-selector))))
      (.removeEventListener js/document "keydown" handle-keyboard-shortcuts)
      (.addEventListener js/document "keydown" handle-keyboard-shortcuts)
+     (set! (.-onpopstate js/window)
+           (fn [_]
+             (when (:editing-modal @state/*app-state)
+               (swap! state/*app-state assoc :editing-modal nil))))
      (rdom/render [app] (.getElementById js/document "app")))))

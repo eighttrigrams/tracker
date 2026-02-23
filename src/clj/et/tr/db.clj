@@ -403,6 +403,24 @@
         (tel/log! {:level :info :data {:category table-name :id category-id :user-id user-id}} "Category deleted")
         {:success (pos? (:next.jdbc/update-count result))}))))
 
+(defn get-task [ds user-id task-id]
+  (let [conn (get-conn ds)
+        user-where (user-id-where-clause user-id)
+        task (jdbc/execute-one! conn
+               (sql/format {:select task-select-columns
+                            :from [:tasks]
+                            :where [:and [:= :id task-id] user-where]})
+               jdbc-opts)]
+    (when task
+      (let [categories (jdbc/execute! conn
+                         (sql/format {:select [:task_id :category_type :category_id]
+                                      :from [:task_categories]
+                                      :where [:= :task_id task-id]})
+                         jdbc-opts)
+            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn user-where)
+            categories-by-task (group-by :task_id categories)]
+        (first (associate-categories-with-tasks [task] categories-by-task people-by-id places-by-id projects-by-id goals-by-id))))))
+
 (defn task-owned-by-user? [ds task-id user-id]
   (some? (jdbc/execute-one! (get-conn ds)
            (sql/format {:select [:id]
@@ -824,6 +842,24 @@
                         :where [:and [:= :id resource-id] (user-id-where-clause user-id)]})
            jdbc-opts)))
 
+(defn get-resource [ds user-id resource-id]
+  (let [conn (get-conn ds)
+        user-where (user-id-where-clause user-id)
+        resource (jdbc/execute-one! conn
+                   (sql/format {:select resource-select-columns
+                                :from [:resources]
+                                :where [:and [:= :id resource-id] user-where]})
+                   jdbc-opts)]
+    (when resource
+      (let [categories-data (jdbc/execute! conn
+                              (sql/format {:select [:resource_id :category_type :category_id]
+                                           :from [:resource_categories]
+                                           :where [:= :resource_id resource-id]})
+                              jdbc-opts)
+            {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
+            categories-by-resource (group-by :resource_id categories-data)]
+        (first (associate-categories-with-resources [resource] categories-by-resource people-by-id places-by-id projects-by-id))))))
+
 (defn update-resource [ds user-id resource-id fields]
   (let [field-names (keys fields)
         set-map (assoc fields :modified_at [:raw "datetime('now')"])
@@ -1020,6 +1056,24 @@
                         :from [:meets]
                         :where [:and [:= :id meet-id] (user-id-where-clause user-id)]})
            jdbc-opts)))
+
+(defn get-meet [ds user-id meet-id]
+  (let [conn (get-conn ds)
+        user-where (user-id-where-clause user-id)
+        meet (jdbc/execute-one! conn
+               (sql/format {:select meet-select-columns
+                            :from [:meets]
+                            :where [:and [:= :id meet-id] user-where]})
+               jdbc-opts)]
+    (when meet
+      (let [categories-data (jdbc/execute! conn
+                              (sql/format {:select [:meet_id :category_type :category_id]
+                                           :from [:meet_categories]
+                                           :where [:= :meet_id meet-id]})
+                              jdbc-opts)
+            {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
+            categories-by-meet (group-by :meet_id categories-data)]
+        (first (associate-categories-with-meets [meet] categories-by-meet people-by-id places-by-id projects-by-id))))))
 
 (defn update-meet [ds user-id meet-id fields]
   (let [set-map (assoc fields :modified_at [:raw "datetime('now')"])

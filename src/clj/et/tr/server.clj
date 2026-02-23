@@ -111,6 +111,13 @@
   (when (and param (not (str/blank? param)))
     (vec (str/split param #","))))
 
+(defn get-task-handler [req]
+  (let [user-id (get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))]
+    (if-let [task (db/get-task (ensure-ds) user-id task-id)]
+      {:status 200 :body task}
+      {:status 404 :body {:error "Task not found"}})))
+
 (defn list-tasks-handler [req]
   (let [user-id (get-user-id req)
         sort-mode (keyword (get-in req [:params "sort"] "recent"))
@@ -423,6 +430,13 @@
   (make-entity-property-handler :urgency db/valid-urgencies
                                 "Invalid urgency. Must be 'default', 'urgent', or 'superurgent'"))
 
+(defn get-resource-handler [req]
+  (let [user-id (get-user-id req)
+        resource-id (Integer/parseInt (get-in req [:params :id]))]
+    (if-let [resource (db/get-resource (ensure-ds) user-id resource-id)]
+      {:status 200 :body resource}
+      {:status 404 :body {:error "Resource not found"}})))
+
 (defn list-resources-handler [req]
   (let [user-id (get-user-id req)
         search-term (get-in req [:params "q"])
@@ -491,6 +505,13 @@
   (make-entity-property-handler :importance db/valid-importances
                                 "Invalid importance. Must be 'normal', 'important', or 'critical'"
                                 {:entity-type :resource :set-fn db/set-resource-field}))
+
+(defn get-meet-handler [req]
+  (let [user-id (get-user-id req)
+        meet-id (Integer/parseInt (get-in req [:params :id]))]
+    (if-let [meet (db/get-meet (ensure-ds) user-id meet-id)]
+      {:status 200 :body meet}
+      {:status 404 :body {:error "Meet not found"}})))
 
 (defn list-meets-handler [req]
   (let [user-id (get-user-id req)
@@ -761,6 +782,7 @@
 
     (context "/tasks" []
       (GET "/" [] list-tasks-handler)
+      (GET "/:id" [] get-task-handler)
       (POST "/" [] add-task-handler)
       (PUT "/:id" [] update-task-handler)
       (DELETE "/:id" [] delete-task-handler)
@@ -808,6 +830,7 @@
 
     (context "/resources" []
       (GET "/" [] list-resources-handler)
+      (GET "/:id" [] get-resource-handler)
       (POST "/" [] add-resource-handler)
       (PUT "/:id" [] update-resource-handler)
       (DELETE "/:id" [] delete-resource-handler)
@@ -818,6 +841,7 @@
 
     (context "/meets" []
       (GET "/" [] list-meets-handler)
+      (GET "/:id" [] get-meet-handler)
       (POST "/" [] add-meet-handler)
       (PUT "/:id" [] update-meet-handler)
       (DELETE "/:id" [] delete-meet-handler)
@@ -837,6 +861,7 @@
   api-routes
   (POST "/webhook/telegram" [] (telegram/webhook-handler (ensure-ds)))
   (GET "/" [] serve-index)
+  (GET "/item/*" [] serve-index)
   (route/resources "/")
   (route/not-found {:status 404 :body {:error "Not found"}}))
 

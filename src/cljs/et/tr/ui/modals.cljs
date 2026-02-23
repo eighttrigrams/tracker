@@ -1,6 +1,7 @@
 (ns et.tr.ui.modals
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.url :as url]
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.meets :as meets-state]
@@ -199,12 +200,12 @@
         prev-entity (r/atom nil)
         active-tab (r/atom :edit)]
     (fn []
-      (if-let [{:keys [type entity]} (:editing-modal @state/*app-state)]
+      (if-let [{:keys [type entity tab]} (:editing-modal @state/*app-state)]
         (do
           (when (not= entity @prev-entity)
             (reset! prev-entity entity)
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
-            (reset! active-tab :edit))
+            (reset! active-tab (or tab :edit)))
           (when-let [{:keys [title description tags link badge-title]} @fields-state]
             (let [is-category (not (#{:task :meet :resource} type))
                   preview-tab-key (case type
@@ -217,10 +218,14 @@
                 [:div.modal-body
                  [:div.edit-modal-tabs
                   [:button {:class (when (= @active-tab :preview) "active")
-                            :on-click #(reset! active-tab :preview)}
+                            :on-click #(do (reset! active-tab :preview)
+                                           (when-let [path (url/entity->path {:type type :entity entity})]
+                                             (url/replace-state! path)))}
                    (t preview-tab-key)]
                   [:button {:class (when (= @active-tab :edit) "active")
-                            :on-click #(reset! active-tab :edit)}
+                            :on-click #(do (reset! active-tab :edit)
+                                           (when-let [path (url/entity->path {:type type :entity entity})]
+                                             (url/replace-state! (str path "?section=edit"))))}
                    (t :modal/edit)]]
                  (if (= @active-tab :preview)
                    [:div.edit-modal-preview
