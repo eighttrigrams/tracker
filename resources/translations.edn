@@ -114,6 +114,10 @@
   :modal/edit-category "Edit Category"
   :modal/preview "Preview"
   :modal/edit "Edit"
+  :modal/tab-task "Task"
+  :modal/tab-meet "Meeting"
+  :modal/tab-resource "Resource"
+  :modal/tab-category "Category"
 
   :users/title "Users"
   :users/add-button "Add User"
@@ -298,6 +302,10 @@
   :modal/edit-category "Kategorie bearbeiten"
   :modal/preview "Vorschau"
   :modal/edit "Bearbeiten"
+  :modal/tab-task "Aufgabe"
+  :modal/tab-meet "Treffen"
+  :modal/tab-resource "Ressource"
+  :modal/tab-category "Kategorie"
 
   :users/title "Benutzer"
   :users/add-button "Benutzer hinzufügen"
@@ -482,6 +490,10 @@
   :modal/edit-category "Editar Categoria"
   :modal/preview "Pré-visualização"
   :modal/edit "Editar"
+  :modal/tab-task "Tarefa"
+  :modal/tab-meet "Encontro"
+  :modal/tab-resource "Recurso"
+  :modal/tab-category "Categoria"
 
   :users/title "Utilizadores"
   :users/add-button "Adicionar Utilizador"

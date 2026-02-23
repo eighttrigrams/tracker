@@ -83,13 +83,16 @@
 }
 .edit-item-modal .modal-body {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .edit-item-modal .item-edit-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  height: 100%;
+  flex: 1;
+  overflow: hidden;
 }
 .edit-item-modal .item-edit-form input,
 .edit-item-modal .item-edit-form textarea {
@@ -98,6 +101,7 @@
 }
 .edit-item-modal .item-edit-form textarea {
   flex: 1;
+  overflow-y: auto;
 }
 .modal-instruction {
   font-size: 0.9em;

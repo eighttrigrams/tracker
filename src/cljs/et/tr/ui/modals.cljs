@@ -199,64 +199,65 @@
         prev-entity (r/atom nil)
         active-tab (r/atom :edit)]
     (fn []
-      (when-let [{:keys [type entity]} (:editing-modal @state/*app-state)]
-        (when (not= entity @prev-entity)
-          (reset! prev-entity entity)
-          (reset! fields-state (edit-modal-fields {:type type :entity entity}))
-          (reset! active-tab :edit))
-        (when-let [{:keys [title description tags link badge-title]} @fields-state]
-          (let [header-key (case type
-                             :task :modal/edit-task
-                             :meet :modal/edit-meet
-                             :resource :modal/edit-resource
-                             :modal/edit-category)
-                is-category (not (#{:task :meet :resource} type))]
-            [:div.modal-overlay
-             [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
-              [:div.modal-header (t header-key)]
-              [:div.modal-body
-               [:div.edit-modal-tabs
-                [:button {:class (when (= @active-tab :preview) "active")
-                          :on-click #(reset! active-tab :preview)}
-                 (t :modal/preview)]
-                [:button {:class (when (= @active-tab :edit) "active")
-                          :on-click #(reset! active-tab :edit)}
-                 (t :modal/edit)]]
-               (if (= @active-tab :preview)
-                 [:div.edit-modal-preview
-                  [:h2.preview-title @title]
-                  (when (and link (seq @link))
-                    [:a.preview-link {:href @link :target "_blank" :rel "noopener noreferrer"} @link])
-                  [markdown-preview @description]]
-                 [:div.item-edit-form
-                  [:input {:type "text"
-                           :value @title
-                           :on-change #(reset! title (-> % .-target .-value))
-                           :placeholder (if is-category (t :category/name-placeholder) (t :task/title-placeholder))}]
-                  (when link
+      (if-let [{:keys [type entity]} (:editing-modal @state/*app-state)]
+        (do
+          (when (not= entity @prev-entity)
+            (reset! prev-entity entity)
+            (reset! fields-state (edit-modal-fields {:type type :entity entity}))
+            (reset! active-tab :edit))
+          (when-let [{:keys [title description tags link badge-title]} @fields-state]
+            (let [is-category (not (#{:task :meet :resource} type))
+                  preview-tab-key (case type
+                                    :task :modal/tab-task
+                                    :meet :modal/tab-meet
+                                    :resource :modal/tab-resource
+                                    :modal/tab-category)]
+              [:div.modal-overlay
+               [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
+                [:div.modal-body
+                 [:div.edit-modal-tabs
+                  [:button {:class (when (= @active-tab :preview) "active")
+                            :on-click #(reset! active-tab :preview)}
+                   (t preview-tab-key)]
+                  [:button {:class (when (= @active-tab :edit) "active")
+                            :on-click #(reset! active-tab :edit)}
+                   (t :modal/edit)]]
+                 (if (= @active-tab :preview)
+                   [:div.edit-modal-preview
+                    [:h2.preview-title @title]
+                    (when (and link (seq @link))
+                      [:a.preview-link {:href @link :target "_blank" :rel "noopener noreferrer"} @link])
+                    [markdown-preview @description]]
+                   [:div.item-edit-form
                     [:input {:type "text"
-                             :value @link
-                             :on-change #(reset! link (-> % .-target .-value))
-                             :placeholder (t :resources/link-placeholder)}])
-                  (when badge-title
+                             :value @title
+                             :on-change #(reset! title (-> % .-target .-value))
+                             :placeholder (if is-category (t :category/name-placeholder) (t :task/title-placeholder))}]
+                    (when link
+                      [:input {:type "text"
+                               :value @link
+                               :on-change #(reset! link (-> % .-target .-value))
+                               :placeholder (t :resources/link-placeholder)}])
+                    (when badge-title
+                      [:input {:type "text"
+                               :value @badge-title
+                               :on-change #(reset! badge-title (-> % .-target .-value))
+                               :placeholder (t :category/badge-title-placeholder)}])
                     [:input {:type "text"
-                             :value @badge-title
-                             :on-change #(reset! badge-title (-> % .-target .-value))
-                             :placeholder (t :category/badge-title-placeholder)}])
-                  [:input {:type "text"
-                           :value @tags
-                           :on-change #(reset! tags (-> % .-target .-value))
-                           :placeholder (t :task/tags-placeholder)}]
-                  [:textarea {:value @description
-                              :on-change #(reset! description (-> % .-target .-value))
-                              :placeholder (t :task/description-placeholder)
-                              :rows (if (= type :meet) 20 3)}]])]
-              [:div.modal-footer
-               (when is-category
-                 (let [category-type (subs (name type) 9)]
-                   [:button.confirm-delete
-                    {:on-click #(do (state/clear-editing-modal)
-                                    (state/set-confirm-delete-category category-type entity))}
-                    (t :category/delete)]))
-               [:button.cancel {:on-click #(state/clear-editing-modal)} (t :modal/cancel)]
-               [:button.confirm {:on-click #(edit-modal-save @fields-state)} (t :task/save)]]]]))))))
+                             :value @tags
+                             :on-change #(reset! tags (-> % .-target .-value))
+                             :placeholder (t :task/tags-placeholder)}]
+                    [:textarea {:value @description
+                                :on-change #(reset! description (-> % .-target .-value))
+                                :placeholder (t :task/description-placeholder)
+                                :rows (if (= type :meet) 20 3)}]])]
+                [:div.modal-footer
+                 (when is-category
+                   (let [category-type (subs (name type) 9)]
+                     [:button.confirm-delete
+                      {:on-click #(do (state/clear-editing-modal)
+                                      (state/set-confirm-delete-category category-type entity))}
+                      (t :category/delete)]))
+                 [:button.cancel {:on-click #(state/clear-editing-modal)} (t :modal/cancel)]
+                 [:button.confirm {:on-click #(edit-modal-save @fields-state)} (t :task/save)]]]])))
+        (reset! prev-entity nil)))))
