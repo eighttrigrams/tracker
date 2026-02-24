@@ -5,4 +5,5 @@
  :editor-cmd ["open" "-g" "-a" "Visual Studio Code"]
  :docs-dir "build-next-feature" 
  :log-file "logs/hooks.log"
- :prompts-log "logs/prompts.log"}
+ :prompts-log "logs/prompts.log"
+ :stage "start"}
