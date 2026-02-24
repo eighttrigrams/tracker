@@ -24,6 +24,20 @@
 (defn- get-conn [ds]
   (if (map? ds) (:conn ds) ds))
 
+(defn- delete-entity-with-categories
+  [ds user-id entity-id {:keys [table category-table category-fk owned-by-fn log-entity-name]}]
+  (when (owned-by-fn entity-id)
+    (let [conn (get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from category-table
+                       :where [:= category-fk entity-id]}))
+        (let [result (jdbc/execute-one! tx
+                       (sql/format {:delete-from table
+                                    :where [:= :id entity-id]}))]
+          (tel/log! {:level :info :data {(keyword (str log-entity-name "-id")) entity-id :user-id user-id}} (str log-entity-name " deleted"))
+          {:success (pos? (:next.jdbc/update-count result))})))))
+
 (defn create-user [ds username password]
   (let [hash (hashers/derive password)
         result (jdbc/execute-one! (get-conn ds)
@@ -541,17 +555,12 @@
       jdbc-opts)))
 
 (defn delete-task [ds user-id task-id]
-  (when (task-owned-by-user? ds task-id user-id)
-    (let [conn (get-conn ds)]
-      (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:delete-from :task_categories
-                       :where [:= :task_id task-id]}))
-        (let [result (jdbc/execute-one! tx
-                       (sql/format {:delete-from :tasks
-                                    :where [:= :id task-id]}))]
-          (tel/log! {:level :info :data {:task-id task-id :user-id user-id}} "Task deleted")
-          {:success (pos? (:next.jdbc/update-count result))})))))
+  (delete-entity-with-categories ds user-id task-id
+    {:table :tasks
+     :category-table :task_categories
+     :category-fk :task_id
+     :owned-by-fn #(task-owned-by-user? ds % user-id)
+     :log-entity-name "Task"}))
 
 (defn set-task-done [ds user-id task-id done?]
   (let [done-val (if done? 1 0)]
@@ -912,17 +921,12 @@
           (assoc resource :description description :people [] :projects []))))))
 
 (defn delete-resource [ds user-id resource-id]
-  (when (resource-owned-by-user? ds resource-id user-id)
-    (let [conn (get-conn ds)]
-      (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:delete-from :resource_categories
-                       :where [:= :resource_id resource-id]}))
-        (let [result (jdbc/execute-one! tx
-                       (sql/format {:delete-from :resources
-                                    :where [:= :id resource-id]}))]
-          (tel/log! {:level :info :data {:resource-id resource-id :user-id user-id}} "Resource deleted")
-          {:success (pos? (:next.jdbc/update-count result))})))))
+  (delete-entity-with-categories ds user-id resource-id
+    {:table :resources
+     :category-table :resource_categories
+     :category-fk :resource_id
+     :owned-by-fn #(resource-owned-by-user? ds % user-id)
+     :log-entity-name "Resource"}))
 
 (defn set-resource-field [ds user-id resource-id field value]
   (let [normalize-fn (get field-normalizers field identity)
@@ -1086,17 +1090,12 @@
       jdbc-opts)))
 
 (defn delete-meet [ds user-id meet-id]
-  (when (meet-owned-by-user? ds meet-id user-id)
-    (let [conn (get-conn ds)]
-      (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:delete-from :meet_categories
-                       :where [:= :meet_id meet-id]}))
-        (let [result (jdbc/execute-one! tx
-                       (sql/format {:delete-from :meets
-                                    :where [:= :id meet-id]}))]
-          (tel/log! {:level :info :data {:meet-id meet-id :user-id user-id}} "Meet deleted")
-          {:success (pos? (:next.jdbc/update-count result))})))))
+  (delete-entity-with-categories ds user-id meet-id
+    {:table :meets
+     :category-table :meet_categories
+     :category-fk :meet_id
+     :owned-by-fn #(meet-owned-by-user? ds % user-id)
+     :log-entity-name "Meet"}))
 
 (defn set-meet-field [ds user-id meet-id field value]
   (let [normalize-fn (get field-normalizers field identity)

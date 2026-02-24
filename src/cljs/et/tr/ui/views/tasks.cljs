@@ -4,6 +4,7 @@
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
+            [et.tr.ui.components.controls :as controls]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private tasks-category-shortcut-keys
@@ -70,20 +71,9 @@
      [sort-mode-button sort-mode :done :tasks/sort-done]]))
 
 (defn importance-filter-toggle []
-  (let [importance-filter (:tasks-page/importance-filter @state/*app-state)]
-    [:div.importance-filter-toggle.toggle-group
-     [:button {:class (when (nil? importance-filter) "active")
-               :on-click #(state/set-importance-filter nil)
-               :title (t :importance/filter-off)}
-      "○"]
-     [:button {:class (str "important" (when (= importance-filter :important) " active"))
-               :on-click #(state/set-importance-filter :important)
-               :title (t :importance/filter-important)}
-      "★"]
-     [:button {:class (str "critical" (when (= importance-filter :critical) " active"))
-               :on-click #(state/set-importance-filter :critical)
-               :title (t :importance/filter-critical)}
-      "★★"]]))
+  [controls/importance-filter-toggle
+   {:current-filter (:tasks-page/importance-filter @state/*app-state)
+    :on-filter-change state/set-importance-filter}])
 
 (defn filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed? number]}]
   [filter-section/category-filter-section {:title title

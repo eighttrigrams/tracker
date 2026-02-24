@@ -4,7 +4,7 @@
             [et.tr.ui.date :as date]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
-            [et.tr.ui.components.category-selector :as category-selector]
+            [et.tr.ui.components.controls :as controls]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private meets-category-shortcut-keys
@@ -43,26 +43,13 @@
         label])]))
 
 (defn- meet-category-selector [meet category-type entities label]
-  (let [current-categories (case category-type
-                             state/CATEGORY-TYPE-PERSON (:people meet)
-                             state/CATEGORY-TYPE-PLACE (:places meet)
-                             state/CATEGORY-TYPE-PROJECT (:projects meet)
-                             [])]
-    [category-selector/category-selector
-     {:entity meet
-      :entity-id-key :id
-      :category-type category-type
-      :entities entities
-      :label label
-      :current-categories current-categories
-      :on-categorize #(state/categorize-meet (:id meet) category-type %)
-      :on-uncategorize #(state/uncategorize-meet (:id meet) category-type %)
-      :on-close-focus-fn nil
-      :open-selector-state (:category-selector/open @state/*app-state)
-      :search-state (:category-selector/search @state/*app-state)
-      :open-selector-fn state/open-category-selector
-      :close-selector-fn state/close-category-selector
-      :set-search-fn state/set-category-selector-search}]))
+  [task-item/entity-category-selector
+   {:entity meet
+    :category-type category-type
+    :entities entities
+    :label label
+    :on-categorize #(state/categorize-meet (:id meet) category-type %)
+    :on-uncategorize #(state/uncategorize-meet (:id meet) category-type %)}])
 
 (defn- meet-date-time-pickers [meet]
   [:div.meet-date-time-pickers
@@ -146,20 +133,9 @@
        [meet-categories-readonly meet])]))
 
 (defn- importance-filter-toggle []
-  (let [importance-filter (:importance-filter @meets-state/*meets-page-state)]
-    [:div.importance-filter-toggle.toggle-group
-     [:button {:class (when (nil? importance-filter) "active")
-               :on-click #(state/set-meet-importance-filter nil)
-               :title (t :importance/filter-off)}
-      "○"]
-     [:button {:class (str "important" (when (= importance-filter :important) " active"))
-               :on-click #(state/set-meet-importance-filter :important)
-               :title (t :importance/filter-important)}
-      "★"]
-     [:button {:class (str "critical" (when (= importance-filter :critical) " active"))
-               :on-click #(state/set-meet-importance-filter :critical)
-               :title (t :importance/filter-critical)}
-      "★★"]]))
+  [controls/importance-filter-toggle
+   {:current-filter (:importance-filter @meets-state/*meets-page-state)
+    :on-filter-change state/set-meet-importance-filter}])
 
 (defn- sort-mode-toggle []
   (let [sort-mode (:sort-mode @meets-state/*meets-page-state)]

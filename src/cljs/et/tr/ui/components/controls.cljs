@@ -85,6 +85,21 @@
           :on-click #(state/switch-user user)}
          (:username user)]))]))
 
+(defn importance-filter-toggle [{:keys [current-filter on-filter-change]}]
+  [:div.importance-filter-toggle.toggle-group
+   [:button {:class (when (nil? current-filter) "active")
+             :on-click #(on-filter-change nil)
+             :title (t :importance/filter-off)}
+    "○"]
+   [:button {:class (str "important" (when (= current-filter :important) " active"))
+             :on-click #(on-filter-change :important)
+             :title (t :importance/filter-important)}
+    "★"]
+   [:button {:class (str "critical" (when (= current-filter :critical) " active"))
+             :on-click #(on-filter-change :critical)
+             :title (t :importance/filter-critical)}
+    "★★"]])
+
 (defn user-info []
   (let [current-user (:current-user @state/*app-state)
         active-tab (:active-tab @state/*app-state)

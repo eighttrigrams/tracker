@@ -10,42 +10,21 @@
   [:div.markdown-content
    {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
 
-(defn category-badges [{:keys [item category-types toggle-fn has-filter-fn]}]
-  (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]
-    (when (seq all-categories)
-      (into [:div.task-badges]
-            (for [category all-categories]
-              (let [type-has-filter? (has-filter-fn (:type category))
-                    clickable? (not type-has-filter?)]
-                ^{:key (str (:type category) "-" (:id category))}
-                [:span.tag {:class (:type category)
-                            :style (when clickable? {:cursor "pointer"})
-                            :on-click (when clickable?
-                                        (fn [e]
-                                          (.stopPropagation e)
-                                          (toggle-fn (:type category) (:id category))))}
-                 (filters/badge-label category)]))))))
-
-(defn task-category-badges [task]
-  (let [importance (:importance task)
+(defn category-badges [{:keys [item category-types toggle-fn has-filter-fn importance]}]
+  (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)
         importance-stars (case importance
                            "important" "★"
                            "critical" "★★"
                            nil)
-        on-tasks-page? (= :tasks (:active-tab @state/*app-state))
-        all-types [[state/CATEGORY-TYPE-PERSON :people]
-                   [state/CATEGORY-TYPE-PLACE :places]
-                   [state/CATEGORY-TYPE-PROJECT :projects]
-                   [state/CATEGORY-TYPE-GOAL :goals]]
-        has-categories? (some #(seq (get task (second %))) all-types)]
+        has-categories? (seq all-categories)]
     (when (or importance-stars has-categories?)
       [:div.task-badges
        (when importance-stars
          [:span.importance-badge {:class importance} importance-stars])
        (when has-categories?
          (into [:<>]
-               (for [category (mapcat (fn [[type k]] (map #(assoc % :type type) (get task k))) all-types)]
-                 (let [type-has-filter? (state/has-filter-for-type? (:type category))
+               (for [category all-categories]
+                 (let [type-has-filter? (has-filter-fn (:type category))
                        clickable? (not type-has-filter?)]
                    ^{:key (str (:type category) "-" (:id category))}
                    [:span.tag {:class (:type category)
@@ -53,10 +32,20 @@
                                :on-click (when clickable?
                                            (fn [e]
                                              (.stopPropagation e)
-                                             (if on-tasks-page?
-                                               (state/toggle-filter (:type category) (:id category))
-                                               (state/toggle-shared-filter (:type category) (:id category)))))}
+                                             (toggle-fn (:type category) (:id category))))}
                     (filters/badge-label category)]))))])))
+
+(defn task-category-badges [task]
+  (let [on-tasks-page? (= :tasks (:active-tab @state/*app-state))]
+    [category-badges
+     {:item task
+      :category-types [[state/CATEGORY-TYPE-PERSON :people]
+                       [state/CATEGORY-TYPE-PLACE :places]
+                       [state/CATEGORY-TYPE-PROJECT :projects]
+                       [state/CATEGORY-TYPE-GOAL :goals]]
+      :toggle-fn (if on-tasks-page? state/toggle-filter state/toggle-shared-filter)
+      :has-filter-fn state/has-filter-for-type?
+      :importance (:importance task)}]))
 
 (defn task-scope-selector [task]
   (let [scope (or (:scope task) "both")]
@@ -202,25 +191,37 @@
   [:div.item-tags-readonly
    [task-category-badges task]])
 
+(defn entity-category-selector [{:keys [entity category-type entities label
+                                        on-categorize on-uncategorize on-close-focus-fn]}]
+  (let [current-categories (case category-type
+                             state/CATEGORY-TYPE-PERSON (:people entity)
+                             state/CATEGORY-TYPE-PLACE (:places entity)
+                             state/CATEGORY-TYPE-PROJECT (:projects entity)
+                             state/CATEGORY-TYPE-GOAL (:goals entity)
+                             [])]
+    [category-selector/category-selector
+     {:entity entity
+      :entity-id-key :id
+      :category-type category-type
+      :entities entities
+      :label label
+      :current-categories current-categories
+      :on-categorize on-categorize
+      :on-uncategorize on-uncategorize
+      :on-close-focus-fn on-close-focus-fn
+      :open-selector-state (:category-selector/open @state/*app-state)
+      :search-state (:category-selector/search @state/*app-state)
+      :open-selector-fn state/open-category-selector
+      :close-selector-fn state/close-category-selector
+      :set-search-fn state/set-category-selector-search}]))
+
 (defn category-selector [_task _category-type _entities _label]
   (fn [task* category-type* entities* label*]
-    (let [task-categories (case category-type*
-                            state/CATEGORY-TYPE-PERSON (:people task*)
-                            state/CATEGORY-TYPE-PLACE (:places task*)
-                            state/CATEGORY-TYPE-PROJECT (:projects task*)
-                            state/CATEGORY-TYPE-GOAL (:goals task*))]
-      [category-selector/category-selector
-       {:entity task*
-        :entity-id-key :id
-        :category-type category-type*
-        :entities entities*
-        :label label*
-        :current-categories task-categories
-        :on-categorize #(state/categorize-task (:id task*) category-type* %)
-        :on-uncategorize #(state/uncategorize-task (:id task*) category-type* %)
-        :on-close-focus-fn state/focus-tasks-search
-        :open-selector-state (:category-selector/open @state/*app-state)
-        :search-state (:category-selector/search @state/*app-state)
-        :open-selector-fn state/open-category-selector
-        :close-selector-fn state/close-category-selector
-        :set-search-fn state/set-category-selector-search}])))
+    [entity-category-selector
+     {:entity task*
+      :category-type category-type*
+      :entities entities*
+      :label label*
+      :on-categorize #(state/categorize-task (:id task*) category-type* %)
+      :on-uncategorize #(state/uncategorize-task (:id task*) category-type* %)
+      :on-close-focus-fn state/focus-tasks-search}]))

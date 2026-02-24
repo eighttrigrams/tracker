@@ -3,7 +3,7 @@
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
-            [et.tr.ui.components.category-selector :as category-selector]
+            [et.tr.ui.components.controls :as controls]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private resources-category-shortcut-keys
@@ -57,26 +57,13 @@
         label])]))
 
 (defn- resource-category-selector [resource category-type entities label]
-  (let [current-categories (case category-type
-                             state/CATEGORY-TYPE-PERSON (:people resource)
-                             state/CATEGORY-TYPE-PLACE (:places resource)
-                             state/CATEGORY-TYPE-PROJECT (:projects resource)
-                             [])]
-    [category-selector/category-selector
-     {:entity resource
-      :entity-id-key :id
-      :category-type category-type
-      :entities entities
-      :label label
-      :current-categories current-categories
-      :on-categorize #(state/categorize-resource (:id resource) category-type %)
-      :on-uncategorize #(state/uncategorize-resource (:id resource) category-type %)
-      :on-close-focus-fn nil
-      :open-selector-state (:category-selector/open @state/*app-state)
-      :search-state (:category-selector/search @state/*app-state)
-      :open-selector-fn state/open-category-selector
-      :close-selector-fn state/close-category-selector
-      :set-search-fn state/set-category-selector-search}]))
+  [task-item/entity-category-selector
+   {:entity resource
+    :category-type category-type
+    :entities entities
+    :label label
+    :on-categorize #(state/categorize-resource (:id resource) category-type %)
+    :on-uncategorize #(state/uncategorize-resource (:id resource) category-type %)}])
 
 (defn- resource-expanded-view [resource people places projects]
   (let [video-id (youtube-video-id (:link resource))]
@@ -139,20 +126,9 @@
        [resource-categories-readonly resource])]))
 
 (defn- importance-filter-toggle []
-  (let [importance-filter (:importance-filter @resources-state/*resources-page-state)]
-    [:div.importance-filter-toggle.toggle-group
-     [:button {:class (when (nil? importance-filter) "active")
-               :on-click #(state/set-resource-importance-filter nil)
-               :title (t :importance/filter-off)}
-      "○"]
-     [:button {:class (str "important" (when (= importance-filter :important) " active"))
-               :on-click #(state/set-resource-importance-filter :important)
-               :title (t :importance/filter-important)}
-      "★"]
-     [:button {:class (str "critical" (when (= importance-filter :critical) " active"))
-               :on-click #(state/set-resource-importance-filter :critical)
-               :title (t :importance/filter-critical)}
-      "★★"]]))
+  [controls/importance-filter-toggle
+   {:current-filter (:importance-filter @resources-state/*resources-page-state)
+    :on-filter-change state/set-resource-importance-filter}])
 
 (defn- search-add-form []
   (let [input-value (:filter-search @resources-state/*resources-page-state)]

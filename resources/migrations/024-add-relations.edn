@@ -1,0 +1,11 @@
+{:up ["CREATE TABLE relations (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         source_type TEXT NOT NULL,
+         source_id INTEGER NOT NULL,
+         target_type TEXT NOT NULL,
+         target_id INTEGER NOT NULL,
+         user_id INTEGER REFERENCES users(id),
+         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+         UNIQUE (source_type, source_id, target_type, target_id, user_id)
+       )"]
+ :down ["DROP TABLE IF EXISTS relations"]}
