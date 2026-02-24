@@ -11,3 +11,19 @@ Now the next thing: where should they be shown?
 Relations should be shown right where the badges are shown. When I uncollapse an item at the position where I normally can add badges for the different categories, I won't be able to add relations there, but I will be able to remove relations there. When an item is collapsed, this is just like showing up just like regular badges.
 
 We have badges for four categories, which are normally shown as four groups and different colors. We just give it a fifth color so relations get their own color. 
+
+# Link-Symbols
+
+For ***what*** to click **on the items** to relate them
+
+I think the leanest thing is that, whenever the mode of relations is active, then any item begins not with the title or the hour of the day (in case it has a due date). Now, instead, it begins also with that same symbol, just prepended before the title to the left of the item's title, be it a task, a meeting, or a resource.
+This button acts as a link button, so nothing else of the task is relevant; whatever I click doesn't matter here. The only thing that matters is:
+1. First of all, I click in the nav bar on the symbol for linking.
+2. I navigate and find an item which I want to link.
+3. I click on its link symbol.
+4. I search the target for linking.
+That means that, only when the link mode (the relations mode) is activated, then this new thing gets shown as part of the title. When this mode is off, then it doesn't get shown, and everything looks and behaves just as before.
+
+# Deletion
+
+When deleting an item, make sure to remove also relations to/from that item.
