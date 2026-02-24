@@ -757,31 +757,6 @@
     (do (db/reset-all-data! (ensure-ds))
         {:status 200 :body {:success true}})))
 
-(defn add-relation-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [source-type source-id target-type target-id]} (:body req)]
-    (if (or (str/blank? source-type) (nil? source-id)
-            (str/blank? target-type) (nil? target-id))
-      {:status 400 :body {:success false :error "Source and target required"}}
-      (if-let [result (db/add-relation (ensure-ds) user-id source-type source-id target-type target-id)]
-        {:status 201 :body result}
-        {:status 404 :body {:success false :error "Item not found or not owned"}}))))
-
-(defn get-relations-handler [req]
-  (let [user-id (get-user-id req)
-        item-type (get-in req [:params :type])
-        item-id (Integer/parseInt (get-in req [:params :id]))]
-    (if-let [relations (db/get-relations-for-item (ensure-ds) user-id item-type item-id)]
-      {:status 200 :body relations}
-      {:status 404 :body {:error "Item not found"}})))
-
-(defn delete-relation-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [source-type source-id target-type target-id]} (:body req)]
-    (if-let [result (db/delete-relation (ensure-ds) user-id source-type source-id target-type target-id)]
-      {:status 200 :body result}
-      {:status 404 :body {:error "Relation or item not found"}})))
-
 (defn- serve-index [_]
   {:status 200
    :headers {"Content-Type" "text/html"}
@@ -878,11 +853,6 @@
       (PUT "/:id/importance" [] set-meet-importance-handler))
 
     (DELETE "/:category/:id" [] delete-category-handler)
-
-    (context "/relations" []
-      (POST "/" [] add-relation-handler)
-      (GET "/:type/:id" [] get-relations-handler)
-      (DELETE "/" [] delete-relation-handler))
 
     (context "/test" []
       (POST "/reset" [] reset-test-db-handler))))

@@ -143,42 +143,6 @@
                    :goals (extract-category task-categories "goal" goals-by-id))))
         tasks))
 
-(defn- fetch-title-for-relation [conn relation user-id]
-  (let [target-type (:target_type relation)
-        target-id (:target_id relation)
-        table (case target-type "tsk" :tasks "rsc" :resources "met" :meets)
-        result (jdbc/execute-one! conn
-                 (sql/format {:select [:title]
-                              :from [table]
-                              :where [:and [:= :id target-id] (user-id-where-clause user-id)]})
-                 jdbc-opts)]
-    (:title result)))
-
-(defn- fetch-relations-for-items [conn item-type item-ids user-id]
-  (when (seq item-ids)
-    (let [relations (jdbc/execute! conn
-                      (sql/format {:select [:source_id :target_type :target_id]
-                                   :from [:relations]
-                                   :where [:and
-                                           [:= :source_type item-type]
-                                           [:in :source_id item-ids]]})
-                      jdbc-opts)]
-      (group-by :source_id
-        (mapv (fn [r]
-                (assoc r :title (fetch-title-for-relation conn r user-id)))
-              relations)))))
-
-(defn- associate-relations-with-items [items item-type relations-by-item]
-  (mapv (fn [item]
-          (let [relations (get relations-by-item (:id item) [])]
-            (assoc item :relations
-                   (mapv (fn [r]
-                           {:target_type (:target_type r)
-                            :target_id (:target_id r)
-                            :title (:title r)})
-                         relations))))
-        items))
-
 (defn- build-search-clause
   ([search-term] (build-search-clause search-term [:title :tags]))
   ([search-term columns]
@@ -330,10 +294,8 @@
                                      :where [:in :task_id task-ids]})
                         jdbc-opts))
          {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn user-where)
-         categories-by-task (group-by :task_id categories)
-         relations-by-task (fetch-relations-for-items conn "tsk" task-ids user-id)
-         tasks-with-categories (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id)]
-     (associate-relations-with-items tasks-with-categories "tsk" relations-by-task))))
+         categories-by-task (group-by :task_id categories)]
+     (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id))))
 
 (def ^:private valid-category-tables #{"people" "places" "projects" "goals"})
 
@@ -585,11 +547,6 @@
         (jdbc/execute-one! tx
           (sql/format {:delete-from :task_categories
                        :where [:= :task_id task-id]}))
-        (jdbc/execute-one! tx
-          (sql/format {:delete-from :relations
-                       :where [:or
-                               [:and [:= :source_type "tsk"] [:= :source_id task-id]]
-                               [:and [:= :target_type "tsk"] [:= :target_id task-id]]]}))
         (let [result (jdbc/execute-one! tx
                        (sql/format {:delete-from :tasks
                                     :where [:= :id task-id]}))]
@@ -875,10 +832,8 @@
                                           :where [:in :resource_id resource-ids]})
                              jdbc-opts))
          {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
-         categories-by-resource (group-by :resource_id categories-data)
-         relations-by-resource (fetch-relations-for-items conn "rsc" resource-ids user-id)
-         resources-with-categories (associate-categories-with-resources resources categories-by-resource people-by-id places-by-id projects-by-id)]
-     (associate-relations-with-items resources-with-categories "rsc" relations-by-resource))))
+         categories-by-resource (group-by :resource_id categories-data)]
+     (associate-categories-with-resources resources categories-by-resource people-by-id places-by-id projects-by-id))))
 
 (defn resource-owned-by-user? [ds resource-id user-id]
   (some? (jdbc/execute-one! (get-conn ds)
@@ -963,11 +918,6 @@
         (jdbc/execute-one! tx
           (sql/format {:delete-from :resource_categories
                        :where [:= :resource_id resource-id]}))
-        (jdbc/execute-one! tx
-          (sql/format {:delete-from :relations
-                       :where [:or
-                               [:and [:= :source_type "rsc"] [:= :source_id resource-id]]
-                               [:and [:= :target_type "rsc"] [:= :target_id resource-id]]]}))
         (let [result (jdbc/execute-one! tx
                        (sql/format {:delete-from :resources
                                     :where [:= :id resource-id]}))]
@@ -1097,10 +1047,8 @@
                                           :where [:in :meet_id meet-ids]})
                              jdbc-opts))
          {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
-         categories-by-meet (group-by :meet_id categories-data)
-         relations-by-meet (fetch-relations-for-items conn "met" meet-ids user-id)
-         meets-with-categories (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id)]
-     (associate-relations-with-items meets-with-categories "met" relations-by-meet))))
+         categories-by-meet (group-by :meet_id categories-data)]
+     (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id))))
 
 (defn meet-owned-by-user? [ds meet-id user-id]
   (some? (jdbc/execute-one! (get-conn ds)
@@ -1144,11 +1092,6 @@
         (jdbc/execute-one! tx
           (sql/format {:delete-from :meet_categories
                        :where [:= :meet_id meet-id]}))
-        (jdbc/execute-one! tx
-          (sql/format {:delete-from :relations
-                       :where [:or
-                               [:and [:= :source_type "met"] [:= :source_id meet-id]]
-                               [:and [:= :target_type "met"] [:= :target_id meet-id]]]}))
         (let [result (jdbc/execute-one! tx
                        (sql/format {:delete-from :meets
                                     :where [:= :id meet-id]}))]
@@ -1219,85 +1162,3 @@
           (sql/format {:update :meets
                        :set {:modified_at [:raw "datetime('now')"]}
                        :where [:= :id meet-id]}))))))
-
-(def ^:private valid-item-types #{"tsk" "rsc" "met"})
-
-(defn- validate-item-type! [item-type]
-  (when-not (valid-item-types item-type)
-    (throw (ex-info "Invalid item type" {:item-type item-type}))))
-
-(defn- item-owned-by-user? [ds item-type item-id user-id]
-  (let [table (case item-type
-                "tsk" :tasks
-                "rsc" :resources
-                "met" :meets)]
-    (some? (jdbc/execute-one! (get-conn ds)
-             (sql/format {:select [:id]
-                          :from [table]
-                          :where [:and [:= :id item-id] (user-id-where-clause user-id)]})
-             jdbc-opts))))
-
-(defn add-relation [ds user-id source-type source-id target-type target-id]
-  (validate-item-type! source-type)
-  (validate-item-type! target-type)
-  (when (and (item-owned-by-user? ds source-type source-id user-id)
-             (item-owned-by-user? ds target-type target-id user-id))
-    (let [conn (get-conn ds)]
-      (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:insert-into :relations
-                       :values [{:source_type source-type
-                                 :source_id source-id
-                                 :target_type target-type
-                                 :target_id target-id}]
-                       :on-conflict []
-                       :do-nothing true}))
-        (jdbc/execute-one! tx
-          (sql/format {:insert-into :relations
-                       :values [{:source_type target-type
-                                 :source_id target-id
-                                 :target_type source-type
-                                 :target_id source-id}]
-                       :on-conflict []
-                       :do-nothing true})))
-      {:success true})))
-
-(defn get-relations-for-item [ds user-id item-type item-id]
-  (validate-item-type! item-type)
-  (when (item-owned-by-user? ds item-type item-id user-id)
-    (jdbc/execute! (get-conn ds)
-      (sql/format {:select [:id :target_type :target_id :created_at]
-                   :from [:relations]
-                   :where [:and
-                           [:= :source_type item-type]
-                           [:= :source_id item-id]]})
-      jdbc-opts)))
-
-(defn delete-relation [ds user-id source-type source-id target-type target-id]
-  (validate-item-type! source-type)
-  (validate-item-type! target-type)
-  (when (item-owned-by-user? ds source-type source-id user-id)
-    (let [conn (get-conn ds)]
-      (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:delete-from :relations
-                       :where [:and
-                               [:= :source_type source-type]
-                               [:= :source_id source-id]
-                               [:= :target_type target-type]
-                               [:= :target_id target-id]]}))
-        (jdbc/execute-one! tx
-          (sql/format {:delete-from :relations
-                       :where [:and
-                               [:= :source_type target-type]
-                               [:= :source_id target-id]
-                               [:= :target_type source-type]
-                               [:= :target_id source-id]]})))
-      {:success true})))
-
-(defn delete-relations-for-item [tx item-type item-id]
-  (jdbc/execute-one! tx
-    (sql/format {:delete-from :relations
-                 :where [:or
-                         [:and [:= :source_type item-type] [:= :source_id item-id]]
-                         [:and [:= :target_type item-type] [:= :target_id item-id]]]})))

@@ -5,8 +5,6 @@
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
-            [et.tr.ui.components.relation-link :as relation-link]
-            [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private meets-category-shortcut-keys
@@ -101,9 +99,7 @@
    [:div.item-tags
     [meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
-    [meet-category-selector meet state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-    [relation-badges/relation-badges-expanded
-     {:entity-type :meet :entity meet :on-remove state/fetch-meets}]]
+    [meet-category-selector meet state/CATEGORY-TYPE-PROJECT projects (t :category/project)]]
    [:div.item-actions
     [meet-scope-selector meet]
     [meet-importance-selector meet]
@@ -116,7 +112,6 @@
     [:div.item-header
      {:on-click #(state/set-expanded-meet (when-not is-expanded (:id meet)))}
      [:div.item-title
-      [relation-link/relation-link-button :meet meet]
       (when (and importance (not= importance "normal"))
         [:span.importance-badge {:class importance}
          (case importance "important" "★" "critical" "★★" nil)])

@@ -73,23 +73,6 @@
      {:on-click state/toggle-dark-mode}
      (if dark-mode "\u2600" "\u263E")]))
 
-(defn relation-mode-toggle []
-  (let [relation-mode (state/relation-mode?)
-        relation-source (state/relation-source)]
-    [:button.relation-mode-toggle
-     {:class (when relation-mode "active")
-      :on-click state/toggle-relation-mode
-      :title (if relation-source
-               (str "Linking from: " (:title relation-source))
-               "Toggle relation mode")}
-     [:svg {:width "20" :height "20" :viewBox "0 0 20 20"}
-      [:circle {:cx "10" :cy "10" :r "8"
-                :fill "none"
-                :stroke (if relation-mode "var(--accent)" "currentColor")
-                :stroke-width "2"}]
-      [:circle {:cx "10" :cy "10" :r "3"
-                :fill (if relation-mode "var(--accent)" "currentColor")}]]]))
-
 (defn user-switcher-dropdown []
   (let [available-users (:available-users @state/*app-state)
         current-user (:current-user @state/*app-state)]

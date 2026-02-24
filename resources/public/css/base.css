@@ -24,8 +24,6 @@
   --cat-project-color: #c77800;
   --cat-goal-rgb: 255, 69, 58;
   --cat-goal-color: #d70015;
-  --cat-relation-rgb: 175, 82, 222;
-  --cat-relation-color: #9b51e0;
 }
 html.dark-mode {
   --glass-bg: rgba(30, 30, 32, 0.85);

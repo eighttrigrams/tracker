@@ -13,7 +13,6 @@
             [et.tr.ui.state.today-page :as today-page]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.meets :as meets-state]
-            [et.tr.ui.state.relations :as relations-state]
             [et.tr.ui.state.ui :as ui]))
 
 (def ^:const CATEGORY-TYPE-PERSON constants/CATEGORY-TYPE-PERSON)
@@ -862,48 +861,3 @@
 
 (defn export-data []
   (ui/export-data auth-headers *app-state))
-
-(defn relation-mode? []
-  (:relation-mode @relations-state/*relations-state))
-
-(defn relation-source []
-  (:relation-source @relations-state/*relations-state))
-
-(defn toggle-relation-mode []
-  (relations-state/toggle-relation-mode))
-
-(defn abort-relation-mode []
-  (relations-state/abort-relation-mode))
-
-(defn- item-type->prefix [entity-type]
-  (case entity-type
-    :task "tsk"
-    :resource "rsc"
-    :meet "met"))
-
-(defn select-for-relation [entity-type entity]
-  (let [source (:relation-source @relations-state/*relations-state)]
-    (if source
-      (let [source-type (:type source)
-            source-id (:id source)
-            target-type (item-type->prefix entity-type)
-            target-id (:id entity)]
-        (when-not (and (= source-type target-type) (= source-id target-id))
-          (relations-state/add-relation
-           auth-headers source-type source-id target-type target-id
-           (fn []
-             (case (:active-tab @*app-state)
-               :tasks (fetch-tasks)
-               :resources (fetch-resources)
-               :meets (fetch-meets)
-               nil)))))
-      (relations-state/set-relation-source
-       (item-type->prefix entity-type)
-       (:id entity)
-       (:title entity)))))
-
-(defn fetch-relations-for-item [item-type item-id on-success]
-  (relations-state/fetch-relations-for-item auth-headers item-type item-id on-success))
-
-(defn delete-relation [source-type source-id target-type target-id on-success]
-  (relations-state/delete-relation auth-headers source-type source-id target-type target-id on-success))

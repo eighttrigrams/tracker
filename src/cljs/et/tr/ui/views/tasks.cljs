@@ -4,8 +4,6 @@
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
-            [et.tr.ui.components.relation-link :as relation-link]
-            [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private tasks-category-shortcut-keys
@@ -148,9 +146,7 @@
     [task-item/category-selector task state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [task-item/category-selector task state/CATEGORY-TYPE-PLACE places (t :category/place)]
     [task-item/category-selector task state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-    [task-item/category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
-    [relation-badges/relation-badges-expanded
-     {:entity-type :task :entity task :on-remove state/fetch-tasks}]]
+    [task-item/category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
    [:div.item-actions
     [task-item/task-attribute-selectors task]
     [task-item/task-combined-action-button task]]])
@@ -159,7 +155,6 @@
   [:div.item-header
    {:on-click #(state/toggle-expanded :tasks-page/expanded-task (:id task))}
    [:div.item-title
-    [relation-link/relation-link-button :task task]
     (when (seq (:due_time task))
       [:span.task-time (:due_time task)])
     (:title task)
