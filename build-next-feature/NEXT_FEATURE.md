@@ -1,10 +1,27 @@
+# Intro
+
 What I am about to describe relates to the Tasks Tab, to the Resources Tab, and to the Meets tab. All of those host their own resource types. - On the tasks page, we see the individual tasks.
 - On the resources page, we see the individual resources.
 - On the meets page, we see the individual meetings.
+
+# Topic
+
+I want to be able to relate tasks to tasks, resources to resources, meetings to meetings, but also meetings to tasks, meetings to resources, basically anything to anything.
+
+# DB - Combined keys
+
 Now I want to be able to relate all of them that should be done in a single database table. And the table structure should be something like from to, so each relation has a from and a to, or source and a target. I don't care too much how it is called. And then on both sides, we need a resource ID or an item ID, as well as the table, because the IDs are counting up, but each table has its own sequence. So the combined key for source and for targets must be something like resource type and item type and then id. And we have that all ready in the URLs. Let's call. If the from item is a message, let's give it the shorthand msg. For the table And then the id That is the combine key. And the same for the target, of course. So this is our join table. And I want this to be in a joint table because it's an M to N relationship. And maybe later, but not today, I want to add additional metadata to the relationships. 
 Next thing is very important relations. Let's have them bi-directional.
 
+- Messages key: msg
+- Resources key: rsc (<- here, in the url for the modals we use "res", but i want it now aligned and also changed in the urls for the edit modal)
+- Tasks key: tsk
+
+# Mechanism
+
 Now, for the mechanism of linking at the very top in the nav bar, right to the left of the dark mode/light mode switcher, there should be an item of the same size. The symbol should be, I guess, like a circle with another circle in it. Something reminiscent of a target. This menu item should show up whenever I'm on the tasks page, on the resources page, or on the meets page. Now, when I click it, it turns blue. I can visit the tasks resources or meets tab and then search filter, but then, while that thing is on, the first item I click on becomes the source. And the second item can be on a different tab. For example, the first one could have been on the tasks tab and the second one on the meets tab. Whenever I click the second item, then the link happens and the menu item becomes highlighted again. So that means I click on this new symbol at the top, and then relation making mode becomes active. But I can also abort by clicking before I have both selected, both items. When I click this item again, then it becomes unmarked and the relation making process gets aborted until I press it again. 
+
+# Where should made relations show up?
 
 Now the next thing: where should they be shown?
 
@@ -27,3 +44,7 @@ That means that, only when the link mode (the relations mode) is activated, then
 # Deletion
 
 When deleting an item, make sure to remove also relations to/from that item.
+
+# Tests
+
+Add tests
