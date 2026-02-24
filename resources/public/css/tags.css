@@ -98,6 +98,18 @@
 .tag.place { background: rgba(var(--cat-place-rgb), 0.2); color: var(--cat-place-color); }
 .tag.project { background: rgba(var(--cat-project-rgb), 0.2); color: var(--cat-project-color); }
 .tag.goal { background: rgba(var(--cat-goal-rgb), 0.2); color: var(--cat-goal-color); }
+.tag.relation { background: rgba(var(--cat-relation-rgb), 0.2); color: var(--cat-relation-color); }
+.relation-badges-expanded {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.relation-badges-expanded .label {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+}
 .remove-tag {
   margin-left: 4px;
   background: none;

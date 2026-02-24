@@ -2,17 +2,17 @@
 
 (def ^:private type->prefix
   {:task "tsk"
-   :resource "res"
+   :resource "rsc"
    :meet "met"})
 
 (def ^:private prefix->type
   {"tsk" :task
-   "res" :resource
+   "rsc" :resource
    "met" :meet})
 
 (def ^:private prefix->api-path
   {"tsk" "/api/tasks/"
-   "res" "/api/resources/"
+   "rsc" "/api/resources/"
    "met" "/api/meets/"})
 
 (defn parse-item-path [pathname]

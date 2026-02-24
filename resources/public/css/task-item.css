@@ -17,6 +17,29 @@
 .item-header { display: flex; justify-content: space-between; align-items: baseline; cursor: pointer; }
 .item-header:hover { opacity: 0.85; }
 .item-title { font-weight: 500; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.relation-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin-right: 4px;
+  background: rgba(var(--cat-relation-rgb), 0.15);
+  border: 1px solid rgba(var(--cat-relation-rgb), 0.3);
+  border-radius: 50%;
+  color: var(--cat-relation-color);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.relation-link-btn:hover {
+  background: rgba(var(--cat-relation-rgb), 0.3);
+  transform: scale(1.1);
+}
+.relation-link-btn.source {
+  background: var(--cat-relation-color);
+  color: white;
+}
 .edit-icon, .copy-icon, .calendar-icon {
   padding: 2px 6px;
   font-size: 0.85em;

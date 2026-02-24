@@ -11,20 +11,27 @@
    {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
 
 (defn category-badges [{:keys [item category-types toggle-fn has-filter-fn]}]
-  (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]
-    (when (seq all-categories)
-      (into [:div.task-badges]
-            (for [category all-categories]
-              (let [type-has-filter? (has-filter-fn (:type category))
-                    clickable? (not type-has-filter?)]
-                ^{:key (str (:type category) "-" (:id category))}
-                [:span.tag {:class (:type category)
-                            :style (when clickable? {:cursor "pointer"})
-                            :on-click (when clickable?
-                                        (fn [e]
-                                          (.stopPropagation e)
-                                          (toggle-fn (:type category) (:id category))))}
-                 (filters/badge-label category)]))))))
+  (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)
+        relations (:relations item)
+        has-relations? (seq relations)]
+    (when (or (seq all-categories) has-relations?)
+      [:div.task-badges
+       (for [category all-categories]
+         (let [type-has-filter? (has-filter-fn (:type category))
+               clickable? (not type-has-filter?)]
+           ^{:key (str (:type category) "-" (:id category))}
+           [:span.tag {:class (:type category)
+                       :style (when clickable? {:cursor "pointer"})
+                       :on-click (when clickable?
+                                   (fn [e]
+                                     (.stopPropagation e)
+                                     (toggle-fn (:type category) (:id category))))}
+            (filters/badge-label category)]))
+       (when has-relations?
+         (for [relation relations]
+           ^{:key (str "rel-" (:target_type relation) "-" (:target_id relation))}
+           [:span.tag.relation
+            (:title relation)]))])))
 
 (defn task-category-badges [task]
   (let [importance (:importance task)
@@ -37,8 +44,10 @@
                    [state/CATEGORY-TYPE-PLACE :places]
                    [state/CATEGORY-TYPE-PROJECT :projects]
                    [state/CATEGORY-TYPE-GOAL :goals]]
-        has-categories? (some #(seq (get task (second %))) all-types)]
-    (when (or importance-stars has-categories?)
+        has-categories? (some #(seq (get task (second %))) all-types)
+        relations (:relations task)
+        has-relations? (seq relations)]
+    (when (or importance-stars has-categories? has-relations?)
       [:div.task-badges
        (when importance-stars
          [:span.importance-badge {:class importance} importance-stars])
@@ -56,7 +65,13 @@
                                              (if on-tasks-page?
                                                (state/toggle-filter (:type category) (:id category))
                                                (state/toggle-shared-filter (:type category) (:id category)))))}
-                    (filters/badge-label category)]))))])))
+                    (filters/badge-label category)]))))
+       (when has-relations?
+         (into [:<>]
+               (for [relation relations]
+                 ^{:key (str "rel-" (:target_type relation) "-" (:target_id relation))}
+                 [:span.tag.relation
+                  (:title relation)])))])))
 
 (defn task-scope-selector [task]
   (let [scope (or (:scope task) "both")]

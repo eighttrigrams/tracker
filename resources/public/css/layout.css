@@ -74,3 +74,27 @@
   background: var(--surface-subtle);
   transform: scale(1.05);
 }
+.relation-mode-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease, background-color 2s ease, border-color 2s ease, color 2s ease;
+}
+.relation-mode-toggle:hover {
+  background: var(--surface-subtle);
+  transform: scale(1.05);
+}
+.relation-mode-toggle.active {
+  background: rgba(var(--cat-relation-rgb), 0.2);
+  border-color: var(--cat-relation-color);
+}
