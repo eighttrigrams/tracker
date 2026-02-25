@@ -1,16 +1,16 @@
 (ns et.tr.ui.url)
 
-(def ^:private type->prefix
+(def type->prefix
   {:task "tsk"
    :resource "res"
    :meet "met"})
 
-(def ^:private prefix->type
+(def prefix->type
   {"tsk" :task
    "res" :resource
    "met" :meet})
 
-(def ^:private prefix->api-path
+(def prefix->api-path
   {"tsk" "/api/tasks/"
    "res" "/api/resources/"
    "met" "/api/meets/"})

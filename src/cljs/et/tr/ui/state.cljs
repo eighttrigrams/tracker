@@ -890,14 +890,14 @@
   (let [prefix (relations-state/item-type->prefix item-type)
         source (relations-state/relation-source)]
     (if source
-      (relations-state/add-relation *app-state auth-headers
+      (relations-state/add-relation auth-headers
                                     (:type source) (:id source)
                                     prefix item-id
                                     refetch-for-active-tab)
       (relations-state/set-relation-source prefix item-id))))
 
 (defn delete-relation [source-type source-id target-type target-id]
-  (relations-state/delete-relation *app-state auth-headers
+  (relations-state/delete-relation auth-headers
                                    source-type source-id
                                    target-type target-id
                                    refetch-for-active-tab))

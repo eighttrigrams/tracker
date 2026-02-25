@@ -1,6 +1,7 @@
 (ns et.tr.ui.state.relations
   (:require [reagent.core :as r]
-            [et.tr.ui.api :as api]))
+            [et.tr.ui.api :as api]
+            [et.tr.ui.url :as url]))
 
 (defonce *relations-state
   (r/atom {:relation-mode false
@@ -29,13 +30,9 @@
   (swap! *relations-state assoc :relation-source nil))
 
 (defn item-type->prefix [item-type]
-  (case item-type
-    :task "tsk"
-    :resource "res"
-    :meet "met"
-    nil))
+  (url/type->prefix item-type))
 
-(defn add-relation [app-state auth-headers source-type source-id target-type target-id on-success]
+(defn add-relation [auth-headers source-type source-id target-type target-id on-success]
   (api/post-json "/api/relations"
                  {:source-type source-type
                   :source-id source-id
@@ -46,7 +43,7 @@
                    (abort-relation-mode)
                    (when on-success (on-success)))))
 
-(defn delete-relation [app-state auth-headers source-type source-id target-type target-id on-success]
+(defn delete-relation [auth-headers source-type source-id target-type target-id on-success]
   (api/delete-json "/api/relations"
                    {:source-type source-type
                     :source-id source-id
