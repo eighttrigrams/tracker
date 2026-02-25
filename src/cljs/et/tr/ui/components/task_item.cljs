@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.components.category-selector :as category-selector]
+            [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.filters :as filters]
             [et.tr.i18n :refer [t]]
             ["marked" :refer [marked]]))
@@ -37,8 +38,9 @@
                    [state/CATEGORY-TYPE-PLACE :places]
                    [state/CATEGORY-TYPE-PROJECT :projects]
                    [state/CATEGORY-TYPE-GOAL :goals]]
-        has-categories? (some #(seq (get task (second %))) all-types)]
-    (when (or importance-stars has-categories?)
+        has-categories? (some #(seq (get task (second %))) all-types)
+        has-relations? (seq (:relations task))]
+    (when (or importance-stars has-categories? has-relations?)
       [:div.task-badges
        (when importance-stars
          [:span.importance-badge {:class importance} importance-stars])
@@ -56,7 +58,9 @@
                                              (if on-tasks-page?
                                                (state/toggle-filter (:type category) (:id category))
                                                (state/toggle-shared-filter (:type category) (:id category)))))}
-                    (filters/badge-label category)]))))])))
+                    (filters/badge-label category)]))))
+       (when has-relations?
+         [relation-badges/relation-badges-collapsed (:relations task) "tsk" (:id task)])])))
 
 (defn task-scope-selector [task]
   (let [scope (or (:scope task) "both")]

@@ -13,6 +13,7 @@
             [et.tr.ui.state.today-page :as today-page]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.meets :as meets-state]
+            [et.tr.ui.state.relations :as relations-state]
             [et.tr.ui.state.ui :as ui]))
 
 (def ^:const CATEGORY-TYPE-PERSON constants/CATEGORY-TYPE-PERSON)
@@ -861,3 +862,42 @@
 
 (defn export-data []
   (ui/export-data auth-headers *app-state))
+
+(defn relation-mode-active? []
+  (relations-state/relation-mode-active?))
+
+(defn relation-source []
+  (relations-state/relation-source))
+
+(defn toggle-relation-mode []
+  (relations-state/toggle-relation-mode))
+
+(defn abort-relation-mode []
+  (relations-state/abort-relation-mode))
+
+(defn- refetch-for-active-tab []
+  (case (:active-tab @*app-state)
+    :tasks (fetch-tasks)
+    :resources (fetch-resources)
+    :meets (fetch-meets)
+    :today (do (fetch-tasks) (fetch-today-meets))
+    nil))
+
+(defn item-type->prefix [item-type]
+  (relations-state/item-type->prefix item-type))
+
+(defn select-for-relation [item-type item-id]
+  (let [prefix (relations-state/item-type->prefix item-type)
+        source (relations-state/relation-source)]
+    (if source
+      (relations-state/add-relation *app-state auth-headers
+                                    (:type source) (:id source)
+                                    prefix item-id
+                                    refetch-for-active-tab)
+      (relations-state/set-relation-source prefix item-id))))
+
+(defn delete-relation [source-type source-id target-type target-id]
+  (relations-state/delete-relation *app-state auth-headers
+                                   source-type source-id
+                                   target-type target-id
+                                   refetch-for-active-tab))

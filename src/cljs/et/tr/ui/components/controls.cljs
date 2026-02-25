@@ -73,6 +73,15 @@
      {:on-click state/toggle-dark-mode}
      (if dark-mode "\u2600" "\u263E")]))
 
+(defn relation-mode-toggle []
+  (let [relation-mode (state/relation-mode-active?)
+        source (state/relation-source)]
+    [:button.relation-mode-toggle
+     {:class (str (when relation-mode "active")
+                  (when source " has-source"))
+      :on-click state/toggle-relation-mode}
+     "◎"]))
+
 (defn user-switcher-dropdown []
   (let [available-users (:available-users @state/*app-state)
         current-user (:current-user @state/*app-state)]

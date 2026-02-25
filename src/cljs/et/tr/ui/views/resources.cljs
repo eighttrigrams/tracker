@@ -4,6 +4,8 @@
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
+            [et.tr.ui.components.relation-link :as relation-link]
+            [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private resources-category-shortcut-keys
@@ -91,7 +93,8 @@
      [:div.item-tags
       [resource-category-selector resource state/CATEGORY-TYPE-PERSON people (t :category/person)]
       [resource-category-selector resource state/CATEGORY-TYPE-PLACE places (t :category/place)]
-      [resource-category-selector resource state/CATEGORY-TYPE-PROJECT projects (t :category/project)]]
+      [resource-category-selector resource state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+      [relation-badges/relation-badges-expanded (:relations resource) "res" (:id resource)]]
      [:div.item-actions
       [resource-scope-selector resource]
       [resource-importance-selector resource]
@@ -104,6 +107,7 @@
     [:div.item-header
      {:on-click #(state/set-expanded-resource (when-not is-expanded (:id resource)))}
      [:div.item-title
+      [relation-link/relation-link-button :resource (:id resource)]
       (when (and importance (not= importance "normal"))
         [:span.importance-badge {:class importance}
          (case importance "important" "★" "critical" "★★" nil)])

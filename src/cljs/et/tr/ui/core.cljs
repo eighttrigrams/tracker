@@ -118,6 +118,8 @@
          [:div.top-bar-right
           (when (contains? #{:today :tasks :resources :meets} active-tab)
             [controls/work-private-toggle])
+          (when (contains? #{:tasks :resources :meets} active-tab)
+            [controls/relation-mode-toggle])
           [controls/dark-mode-toggle]
           [controls/user-info]]]
         (case active-tab

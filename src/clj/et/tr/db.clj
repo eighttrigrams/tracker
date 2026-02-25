@@ -9,6 +9,8 @@
 
 (def ^:private jdbc-opts {:builder-fn rs/as-unqualified-maps})
 
+(declare associate-relations-with-items)
+
 (defn init-conn [{:keys [type path]}]
   (let [db-spec (case type
                   :sqlite-memory {:dbtype "sqlite" :dbname "file::memory:?cache=shared"}
@@ -294,8 +296,9 @@
                                      :where [:in :task_id task-ids]})
                         jdbc-opts))
          {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn user-where)
-         categories-by-task (group-by :task_id categories)]
-     (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id))))
+         categories-by-task (group-by :task_id categories)
+         tasks-with-categories (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id)]
+     (associate-relations-with-items tasks-with-categories "tsk" conn))))
 
 (def ^:private valid-category-tables #{"people" "places" "projects" "goals"})
 
@@ -547,6 +550,11 @@
         (jdbc/execute-one! tx
           (sql/format {:delete-from :task_categories
                        :where [:= :task_id task-id]}))
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :relations
+                       :where [:or
+                               [:and [:= :source_type "tsk"] [:= :source_id task-id]]
+                               [:and [:= :target_type "tsk"] [:= :target_id task-id]]]}))
         (let [result (jdbc/execute-one! tx
                        (sql/format {:delete-from :tasks
                                     :where [:= :id task-id]}))]
@@ -764,7 +772,7 @@
 
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
-    (doseq [table [:task_categories :resource_categories :meet_categories :tasks :messages :resources :meets :people :places :projects :goals :users]]
+    (doseq [table [:relations :task_categories :resource_categories :meet_categories :tasks :messages :resources :meets :people :places :projects :goals :users]]
       (jdbc/execute-one! conn (sql/format {:delete-from table})))))
 
 (defn add-resource [ds user-id title link scope]
@@ -832,8 +840,9 @@
                                           :where [:in :resource_id resource-ids]})
                              jdbc-opts))
          {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
-         categories-by-resource (group-by :resource_id categories-data)]
-     (associate-categories-with-resources resources categories-by-resource people-by-id places-by-id projects-by-id))))
+         categories-by-resource (group-by :resource_id categories-data)
+         resources-with-categories (associate-categories-with-resources resources categories-by-resource people-by-id places-by-id projects-by-id)]
+     (associate-relations-with-items resources-with-categories "res" conn))))
 
 (defn resource-owned-by-user? [ds resource-id user-id]
   (some? (jdbc/execute-one! (get-conn ds)
@@ -918,6 +927,11 @@
         (jdbc/execute-one! tx
           (sql/format {:delete-from :resource_categories
                        :where [:= :resource_id resource-id]}))
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :relations
+                       :where [:or
+                               [:and [:= :source_type "res"] [:= :source_id resource-id]]
+                               [:and [:= :target_type "res"] [:= :target_id resource-id]]]}))
         (let [result (jdbc/execute-one! tx
                        (sql/format {:delete-from :resources
                                     :where [:= :id resource-id]}))]
@@ -1047,8 +1061,9 @@
                                           :where [:in :meet_id meet-ids]})
                              jdbc-opts))
          {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
-         categories-by-meet (group-by :meet_id categories-data)]
-     (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id))))
+         categories-by-meet (group-by :meet_id categories-data)
+         meets-with-categories (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id)]
+     (associate-relations-with-items meets-with-categories "met" conn))))
 
 (defn meet-owned-by-user? [ds meet-id user-id]
   (some? (jdbc/execute-one! (get-conn ds)
@@ -1092,6 +1107,11 @@
         (jdbc/execute-one! tx
           (sql/format {:delete-from :meet_categories
                        :where [:= :meet_id meet-id]}))
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :relations
+                       :where [:or
+                               [:and [:= :source_type "met"] [:= :source_id meet-id]]
+                               [:and [:= :target_type "met"] [:= :target_id meet-id]]]}))
         (let [result (jdbc/execute-one! tx
                        (sql/format {:delete-from :meets
                                     :where [:= :id meet-id]}))]
@@ -1162,3 +1182,147 @@
           (sql/format {:update :meets
                        :set {:modified_at [:raw "datetime('now')"]}
                        :where [:= :id meet-id]}))))))
+
+(def ^:private valid-relation-types #{"tsk" "res" "met"})
+
+(defn- validate-relation-type! [type]
+  (when-not (contains? valid-relation-types type)
+    (throw (ex-info "Invalid relation type" {:type type}))))
+
+(defn- item-exists? [ds user-id type id]
+  (let [conn (get-conn ds)
+        table (case type "tsk" :tasks "res" :resources "met" :meets)
+        user-where (user-id-where-clause user-id)]
+    (some? (jdbc/execute-one! conn
+             (sql/format {:select [:id]
+                          :from [table]
+                          :where [:and [:= :id id] user-where]})
+             jdbc-opts))))
+
+(defn add-relation [ds user-id source-type source-id target-type target-id]
+  (validate-relation-type! source-type)
+  (validate-relation-type! target-type)
+  (when (and (item-exists? ds user-id source-type source-id)
+             (item-exists? ds user-id target-type target-id))
+    (let [conn (get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:insert-into :relations
+                       :values [{:source_type source-type
+                                 :source_id source-id
+                                 :target_type target-type
+                                 :target_id target-id}]
+                       :on-conflict []
+                       :do-nothing true}))
+        (jdbc/execute-one! tx
+          (sql/format {:insert-into :relations
+                       :values [{:source_type target-type
+                                 :source_id target-id
+                                 :target_type source-type
+                                 :target_id source-id}]
+                       :on-conflict []
+                       :do-nothing true})))
+      (tel/log! {:level :info :data {:source-type source-type :source-id source-id
+                                      :target-type target-type :target-id target-id
+                                      :user-id user-id}} "Relation added")
+      {:success true})))
+
+(defn delete-relation [ds user-id source-type source-id target-type target-id]
+  (validate-relation-type! source-type)
+  (validate-relation-type! target-type)
+  (when (and (item-exists? ds user-id source-type source-id)
+             (item-exists? ds user-id target-type target-id))
+    (let [conn (get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :relations
+                       :where [:and
+                               [:= :source_type source-type]
+                               [:= :source_id source-id]
+                               [:= :target_type target-type]
+                               [:= :target_id target-id]]}))
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :relations
+                       :where [:and
+                               [:= :source_type target-type]
+                               [:= :source_id target-id]
+                               [:= :target_type source-type]
+                               [:= :target_id source-id]]})))
+      (tel/log! {:level :info :data {:source-type source-type :source-id source-id
+                                      :target-type target-type :target-id target-id
+                                      :user-id user-id}} "Relation deleted")
+      {:success true})))
+
+(defn get-relations-for-item [ds user-id source-type source-id]
+  (validate-relation-type! source-type)
+  (when (item-exists? ds user-id source-type source-id)
+    (jdbc/execute! (get-conn ds)
+      (sql/format {:select [:target_type :target_id]
+                   :from [:relations]
+                   :where [:and
+                           [:= :source_type source-type]
+                           [:= :source_id source-id]]})
+      jdbc-opts)))
+
+(defn- fetch-title-for-relation [conn type id]
+  (let [table (case type "tsk" :tasks "res" :resources "met" :meets)]
+    (:title (jdbc/execute-one! conn
+              (sql/format {:select [:title]
+                           :from [table]
+                           :where [:= :id id]})
+              jdbc-opts))))
+
+(defn get-relations-with-titles [ds user-id source-type source-id]
+  (when-let [relations (get-relations-for-item ds user-id source-type source-id)]
+    (let [conn (get-conn ds)]
+      (mapv (fn [{:keys [target_type target_id]}]
+              {:type target_type
+               :id target_id
+               :title (fetch-title-for-relation conn target_type target_id)})
+            relations))))
+
+(defn- fetch-relations-batch [conn source-type source-ids]
+  (when (seq source-ids)
+    (jdbc/execute! conn
+      (sql/format {:select [:source_id :target_type :target_id]
+                   :from [:relations]
+                   :where [:and
+                           [:= :source_type source-type]
+                           [:in :source_id source-ids]]})
+      jdbc-opts)))
+
+(defn- enrich-relations-with-titles [conn relations]
+  (let [grouped (group-by :target_type relations)
+        title-maps (into {}
+                         (for [[type rels] grouped
+                               :let [ids (mapv :target_id rels)
+                                     table (case type "tsk" :tasks "res" :resources "met" :meets)
+                                     items (jdbc/execute! conn
+                                             (sql/format {:select [:id :title]
+                                                          :from [table]
+                                                          :where [:in :id ids]})
+                                             jdbc-opts)]]
+                           [type (into {} (map (juxt :id :title) items))]))]
+    (mapv (fn [{:keys [target_type target_id] :as rel}]
+            (assoc rel :title (get-in title-maps [target_type target_id])))
+          relations)))
+
+(defn associate-relations-with-items [items source-type conn]
+  (let [item-ids (mapv :id items)
+        relations (fetch-relations-batch conn source-type item-ids)
+        enriched (enrich-relations-with-titles conn relations)
+        relations-by-source (group-by :source_id enriched)]
+    (mapv (fn [item]
+            (let [item-relations (get relations-by-source (:id item) [])]
+              (assoc item :relations
+                     (mapv (fn [{:keys [target_type target_id title]}]
+                             {:type target_type :id target_id :title title})
+                           item-relations))))
+          items)))
+
+(defn delete-relations-for-item [conn source-type source-id]
+  (jdbc/execute-one! conn
+    (sql/format {:delete-from :relations
+                 :where [:or
+                         [:and [:= :source_type source-type] [:= :source_id source-id]]
+                         [:and [:= :target_type source-type] [:= :target_id source-id]]]})))

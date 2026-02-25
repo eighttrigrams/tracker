@@ -74,3 +74,33 @@
   background: var(--surface-subtle);
   transform: scale(1.05);
 }
+.relation-mode-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  font-size: 1.1em;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease, background-color 2s ease, border-color 2s ease, color 2s ease;
+}
+.relation-mode-toggle:hover {
+  background: var(--surface-subtle);
+  transform: scale(1.05);
+}
+.relation-mode-toggle.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.relation-mode-toggle.active.has-source {
+  background: #ff9500;
+  border-color: #ff9500;
+}
