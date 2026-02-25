@@ -689,13 +689,26 @@
         categories-by-resource (group-by :resource_id resource-categories)
         tasks-with-categories (->> (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id)
                                    (mapv normalize-task))
-        resources-with-categories (associate-categories-with-resources-for-export resources categories-by-resource people-by-id projects-by-id)]
+        resources-with-categories (associate-categories-with-resources-for-export resources categories-by-resource people-by-id projects-by-id)
+        meet-ids (mapv :id (jdbc/execute! conn (sql/format {:select [:id] :from [:meets] :where user-where}) jdbc-opts))
+        all-item-ids {"tsk" task-ids "res" resource-ids "met" meet-ids}
+        relations (vec (for [[source-type ids] all-item-ids
+                             :when (seq ids)
+                             rel (jdbc/execute! conn
+                                   (sql/format {:select [:source_type :source_id :target_type :target_id]
+                                                :from [:relations]
+                                                :where [:and
+                                                        [:= :source_type source-type]
+                                                        [:in :source_id ids]]})
+                                   jdbc-opts)]
+                         rel))]
     {:tasks tasks-with-categories
      :people people
      :places places
      :projects projects
      :goals goals
-     :resources resources-with-categories}))
+     :resources resources-with-categories
+     :relations relations}))
 
 (defn add-message [ds user-id sender title description type]
   (let [result (jdbc/execute-one! (get-conn ds)
@@ -1326,3 +1339,4 @@
                  :where [:or
                          [:and [:= :source_type source-type] [:= :source_id source-id]]
                          [:and [:= :target_type source-type] [:= :target_id source-id]]]})))
+

@@ -126,13 +126,16 @@
        "🔗"]]]))
 
 (defn- resource-categories-readonly [resource]
-  [task-item/category-badges
-   {:item resource
-    :category-types [[state/CATEGORY-TYPE-PERSON :people]
-                     [state/CATEGORY-TYPE-PLACE :places]
-                     [state/CATEGORY-TYPE-PROJECT :projects]]
-    :toggle-fn state/toggle-shared-filter
-    :has-filter-fn state/has-filter-for-type?}])
+  [:div.item-tags-readonly
+   [task-item/category-badges
+    {:item resource
+     :category-types [[state/CATEGORY-TYPE-PERSON :people]
+                      [state/CATEGORY-TYPE-PLACE :places]
+                      [state/CATEGORY-TYPE-PROJECT :projects]]
+     :toggle-fn state/toggle-shared-filter
+     :has-filter-fn state/has-filter-for-type?}]
+   (when (seq (:relations resource))
+     [relation-badges/relation-badges-collapsed (:relations resource) "res" (:id resource)])])
 
 (defn- resource-item [resource expanded-id people places projects]
   (let [is-expanded (= expanded-id (:id resource))]

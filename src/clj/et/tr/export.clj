@@ -84,5 +84,8 @@
       (.closeEntry zos)
       (.putNextEntry zos (ZipEntry. "goals.edn"))
       (.write zos (.getBytes (pr-str (:goals data)) "UTF-8"))
+      (.closeEntry zos)
+      (.putNextEntry zos (ZipEntry. "relations.edn"))
+      (.write zos (.getBytes (pr-str (:relations data)) "UTF-8"))
       (.closeEntry zos))
     (.toByteArray baos)))

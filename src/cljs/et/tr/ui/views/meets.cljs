@@ -133,13 +133,16 @@
          (date/format-date-localized (:start_date meet))])]]))
 
 (defn- meet-categories-readonly [meet]
-  [task-item/category-badges
-   {:item meet
-    :category-types [[state/CATEGORY-TYPE-PERSON :people]
-                     [state/CATEGORY-TYPE-PLACE :places]
-                     [state/CATEGORY-TYPE-PROJECT :projects]]
-    :toggle-fn state/toggle-shared-filter
-    :has-filter-fn state/has-filter-for-type?}])
+  [:div.item-tags-readonly
+   [task-item/category-badges
+    {:item meet
+     :category-types [[state/CATEGORY-TYPE-PERSON :people]
+                      [state/CATEGORY-TYPE-PLACE :places]
+                      [state/CATEGORY-TYPE-PROJECT :projects]]
+     :toggle-fn state/toggle-shared-filter
+     :has-filter-fn state/has-filter-for-type?}]
+   (when (seq (:relations meet))
+     [relation-badges/relation-badges-collapsed (:relations meet) "met" (:id meet)])])
 
 (defn- meet-item [meet expanded-id people places projects]
   (let [is-expanded (= expanded-id (:id meet))]
