@@ -33,7 +33,9 @@
                            "important" "★"
                            "critical" "★★"
                            nil)
-        on-tasks-page? (= :tasks (:active-tab @state/*app-state))
+        active-tab (:active-tab @state/*app-state)
+        on-tasks-page? (= :tasks active-tab)
+        on-today-page? (= :today active-tab)
         all-types [[state/CATEGORY-TYPE-PERSON :people]
                    [state/CATEGORY-TYPE-PLACE :places]
                    [state/CATEGORY-TYPE-PROJECT :projects]
@@ -48,7 +50,7 @@
          (into [:<>]
                (for [category (mapcat (fn [[type k]] (map #(assoc % :type type) (get task k))) all-types)]
                  (let [type-has-filter? (state/has-filter-for-type? (:type category))
-                       clickable? (not type-has-filter?)]
+                       clickable? (and (not on-today-page?) (not type-has-filter?))]
                    ^{:key (str (:type category) "-" (:id category))}
                    [:span.tag {:class (:type category)
                                :style (when clickable? {:cursor "pointer"})
