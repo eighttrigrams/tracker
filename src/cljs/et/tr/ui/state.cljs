@@ -839,6 +839,19 @@
 (defn clear-editing []
   (ui/clear-editing *app-state))
 
+(defn open-preview-modal [entity-type entity]
+  (let [modal {:type entity-type :entity entity :tab :preview}]
+    (swap! *app-state assoc :editing-modal modal)
+    (when-let [path (url/entity->path modal)]
+      (url/push-state! path))))
+
+(defn open-relation-in-modal [relation-type relation-id]
+  (let [entity-type (url/prefix->type relation-type)
+        api-path (str (url/prefix->api-path relation-type) relation-id)]
+    (api/fetch-json api-path (auth-headers)
+      (fn [entity]
+        (open-preview-modal entity-type entity)))))
+
 (defn set-editing-modal [entity-type entity]
   (let [modal {:type entity-type :entity entity}]
     (swap! *app-state assoc :editing-modal modal)
