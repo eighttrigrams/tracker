@@ -845,30 +845,6 @@
     (when-let [path (url/entity->path modal)]
       (url/push-state! (str path "?section=edit")))))
 
-(defn open-preview-modal [entity-type entity]
-  (let [modal {:type entity-type :entity entity :tab :preview}]
-    (swap! *app-state assoc :editing-modal modal)
-    (when-let [path (url/entity->path modal)]
-      (url/push-state! path))))
-
-(def ^:private relation-type->entity-type
-  {"tsk" :task
-   "res" :resource
-   "met" :meet})
-
-(def ^:private relation-type->api-path
-  {"tsk" "/api/tasks/"
-   "res" "/api/resources/"
-   "met" "/api/meets/"})
-
-(defn open-relation-in-modal [relation-type relation-id]
-  (when-let [entity-type (relation-type->entity-type relation-type)]
-    (when-let [api-path (relation-type->api-path relation-type)]
-      (api/fetch-json (str api-path relation-id)
-                      (auth-headers)
-                      (fn [entity]
-                        (open-preview-modal entity-type entity))))))
-
 (defn clear-editing-modal []
   (swap! *app-state assoc :editing-modal nil)
   (url/push-state! "/"))

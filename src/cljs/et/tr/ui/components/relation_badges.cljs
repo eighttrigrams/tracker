@@ -9,11 +9,8 @@
     "?"))
 
 (defn relation-badge-collapsed [relation source-type source-id]
-  [:span.tag.relation.clickable
-   {:key (str (:type relation) "-" (:id relation))
-    :on-click (fn [e]
-                (.stopPropagation e)
-                (state/open-relation-in-modal (:type relation) (:id relation)))}
+  [:span.tag.relation
+   {:key (str (:type relation) "-" (:id relation))}
    (str (relation-type-label (:type relation)) ": " (:title relation))])
 
 (defn relation-badges-collapsed [relations source-type source-id]
