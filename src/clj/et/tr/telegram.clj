@@ -48,9 +48,7 @@
                     (db/add-task ds nil task-title)
                     (delete-telegram-message chat-id message-id)
                     {:status 200 :body {:ok true :type "task"}})
-                  (let [title (if (> (count text) 50)
-                                (str (subs text 0 47) "...")
-                                text)]
+                  (let [title text]
                     (db/add-message ds nil "Note" title text nil)
                     (delete-telegram-message chat-id message-id)
                     {:status 200 :body {:ok true}}))))
