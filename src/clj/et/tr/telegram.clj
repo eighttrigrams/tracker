@@ -42,7 +42,7 @@
               {:status 200 :body {:ok true :skipped "start command"}}
               (let [chat-id (get-in message [:chat :id])
                     message-id (:message_id message)
-                    task-match (re-matches #"(?i)task\s+(.*)" text)]
+                    task-match (re-matches #"(?i)(?:t|task)\s+(.*)" text)]
                 (if task-match
                   (let [task-title (str/trim (second task-match))]
                     (db/add-task ds nil task-title)
