@@ -201,7 +201,7 @@
         {:keys [expanded-message editing-message sort-mode]} @mail-state/*mail-page-state]
     [:div.mail-page
      [:div.tasks-header
-      [:h2 (t :nav/mail)]
+      [:h2 (t :mail/heading)]
       [mail-sort-toggle]]
      (when (= sort-mode :recent)
        [mail-add-form])

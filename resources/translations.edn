@@ -156,6 +156,7 @@
   :importance/filter-critical "Show critical tasks only"
 
   :nav/mail "Mail"
+  :mail/heading "Inbox"
   :mail/sort-recent "Recent"
   :mail/sort-archived "Archived"
   :mail/archive "Archive"
@@ -344,6 +345,7 @@
   :importance/filter-critical "Nur kritische Aufgaben anzeigen"
 
   :nav/mail "Post"
+  :mail/heading "Posteingang"
   :mail/sort-recent "Aktuell"
   :mail/sort-archived "Archiviert"
   :mail/archive "Archivieren"
@@ -532,6 +534,7 @@
   :importance/filter-critical "Mostrar apenas tarefas críticas"
 
   :nav/mail "Correio"
+  :mail/heading "Caixa de Entrada"
   :mail/sort-recent "Recentes"
   :mail/sort-archived "Arquivadas"
   :mail/archive "Arquivar"
