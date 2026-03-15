@@ -76,12 +76,14 @@
                             :upcoming-horizon nil
 
                             ;; Resources page state
-                            :resources-page/collapsed-filters #{:people :places :projects}
-                            :resources-page/category-search {:people "" :places "" :projects ""}
+                            :resources-page/filter-goals #{}
+                            :resources-page/collapsed-filters #{:people :places :projects :goals}
+                            :resources-page/category-search {:people "" :places "" :projects "" :goals ""}
 
                             ;; Meets page state
-                            :meets-page/collapsed-filters #{:people :places :projects}
-                            :meets-page/category-search {:people "" :places "" :projects ""}
+                            :meets-page/filter-goals #{}
+                            :meets-page/collapsed-filters #{:people :places :projects :goals}
+                            :meets-page/category-search {:people "" :places "" :projects "" :goals ""}
 
                             ;; Task dropdown state
                             :task-dropdown-open nil
@@ -240,7 +242,8 @@
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
-   :filter-projects (:shared/filter-projects @*app-state)})
+   :filter-projects (:shared/filter-projects @*app-state)
+   :filter-goals (:resources-page/filter-goals @*app-state)})
 
 (defn fetch-resources
   ([] (fetch-resources (resources-fetch-opts)))
@@ -302,7 +305,8 @@
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
-   :filter-projects (:shared/filter-projects @*app-state)})
+   :filter-projects (:shared/filter-projects @*app-state)
+   :filter-goals (:meets-page/filter-goals @*app-state)})
 
 (defn fetch-meets
   ([] (fetch-meets (meets-fetch-opts)))
@@ -367,7 +371,7 @@
 
 (defn toggle-meets-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:meets-page/collapsed-filters @*app-state) filter-key)
-        all-filters #{:people :places :projects}]
+        all-filters #{:people :places :projects :goals}]
     (swap! *app-state update :meets-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
@@ -386,34 +390,48 @@
          (.focus el)))
      0)))
 
+(defn toggle-meets-goal-filter [id]
+  (swap! *app-state update :meets-page/filter-goals
+         #(if (contains? % id) (disj % id) (conj % id)))
+  (fetch-meets))
+
+(defn clear-meets-goal-filter []
+  (swap! *app-state assoc :meets-page/filter-goals #{})
+  (fetch-meets))
+
+(defn has-meets-goal-filter? []
+  (seq (:meets-page/filter-goals @*app-state)))
+
 (defn set-meets-category-search [category-key search-term]
   (swap! *app-state assoc-in [:meets-page/category-search category-key] search-term))
 
 (defn clear-uncollapsed-meet-filters []
   (let [collapsed (:meets-page/collapsed-filters @*app-state)
-        all-filters #{:people :places :projects}
+        all-filters #{:people :places :projects :goals}
         uncollapsed (clojure.set/difference all-filters collapsed)]
     (if (empty? uncollapsed)
       (swap! *app-state assoc
              :shared/filter-people #{}
              :shared/filter-places #{}
              :shared/filter-projects #{}
-             :meets-page/category-search {:people "" :places "" :projects ""})
+             :meets-page/filter-goals #{}
+             :meets-page/category-search {:people "" :places "" :projects "" :goals ""})
       (do
         (doseq [filter-key uncollapsed]
           (case filter-key
             :people (swap! *app-state assoc :shared/filter-people #{})
             :places (swap! *app-state assoc :shared/filter-places #{})
-            :projects (swap! *app-state assoc :shared/filter-projects #{})))
+            :projects (swap! *app-state assoc :shared/filter-projects #{})
+            :goals (swap! *app-state assoc :meets-page/filter-goals #{})))
         (swap! *app-state assoc
                :meets-page/collapsed-filters all-filters
-               :meets-page/category-search {:people "" :places "" :projects ""})))
+               :meets-page/category-search {:people "" :places "" :projects "" :goals ""})))
     (meets-state/set-importance-filter fetch-meets nil)
     (fetch-meets)))
 
 (defn toggle-resources-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:resources-page/collapsed-filters @*app-state) filter-key)
-        all-filters #{:people :places :projects}]
+        all-filters #{:people :places :projects :goals}]
     (swap! *app-state update :resources-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
@@ -432,23 +450,40 @@
          (.focus el)))
      0)))
 
+(defn toggle-resources-goal-filter [id]
+  (swap! *app-state update :resources-page/filter-goals
+         #(if (contains? % id) (disj % id) (conj % id)))
+  (fetch-resources))
+
+(defn clear-resources-goal-filter []
+  (swap! *app-state assoc :resources-page/filter-goals #{})
+  (fetch-resources))
+
+(defn has-resources-goal-filter? []
+  (seq (:resources-page/filter-goals @*app-state)))
+
 (defn set-resources-category-search [category-key search-term]
   (swap! *app-state assoc-in [:resources-page/category-search category-key] search-term))
 
 (defn toggle-shared-filter [filter-type id]
-  (let [filter-key (case filter-type
-                     constants/CATEGORY-TYPE-PERSON :shared/filter-people
-                     constants/CATEGORY-TYPE-PLACE :shared/filter-places
-                     constants/CATEGORY-TYPE-PROJECT :shared/filter-projects)]
-    (swap! *app-state update filter-key
-           #(if (contains? % id)
-              (disj % id)
-              (conj % id)))
+  (if (= filter-type constants/CATEGORY-TYPE-GOAL)
     (case (:active-tab @*app-state)
-      :tasks (fetch-tasks)
-      :resources (fetch-resources)
-      :meets (fetch-meets)
-      nil)))
+      :resources (toggle-resources-goal-filter id)
+      :meets (toggle-meets-goal-filter id)
+      nil)
+    (let [filter-key (case filter-type
+                       constants/CATEGORY-TYPE-PERSON :shared/filter-people
+                       constants/CATEGORY-TYPE-PLACE :shared/filter-places
+                       constants/CATEGORY-TYPE-PROJECT :shared/filter-projects)]
+      (swap! *app-state update filter-key
+             #(if (contains? % id)
+                (disj % id)
+                (conj % id)))
+      (case (:active-tab @*app-state)
+        :tasks (fetch-tasks)
+        :resources (fetch-resources)
+        :meets (fetch-meets)
+        nil))))
 
 (defn clear-shared-filter [filter-type]
   (let [filter-key (case filter-type
@@ -464,23 +499,25 @@
 
 (defn clear-uncollapsed-resource-filters []
   (let [collapsed (:resources-page/collapsed-filters @*app-state)
-        all-filters #{:people :places :projects}
+        all-filters #{:people :places :projects :goals}
         uncollapsed (clojure.set/difference all-filters collapsed)]
     (if (empty? uncollapsed)
       (swap! *app-state assoc
              :shared/filter-people #{}
              :shared/filter-places #{}
              :shared/filter-projects #{}
-             :resources-page/category-search {:people "" :places "" :projects ""})
+             :resources-page/filter-goals #{}
+             :resources-page/category-search {:people "" :places "" :projects "" :goals ""})
       (do
         (doseq [filter-key uncollapsed]
           (case filter-key
             :people (swap! *app-state assoc :shared/filter-people #{})
             :places (swap! *app-state assoc :shared/filter-places #{})
-            :projects (swap! *app-state assoc :shared/filter-projects #{})))
+            :projects (swap! *app-state assoc :shared/filter-projects #{})
+            :goals (swap! *app-state assoc :resources-page/filter-goals #{})))
         (swap! *app-state assoc
                :resources-page/collapsed-filters all-filters
-               :resources-page/category-search {:people "" :places "" :projects ""})))
+               :resources-page/category-search {:people "" :places "" :projects "" :goals ""})))
     (resources-state/set-importance-filter fetch-resources nil)
     (fetch-resources)))
 
@@ -703,7 +740,13 @@
   (tasks-page/has-active-shared-filters? *app-state))
 
 (defn has-filter-for-type? [filter-type]
-  (tasks-page/has-filter-for-type? *app-state filter-type))
+  (if (= filter-type constants/CATEGORY-TYPE-GOAL)
+    (case (:active-tab @*app-state)
+      :tasks (seq (:tasks-page/filter-goals @*app-state))
+      :resources (seq (:resources-page/filter-goals @*app-state))
+      :meets (seq (:meets-page/filter-goals @*app-state))
+      nil)
+    (tasks-page/has-filter-for-type? *app-state filter-type)))
 
 (defn toggle-filter [filter-type id]
   (tasks-page/toggle-filter *app-state fetch-tasks filter-type id))

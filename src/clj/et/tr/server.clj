@@ -446,8 +446,9 @@
         people (parse-category-param (get-in req [:params "people"]))
         places (parse-category-param (get-in req [:params "places"]))
         projects (parse-category-param (get-in req [:params "projects"]))
-        categories (when (or people places projects)
-                     {:people people :places places :projects projects})]
+        goals (parse-category-param (get-in req [:params "goals"]))
+        categories (when (or people places projects goals)
+                     {:people people :places places :projects projects :goals goals})]
     {:status 200 :body (db/list-resources (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
 
 (defn- valid-url? [link]
@@ -523,10 +524,11 @@
         people (parse-category-param (get-in req [:params "people"]))
         places (parse-category-param (get-in req [:params "places"]))
         projects (parse-category-param (get-in req [:params "projects"]))
+        goals (parse-category-param (get-in req [:params "goals"]))
         excluded-places (parse-category-param (get-in req [:params "excluded-places"]))
         excluded-projects (parse-category-param (get-in req [:params "excluded-projects"]))
-        categories (when (or people places projects)
-                     {:people people :places places :projects projects})]
+        categories (when (or people places projects goals)
+                     {:people people :places places :projects projects :goals goals})]
     {:status 200 :body (db/list-meets (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects})}))
 
 (defn add-meet-handler [req]
