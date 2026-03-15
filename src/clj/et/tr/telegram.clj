@@ -1,6 +1,7 @@
 (ns et.tr.telegram
   (:require [et.tr.db :as db]
             [clj-http.client :as http]
+            [clojure.string :as str]
             [taoensso.telemere :as tel]))
 
 (defn- telegram-secret []
@@ -41,10 +42,16 @@
               {:status 200 :body {:ok true :skipped "start command"}}
               (let [chat-id (get-in message [:chat :id])
                     message-id (:message_id message)
-                    title (if (> (count text) 50)
-                            (str (subs text 0 47) "...")
-                            text)]
-                (db/add-message ds nil "Note" title text nil)
-                (delete-telegram-message chat-id message-id)
-                {:status 200 :body {:ok true}}))
+                    task-match (re-matches #"(?i)task\s+(.*)" text)]
+                (if task-match
+                  (let [task-title (str/trim (second task-match))]
+                    (db/add-task ds nil task-title)
+                    (delete-telegram-message chat-id message-id)
+                    {:status 200 :body {:ok true :type "task"}})
+                  (let [title (if (> (count text) 50)
+                                (str (subs text 0 47) "...")
+                                text)]
+                    (db/add-message ds nil "Note" title text nil)
+                    (delete-telegram-message chat-id message-id)
+                    {:status 200 :body {:ok true}}))))
             {:status 200 :body {:ok true :skipped "no text"}}))))))
