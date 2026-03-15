@@ -283,6 +283,18 @@
   background-color: #34c759;
   color: white;
 }
+.combined-dropdown-btn.delete-btn {
+  border-color: #ff3b30;
+  color: #ff3b30;
+  padding: 4px 8px;
+}
+.combined-dropdown-btn.delete-btn:hover {
+  background-color: #ff3b30;
+  color: white;
+}
+.combined-button-wrapper > .delete-btn:first-child {
+  border-radius: 4px 0 0 4px;
+}
 .task-dropdown-menu {
   position: absolute;
   top: 100%;

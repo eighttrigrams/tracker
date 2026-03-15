@@ -770,6 +770,15 @@
           {:status 200 :body result}
           {:status 404 :body {:error "Message not found"}})))))
 
+(defn merge-messages-handler [req]
+  (with-admin-message-context req user-id message-id
+    (let [target-id (get-in req [:body :target-id])]
+      (if (nil? target-id)
+        {:status 400 :body {:error "Missing required field: target-id"}}
+        (if-let [result (db/merge-messages (ensure-ds) user-id message-id target-id)]
+          {:status 200 :body result}
+          {:status 404 :body {:error "Message not found"}})))))
+
 (defonce translations-cache (atom nil))
 
 (defn- load-translations []
@@ -880,6 +889,7 @@
       (PUT "/:id/done" [] set-message-done-handler)
       (PUT "/:id/annotation" [] update-message-annotation-handler)
       (POST "/:id/convert-to-resource" [] convert-message-to-resource-handler)
+      (POST "/:id/merge" [] merge-messages-handler)
       (DELETE "/:id" [] delete-message-handler))
 
     (context "/resources" []

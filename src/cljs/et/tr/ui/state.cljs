@@ -229,6 +229,12 @@
 (defn set-message-dropdown-open [message-id]
   (mail/set-message-dropdown-open message-id))
 
+(defn set-message-action-dropdown-open [message-id]
+  (mail/set-message-action-dropdown-open message-id))
+
+(defn merge-message-with-below [message-id target-id]
+  (mail/merge-message-with-below *app-state auth-headers message-id target-id))
+
 (defn convert-message-to-resource [message-id link]
   (mail/convert-message-to-resource *app-state auth-headers message-id link))
 
