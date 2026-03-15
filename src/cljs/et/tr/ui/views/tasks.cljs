@@ -67,8 +67,8 @@
   (let [sort-mode (:sort-mode @state/*app-state)]
     [:div.sort-toggle.toggle-group
      [sort-mode-button sort-mode :manual :tasks/sort-manual]
-     [sort-mode-button sort-mode :due-date :tasks/sort-due-date]
      [sort-mode-button sort-mode :recent :tasks/sort-recent]
+     [sort-mode-button sort-mode :due-date :tasks/sort-due-date]
      [sort-mode-button sort-mode :done :tasks/sort-done]]))
 
 (defn importance-filter-toggle []
