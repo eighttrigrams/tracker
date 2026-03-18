@@ -14,7 +14,7 @@
   box-shadow: 0 6px 32px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
 }
-.item-header { display: flex; justify-content: space-between; align-items: baseline; cursor: pointer; }
+.item-header { display: flex; justify-content: space-between; align-items: baseline; cursor: pointer; position: relative; z-index: 10; }
 .item-header:hover { opacity: 0.85; }
 .item-title { font-weight: 500; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
 .edit-icon, .copy-icon, .calendar-icon {
@@ -31,6 +31,7 @@
   display: inline-flex;
   align-items: center;
   position: relative;
+  z-index: 200;
 }
 .date-picker-input, .time-picker-input {
   position: absolute;
@@ -49,19 +50,85 @@
   border-radius: 4px;
   opacity: 0.6;
 }
-.clear-time {
-  padding: 2px 6px;
+.time-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  min-width: 180px;
+}
+.time-picker-columns {
+  display: flex;
+  gap: 8px;
+}
+.time-picker-column {
+  flex: 1;
+}
+.time-picker-column-label {
+  font-size: 0.7em;
+  color: var(--text-secondary);
+  text-align: center;
+  padding-bottom: 4px;
+  font-weight: 600;
+}
+.time-picker-values {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.time-picker-value {
+  padding: 4px 2px;
   font-size: 0.75em;
   background: transparent;
-  color: var(--text-secondary);
-  border: none;
+  border: 1px solid transparent;
   border-radius: 4px;
-  opacity: 0.6;
   cursor: pointer;
+  text-align: center;
+  color: var(--text-primary);
 }
-.clear-time:hover {
-  opacity: 1;
-  background: var(--surface-subtle);
+.time-picker-value:hover {
+  background: var(--surface-subtle, #f0f0f0);
+}
+.time-picker-value.selected {
+  background: var(--accent, #007aff);
+  color: white;
+  border-color: var(--accent, #007aff);
+}
+.time-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--glass-border, #eee);
+}
+.time-picker-clear, .time-picker-close {
+  padding: 3px 10px;
+  font-size: 0.75em;
+  background: transparent;
+  border: 1px solid var(--glass-border, #ddd);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.time-picker-clear:hover, .time-picker-close:hover {
+  background: var(--surface-subtle, #f0f0f0);
+}
+@media (prefers-color-scheme: dark) {
+  .time-picker-dropdown {
+    background: #2c2c2c;
+    border-color: #444;
+  }
+  .time-picker-value:hover {
+    background: #3c3c3c;
+  }
 }
 .due-date {
   color: var(--accent);
