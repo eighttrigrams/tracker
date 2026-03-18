@@ -3,7 +3,7 @@
             [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT]]))
+            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
 
 (defonce *resources-page-state (r/atom {:expanded-resource nil
                                         :editing-resource nil
@@ -19,10 +19,11 @@
 
 (defn fetch-resources [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *resources-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-places filter-projects]} opts
+        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals]} opts
         people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
+        goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
         url (cond-> "/api/resources?"
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
               importance (str "importance=" (name importance) "&")
@@ -30,7 +31,8 @@
               strict (str "strict=true&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
-              (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&"))]
+              (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
+              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&"))]
     (GET url
       {:response-format :json
        :keywords? true
@@ -138,10 +140,11 @@
      :headers (auth-headers)
      :handler (fn [resource]
                 (let [resource-id (:id resource)
-                      {:keys [people places projects]} categories]
+                      {:keys [people places projects goals]} categories]
                   (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-PERSON people)
                   (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-PLACE places)
                   (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-PROJECT projects)
+                  (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-GOAL goals)
                   (js/setTimeout fetch-resources-fn 500)
                   (swap! app-state update :resources #(cons resource %))
                   (when on-success (on-success))))

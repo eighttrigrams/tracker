@@ -99,14 +99,26 @@
         [:button.done-btn {:on-click #(state/set-message-done id true)}
          (t :mail/archive)]))))
 
-(defn- mail-message-actions [message]
-  [:div.item-actions
-   [archive-button-with-dropdown message]
-   [:div.combined-button-wrapper
-    [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
-     (t :task/delete)]]])
+(defn- mail-message-actions [message next-message-id]
+  (let [dropdown-open? (= (:id message) (:message-action-dropdown-open @mail-state/*mail-page-state))]
+    [:div.item-actions
+     [archive-button-with-dropdown message]
+     [:div.combined-button-wrapper
+      [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
+       (t :task/delete)]
+      [:button.combined-dropdown-btn.delete-btn
+       {:on-click #(state/set-message-action-dropdown-open (when-not dropdown-open? (:id message)))}
+       "▼"]
+      (when dropdown-open?
+        [:div.task-dropdown-menu
+         (when next-message-id
+           [:button.dropdown-item
+            {:on-click #(do
+                          (state/set-message-action-dropdown-open nil)
+                          (state/merge-message-with-below (:id message) next-message-id))}
+            (t :mail/merge-with-below)])])]]))
 
-(defn- mail-message-expanded-content [{:keys [title description annotation type] :as message} editing?]
+(defn- mail-message-expanded-content [{:keys [title description annotation type] :as message} editing? next-message-id]
   [:div.item-details
    (when-let [video-id (first-youtube-video-id title description)]
      [youtube-embed video-id])
@@ -121,7 +133,7 @@
      [:<>
       (when (seq annotation)
         [markdown annotation])
-      [mail-message-actions message]])])
+      [mail-message-actions message next-message-id]])])
 
 (defn- archive-checkbox [message archiving?]
   [:div.archive-checkbox-wrapper
@@ -133,9 +145,9 @@
                   (reset! archiving? true)
                   (js/setTimeout #(state/set-message-done (:id message) true) 1000))}]])
 
-(defn- mail-message-item [_message _expanded-id _editing-id _sort-mode]
+(defn- mail-message-item [_message _expanded-id _editing-id _sort-mode _next-message-id]
   (let [archiving? (r/atom false)]
-    (fn [message expanded-id editing-id sort-mode]
+    (fn [message expanded-id editing-id sort-mode next-message-id]
       (let [{:keys [id]} message
             expanded? (= expanded-id id)
             editing? (= editing-id id)
@@ -148,7 +160,7 @@
           [:div.mail-item-content
            [mail-message-header message expanded?]
            (when expanded?
-             [mail-message-expanded-content message editing?])]]]))))
+             [mail-message-expanded-content message editing? next-message-id])]]]))))
 
 (defn- mail-sender-filter-badge []
   (let [sender-filter (:sender-filter @mail-state/*mail-page-state)
@@ -201,14 +213,16 @@
         {:keys [expanded-message editing-message sort-mode]} @mail-state/*mail-page-state]
     [:div.mail-page
      [:div.tasks-header
-      [:h2 (t :nav/mail)]
+      [:h2 (t :mail/heading)]
       [mail-sort-toggle]]
      (when (= sort-mode :recent)
        [mail-add-form])
      [mail-sender-filter-badge]
      (if (empty? messages)
        [:p.empty-message (t :mail/no-messages)]
-       [:ul.items
-        (for [message messages]
-          ^{:key (:id message)}
-          [mail-message-item message expanded-message editing-message sort-mode])])]))
+       (let [indexed (map-indexed vector messages)]
+         [:ul.items
+          (for [[idx message] indexed]
+            (let [next-message-id (some-> (get messages (inc idx)) :id)]
+              ^{:key (:id message)}
+              [mail-message-item message expanded-message editing-message sort-mode next-message-id]))]))]))

@@ -156,6 +156,7 @@
   :importance/filter-critical "Show critical tasks only"
 
   :nav/mail "Mail"
+  :mail/heading "Inbox"
   :mail/sort-recent "Recent"
   :mail/sort-archived "Archived"
   :mail/archive "Archive"
@@ -167,6 +168,7 @@
   :modal/delete-message "Delete Message"
   :modal/delete-message-confirm "Are you sure you want to delete this message?"
   :mail/convert-to-resource "Convert to resource"
+  :mail/merge-with-below "Merge with message below"
 
   :nav/resources "Resources"
   :resources/title-placeholder "Title"
@@ -344,6 +346,7 @@
   :importance/filter-critical "Nur kritische Aufgaben anzeigen"
 
   :nav/mail "Post"
+  :mail/heading "Posteingang"
   :mail/sort-recent "Aktuell"
   :mail/sort-archived "Archiviert"
   :mail/archive "Archivieren"
@@ -355,6 +358,7 @@
   :modal/delete-message "Nachricht löschen"
   :modal/delete-message-confirm "Möchten Sie diese Nachricht wirklich löschen?"
   :mail/convert-to-resource "In Ressource umwandeln"
+  :mail/merge-with-below "Mit unterer Nachricht zusammenführen"
 
   :nav/resources "Ressourcen"
   :resources/title-placeholder "Titel"
@@ -532,6 +536,7 @@
   :importance/filter-critical "Mostrar apenas tarefas críticas"
 
   :nav/mail "Correio"
+  :mail/heading "Caixa de Entrada"
   :mail/sort-recent "Recentes"
   :mail/sort-archived "Arquivadas"
   :mail/archive "Arquivar"
@@ -543,6 +548,7 @@
   :modal/delete-message "Eliminar Mensagem"
   :modal/delete-message-confirm "Tem a certeza de que pretende eliminar esta mensagem?"
   :mail/convert-to-resource "Converter em recurso"
+  :mail/merge-with-below "Mesclar com mensagem abaixo"
 
   :nav/resources "Recursos"
   :resources/title-placeholder "Título"

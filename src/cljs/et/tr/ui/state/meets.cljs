@@ -3,7 +3,7 @@
             [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT]]))
+            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
 
 (defonce *meets-page-state (r/atom {:expanded-meet nil
                                      :editing-meet nil
@@ -22,10 +22,11 @@
 
 (defn fetch-meets [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *meets-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-places filter-projects sort-mode]} opts
+        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode]} opts
         people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
+        goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
         url (cond-> "/api/meets?"
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
               importance (str "importance=" (name importance) "&")
@@ -34,7 +35,8 @@
               (= sort-mode :past) (str "sort=past&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
-              (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&"))]
+              (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
+              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&"))]
     (GET url
       {:response-format :json
        :keywords? true
@@ -158,10 +160,11 @@
      :headers (auth-headers)
      :handler (fn [meet]
                 (let [meet-id (:id meet)
-                      {:keys [people places projects]} categories]
+                      {:keys [people places projects goals]} categories]
                   (categorize-meet-batch auth-headers meet-id CATEGORY-TYPE-PERSON people)
                   (categorize-meet-batch auth-headers meet-id CATEGORY-TYPE-PLACE places)
                   (categorize-meet-batch auth-headers meet-id CATEGORY-TYPE-PROJECT projects)
+                  (categorize-meet-batch auth-headers meet-id CATEGORY-TYPE-GOAL goals)
                   (js/setTimeout fetch-meets-fn 500)
                   (swap! app-state update :meets #(cons meet %))
                   (when on-success (on-success))))

@@ -13,7 +13,8 @@
                                    :excluded-senders #{}
                                    :editing-message nil
                                    :confirm-delete-message nil
-                                   :message-dropdown-open nil}))
+                                   :message-dropdown-open nil
+                                   :message-action-dropdown-open nil}))
 
 (defn fetch-messages [app-state auth-headers]
   (let [request-id (:fetch-request-id (swap! *mail-page-state update :fetch-request-id inc))
@@ -129,7 +130,20 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add message")))))
 
 (defn set-message-dropdown-open [message-id]
-  (swap! *mail-page-state assoc :message-dropdown-open message-id))
+  (swap! *mail-page-state assoc :message-dropdown-open message-id :message-action-dropdown-open nil))
+
+(defn set-message-action-dropdown-open [message-id]
+  (swap! *mail-page-state assoc :message-action-dropdown-open message-id :message-dropdown-open nil))
+
+(defn merge-message-with-below [app-state auth-headers message-id target-id]
+  (api/post-json (str "/api/messages/" message-id "/merge")
+    {:target-id target-id}
+    (auth-headers)
+    (fn [_]
+      (swap! *mail-page-state assoc :message-dropdown-open nil :expanded-message nil)
+      (fetch-messages app-state auth-headers))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to merge messages")))))
 
 (defn convert-message-to-resource [app-state auth-headers message-id link]
   (api/post-json (str "/api/messages/" message-id "/convert-to-resource")

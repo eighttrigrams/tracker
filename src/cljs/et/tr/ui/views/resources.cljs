@@ -11,7 +11,8 @@
 (def ^:private resources-category-shortcut-keys
   {"Digit1" :people
    "Digit2" :places
-   "Digit3" :projects})
+   "Digit3" :projects
+   "Digit4" :goals})
 
 (def resources-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) resources-category-shortcut-keys)))
@@ -63,6 +64,7 @@
                              state/CATEGORY-TYPE-PERSON (:people resource)
                              state/CATEGORY-TYPE-PLACE (:places resource)
                              state/CATEGORY-TYPE-PROJECT (:projects resource)
+                             state/CATEGORY-TYPE-GOAL (:goals resource)
                              [])]
     [category-selector/category-selector
      {:entity resource
@@ -80,7 +82,7 @@
       :close-selector-fn state/close-category-selector
       :set-search-fn state/set-category-selector-search}]))
 
-(defn- resource-expanded-view [resource people places projects]
+(defn- resource-expanded-view [resource people places projects goals]
   (let [video-id (youtube-video-id (:link resource))]
     [:div.item-details
      (when video-id
@@ -94,6 +96,7 @@
       [resource-category-selector resource state/CATEGORY-TYPE-PERSON people (t :category/person)]
       [resource-category-selector resource state/CATEGORY-TYPE-PLACE places (t :category/place)]
       [resource-category-selector resource state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+      [resource-category-selector resource state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
       [relation-badges/relation-badges-expanded (:relations resource) "res" (:id resource)]]
      [:div.item-actions
       [resource-scope-selector resource]
@@ -131,18 +134,19 @@
     {:item resource
      :category-types [[state/CATEGORY-TYPE-PERSON :people]
                       [state/CATEGORY-TYPE-PLACE :places]
-                      [state/CATEGORY-TYPE-PROJECT :projects]]
+                      [state/CATEGORY-TYPE-PROJECT :projects]
+                      [state/CATEGORY-TYPE-GOAL :goals]]
      :toggle-fn state/toggle-shared-filter
      :has-filter-fn state/has-filter-for-type?}]
    (when (seq (:relations resource))
      [relation-badges/relation-badges-collapsed (:relations resource) "res" (:id resource)])])
 
-(defn- resource-item [resource expanded-id people places projects]
+(defn- resource-item [resource expanded-id people places projects goals]
   (let [is-expanded (= expanded-id (:id resource))]
     [:li {:class (when is-expanded "expanded")}
      [resource-header resource is-expanded]
      (if is-expanded
-       [resource-expanded-view resource people places projects]
+       [resource-expanded-view resource people places projects goals]
        [resource-categories-readonly resource])]))
 
 (defn- importance-filter-toggle []
@@ -219,7 +223,12 @@
     :title-key :category/projects
     :items-key :projects
     :filter-state-key :shared/filter-projects
-    :category-type state/CATEGORY-TYPE-PROJECT}])
+    :category-type state/CATEGORY-TYPE-PROJECT}
+   {:filter-key :goals
+    :title-key :category/goals
+    :items-key :goals
+    :filter-state-key :resources-page/filter-goals
+    :category-type state/CATEGORY-TYPE-GOAL}])
 
 (defn- sidebar-filters []
   (let [app-state @state/*app-state
@@ -230,12 +239,16 @@
                                        :filter-key filter-key
                                        :items (get app-state items-key)
                                        :selected-ids (get app-state filter-state-key)
-                                       :toggle-fn #(state/toggle-shared-filter category-type %)
-                                       :clear-fn #(state/clear-shared-filter category-type)
+                                       :toggle-fn (if (= category-type state/CATEGORY-TYPE-GOAL)
+                                                    #(state/toggle-resources-goal-filter %)
+                                                    #(state/toggle-shared-filter category-type %))
+                                       :clear-fn (if (= category-type state/CATEGORY-TYPE-GOAL)
+                                                   #(state/clear-resources-goal-filter)
+                                                   #(state/clear-shared-filter category-type))
                                        :collapsed? (contains? collapsed-filters filter-key)}]))))
 
 (defn resources-tab []
-  (let [{:keys [resources people places projects]} @state/*app-state
+  (let [{:keys [resources people places projects goals]} @state/*app-state
         {:keys [expanded-resource]} @resources-state/*resources-page-state]
     [:div.main-layout
      [sidebar-filters]
@@ -249,4 +262,4 @@
         [:ul.items
          (for [resource resources]
            ^{:key (:id resource)}
-           [resource-item resource expanded-resource people places projects])])]]))
+           [resource-item resource expanded-resource people places projects goals])])]]))

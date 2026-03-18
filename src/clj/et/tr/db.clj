@@ -783,6 +783,25 @@
                    :returning [:id :annotation]})
       jdbc-opts)))
 
+(defn merge-messages [ds user-id source-id target-id]
+  (when (and (message-owned-by-user? ds source-id user-id)
+             (message-owned-by-user? ds target-id user-id))
+    (let [conn (get-conn ds)
+          source (get-message ds user-id source-id)
+          target (get-message ds user-id target-id)]
+      (when (and source target)
+        (let [merged-title (str (:title target) " :: " (:title source))]
+          (jdbc/execute-one! conn
+            (sql/format {:update :messages
+                         :set {:title merged-title}
+                         :where [:= :id target-id]})
+            jdbc-opts)
+          (jdbc/execute-one! conn
+            (sql/format {:delete-from :messages
+                         :where [:= :id source-id]}))
+          (tel/log! {:level :info :data {:source-id source-id :target-id target-id :user-id user-id}} "Messages merged")
+          {:success true})))))
+
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
     (doseq [table [:relations :task_categories :resource_categories :meet_categories :tasks :messages :resources :meets :people :places :projects :goals :users]]
@@ -809,21 +828,23 @@
                               :returning (conj resource-select-columns :user_id)})
                  jdbc-opts)]
     (tel/log! {:level :info :data {:resource-id (:id result) :user-id user-id}} "Resource added")
-    (assoc result :people [] :places [] :projects [])))
+    (assoc result :people [] :places [] :projects [] :goals [])))
 
 (defn- build-resource-category-clauses [categories]
   (let [people-clause (build-category-subquery :resource_categories :resource_id :resources "person" (:people categories))
         places-clause (build-category-subquery :resource_categories :resource_id :resources "place" (:places categories))
-        projects-clause (build-category-subquery :resource_categories :resource_id :resources "project" (:projects categories))]
-    (filterv some? [people-clause places-clause projects-clause])))
+        projects-clause (build-category-subquery :resource_categories :resource_id :resources "project" (:projects categories))
+        goals-clause (build-category-subquery :resource_categories :resource_id :resources "goal" (:goals categories))]
+    (filterv some? [people-clause places-clause projects-clause goals-clause])))
 
-(defn- associate-categories-with-resources [resources categories-by-resource people-by-id places-by-id projects-by-id]
+(defn- associate-categories-with-resources [resources categories-by-resource people-by-id places-by-id projects-by-id goals-by-id]
   (mapv (fn [resource]
           (let [resource-categories (get categories-by-resource (:id resource) [])]
             (assoc resource
                    :people (extract-category resource-categories "person" people-by-id)
                    :places (extract-category resource-categories "place" places-by-id)
-                   :projects (extract-category resource-categories "project" projects-by-id))))
+                   :projects (extract-category resource-categories "project" projects-by-id)
+                   :goals (extract-category resource-categories "goal" goals-by-id))))
         resources))
 
 (defn list-resources
@@ -852,9 +873,9 @@
                                           :from [:resource_categories]
                                           :where [:in :resource_id resource-ids]})
                              jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn user-where)
          categories-by-resource (group-by :resource_id categories-data)
-         resources-with-categories (associate-categories-with-resources resources categories-by-resource people-by-id places-by-id projects-by-id)]
+         resources-with-categories (associate-categories-with-resources resources categories-by-resource people-by-id places-by-id projects-by-id goals-by-id)]
      (associate-relations-with-items resources-with-categories "res" conn))))
 
 (defn resource-owned-by-user? [ds resource-id user-id]
@@ -878,9 +899,9 @@
                                            :from [:resource_categories]
                                            :where [:= :resource_id resource-id]})
                               jdbc-opts)
-            {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
+            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn user-where)
             categories-by-resource (group-by :resource_id categories-data)]
-        (first (associate-categories-with-resources [resource] categories-by-resource people-by-id places-by-id projects-by-id))))))
+        (first (associate-categories-with-resources [resource] categories-by-resource people-by-id places-by-id projects-by-id goals-by-id))))))
 
 (defn update-resource [ds user-id resource-id fields]
   (let [field-names (keys fields)
@@ -1021,21 +1042,23 @@
                                :returning (conj meet-select-columns :user_id)})
                   jdbc-opts)]
      (tel/log! {:level :info :data {:meet-id (:id result) :user-id user-id}} "Meet added")
-     (assoc result :people [] :places [] :projects []))))
+     (assoc result :people [] :places [] :projects [] :goals []))))
 
 (defn- build-meet-category-clauses [categories]
   (let [people-clause (build-category-subquery :meet_categories :meet_id :meets "person" (:people categories))
         places-clause (build-category-subquery :meet_categories :meet_id :meets "place" (:places categories))
-        projects-clause (build-category-subquery :meet_categories :meet_id :meets "project" (:projects categories))]
-    (filterv some? [people-clause places-clause projects-clause])))
+        projects-clause (build-category-subquery :meet_categories :meet_id :meets "project" (:projects categories))
+        goals-clause (build-category-subquery :meet_categories :meet_id :meets "goal" (:goals categories))]
+    (filterv some? [people-clause places-clause projects-clause goals-clause])))
 
-(defn- associate-categories-with-meets [meets categories-by-meet people-by-id places-by-id projects-by-id]
+(defn- associate-categories-with-meets [meets categories-by-meet people-by-id places-by-id projects-by-id goals-by-id]
   (mapv (fn [meet]
           (let [meet-categories (get categories-by-meet (:id meet) [])]
             (assoc meet
                    :people (extract-category meet-categories "person" people-by-id)
                    :places (extract-category meet-categories "place" places-by-id)
-                   :projects (extract-category meet-categories "project" projects-by-id))))
+                   :projects (extract-category meet-categories "project" projects-by-id)
+                   :goals (extract-category meet-categories "goal" goals-by-id))))
         meets))
 
 (defn list-meets
@@ -1073,9 +1096,9 @@
                                           :from [:meet_categories]
                                           :where [:in :meet_id meet-ids]})
                              jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn user-where)
          categories-by-meet (group-by :meet_id categories-data)
-         meets-with-categories (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id)]
+         meets-with-categories (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id goals-by-id)]
      (associate-relations-with-items meets-with-categories "met" conn))))
 
 (defn meet-owned-by-user? [ds meet-id user-id]
@@ -1099,9 +1122,9 @@
                                            :from [:meet_categories]
                                            :where [:= :meet_id meet-id]})
                               jdbc-opts)
-            {:keys [people-by-id places-by-id projects-by-id]} (fetch-category-lookups conn user-where)
+            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (fetch-category-lookups conn user-where)
             categories-by-meet (group-by :meet_id categories-data)]
-        (first (associate-categories-with-meets [meet] categories-by-meet people-by-id places-by-id projects-by-id))))))
+        (first (associate-categories-with-meets [meet] categories-by-meet people-by-id places-by-id projects-by-id goals-by-id))))))
 
 (defn update-meet [ds user-id meet-id fields]
   (let [set-map (assoc fields :modified_at [:raw "datetime('now')"])

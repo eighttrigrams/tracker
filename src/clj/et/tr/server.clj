@@ -446,8 +446,9 @@
         people (parse-category-param (get-in req [:params "people"]))
         places (parse-category-param (get-in req [:params "places"]))
         projects (parse-category-param (get-in req [:params "projects"]))
-        categories (when (or people places projects)
-                     {:people people :places places :projects projects})]
+        goals (parse-category-param (get-in req [:params "goals"]))
+        categories (when (or people places projects goals)
+                     {:people people :places places :projects projects :goals goals})]
     {:status 200 :body (db/list-resources (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
 
 (defn- valid-url? [link]
@@ -523,10 +524,11 @@
         people (parse-category-param (get-in req [:params "people"]))
         places (parse-category-param (get-in req [:params "places"]))
         projects (parse-category-param (get-in req [:params "projects"]))
+        goals (parse-category-param (get-in req [:params "goals"]))
         excluded-places (parse-category-param (get-in req [:params "excluded-places"]))
         excluded-projects (parse-category-param (get-in req [:params "excluded-projects"]))
-        categories (when (or people places projects)
-                     {:people people :places places :projects projects})]
+        categories (when (or people places projects goals)
+                     {:people people :places places :projects projects :goals goals})]
     {:status 200 :body (db/list-meets (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects})}))
 
 (defn add-meet-handler [req]
@@ -768,6 +770,15 @@
           {:status 200 :body result}
           {:status 404 :body {:error "Message not found"}})))))
 
+(defn merge-messages-handler [req]
+  (with-admin-message-context req user-id message-id
+    (let [target-id (get-in req [:body :target-id])]
+      (if (nil? target-id)
+        {:status 400 :body {:error "Missing required field: target-id"}}
+        (if-let [result (db/merge-messages (ensure-ds) user-id message-id target-id)]
+          {:status 200 :body result}
+          {:status 404 :body {:error "Message not found"}})))))
+
 (defonce translations-cache (atom nil))
 
 (defn- load-translations []
@@ -878,6 +889,7 @@
       (PUT "/:id/done" [] set-message-done-handler)
       (PUT "/:id/annotation" [] update-message-annotation-handler)
       (POST "/:id/convert-to-resource" [] convert-message-to-resource-handler)
+      (POST "/:id/merge" [] merge-messages-handler)
       (DELETE "/:id" [] delete-message-handler))
 
     (context "/resources" []

@@ -12,7 +12,8 @@
 (def ^:private meets-category-shortcut-keys
   {"Digit1" :people
    "Digit2" :places
-   "Digit3" :projects})
+   "Digit3" :projects
+   "Digit4" :goals})
 
 (def meets-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) meets-category-shortcut-keys)))
@@ -49,6 +50,7 @@
                              state/CATEGORY-TYPE-PERSON (:people meet)
                              state/CATEGORY-TYPE-PLACE (:places meet)
                              state/CATEGORY-TYPE-PROJECT (:projects meet)
+                             state/CATEGORY-TYPE-GOAL (:goals meet)
                              [])]
     [category-selector/category-selector
      {:entity meet
@@ -93,7 +95,7 @@
                                      (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
      "🕐"]]])
 
-(defn- meet-expanded-view [meet people places projects]
+(defn- meet-expanded-view [meet people places projects goals]
   [:div.item-details
    (when (seq (:description meet))
      [:div.item-description [task-item/markdown (:description meet)]])
@@ -102,6 +104,7 @@
     [meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
     [meet-category-selector meet state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+    [meet-category-selector meet state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
     [relation-badges/relation-badges-expanded (:relations meet) "met" (:id meet)]]
    [:div.item-actions
     [meet-scope-selector meet]
@@ -138,18 +141,19 @@
     {:item meet
      :category-types [[state/CATEGORY-TYPE-PERSON :people]
                       [state/CATEGORY-TYPE-PLACE :places]
-                      [state/CATEGORY-TYPE-PROJECT :projects]]
+                      [state/CATEGORY-TYPE-PROJECT :projects]
+                      [state/CATEGORY-TYPE-GOAL :goals]]
      :toggle-fn state/toggle-shared-filter
      :has-filter-fn state/has-filter-for-type?}]
    (when (seq (:relations meet))
      [relation-badges/relation-badges-collapsed (:relations meet) "met" (:id meet)])])
 
-(defn- meet-item [meet expanded-id people places projects]
+(defn- meet-item [meet expanded-id people places projects goals]
   (let [is-expanded (= expanded-id (:id meet))]
     [:li {:class (when is-expanded "expanded")}
      [meet-header meet is-expanded]
      (if is-expanded
-       [meet-expanded-view meet people places projects]
+       [meet-expanded-view meet people places projects goals]
        [meet-categories-readonly meet])]))
 
 (defn- importance-filter-toggle []
@@ -236,7 +240,12 @@
     :title-key :category/projects
     :items-key :projects
     :filter-state-key :shared/filter-projects
-    :category-type state/CATEGORY-TYPE-PROJECT}])
+    :category-type state/CATEGORY-TYPE-PROJECT}
+   {:filter-key :goals
+    :title-key :category/goals
+    :items-key :goals
+    :filter-state-key :meets-page/filter-goals
+    :category-type state/CATEGORY-TYPE-GOAL}])
 
 (defn- sidebar-filters []
   (let [app-state @state/*app-state
@@ -247,12 +256,16 @@
                                    :filter-key filter-key
                                    :items (get app-state items-key)
                                    :selected-ids (get app-state filter-state-key)
-                                   :toggle-fn #(state/toggle-shared-filter category-type %)
-                                   :clear-fn #(state/clear-shared-filter category-type)
+                                   :toggle-fn (if (= category-type state/CATEGORY-TYPE-GOAL)
+                                                #(state/toggle-meets-goal-filter %)
+                                                #(state/toggle-shared-filter category-type %))
+                                   :clear-fn (if (= category-type state/CATEGORY-TYPE-GOAL)
+                                               #(state/clear-meets-goal-filter)
+                                               #(state/clear-shared-filter category-type))
                                    :collapsed? (contains? collapsed-filters filter-key)}]))))
 
 (defn meets-tab []
-  (let [{:keys [meets people places projects]} @state/*app-state
+  (let [{:keys [meets people places projects goals]} @state/*app-state
         {:keys [expanded-meet]} @meets-state/*meets-page-state]
     [:div.main-layout
      [sidebar-filters]
@@ -267,4 +280,4 @@
         [:ul.items
          (for [meet meets]
            ^{:key (:id meet)}
-           [meet-item meet expanded-meet people places projects])])]]))
+           [meet-item meet expanded-meet people places projects goals])])]]))
