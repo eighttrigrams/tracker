@@ -153,6 +153,7 @@
     (->> (:tasks @app-state)
          (filter #(= 1 (:today %)))
          (remove #(= (:due_date %) today))
+         (remove #(and (:due_date %) (< (:due_date %) today)))
          (sort-by :sort_order))))
 
 (defn superurgent-tasks [app-state]

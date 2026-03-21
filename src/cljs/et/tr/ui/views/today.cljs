@@ -17,16 +17,23 @@
 (defn get-today-category-shortcut-keys []
   today-category-shortcut-keys)
 
-(defn- today-task-expanded-details [task]
+(defn- today-task-expanded-details [task & {:keys [show-unlink?]}]
   [:div.today-task-details
    (when (seq (:description task))
      [:div.item-description [task-item/markdown (:description task)]])
    [task-item/task-category-badges task]
    [:div.item-actions
     [task-item/task-attribute-selectors task]
-    [task-item/task-combined-action-button task]]])
+    [task-item/task-combined-action-button task
+     :extra-dropdown-items
+     (when show-unlink?
+       [:button.dropdown-item.unlink-today
+        {:on-click #(do
+                      (state/set-task-dropdown-open nil)
+                      (state/set-task-today (:id task) false))}
+        (t :task/unlink-today)])]]])
 
-(defn today-task-item [task & {:keys [show-day-prefix overdue? hide-date emoji-prefix] :or {show-day-prefix false overdue? false hide-date false}}]
+(defn today-task-item [task & {:keys [show-day-prefix overdue? hide-date emoji-prefix show-unlink?] :or {show-day-prefix false overdue? false hide-date false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/*app-state)
         is-expanded (= expanded-task (:id task))]
@@ -56,7 +63,7 @@
         [:span.task-date {:data-tooltip (date/get-day-name (:due_date task))}
          (date/format-date-localized (:due_date task))])]
      (when is-expanded
-       [today-task-expanded-details task])]))
+       [today-task-expanded-details task :show-unlink? show-unlink?])]))
 
 (defn- today-meet-expanded-details [meet]
   [:div.today-task-details
@@ -161,28 +168,52 @@
      [today-exclusion-filter-section :projects projects excluded-projects collapsed-filters
       state/toggle-today-excluded-project state/clear-today-excluded-projects]]))
 
-(defn- task-list-section [tasks & {:keys [overdue? show-day-prefix hide-date]
-                                      :or {overdue? false show-day-prefix false hide-date false}}]
-  [:div.task-list
-   (doall
-    (for [task tasks]
-      ^{:key (:id task)}
-      [today-task-item task
-       :overdue? overdue?
-       :show-day-prefix show-day-prefix
-       :hide-date hide-date]))])
-
-(defn- today-overdue-section [overdue]
-  (when (seq overdue)
-    [:div.today-section.overdue
-     [:h3 (t :today/overdue)]
-     [task-list-section overdue :overdue? true]]))
-
 (defn- urgency-emoji [task]
   (case (:urgency task)
     "superurgent" "🚨🚨"
     "urgent" "🚨"
     nil))
+
+(defn- today-overdue-section [overdue]
+  (when (seq overdue)
+    [:div.today-section.overdue
+     [:h3 (t :today/overdue)]
+     [:div.task-list
+      (doall
+       (for [task overdue]
+         ^{:key (:id task)}
+         [today-task-item task :overdue? true :emoji-prefix (urgency-emoji task)]))]]))
+
+
+(defn- find-task-by-id* [task-id]
+  (first (filter #(= (:id %) task-id) (:tasks @state/*app-state))))
+
+(defn- task-already-in-today? [task]
+  (let [today (date/today-str)]
+    (or (= 1 (:today task))
+        (= (:due_date task) today)
+        (and (:due_date task) (< (:due_date task) today)))))
+
+(defn- today-link-button []
+  (let [source (state/relation-source)]
+    (when (state/relation-mode-active?)
+      (cond
+        (nil? source)
+        [:button.today-link-btn
+         {:on-click (fn [e]
+                      (.stopPropagation e)
+                      (state/set-relation-source-raw "today" nil))}
+         "◎"]
+
+        (and (= "tsk" (:type source))
+             (let [task (find-task-by-id* (:id source))]
+               (or (nil? task) (not (task-already-in-today? task)))))
+        [:button.today-link-btn
+         {:on-click (fn [e]
+                      (.stopPropagation e)
+                      (state/set-task-today (:id source) true)
+                      (state/abort-relation-mode))}
+         "◎"]))))
 
 (defn- today-today-section [today-tasks today-meets today-flagged]
   (let [items (interleave-by-date today-tasks today-meets)
@@ -199,7 +230,9 @@
                    (.preventDefault e)
                    (state/set-task-today drag-task true)
                    (state/clear-drag-state)))}
-     [:h3 (date/today-formatted)]
+     [:div.today-section-header
+      [:h3 (date/today-formatted)]
+      [today-link-button]]
      (if (or (seq items) (seq today-flagged))
        [:div
         (when (seq items)
@@ -222,7 +255,7 @@
                  {:draggable flagged-drag-enabled?
                   :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task flagged-drag-enabled?)
                   :on-drag-end (fn [_] (state/clear-drag-state))}
-                 [today-task-item task :hide-date true :emoji-prefix (urgency-emoji task)]]))]))]
+                 [today-task-item task :hide-date true :emoji-prefix (urgency-emoji task) :show-unlink? true]]))]))]
        [:p.empty-message (t :today/no-today)])]))
 
 (defn- find-task-by-id [task-id]

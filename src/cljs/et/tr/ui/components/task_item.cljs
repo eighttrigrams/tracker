@@ -118,7 +118,7 @@
    (when show-urgency?
      [task-urgency-selector task])])
 
-(defn task-combined-action-button [task]
+(defn task-combined-action-button [task & {:keys [extra-dropdown-items]}]
   [:div.combined-button-wrapper
    [:button.combined-main-btn
     {:class (if (state/task-done? task) "undone" "done")
@@ -132,6 +132,8 @@
     "▼"]
    (when (= (:id task) (:task-dropdown-open @state/*app-state))
      [:div.task-dropdown-menu
+      (when extra-dropdown-items
+        extra-dropdown-items)
       [:button.dropdown-item
        {:on-click #(do
                      (state/set-task-dropdown-open nil)

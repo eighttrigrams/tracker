@@ -26,6 +26,9 @@
 (defn set-relation-source [source-type source-id]
   (swap! *relations-state assoc :relation-source {:type source-type :id source-id}))
 
+(defn set-relation-source-raw [source-type source-id]
+  (swap! *relations-state assoc :relation-source {:type source-type :id source-id}))
+
 (defn clear-relation-source []
   (swap! *relations-state assoc :relation-source nil))
 

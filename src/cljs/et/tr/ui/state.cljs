@@ -719,7 +719,7 @@
   (tasks/set-task-urgency *app-state auth-headers task-id urgency))
 
 (defn set-task-today [task-id today?]
-  (tasks/set-task-today *app-state auth-headers task-id today?))
+  (tasks/set-task-today *app-state auth-headers fetch-tasks task-id today?))
 
 (defn set-drag-task [task-id]
   (tasks/set-drag-task *app-state task-id))
@@ -943,6 +943,9 @@
 (defn abort-relation-mode []
   (relations-state/abort-relation-mode))
 
+(defn set-relation-source-raw [source-type source-id]
+  (relations-state/set-relation-source-raw source-type source-id))
+
 (defn- refetch-for-active-tab []
   (case (:active-tab @*app-state)
     :tasks (fetch-tasks)
@@ -958,10 +961,14 @@
   (let [prefix (relations-state/item-type->prefix item-type)
         source (relations-state/relation-source)]
     (if source
-      (relations-state/add-relation auth-headers
-                                    (:type source) (:id source)
-                                    prefix item-id
-                                    refetch-for-active-tab)
+      (if (= "today" (:type source))
+        (do
+          (set-task-today item-id true)
+          (relations-state/abort-relation-mode))
+        (relations-state/add-relation auth-headers
+                                      (:type source) (:id source)
+                                      prefix item-id
+                                      refetch-for-active-tab))
       (relations-state/set-relation-source prefix item-id))))
 
 (defn delete-relation [source-type source-id target-type target-id]
