@@ -718,6 +718,9 @@
 (defn set-task-urgency [task-id urgency]
   (tasks/set-task-urgency *app-state auth-headers task-id urgency))
 
+(defn set-task-today [task-id today?]
+  (tasks/set-task-today *app-state auth-headers task-id today?))
+
 (defn set-drag-task [task-id]
   (tasks/set-drag-task *app-state task-id))
 
@@ -852,6 +855,9 @@
 
 (defn today-tasks []
   (today-page/today-tasks *app-state))
+
+(defn today-flagged-tasks []
+  (today-page/today-flagged-tasks *app-state))
 
 (defn upcoming-tasks []
   (today-page/upcoming-tasks *app-state))

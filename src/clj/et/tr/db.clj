@@ -93,7 +93,7 @@
 (defn- normalize-urgency [urgency]
   (if (contains? valid-urgencies urgency) urgency "default"))
 
-(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :scope :importance :urgency])
+(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :scope :importance :urgency :today])
 
 (def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance])
 
@@ -260,7 +260,8 @@
                       :done [:and user-where [:= :done 1]]
                       :today [:and user-where [:= :done 0]
                               [:or [:not= :due_date nil]
-                                   [:in :urgency ["urgent" "superurgent"]]]]
+                                   [:in :urgency ["urgent" "superurgent"]]
+                                   [:= :today 1]]]
                       [:and user-where [:= :done 0]])
          search-clause (build-search-clause search-term)
          importance-clause (build-importance-clause importance)
@@ -569,6 +570,16 @@
                          :modified_at [:raw "datetime('now')"]}
                    :where [:and [:= :id task-id] (user-id-where-clause user-id)]
                    :returning [:id :done :modified_at]})
+      jdbc-opts)))
+
+(defn set-task-today [ds user-id task-id today?]
+  (let [today-val (if today? 1 0)]
+    (jdbc/execute-one! (get-conn ds)
+      (sql/format {:update :tasks
+                   :set {:today today-val
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id task-id] (user-id-where-clause user-id)]
+                   :returning [:id :today :modified_at]})
       jdbc-opts)))
 
 (def ^:private field-normalizers

@@ -1,0 +1,2 @@
+{:up ["ALTER TABLE tasks ADD COLUMN today INTEGER NOT NULL DEFAULT 0"]
+ :down ["ALTER TABLE tasks DROP COLUMN today"]}

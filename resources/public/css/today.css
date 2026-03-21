@@ -184,3 +184,21 @@
   padding: 8px 0;
   margin: 0;
 }
+.today-section.today.drop-target {
+  border: 2px dashed var(--accent);
+  background: rgba(0, 113, 227, 0.05);
+}
+.task-emoji-prefix {
+  margin-right: 6px;
+}
+.today-flagged {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.1);
+}
+.draggable-today-task {
+  cursor: grab;
+}
+.draggable-today-task:active {
+  cursor: grabbing;
+}

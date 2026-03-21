@@ -145,6 +145,14 @@
     (->> (:tasks @app-state)
          (filter #(= urgency-level (:urgency %)))
          (remove #(= (:due_date %) today))
+         (remove #(= 1 (:today %)))
+         (sort-by :sort_order))))
+
+(defn today-flagged-tasks [app-state]
+  (let [today (today-str)]
+    (->> (:tasks @app-state)
+         (filter #(= 1 (:today %)))
+         (remove #(= (:due_date %) today))
          (sort-by :sort_order))))
 
 (defn superurgent-tasks [app-state]

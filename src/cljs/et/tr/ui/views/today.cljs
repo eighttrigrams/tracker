@@ -26,7 +26,7 @@
     [task-item/task-attribute-selectors task]
     [task-item/task-combined-action-button task]]])
 
-(defn today-task-item [task & {:keys [show-day-prefix overdue? hide-date] :or {show-day-prefix false overdue? false hide-date false}}]
+(defn today-task-item [task & {:keys [show-day-prefix overdue? hide-date emoji-prefix] :or {show-day-prefix false overdue? false hide-date false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/*app-state)
         is-expanded (= expanded-task (:id task))]
@@ -35,6 +35,8 @@
       {:on-click #(state/toggle-expanded :today-page/expanded-task (:id task))}
       [:div.today-task-content
        [:span.task-title
+        (when emoji-prefix
+          [:span.task-emoji-prefix emoji-prefix])
         (when show-prefix?
           [:span.task-day-prefix (str (date/get-day-name (:due_date task))
                                       (when (seq (:due_time task)) ","))])
@@ -176,28 +178,62 @@
      [:h3 (t :today/overdue)]
      [task-list-section overdue :overdue? true]]))
 
-(defn- today-today-section [today-tasks today-meets]
-  (let [items (interleave-by-date today-tasks today-meets)]
+(defn- urgency-emoji [task]
+  (case (:urgency task)
+    "superurgent" "🚨🚨"
+    "urgent" "🚨"
+    nil))
+
+(defn- today-today-section [today-tasks today-meets today-flagged]
+  (let [items (interleave-by-date today-tasks today-meets)
+        drag-task (:drag-task @state/*app-state)
+        expanded-task (:today-page/expanded-task @state/*app-state)
+        drag-enabled? (and drag-task (not expanded-task))]
     [:div.today-section.today
+     {:class (when drag-enabled? "drop-target")
+      :on-drag-over (fn [e]
+                      (when drag-enabled?
+                        (.preventDefault e)))
+      :on-drop (fn [e]
+                 (when drag-enabled?
+                   (.preventDefault e)
+                   (state/set-task-today drag-task true)
+                   (state/clear-drag-state)))}
      [:h3 (date/today-formatted)]
-     (if (seq items)
-       [:div.task-list
-        (doall
-         (for [item items]
-           (if (= (:item-type item) :meet)
-             ^{:key (str "meet-" (:id item))}
-             [today-meet-item item :hide-date true]
-             ^{:key (str "task-" (:id item))}
-             [today-task-item item :hide-date true])))]
+     (if (or (seq items) (seq today-flagged))
+       [:div
+        (when (seq items)
+          [:div.task-list
+           (doall
+            (for [item items]
+              (if (= (:item-type item) :meet)
+                ^{:key (str "meet-" (:id item))}
+                [today-meet-item item :hide-date true]
+                ^{:key (str "task-" (:id item))}
+                [today-task-item item :hide-date true :emoji-prefix "⏳"])))])
+        (when (seq today-flagged)
+          (let [expanded-task (:today-page/expanded-task @state/*app-state)
+                flagged-drag-enabled? (not expanded-task)]
+            [:div.task-list.today-flagged
+             (doall
+              (for [task today-flagged]
+                ^{:key (str "flagged-" (:id task))}
+                [:div.draggable-today-task
+                 {:draggable flagged-drag-enabled?
+                  :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task flagged-drag-enabled?)
+                  :on-drag-end (fn [_] (state/clear-drag-state))}
+                 [today-task-item task :hide-date true :emoji-prefix (urgency-emoji task)]]))]))]
        [:p.empty-message (t :today/no-today)])]))
 
 (defn- find-task-by-id [task-id]
   (first (filter #(= (:id %) task-id) (:tasks @state/*app-state))))
 
 (defn- ensure-urgency [task-id target-urgency]
-  (let [current-urgency (:urgency (find-task-by-id task-id))]
-    (when (not= current-urgency target-urgency)
-      (state/set-task-urgency task-id target-urgency))))
+  (let [task (find-task-by-id task-id)]
+    (when (not= (:urgency task) target-urgency)
+      (state/set-task-urgency task-id target-urgency))
+    (when (= 1 (:today task))
+      (state/set-task-today task-id false))))
 
 (defn- draggable-urgent-task-item [task target-urgency drag-enabled?]
   (let [drag-task (:drag-task @state/*app-state)
@@ -281,6 +317,7 @@
   (let [overdue (state/overdue-tasks)
         today (state/today-tasks)
         today-m (state/today-meets)
+        today-flagged (state/today-flagged-tasks)
         superurgent (state/superurgent-tasks)
         urgent (state/urgent-tasks)
         upcoming (state/upcoming-tasks)
@@ -290,7 +327,7 @@
      [today-sidebar-filters]
      [:div.main-content.today-content
       [today-overdue-section overdue]
-      [today-today-section today today-m]
+      [today-today-section today today-m today-flagged]
       [today-view-switcher]
       (when (= selected-view :urgent)
         [today-urgent-section superurgent urgent])

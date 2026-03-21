@@ -430,6 +430,17 @@
   (make-entity-property-handler :urgency db/valid-urgencies
                                 "Invalid urgency. Must be 'default', 'urgent', or 'superurgent'"))
 
+(defn set-task-today-handler [req]
+  (if-not (contains? (:body req) :today)
+    {:status 400 :body {:error "Missing required field: today"}}
+    (let [user-id (get-user-id req)
+          task-id (Integer/parseInt (get-in req [:params :id]))
+          today? (boolean (get-in req [:body :today]))
+          result (db/set-task-today (ensure-ds) user-id task-id today?)]
+      (if result
+        {:status 200 :body result}
+        {:status 404 :body {:error "Task not found"}}))))
+
 (defn get-resource-handler [req]
   (let [user-id (get-user-id req)
         resource-id (Integer/parseInt (get-in req [:params :id]))]
@@ -857,7 +868,8 @@
       (PUT "/:id/done" [] set-task-done-handler)
       (PUT "/:id/scope" [] set-task-scope-handler)
       (PUT "/:id/importance" [] set-task-importance-handler)
-      (PUT "/:id/urgency" [] set-task-urgency-handler))
+      (PUT "/:id/urgency" [] set-task-urgency-handler)
+      (PUT "/:id/today" [] set-task-today-handler))
 
     (context "/people" []
       (GET "/" [] list-people-handler)

@@ -227,6 +227,20 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update urgency")))))
 
+(defn set-task-today [app-state auth-headers task-id today?]
+  (api/put-json (str "/api/tasks/" task-id "/today")
+    {:today today?}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (assoc % :today (:today result) :modified_at (:modified_at result))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update today flag")))))
+
 (defn set-drag-task [app-state task-id]
   (swap! app-state assoc :drag-task task-id))
 
