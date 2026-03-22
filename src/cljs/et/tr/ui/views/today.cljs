@@ -243,7 +243,7 @@
                 ^{:key (str "meet-" (:id item))}
                 [today-meet-item item :hide-date true]
                 ^{:key (str "task-" (:id item))}
-                [today-task-item item :hide-date true :emoji-prefix "⏳"])))])
+                [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳")])))])
         (when (seq today-flagged)
           (let [expanded-task (:today-page/expanded-task @state/*app-state)
                 flagged-drag-enabled? (not expanded-task)]
