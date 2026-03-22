@@ -16,9 +16,9 @@ function todayIsoDayNum(): string {
   return String(jsDay === 0 ? 7 : jsDay);
 }
 
-function tomorrowStr(): string {
+function futureDateStr(): string {
   const d = new Date();
-  d.setDate(d.getDate() + 1);
+  d.setDate(d.getDate() + 7);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
@@ -55,10 +55,11 @@ Given(
         "schedule-time": "09:00",
       },
     });
-    await request.post(`/api/meeting-series/${series.id}/create-meeting`, {
+    const meetResp = await request.post(`/api/meeting-series/${series.id}/create-meeting`, {
       headers,
-      data: { date: tomorrowStr(), time: "09:00" },
+      data: { date: futureDateStr(), time: "09:00" },
     });
+    expect(meetResp.ok()).toBeTruthy();
   },
 );
 

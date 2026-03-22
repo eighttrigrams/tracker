@@ -26,7 +26,7 @@ e2e-docker:
 lint:
 	clj-kondo --lint src/clj src/cljc test/clj
 
-deploy: e2e-docker
+deploy: e2e-docker backup
 	fly deploy
 
 clean:
