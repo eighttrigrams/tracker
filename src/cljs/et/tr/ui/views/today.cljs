@@ -240,6 +240,12 @@
                       (state/set-relation-source-raw "today" nil))}
          "◎"]
 
+        (= "today" (:type source))
+        [:button.today-link-btn.has-source
+         {:on-click (fn [e]
+                      (.stopPropagation e))}
+         "◎"]
+
         (and (= "tsk" (:type source))
              (let [task (find-task-by-id* (:id source))]
                (or (nil? task) (not (task-already-in-today? task)))))
@@ -314,33 +320,36 @@
                    (.preventDefault e)
                    (handle-today-drop drag-task)))}
      [:div.today-section-header
-      [:h3 (date/today-formatted)]
-      [today-link-button]
-      [today-add-button]]
-     (if (or (seq items) (seq today-flagged))
-       [:div
-        (when (seq items)
-          [:div.task-list
+      [:h3 (date/today-formatted)]]
+     [:div.today-subsection
+      [:h4 (t :today/due-or-happening)]
+      (if (seq items)
+        [:div.task-list
+         (doall
+          (for [item items]
+            (if (= (:item-type item) :meet)
+              ^{:key (str "meet-" (:id item))}
+              [today-meet-item item :hide-date true]
+              ^{:key (str "task-" (:id item))}
+              [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳")])))]
+        [:p.empty-urgency-message (t :today/no-tasks-in-section)])]
+     [:div.today-subsection
+      [:div.today-subsection-header
+       [:h4 (t :today/other-things)]
+       [today-link-button]
+       [today-add-button]]
+      (if (seq today-flagged)
+        (let [flagged-drag-enabled? (not expanded-task)]
+          [:div.task-list.today-flagged
            (doall
-            (for [item items]
-              (if (= (:item-type item) :meet)
-                ^{:key (str "meet-" (:id item))}
-                [today-meet-item item :hide-date true]
-                ^{:key (str "task-" (:id item))}
-                [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳")])))])
-        (when (seq today-flagged)
-          (let [expanded-task (:today-page/expanded-task @state/*app-state)
-                flagged-drag-enabled? (not expanded-task)]
-            [:div.task-list.today-flagged
-             (doall
-              (for [task today-flagged]
-                ^{:key (str "flagged-" (:id task))}
-                [:div.draggable-today-task
-                 {:draggable flagged-drag-enabled?
-                  :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task flagged-drag-enabled?)
-                  :on-drag-end (fn [_] (state/clear-drag-state))}
-                 [today-task-item task :hide-date true :emoji-prefix (urgency-emoji task) :show-unlink? true]]))]))]
-       [:p.empty-message (t :today/no-today)])]))
+            (for [task today-flagged]
+              ^{:key (str "flagged-" (:id task))}
+              [:div.draggable-today-task
+               {:draggable flagged-drag-enabled?
+                :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task flagged-drag-enabled?)
+                :on-drag-end (fn [_] (state/clear-drag-state))}
+               [today-task-item task :hide-date true :emoji-prefix (urgency-emoji task) :show-unlink? true]]))])
+        [:p.empty-urgency-message (t :today/no-tasks-in-section)])]]))
 
 (defn- find-task-by-id [task-id]
   (first (filter #(= (:id %) task-id) (:tasks @state/*app-state))))

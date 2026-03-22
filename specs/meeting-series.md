@@ -1,8 +1,5 @@
 # Feature: Meeting series
 
-Status: Draft
-E2E: doesn't exist yet
-
 ## Description
 
 Meeting Series are entities in our system which are separate from Meetings. Meeting Series
@@ -53,3 +50,7 @@ in that series for a **future** day, then in the uncollapsed card for that Meeti
 When we click the button and the new Meeting creation went successfully, then we should see a brief notice in a green alert on the top right of the screen (with a fixed positioning, not re-using 
 existing widgets) and should disapear after 2 seconds automatically, saying that a Meeting got created. Also, the button should disappear from the original Meeting item immediately after success
 has been confirmed (by the backend).
+
+## Automatic next meeting creation
+
+When visiting the Meets page, it should detect Meeting series with non-existing next Meetings and create these accordingly. Status: OPEN

@@ -25,6 +25,24 @@
 .today-section-header h3 {
   margin: 0 0 12px 0;
 }
+.today-subsection {
+  margin-bottom: 16px;
+}
+.today-subsection:last-child {
+  margin-bottom: 0;
+}
+.today-subsection h4 {
+  margin: 0 0 8px 0;
+  font-size: 1em;
+}
+.today-subsection-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.today-subsection-header h4 {
+  margin: 0;
+}
 .today-link-btn {
   font-size: 1.2em;
   background: none;
@@ -38,6 +56,11 @@
   justify-content: center;
   cursor: pointer;
   padding: 0;
+}
+.today-link-btn.has-source {
+  background: #ff9500;
+  color: white;
+  border-color: #ff9500;
 }
 .today-link-btn:hover {
   background: var(--accent);
