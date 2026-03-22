@@ -23,7 +23,8 @@
   (let [lang (or (:language user) "en")]
     (i18n/set-language! lang)))
 
-(defn fetch-auth-required [app-state _auth-headers _initial-collection-state fetch-all-fn]
+(defn fetch-auth-required [app-state _auth-headers _initial-collection-state fetch-all-fn
+                           & {:keys [on-skip-logins]}]
   (GET "/api/auth/required"
     {:response-format :json
      :keywords? true
@@ -35,7 +36,8 @@
                            :logged-in? true
                            :current-user admin-user)
                     (apply-user-language admin-user)
-                    (fetch-all-fn admin-user))
+                    (fetch-all-fn admin-user)
+                    (when on-skip-logins (on-skip-logins)))
                   (let [{:keys [token user]} (load-auth-from-storage)]
                     (when (and token user)
                       (swap! app-state assoc

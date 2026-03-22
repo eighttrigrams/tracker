@@ -173,7 +173,8 @@
   (auth/fetch-auth-required *app-state auth-headers initial-collection-state
     (fn [user]
       (fetch-all user)
-      (restore-from-url))))
+      (restore-from-url))
+    :on-skip-logins #(users/fetch-available-users *app-state)))
 
 (defn login [username password on-success]
   (auth/login *app-state fetch-messages fetch-users username password on-success))
