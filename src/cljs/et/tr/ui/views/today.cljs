@@ -175,14 +175,20 @@
     nil))
 
 (defn- today-overdue-section [overdue]
-  (when (seq overdue)
-    [:div.today-section.overdue
-     [:h3 (t :today/overdue)]
-     [:div.task-list
-      (doall
-       (for [task overdue]
-         ^{:key (:id task)}
-         [today-task-item task :overdue? true :emoji-prefix (urgency-emoji task)]))]]))
+  (let [expanded-task (:today-page/expanded-task @state/*app-state)
+        drag-enabled? (not expanded-task)]
+    (when (seq overdue)
+      [:div.today-section.overdue
+       [:h3 (t :today/overdue)]
+       [:div.task-list
+        (doall
+         (for [task overdue]
+           ^{:key (:id task)}
+           [:div.draggable-overdue-task
+            {:draggable drag-enabled?
+             :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task drag-enabled?)
+             :on-drag-end (fn [_] (state/clear-drag-state))}
+            [today-task-item task :overdue? true :emoji-prefix (urgency-emoji task)]]))]])))
 
 
 (defn- find-task-by-id* [task-id]
@@ -215,6 +221,14 @@
                       (state/abort-relation-mode))}
          "◎"]))))
 
+(defn- handle-today-drop [drag-task-id]
+  (let [task (find-task-by-id* drag-task-id)
+        today (date/today-str)]
+    (if (and task (:due_date task) (< (:due_date task) today))
+      (swap! state/*app-state assoc :today-page/confirm-move-to-today task)
+      (state/set-task-today drag-task-id true))
+    (state/clear-drag-state)))
+
 (defn- today-today-section [today-tasks today-meets today-flagged]
   (let [items (interleave-by-date today-tasks today-meets)
         drag-task (:drag-task @state/*app-state)
@@ -228,8 +242,7 @@
       :on-drop (fn [e]
                  (when drag-enabled?
                    (.preventDefault e)
-                   (state/set-task-today drag-task true)
-                   (state/clear-drag-state)))}
+                   (handle-today-drop drag-task)))}
      [:div.today-section-header
       [:h3 (date/today-formatted)]
       [today-link-button]]
@@ -346,6 +359,24 @@
                :on-click #(state/set-today-selected-view :upcoming)}
       (t :today/upcoming)]]))
 
+(defn- confirm-move-to-today-modal []
+  (when-let [task (:today-page/confirm-move-to-today @state/*app-state)]
+    [:div.modal-overlay
+     [:div.modal {:on-click #(.stopPropagation %)}
+      [:div.modal-header (t :modal/move-to-today)]
+      [:div.modal-body
+       [:p (t :modal/move-to-today-confirm)]
+       [:p.task-title (:title task)]]
+      [:div.modal-footer
+       [:button.cancel
+        {:on-click #(swap! state/*app-state assoc :today-page/confirm-move-to-today nil)}
+        (t :modal/cancel)]
+       [:button.confirm-delete
+        {:on-click (fn []
+                     (state/set-task-due-date (:id task) (date/today-str))
+                     (swap! state/*app-state assoc :today-page/confirm-move-to-today nil))}
+        (t :modal/confirm)]]]]))
+
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
         today (state/today-tasks)
@@ -356,13 +387,15 @@
         upcoming (state/upcoming-tasks)
         upcoming-m (state/upcoming-meets)
         selected-view (:today-page/selected-view @state/*app-state)]
-    [:div.main-layout
-     [today-sidebar-filters]
-     [:div.main-content.today-content
-      [today-overdue-section overdue]
-      [today-today-section today today-m today-flagged]
-      [today-view-switcher]
-      (when (= selected-view :urgent)
-        [today-urgent-section superurgent urgent])
-      (when (= selected-view :upcoming)
-        [today-upcoming-section upcoming upcoming-m])]]))
+    [:div
+     [confirm-move-to-today-modal]
+     [:div.main-layout
+      [today-sidebar-filters]
+      [:div.main-content.today-content
+       [today-overdue-section overdue]
+       [today-today-section today today-m today-flagged]
+       [today-view-switcher]
+       (when (= selected-view :urgent)
+         [today-urgent-section superurgent urgent])
+       (when (= selected-view :upcoming)
+         [today-upcoming-section upcoming upcoming-m])]]]))

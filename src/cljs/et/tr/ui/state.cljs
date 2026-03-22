@@ -73,6 +73,7 @@
                             :today-page/expanded-task nil
                             :today-page/expanded-meet nil
                             :today-page/selected-view :urgent
+                            :today-page/confirm-move-to-today nil
                             :upcoming-horizon nil
 
                             ;; Resources page state
