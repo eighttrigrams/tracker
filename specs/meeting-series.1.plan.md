@@ -44,9 +44,11 @@ ALTER TABLE meets ADD COLUMN meeting_series_id INTEGER REFERENCES meeting_series
 
 This establishes the 1:n relationship. Regular one-off meetings have `meeting_series_id = NULL`.
 
-## Phase 2: Backend DB Functions (`db.clj`)
+## Phase 2: Backend DB Functions — new `src/clj/et/tr/db/meeting_series.clj`
 
-Follow the existing meets pattern. Add:
+New per-entity namespace `et.tr.db.meeting-series`, following the pattern of `db/meet.clj`. Uses shared helpers from `db.clj` (`build-search-clause`, `build-importance-clause`, `build-scope-clause`, `build-category-subquery`).
+
+Functions:
 
 - `add-meeting-series [ds title scope user-id]` — insert with max sort_order + 1
 - `list-meeting-series [ds opts]` — query with search, importance, scope, category filters (no date/sort-mode filtering since series have no dates)
@@ -57,9 +59,11 @@ Follow the existing meets pattern. Add:
 - `categorize-meeting-series [ds id category-type category-id]`
 - `uncategorize-meeting-series [ds id category-type category-id]`
 
-The `list-meeting-series` query reuses `build-search-clause`, `build-importance-clause`, `build-scope-clause`, and `build-category-subquery` — just targeting `meeting_series` / `meeting_series_categories` instead.
+Also add `meeting-series-select-columns` to `db.clj` (shared column definitions live there).
 
-## Phase 3: Backend API Routes (`server.clj`)
+## Phase 3: Backend API Routes — new `src/clj/et/tr/server/meeting_series_handler.clj`
+
+New per-entity namespace `et.tr.server.meeting-series-handler`, following the pattern of `server/meet_handler.clj`. Calls into `db.meeting-series` functions.
 
 | Method | Path | Handler |
 |---|---|---|
@@ -73,6 +77,8 @@ The `list-meeting-series` query reuses `build-search-clause`, `build-importance-
 | DELETE | /api/meeting-series/:id/uncategorize | uncategorize-meeting-series-handler |
 
 Query params for GET list: `q`, `importance`, `context`, `strict`, `people`, `places`, `projects`, `goals` (same as meets, minus `sort`).
+
+Also add the `/api/meeting-series` route context to `server.clj` (which composes all per-entity routes).
 
 ## Phase 4: Frontend State
 
@@ -143,17 +149,19 @@ Category filters work the same way for both modes — same sidebar, same shared 
 | File | Change |
 |---|---|
 | `resources/migrations/026-add-meeting-series.edn` | New (table + categories table + FK on meets) |
-| `src/clj/et/tr/db.clj` | Add ~80 lines of meeting series DB functions |
-| `src/clj/et/tr/server.clj` | Add ~60 lines of handlers + routes |
-| `src/cljs/et/tr/ui/state/meeting-series.cljs` | New, ~120 lines |
+| `src/clj/et/tr/db.clj` | Add `meeting-series-select-columns` |
+| `src/clj/et/tr/db/meeting_series.clj` | New, per-entity DB functions (~80 lines) |
+| `src/clj/et/tr/server.clj` | Add `/api/meeting-series` route context |
+| `src/clj/et/tr/server/meeting_series_handler.clj` | New, per-entity handlers (~60 lines) |
+| `src/cljs/et/tr/ui/state/meeting_series.cljs` | New, ~120 lines |
 | `src/cljs/et/tr/ui/state.cljs` | Add ~40 lines of wrappers |
 | `src/cljs/et/tr/ui/views/meets.cljs` | Add series toggle + conditional rendering, ~80 lines |
 
 ## Implementation Order
 
 1. Migration (026)
-2. DB functions in `db.clj`
-3. API routes in `server.clj`
-4. Frontend state (`meeting-series.cljs` + `state.cljs`)
+2. DB functions in `db/meeting_series.clj` (+ columns in `db.clj`)
+3. API handlers in `server/meeting_series_handler.clj` (+ route in `server.clj`)
+4. Frontend state (`state/meeting_series.cljs` + `state.cljs`)
 5. Frontend view (toggle button, series items, conditional rendering)
 6. Manual testing in browser
