@@ -276,6 +276,11 @@
 .draggable-today-task,
 .draggable-overdue-task {
   cursor: grab;
+  margin-bottom: 6px;
+}
+.draggable-today-task:last-child,
+.draggable-overdue-task:last-child {
+  margin-bottom: 0;
 }
 .draggable-today-task:active,
 .draggable-overdue-task:active {
