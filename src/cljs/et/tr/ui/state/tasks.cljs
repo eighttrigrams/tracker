@@ -128,7 +128,7 @@
       (swap! app-state update :tasks
              (fn [tasks]
                (mapv #(if (= (:id %) task-id)
-                        (assoc % :due_date (:due_date result) :due_time (:due_time result) :modified_at (:modified_at result))
+                        (merge % (select-keys result [:due_date :due_time :today :modified_at]))
                         %)
                      tasks))))
     (fn [resp]

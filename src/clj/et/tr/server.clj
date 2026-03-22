@@ -1,9 +1,18 @@
 (ns et.tr.server
   (:require [ring.adapter.jetty9 :as jetty]
             [et.tr.db :as db]
+            [et.tr.server.common :as common]
+            [et.tr.server.task-handler :as task-handler]
+            [et.tr.server.resource-handler :as resource-handler]
+            [et.tr.server.meet-handler :as meet-handler]
+            [et.tr.server.message-handler :as message-handler]
+            [et.tr.server.relation-handler :as relation-handler]
+            [et.tr.server.user-handler :as user-handler]
+            [et.tr.server.category-handler :as category-handler]
             [et.tr.auth :as auth]
             [et.tr.telegram :as telegram]
             [et.tr.export :as export]
+            [et.tr.db.category :as db.category]
             [et.tr.middleware.rate-limit :refer [wrap-rate-limit]]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
@@ -17,778 +26,10 @@
             [taoensso.telemere :as tel])
   (:gen-class))
 
-(defonce ds (atom nil))
-(defonce *config (atom nil))
-
-(defn- load-config []
-  (let [config-file (io/file "config.edn")]
-    (if (.exists config-file)
-      (do
-        (tel/log! :info "Loading configuration from config.edn")
-        (edn/read-string (slurp config-file)))
-      (do
-        (tel/log! :info "config.edn not found, using defaults")
-        {}))))
-
-(defn ensure-ds []
-  (when (nil? @ds)
-    (when (nil? @*config)
-      (reset! *config (load-config)))
-    (let [conn (db/init-conn (get @*config :db {:type :sqlite-memory}))]
-      (reset! ds conn)))
-  @ds)
-
 (defn- env-int [name default]
   (if-let [v (System/getenv name)]
     (try (Integer/parseInt v) (catch Exception _ default))
     default))
-
-(defn prod-mode? []
-  (let [on-fly? (some? (System/getenv "FLY_APP_NAME"))
-        dev-mode? (= "true" (System/getenv "DEV"))
-        admin-pw (System/getenv "ADMIN_PASSWORD")]
-    (cond
-      (or on-fly? (not dev-mode?))
-      (do (when-not admin-pw
-            (throw (ex-info "ADMIN_PASSWORD required in production" {})))
-          true)
-      admin-pw
-      true
-      :else
-      false)))
-
-(defn- allow-skip-logins? []
-  (and (true? (:dangerously-skip-logins? @*config))
-       (not (prod-mode?))))
-
-(defn- get-user-from-request [req]
-  (if (allow-skip-logins?)
-    (let [user-id-str (get-in req [:headers "x-user-id"])]
-      (if (or (nil? user-id-str) (= user-id-str "null"))
-        {:user-id nil :is-admin true}
-        (let [user-id (Integer/parseInt user-id-str)]
-          {:user-id user-id :is-admin false})))
-    (when-let [token (auth/extract-token req)]
-      (auth/verify-token token))))
-
-(defn- get-user-id [req]
-  (:user-id (get-user-from-request req)))
-
-(defn- admin-password []
-  (or (System/getenv "ADMIN_PASSWORD") "admin"))
-
-(defn login-handler [req]
-  (let [{:keys [username password]} (:body req)]
-    (if (allow-skip-logins?)
-      (if (= username "admin")
-        {:status 200 :body {:success true :user {:id nil :username "admin" :is_admin true :language "en"}}}
-        (if-let [user (db/get-user-by-username (ensure-ds) username)]
-          {:status 200 :body {:success true :user (dissoc user :password_hash)}}
-          {:status 401 :body {:success false :error "User not found"}}))
-      (if (= username "admin")
-        (if (= password (admin-password))
-          {:status 200 :body {:success true
-                              :token (auth/create-token nil "admin" true)
-                              :user {:id nil :username "admin" :is_admin true :language "en"}}}
-          {:status 401 :body {:success false :error "Invalid credentials"}})
-        (if-let [user (db/verify-user (ensure-ds) username password)]
-          {:status 200 :body {:success true
-                              :token (auth/create-token (:id user) (:username user) false)
-                              :user user}}
-          {:status 401 :body {:success false :error "Invalid credentials"}})))))
-
-(defn password-required-handler [_req]
-  {:status 200 :body {:required (not (allow-skip-logins?))}})
-
-(defn available-users-handler [_req]
-  (if (allow-skip-logins?)
-    (let [users (db/list-users (ensure-ds))
-          admin {:id nil :username "admin" :is_admin true :language "en"}]
-      {:status 200 :body (cons admin users)})
-    {:status 403 :body {:error "Not available in production mode"}}))
-
-(defn- parse-category-param [param]
-  (when (and param (not (str/blank? param)))
-    (vec (str/split param #","))))
-
-(defn get-task-handler [req]
-  (let [user-id (get-user-id req)
-        task-id (Integer/parseInt (get-in req [:params :id]))]
-    (if-let [task (db/get-task (ensure-ds) user-id task-id)]
-      {:status 200 :body task}
-      {:status 404 :body {:error "Task not found"}})))
-
-(defn list-tasks-handler [req]
-  (let [user-id (get-user-id req)
-        sort-mode (keyword (get-in req [:params "sort"] "recent"))
-        search-term (get-in req [:params "q"])
-        importance (get-in req [:params "importance"])
-        context (get-in req [:params "context"])
-        strict (= "true" (get-in req [:params "strict"]))
-        people (parse-category-param (get-in req [:params "people"]))
-        places (parse-category-param (get-in req [:params "places"]))
-        projects (parse-category-param (get-in req [:params "projects"]))
-        goals (parse-category-param (get-in req [:params "goals"]))
-        excluded-places (parse-category-param (get-in req [:params "excluded-places"]))
-        excluded-projects (parse-category-param (get-in req [:params "excluded-projects"]))
-        categories (when (or people places projects goals)
-                     {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db/list-tasks (ensure-ds) user-id sort-mode {:search-term search-term :importance importance :context context :strict strict :categories categories :excluded-places excluded-places :excluded-projects excluded-projects})}))
-
-(defn add-task-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [title scope]} (:body req)]
-    (if (str/blank? title)
-      {:status 400 :body {:success false :error "Title is required"}}
-      (let [task (db/add-task (ensure-ds) user-id title (or scope "both"))]
-        {:status 201 :body (assoc task :people [] :places [] :projects [] :goals [])}))))
-
-(defn update-task-handler [req]
-  (let [user-id (get-user-id req)
-        task-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [title description tags]} (:body req)]
-    (if (str/blank? title)
-      {:status 400 :body {:success false :error "Title is required"}}
-      (let [task (db/update-task (ensure-ds) user-id task-id {:title title :description (or description "") :tags (or tags "")})]
-        {:status 200 :body task}))))
-
-(defn list-people-handler [req]
-  (let [user-id (get-user-id req)]
-    {:status 200 :body (db/list-people (ensure-ds) user-id)}))
-
-(defn add-person-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [name]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        {:status 201 :body (db/add-person (ensure-ds) user-id name)}
-        (catch Exception _
-          {:status 409 :body {:success false :error "Person already exists"}})))))
-
-(defn list-places-handler [req]
-  (let [user-id (get-user-id req)]
-    {:status 200 :body (db/list-places (ensure-ds) user-id)}))
-
-(defn add-place-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [name]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        {:status 201 :body (db/add-place (ensure-ds) user-id name)}
-        (catch Exception _
-          {:status 409 :body {:success false :error "Place already exists"}})))))
-
-(defn list-projects-handler [req]
-  (let [user-id (get-user-id req)]
-    {:status 200 :body (db/list-projects (ensure-ds) user-id)}))
-
-(defn add-project-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [name]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        {:status 201 :body (db/add-project (ensure-ds) user-id name)}
-        (catch Exception _
-          {:status 409 :body {:success false :error "Project already exists"}})))))
-
-(defn list-goals-handler [req]
-  (let [user-id (get-user-id req)]
-    {:status 200 :body (db/list-goals (ensure-ds) user-id)}))
-
-(defn add-goal-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [name]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        {:status 201 :body (db/add-goal (ensure-ds) user-id name)}
-        (catch Exception _
-          {:status 409 :body {:success false :error "Goal already exists"}})))))
-
-(defn update-person-handler [req]
-  (let [user-id (get-user-id req)
-        person-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags badge-title]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        (let [result (db/update-person (ensure-ds) user-id person-id name (or description "") (or tags "") badge-title)]
-          (if result
-            {:status 200 :body result}
-            {:status 404 :body {:success false :error "Person not found"}}))
-        (catch Exception _
-          {:status 409 :body {:success false :error "Person with this name already exists"}})))))
-
-(defn update-place-handler [req]
-  (let [user-id (get-user-id req)
-        place-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags badge-title]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        (let [result (db/update-place (ensure-ds) user-id place-id name (or description "") (or tags "") badge-title)]
-          (if result
-            {:status 200 :body result}
-            {:status 404 :body {:success false :error "Place not found"}}))
-        (catch Exception _
-          {:status 409 :body {:success false :error "Place with this name already exists"}})))))
-
-(defn update-project-handler [req]
-  (let [user-id (get-user-id req)
-        project-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags badge-title]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        (let [result (db/update-project (ensure-ds) user-id project-id name (or description "") (or tags "") badge-title)]
-          (if result
-            {:status 200 :body result}
-            {:status 404 :body {:success false :error "Project not found"}}))
-        (catch Exception _
-          {:status 409 :body {:success false :error "Project with this name already exists"}})))))
-
-(defn update-goal-handler [req]
-  (let [user-id (get-user-id req)
-        goal-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags badge-title]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        (let [result (db/update-goal (ensure-ds) user-id goal-id name (or description "") (or tags "") badge-title)]
-          (if result
-            {:status 200 :body result}
-            {:status 404 :body {:success false :error "Goal not found"}}))
-        (catch Exception _
-          {:status 409 :body {:success false :error "Goal with this name already exists"}})))))
-
-(def category-config
-  {"people" {:type "person" :table "people"}
-   "places" {:type "place" :table "places"}
-   "projects" {:type "project" :table "projects"}
-   "goals" {:type "goal" :table "goals"}})
-
-(defn delete-category-handler [req]
-  (let [user-id (get-user-id req)
-        category-id (Integer/parseInt (get-in req [:params :id]))
-        category-key (get-in req [:params :category])
-        {:keys [type table]} (get category-config category-key)]
-    (if-not type
-      {:status 400 :body {:success false :error "Invalid category type"}}
-      (let [result (db/delete-category (ensure-ds) user-id category-id type table)]
-        (if (:success result)
-          {:status 200 :body {:success true}}
-          {:status 404 :body {:success false :error (str (str/capitalize type) " not found")}})))))
-
-(defn reorder-category-handler [req list-fn table-name]
-  (let [user-id (get-user-id req)
-        category-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [target-category-id position]} (:body req)
-        all-categories (list-fn (ensure-ds) user-id)
-        target-idx (->> all-categories
-                        (map-indexed vector)
-                        (some (fn [[idx cat]] (when (= (:id cat) target-category-id) idx))))
-        target-order (:sort_order (nth all-categories target-idx))
-        neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
-        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-categories)))
-                         (:sort_order (nth all-categories neighbor-idx)))
-        new-order (cond
-                    (nil? neighbor-order)
-                    (if (= position "before")
-                      (- target-order 1.0)
-                      (+ target-order 1.0))
-                    :else
-                    (/ (+ target-order neighbor-order) 2.0))]
-    (db/reorder-category (ensure-ds) user-id category-id new-order table-name)
-    {:status 200 :body {:success true :sort_order new-order}}))
-
-(defn- make-categorize-handler [db-fn]
-  (fn [req]
-    (let [user-id (get-user-id req)
-          entity-id (Integer/parseInt (get-in req [:params :id]))
-          {:keys [category-type category-id]} (:body req)]
-      (cond
-        (or (nil? category-type) (str/blank? category-type))
-        {:status 400 :body {:success false :error "category-type is required"}}
-
-        (or (nil? category-id) (not (integer? category-id)) (< category-id 1))
-        {:status 400 :body {:success false :error "category-id must be a positive integer"}}
-
-        :else
-        (do
-          (db-fn (ensure-ds) user-id entity-id category-type category-id)
-          {:status 200 :body {:success true}})))))
-
-(defn- make-uncategorize-handler [db-fn]
-  (fn [req]
-    (let [user-id (get-user-id req)
-          entity-id (Integer/parseInt (get-in req [:params :id]))
-          {:keys [category-type category-id]} (:body req)]
-      (cond
-        (or (nil? category-type) (str/blank? category-type))
-        {:status 400 :body {:success false :error "category-type is required"}}
-
-        (or (nil? category-id) (not (integer? category-id)) (< category-id 1))
-        {:status 400 :body {:success false :error "category-id must be a positive integer"}}
-
-        :else
-        (do
-          (db-fn (ensure-ds) user-id entity-id category-type category-id)
-          {:status 200 :body {:success true}})))))
-
-(def categorize-task-handler (make-categorize-handler db/categorize-task))
-(def uncategorize-task-handler (make-uncategorize-handler db/uncategorize-task))
-
-(def categorize-resource-handler (make-categorize-handler db/categorize-resource))
-(def uncategorize-resource-handler (make-uncategorize-handler db/uncategorize-resource))
-
-(defn reorder-task-handler [req]
-  (let [user-id (get-user-id req)
-        task-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [target-task-id position]} (:body req)
-        all-tasks (db/list-tasks (ensure-ds) user-id :manual)
-        target-idx (->> all-tasks
-                        (map-indexed vector)
-                        (some (fn [[idx task]] (when (= (:id task) target-task-id) idx))))
-        target-order (:sort_order (nth all-tasks target-idx))
-        neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
-        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-tasks)))
-                         (:sort_order (nth all-tasks neighbor-idx)))
-        new-order (cond
-                    (nil? neighbor-order)
-                    (if (= position "before")
-                      (- target-order 1.0)
-                      (+ target-order 1.0))
-                    :else
-                    (/ (+ target-order neighbor-order) 2.0))]
-    (db/reorder-task (ensure-ds) user-id task-id new-order)
-    {:status 200 :body {:success true :sort_order new-order}}))
-
-(defn set-due-date-handler [req]
-  (let [user-id (get-user-id req)
-        task-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [due-date]} (:body req)
-        result (db/set-task-due-date (ensure-ds) user-id task-id due-date)]
-    {:status 200 :body result}))
-
-(defn valid-time-format? [time-str]
-  (or (nil? time-str)
-      (empty? time-str)
-      (re-matches #"^([01]\d|2[0-3]):([0-5]\d)$" time-str)))
-
-(defn valid-date-format? [date-str]
-  (or (nil? date-str)
-      (empty? date-str)
-      (re-matches #"^\d{4}-\d{2}-\d{2}$" date-str)))
-
-(defn set-due-time-handler [req]
-  (let [user-id (get-user-id req)
-        task-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [due-time]} (:body req)]
-    (if (valid-time-format? due-time)
-      (let [result (db/set-task-due-time (ensure-ds) user-id task-id due-time)]
-        {:status 200 :body result})
-      {:status 400 :body {:error "Invalid time format. Use HH:MM (24-hour format)"}})))
-
-(defn set-task-done-handler [req]
-  (if-not (contains? (:body req) :done)
-    {:status 400 :body {:error "Missing required field: done"}}
-    (let [user-id (get-user-id req)
-          task-id (Integer/parseInt (get-in req [:params :id]))
-          done? (boolean (get-in req [:body :done]))
-          result (db/set-task-done (ensure-ds) user-id task-id done?)]
-      (if result
-        {:status 200 :body result}
-        {:status 404 :body {:error "Task not found"}}))))
-
-(defn- make-entity-property-handler
-  ([field valid-values error-message]
-   (make-entity-property-handler field valid-values error-message {:entity-type :task :set-fn db/set-task-field}))
-  ([field valid-values error-message {:keys [entity-type set-fn]}]
-   (fn [req]
-     (let [value (get-in req [:body field])]
-       (if-not (contains? valid-values value)
-         {:status 400 :body {:error error-message}}
-         (let [user-id (get-user-id req)
-               entity-id (Integer/parseInt (get-in req [:params :id]))
-               result (set-fn (ensure-ds) user-id entity-id field value)]
-           (if result
-             {:status 200 :body result}
-             {:status 404 :body {:error (str (name entity-type) " not found")}})))))))
-
-(def set-task-scope-handler
-  (make-entity-property-handler :scope db/valid-scopes
-                                "Invalid scope. Must be 'private', 'both', or 'work'"))
-
-(def set-task-importance-handler
-  (make-entity-property-handler :importance db/valid-importances
-                                "Invalid importance. Must be 'normal', 'important', or 'critical'"))
-
-(def set-task-urgency-handler
-  (make-entity-property-handler :urgency db/valid-urgencies
-                                "Invalid urgency. Must be 'default', 'urgent', or 'superurgent'"))
-
-(defn set-task-today-handler [req]
-  (if-not (contains? (:body req) :today)
-    {:status 400 :body {:error "Missing required field: today"}}
-    (let [user-id (get-user-id req)
-          task-id (Integer/parseInt (get-in req [:params :id]))
-          today? (boolean (get-in req [:body :today]))
-          result (db/set-task-today (ensure-ds) user-id task-id today?)]
-      (if result
-        {:status 200 :body result}
-        {:status 404 :body {:error "Task not found"}}))))
-
-(defn get-resource-handler [req]
-  (let [user-id (get-user-id req)
-        resource-id (Integer/parseInt (get-in req [:params :id]))]
-    (if-let [resource (db/get-resource (ensure-ds) user-id resource-id)]
-      {:status 200 :body resource}
-      {:status 404 :body {:error "Resource not found"}})))
-
-(defn list-resources-handler [req]
-  (let [user-id (get-user-id req)
-        search-term (get-in req [:params "q"])
-        importance (get-in req [:params "importance"])
-        context (get-in req [:params "context"])
-        strict (= "true" (get-in req [:params "strict"]))
-        people (parse-category-param (get-in req [:params "people"]))
-        places (parse-category-param (get-in req [:params "places"]))
-        projects (parse-category-param (get-in req [:params "projects"]))
-        goals (parse-category-param (get-in req [:params "goals"]))
-        categories (when (or people places projects goals)
-                     {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db/list-resources (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
-
-(defn- valid-url? [link]
-  (some? (re-matches #"https?://\S+" link)))
-
-(defn add-resource-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [title link scope]} (:body req)]
-    (cond
-      (str/blank? title)
-      {:status 400 :body {:success false :error "Title is required"}}
-
-      (str/blank? link)
-      {:status 400 :body {:success false :error "Link is required"}}
-
-      (not (valid-url? link))
-      {:status 400 :body {:success false :error "Invalid URL. Must start with http:// or https://"}}
-
-      :else
-      (let [resource (db/add-resource (ensure-ds) user-id title link (or scope "both"))]
-        {:status 201 :body resource}))))
-
-(defn update-resource-handler [req]
-  (let [user-id (get-user-id req)
-        resource-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [title link description tags]} (:body req)]
-    (cond
-      (str/blank? title)
-      {:status 400 :body {:success false :error "Title is required"}}
-
-      (str/blank? link)
-      {:status 400 :body {:success false :error "Link is required"}}
-
-      (not (valid-url? link))
-      {:status 400 :body {:success false :error "Invalid URL. Must start with http:// or https://"}}
-
-      :else
-      (let [resource (db/update-resource (ensure-ds) user-id resource-id {:title title :link link :description (or description "") :tags (or tags "")})]
-        {:status 200 :body resource}))))
-
-(defn delete-resource-handler [req]
-  (let [user-id (get-user-id req)
-        resource-id (Integer/parseInt (get-in req [:params :id]))
-        result (db/delete-resource (ensure-ds) user-id resource-id)]
-    (if (:success result)
-      {:status 200 :body {:success true}}
-      {:status 404 :body {:success false :error "Resource not found"}})))
-
-(def set-resource-scope-handler
-  (make-entity-property-handler :scope db/valid-scopes
-                                "Invalid scope. Must be 'private', 'both', or 'work'"
-                                {:entity-type :resource :set-fn db/set-resource-field}))
-
-(def set-resource-importance-handler
-  (make-entity-property-handler :importance db/valid-importances
-                                "Invalid importance. Must be 'normal', 'important', or 'critical'"
-                                {:entity-type :resource :set-fn db/set-resource-field}))
-
-(defn get-meet-handler [req]
-  (let [user-id (get-user-id req)
-        meet-id (Integer/parseInt (get-in req [:params :id]))]
-    (if-let [meet (db/get-meet (ensure-ds) user-id meet-id)]
-      {:status 200 :body meet}
-      {:status 404 :body {:error "Meet not found"}})))
-
-(defn list-meets-handler [req]
-  (let [user-id (get-user-id req)
-        search-term (get-in req [:params "q"])
-        importance (get-in req [:params "importance"])
-        context (get-in req [:params "context"])
-        strict (= "true" (get-in req [:params "strict"]))
-        sort-mode (if (= "past" (get-in req [:params "sort"])) :past :upcoming)
-        people (parse-category-param (get-in req [:params "people"]))
-        places (parse-category-param (get-in req [:params "places"]))
-        projects (parse-category-param (get-in req [:params "projects"]))
-        goals (parse-category-param (get-in req [:params "goals"]))
-        excluded-places (parse-category-param (get-in req [:params "excluded-places"]))
-        excluded-projects (parse-category-param (get-in req [:params "excluded-projects"]))
-        categories (when (or people places projects goals)
-                     {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db/list-meets (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects})}))
-
-(defn add-meet-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [title scope]} (:body req)]
-    (if (str/blank? title)
-      {:status 400 :body {:success false :error "Title is required"}}
-      {:status 201 :body (db/add-meet (ensure-ds) user-id title (or scope "both"))})))
-
-(defn update-meet-handler [req]
-  (let [user-id (get-user-id req)
-        meet-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [title description tags]} (:body req)]
-    (if (str/blank? title)
-      {:status 400 :body {:success false :error "Title is required"}}
-      {:status 200 :body (db/update-meet (ensure-ds) user-id meet-id {:title title :description (or description "") :tags (or tags "")})})))
-
-(defn delete-meet-handler [req]
-  (let [user-id (get-user-id req)
-        meet-id (Integer/parseInt (get-in req [:params :id]))
-        result (db/delete-meet (ensure-ds) user-id meet-id)]
-    (if (:success result)
-      {:status 200 :body {:success true}}
-      {:status 404 :body {:success false :error "Meet not found"}})))
-
-(def categorize-meet-handler (make-categorize-handler db/categorize-meet))
-(def uncategorize-meet-handler (make-uncategorize-handler db/uncategorize-meet))
-
-(def set-meet-scope-handler
-  (make-entity-property-handler :scope db/valid-scopes
-                                "Invalid scope. Must be 'private', 'both', or 'work'"
-                                {:entity-type :meet :set-fn db/set-meet-field}))
-
-(def set-meet-importance-handler
-  (make-entity-property-handler :importance db/valid-importances
-                                "Invalid importance. Must be 'normal', 'important', or 'critical'"
-                                {:entity-type :meet :set-fn db/set-meet-field}))
-
-(defn set-meet-start-date-handler [req]
-  (let [user-id (get-user-id req)
-        meet-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [start-date]} (:body req)]
-    (if (valid-date-format? start-date)
-      {:status 200 :body (db/set-meet-start-date (ensure-ds) user-id meet-id start-date)}
-      {:status 400 :body {:error "Invalid date format. Use YYYY-MM-DD"}})))
-
-(defn set-meet-start-time-handler [req]
-  (let [user-id (get-user-id req)
-        meet-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [start-time]} (:body req)]
-    (if (valid-time-format? start-time)
-      {:status 200 :body (db/set-meet-start-time (ensure-ds) user-id meet-id start-time)}
-      {:status 400 :body {:error "Invalid time format. Use HH:MM (24-hour format)"}})))
-
-(def ^:private valid-relation-types #{"tsk" "res" "met"})
-
-(defn add-relation-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [source-type source-id target-type target-id]} (:body req)]
-    (cond
-      (not (contains? valid-relation-types source-type))
-      {:status 400 :body {:success false :error "Invalid source-type"}}
-
-      (not (contains? valid-relation-types target-type))
-      {:status 400 :body {:success false :error "Invalid target-type"}}
-
-      (or (nil? source-id) (not (integer? source-id)))
-      {:status 400 :body {:success false :error "source-id must be an integer"}}
-
-      (or (nil? target-id) (not (integer? target-id)))
-      {:status 400 :body {:success false :error "target-id must be an integer"}}
-
-      :else
-      (if-let [result (db/add-relation (ensure-ds) user-id source-type source-id target-type target-id)]
-        {:status 201 :body result}
-        {:status 404 :body {:success false :error "Item not found"}}))))
-
-(defn delete-relation-handler [req]
-  (let [user-id (get-user-id req)
-        {:keys [source-type source-id target-type target-id]} (:body req)]
-    (cond
-      (not (contains? valid-relation-types source-type))
-      {:status 400 :body {:success false :error "Invalid source-type"}}
-
-      (not (contains? valid-relation-types target-type))
-      {:status 400 :body {:success false :error "Invalid target-type"}}
-
-      (or (nil? source-id) (not (integer? source-id)))
-      {:status 400 :body {:success false :error "source-id must be an integer"}}
-
-      (or (nil? target-id) (not (integer? target-id)))
-      {:status 400 :body {:success false :error "target-id must be an integer"}}
-
-      :else
-      (if-let [result (db/delete-relation (ensure-ds) user-id source-type source-id target-type target-id)]
-        {:status 200 :body result}
-        {:status 404 :body {:success false :error "Item not found"}}))))
-
-(defn get-relations-handler [req]
-  (let [user-id (get-user-id req)
-        item-type (get-in req [:params :type])
-        item-id (Integer/parseInt (get-in req [:params :id]))]
-    (if (contains? valid-relation-types item-type)
-      {:status 200 :body (or (db/get-relations-with-titles (ensure-ds) user-id item-type item-id) [])}
-      {:status 400 :body {:error "Invalid item type"}})))
-
-(defn delete-task-handler [req]
-  (let [user-id (get-user-id req)
-        task-id (Integer/parseInt (get-in req [:params :id]))
-        result (db/delete-task (ensure-ds) user-id task-id)]
-    (if (:success result)
-      {:status 200 :body {:success true}}
-      {:status 404 :body {:success false :error "Task not found"}})))
-
-(defn- is-admin? [req]
-  (:is-admin (get-user-from-request req)))
-
-(defmacro with-admin-message-context
-  [req user-id-sym message-id-sym & body]
-  `(if (is-admin? ~req)
-     (let [~user-id-sym (get-user-id ~req)
-           ~message-id-sym (Integer/parseInt (get-in ~req [:params :id]))]
-       ~@body)
-     {:status 403 :body {:error "Admin access required"}}))
-
-(defn list-users-handler [req]
-  (if (is-admin? req)
-    {:status 200 :body (db/list-users (ensure-ds))}
-    {:status 403 :body {:error "Admin access required"}}))
-
-(defn add-user-handler [req]
-  (if (is-admin? req)
-    (let [{:keys [username password]} (:body req)]
-      (if (or (str/blank? username) (str/blank? password))
-        {:status 400 :body {:error "Username and password are required"}}
-        (if (= username "admin")
-          {:status 400 :body {:error "Cannot create user named 'admin'"}}
-          (try
-            (let [user (db/create-user (ensure-ds) username password)]
-              {:status 201 :body (dissoc user :password_hash)})
-            (catch Exception _
-              {:status 409 :body {:error "Username already exists"}})))))
-    {:status 403 :body {:error "Admin access required"}}))
-
-(defn delete-user-handler [req]
-  (if (is-admin? req)
-    (let [user-id (Integer/parseInt (get-in req [:params :id]))
-          result (db/delete-user (ensure-ds) user-id)]
-      (if (:success result)
-        {:status 200 :body {:success true}}
-        {:status 404 :body {:error "User not found"}}))
-    {:status 403 :body {:error "Admin access required"}}))
-
-(def valid-languages #{"en" "de" "pt"})
-
-(defn update-language-handler [req]
-  (let [user-info (get-user-from-request req)
-        user-id (:user-id user-info)
-        {:keys [language]} (:body req)]
-    (cond
-      (:is-admin user-info)
-      {:status 400 :body {:error "Admin language cannot be changed"}}
-
-      (nil? user-id)
-      {:status 400 :body {:error "User not found"}}
-
-      (not (contains? valid-languages language))
-      {:status 400 :body {:error "Invalid language"}}
-
-      :else
-      (if-let [result (db/set-user-language (ensure-ds) user-id language)]
-        {:status 200 :body result}
-        {:status 404 :body {:error "User not found"}}))))
-
-(defn list-messages-handler [req]
-  (if (is-admin? req)
-    (let [user-id (get-user-id req)
-          sort-mode (keyword (get-in req [:params "sort"] "recent"))
-          sender (get-in req [:params "sender"])
-          excluded-senders-param (get-in req [:params "excludedSenders"])
-          excluded-senders (when (and excluded-senders-param (not (str/blank? excluded-senders-param)))
-                             (set (str/split excluded-senders-param #",")))]
-      {:status 200 :body (db/list-messages (ensure-ds) user-id {:sort-mode sort-mode
-                                                                 :sender-filter sender
-                                                                 :excluded-senders excluded-senders})})
-    {:status 403 :body {:error "Admin access required"}}))
-
-(defn add-message-handler [req]
-  (if (is-admin? req)
-    (let [user-id (get-user-id req)
-          {:keys [sender title description type]} (:body req)]
-      (cond
-        (str/blank? sender)
-        {:status 400 :body {:success false :error "Sender is required"}}
-
-        (str/blank? title)
-        {:status 400 :body {:success false :error "Title is required"}}
-
-        (and (not (str/blank? type))
-             (not (#{"text" "markdown" "html"} type)))
-        {:status 400 :body {:success false :error "Type must be one of: text, markdown, html"}}
-
-        :else
-        (let [message (db/add-message (ensure-ds) user-id sender title description type)]
-          {:status 201 :body message})))
-    {:status 403 :body {:error "Admin access required"}}))
-
-(defn set-message-done-handler [req]
-  (if-not (contains? (:body req) :done)
-    {:status 400 :body {:error "Missing required field: done"}}
-    (with-admin-message-context req user-id message-id
-      (let [done? (boolean (get-in req [:body :done]))
-            result (db/set-message-done (ensure-ds) user-id message-id done?)]
-        (if result
-          {:status 200 :body result}
-          {:status 404 :body {:error "Message not found"}})))))
-
-(defn delete-message-handler [req]
-  (with-admin-message-context req user-id message-id
-    (let [result (db/delete-message (ensure-ds) user-id message-id)]
-      (if (:success result)
-        {:status 200 :body {:success true}}
-        {:status 404 :body {:success false :error "Message not found"}}))))
-
-(defn update-message-annotation-handler [req]
-  (with-admin-message-context req user-id message-id
-    (let [annotation (get-in req [:body :annotation])
-          result (db/update-message-annotation (ensure-ds) user-id message-id annotation)]
-      (if result
-        {:status 200 :body result}
-        {:status 404 :body {:error "Message not found"}}))))
-
-(defn convert-message-to-resource-handler [req]
-  (with-admin-message-context req user-id message-id
-    (let [link (get-in req [:body :link])]
-      (if (or (str/blank? link) (not (re-matches #"https?://.*" link)))
-        {:status 400 :body {:error "Invalid or missing link URL"}}
-        (if-let [result (db/convert-message-to-resource (ensure-ds) user-id message-id link)]
-          {:status 200 :body result}
-          {:status 404 :body {:error "Message not found"}})))))
-
-(defn merge-messages-handler [req]
-  (with-admin-message-context req user-id message-id
-    (let [target-id (get-in req [:body :target-id])]
-      (if (nil? target-id)
-        {:status 400 :body {:error "Missing required field: target-id"}}
-        (if-let [result (db/merge-messages (ensure-ds) user-id message-id target-id)]
-          {:status 200 :body result}
-          {:status 404 :body {:error "Message not found"}})))))
 
 (defonce translations-cache (atom nil))
 
@@ -802,10 +43,10 @@
   {:status 200 :body (load-translations)})
 
 (defn- require-auth [req]
-  (if (prod-mode?)
+  (if (common/prod-mode?)
     (when-let [token (auth/extract-token req)]
       (auth/verify-token token))
-    (get-user-from-request req)))
+    (common/get-user-from-request req)))
 
 (defn export-data-handler [req]
   (let [user-info (require-auth req)]
@@ -814,7 +55,7 @@
       (try
         (let [user-id (:user-id user-info)
               username (or (:username user-info) "admin")
-              data (db/export-all-data (ensure-ds) user-id)
+              data (db/export-all-data (common/ensure-ds) user-id)
               zip-bytes (export/create-export-zip username data)
               timestamp (.format (java.time.LocalDateTime/now) (java.time.format.DateTimeFormatter/ofPattern "yyyy-MM-dd-HHmmss"))
               filename (str "export-" (export/sanitize-filename username) "-" timestamp ".zip")]
@@ -826,9 +67,9 @@
           {:status 500 :body {:error "Export failed" :message (.getMessage e)}})))))
 
 (defn- reset-test-db-handler [_]
-  (if (prod-mode?)
+  (if (common/prod-mode?)
     {:status 403 :body {:error "Not available in production"}}
-    (do (db/reset-all-data! (ensure-ds))
+    (do (db/reset-all-data! (common/ensure-ds))
         {:status 200 :body {:success true}})))
 
 (defn- serve-index [_]
@@ -842,105 +83,105 @@
     (GET "/export" [] export-data-handler)
 
     (context "/auth" []
-      (GET "/required" [] password-required-handler)
-      (GET "/available-users" [] available-users-handler)
-      (POST "/login" [] login-handler))
+      (GET "/required" [] user-handler/password-required-handler)
+      (GET "/available-users" [] user-handler/available-users-handler)
+      (POST "/login" [] user-handler/login-handler))
 
     (context "/user" []
-      (PUT "/language" [] update-language-handler))
+      (PUT "/language" [] user-handler/update-language-handler))
 
     (context "/users" []
-      (GET "/" [] list-users-handler)
-      (POST "/" [] add-user-handler)
-      (DELETE "/:id" [] delete-user-handler))
+      (GET "/" [] user-handler/list-users-handler)
+      (POST "/" [] user-handler/add-user-handler)
+      (DELETE "/:id" [] user-handler/delete-user-handler))
 
     (context "/tasks" []
-      (GET "/" [] list-tasks-handler)
-      (GET "/:id" [] get-task-handler)
-      (POST "/" [] add-task-handler)
-      (PUT "/:id" [] update-task-handler)
-      (DELETE "/:id" [] delete-task-handler)
-      (POST "/:id/categorize" [] categorize-task-handler)
-      (DELETE "/:id/categorize" [] uncategorize-task-handler)
-      (POST "/:id/reorder" [] reorder-task-handler)
-      (PUT "/:id/due-date" [] set-due-date-handler)
-      (PUT "/:id/due-time" [] set-due-time-handler)
-      (PUT "/:id/done" [] set-task-done-handler)
-      (PUT "/:id/scope" [] set-task-scope-handler)
-      (PUT "/:id/importance" [] set-task-importance-handler)
-      (PUT "/:id/urgency" [] set-task-urgency-handler)
-      (PUT "/:id/today" [] set-task-today-handler))
+      (GET "/" [] task-handler/list-tasks-handler)
+      (GET "/:id" [] task-handler/get-task-handler)
+      (POST "/" [] task-handler/add-task-handler)
+      (PUT "/:id" [] task-handler/update-task-handler)
+      (DELETE "/:id" [] task-handler/delete-task-handler)
+      (POST "/:id/categorize" [] task-handler/categorize-task-handler)
+      (DELETE "/:id/categorize" [] task-handler/uncategorize-task-handler)
+      (POST "/:id/reorder" [] task-handler/reorder-task-handler)
+      (PUT "/:id/due-date" [] task-handler/set-due-date-handler)
+      (PUT "/:id/due-time" [] task-handler/set-due-time-handler)
+      (PUT "/:id/done" [] task-handler/set-task-done-handler)
+      (PUT "/:id/scope" [] task-handler/set-task-scope-handler)
+      (PUT "/:id/importance" [] task-handler/set-task-importance-handler)
+      (PUT "/:id/urgency" [] task-handler/set-task-urgency-handler)
+      (PUT "/:id/today" [] task-handler/set-task-today-handler))
 
     (context "/people" []
-      (GET "/" [] list-people-handler)
-      (POST "/" [] add-person-handler)
-      (PUT "/:id" [] update-person-handler)
-      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-people "people"))))
+      (GET "/" [] category-handler/list-people-handler)
+      (POST "/" [] category-handler/add-person-handler)
+      (PUT "/:id" [] category-handler/update-person-handler)
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-people "people"))))
 
     (context "/places" []
-      (GET "/" [] list-places-handler)
-      (POST "/" [] add-place-handler)
-      (PUT "/:id" [] update-place-handler)
-      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-places "places"))))
+      (GET "/" [] category-handler/list-places-handler)
+      (POST "/" [] category-handler/add-place-handler)
+      (PUT "/:id" [] category-handler/update-place-handler)
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-places "places"))))
 
     (context "/projects" []
-      (GET "/" [] list-projects-handler)
-      (POST "/" [] add-project-handler)
-      (PUT "/:id" [] update-project-handler)
-      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-projects "projects"))))
+      (GET "/" [] category-handler/list-projects-handler)
+      (POST "/" [] category-handler/add-project-handler)
+      (PUT "/:id" [] category-handler/update-project-handler)
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-projects "projects"))))
 
     (context "/goals" []
-      (GET "/" [] list-goals-handler)
-      (POST "/" [] add-goal-handler)
-      (PUT "/:id" [] update-goal-handler)
-      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-goals "goals"))))
+      (GET "/" [] category-handler/list-goals-handler)
+      (POST "/" [] category-handler/add-goal-handler)
+      (PUT "/:id" [] category-handler/update-goal-handler)
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-goals "goals"))))
 
     (context "/messages" []
-      (GET "/" [] list-messages-handler)
-      (POST "/" [] add-message-handler)
-      (PUT "/:id/done" [] set-message-done-handler)
-      (PUT "/:id/annotation" [] update-message-annotation-handler)
-      (POST "/:id/convert-to-resource" [] convert-message-to-resource-handler)
-      (POST "/:id/merge" [] merge-messages-handler)
-      (DELETE "/:id" [] delete-message-handler))
+      (GET "/" [] message-handler/list-messages-handler)
+      (POST "/" [] message-handler/add-message-handler)
+      (PUT "/:id/done" [] message-handler/set-message-done-handler)
+      (PUT "/:id/annotation" [] message-handler/update-message-annotation-handler)
+      (POST "/:id/convert-to-resource" [] message-handler/convert-message-to-resource-handler)
+      (POST "/:id/merge" [] message-handler/merge-messages-handler)
+      (DELETE "/:id" [] message-handler/delete-message-handler))
 
     (context "/resources" []
-      (GET "/" [] list-resources-handler)
-      (GET "/:id" [] get-resource-handler)
-      (POST "/" [] add-resource-handler)
-      (PUT "/:id" [] update-resource-handler)
-      (DELETE "/:id" [] delete-resource-handler)
-      (POST "/:id/categorize" [] categorize-resource-handler)
-      (DELETE "/:id/categorize" [] uncategorize-resource-handler)
-      (PUT "/:id/scope" [] set-resource-scope-handler)
-      (PUT "/:id/importance" [] set-resource-importance-handler))
+      (GET "/" [] resource-handler/list-resources-handler)
+      (GET "/:id" [] resource-handler/get-resource-handler)
+      (POST "/" [] resource-handler/add-resource-handler)
+      (PUT "/:id" [] resource-handler/update-resource-handler)
+      (DELETE "/:id" [] resource-handler/delete-resource-handler)
+      (POST "/:id/categorize" [] resource-handler/categorize-resource-handler)
+      (DELETE "/:id/categorize" [] resource-handler/uncategorize-resource-handler)
+      (PUT "/:id/scope" [] resource-handler/set-resource-scope-handler)
+      (PUT "/:id/importance" [] resource-handler/set-resource-importance-handler))
 
     (context "/meets" []
-      (GET "/" [] list-meets-handler)
-      (GET "/:id" [] get-meet-handler)
-      (POST "/" [] add-meet-handler)
-      (PUT "/:id" [] update-meet-handler)
-      (DELETE "/:id" [] delete-meet-handler)
-      (POST "/:id/categorize" [] categorize-meet-handler)
-      (DELETE "/:id/categorize" [] uncategorize-meet-handler)
-      (PUT "/:id/start-date" [] set-meet-start-date-handler)
-      (PUT "/:id/start-time" [] set-meet-start-time-handler)
-      (PUT "/:id/scope" [] set-meet-scope-handler)
-      (PUT "/:id/importance" [] set-meet-importance-handler))
+      (GET "/" [] meet-handler/list-meets-handler)
+      (GET "/:id" [] meet-handler/get-meet-handler)
+      (POST "/" [] meet-handler/add-meet-handler)
+      (PUT "/:id" [] meet-handler/update-meet-handler)
+      (DELETE "/:id" [] meet-handler/delete-meet-handler)
+      (POST "/:id/categorize" [] meet-handler/categorize-meet-handler)
+      (DELETE "/:id/categorize" [] meet-handler/uncategorize-meet-handler)
+      (PUT "/:id/start-date" [] meet-handler/set-meet-start-date-handler)
+      (PUT "/:id/start-time" [] meet-handler/set-meet-start-time-handler)
+      (PUT "/:id/scope" [] meet-handler/set-meet-scope-handler)
+      (PUT "/:id/importance" [] meet-handler/set-meet-importance-handler))
 
     (context "/relations" []
-      (POST "/" [] add-relation-handler)
-      (DELETE "/" [] delete-relation-handler)
-      (GET "/:type/:id" [] get-relations-handler))
+      (POST "/" [] relation-handler/add-relation-handler)
+      (DELETE "/" [] relation-handler/delete-relation-handler)
+      (GET "/:type/:id" [] relation-handler/get-relations-handler))
 
-    (DELETE "/:category/:id" [] delete-category-handler)
+    (DELETE "/:category/:id" [] category-handler/delete-category-handler)
 
     (context "/test" []
       (POST "/reset" [] reset-test-db-handler))))
 
 (defroutes app-routes
   api-routes
-  (POST "/webhook/telegram" [] (telegram/webhook-handler (ensure-ds)))
+  (POST "/webhook/telegram" [] (telegram/webhook-handler (common/ensure-ds)))
   (GET "/" [] serve-index)
   (GET "/item/*" [] serve-index)
   (route/resources "/")
@@ -992,26 +233,26 @@
     (tel/add-handler! :file (tel/handler:file {:path path}))))
 
 (defn -main [& args]
-  (reset! *config (load-config))
-  (let [prod? (prod-mode?)
+  (reset! common/*config (common/load-config))
+  (let [prod? (common/prod-mode?)
         cli-opts (if (map? (first args)) (first args) {})
         e2e? (:e2e cli-opts)]
     (when e2e?
       (if prod?
         (throw (ex-info "Cannot use --e2e in production mode" {}))
-        (swap! *config merge {:db {:type :sqlite-memory} :dangerously-skip-logins? true})))
-    (when-let [logfile (and (not prod?) (:logfile @*config))]
+        (swap! common/*config merge {:db {:type :sqlite-memory} :dangerously-skip-logins? true})))
+    (when-let [logfile (and (not prod?) (:logfile @common/*config))]
       (setup-file-logging logfile))
-    (when (and (true? (:dangerously-skip-logins? @*config)) prod?)
+    (when (and (true? (:dangerously-skip-logins? @common/*config)) prod?)
       (throw (ex-info "Cannot use :dangerously-skip-logins? in production mode" {})))
     (tel/log! :info (str "Starting system in " (if prod? "production" "development") " mode"))
-    (ensure-ds)
+    (common/ensure-ds)
     (when (and (not prod?) (not e2e?))
-      (when-let [nrepl-port (:nrepl-port @*config)] 
+      (when-let [nrepl-port (:nrepl-port @common/*config)]
         (nrepl/start-server :port nrepl-port)
         (spit ".nrepl-port" nrepl-port)
         (tel/log! :info (str "nREPL server started on port " nrepl-port))))
-    (if-let [port (env-int "PORT" (:port @*config))]
+    (if-let [port (env-int "PORT" (:port @common/*config))]
       (do
         (tel/log! :info (str "Starting server on port " port))
         (run-server port prod?)
