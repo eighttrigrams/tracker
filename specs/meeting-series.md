@@ -44,6 +44,8 @@ When no Meeting for that series exists for today, and no other future Meeting ex
 - and the schedule happens to say that on the day of the week that is today a meeting should happen, then the button is visible and lets us create Today's meeting.
 - and today is not a scheduled day, then the button lets us create the next upcoming scheduled meeting.
 
+When the button is grayed out, on hoover it should give an explanation as to why it is grayed out.
+
 ## Today page behaviour
 
 When a Meeting of a Meeting Series appears in the Today section of that page (we ignore the Upcoming section from what we say), and the Meeting Series has no other Meeting
