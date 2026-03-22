@@ -1,0 +1,128 @@
+(ns et.tr.server.common
+  (:require [et.tr.db :as db]
+            [et.tr.auth :as auth]
+            [clojure.java.io :as io]
+            [clojure.edn :as edn]
+            [clojure.string :as str]
+            [taoensso.telemere :as tel]))
+
+(defonce ds (atom nil))
+(defonce *config (atom nil))
+
+(defn load-config []
+  (let [config-file (io/file "config.edn")]
+    (if (.exists config-file)
+      (do
+        (tel/log! :info "Loading configuration from config.edn")
+        (edn/read-string (slurp config-file)))
+      (do
+        (tel/log! :info "config.edn not found, using defaults")
+        {}))))
+
+(defn ensure-ds []
+  (when (nil? @ds)
+    (when (nil? @*config)
+      (reset! *config (load-config)))
+    (let [conn (db/init-conn (get @*config :db {:type :sqlite-memory}))]
+      (reset! ds conn)))
+  @ds)
+
+(defn prod-mode? []
+  (let [on-fly? (some? (System/getenv "FLY_APP_NAME"))
+        dev-mode? (= "true" (System/getenv "DEV"))
+        admin-pw (System/getenv "ADMIN_PASSWORD")]
+    (cond
+      (or on-fly? (not dev-mode?))
+      (do (when-not admin-pw
+            (throw (ex-info "ADMIN_PASSWORD required in production" {})))
+          true)
+      admin-pw
+      true
+      :else
+      false)))
+
+(defn allow-skip-logins? []
+  (and (true? (:dangerously-skip-logins? @*config))
+       (not (prod-mode?))))
+
+(defn get-user-from-request [req]
+  (if (allow-skip-logins?)
+    (let [user-id-str (get-in req [:headers "x-user-id"])]
+      (if (or (nil? user-id-str) (= user-id-str "null"))
+        {:user-id nil :is-admin true}
+        (let [user-id (Integer/parseInt user-id-str)]
+          {:user-id user-id :is-admin false})))
+    (when-let [token (auth/extract-token req)]
+      (auth/verify-token token))))
+
+(defn get-user-id [req]
+  (:user-id (get-user-from-request req)))
+
+(defn admin-password []
+  (or (System/getenv "ADMIN_PASSWORD") "admin"))
+
+(defn is-admin? [req]
+  (:is-admin (get-user-from-request req)))
+
+(defn parse-category-param [param]
+  (when (and param (not (str/blank? param)))
+    (vec (str/split param #","))))
+
+(defn valid-time-format? [time-str]
+  (or (nil? time-str)
+      (empty? time-str)
+      (re-matches #"^([01]\d|2[0-3]):([0-5]\d)$" time-str)))
+
+(defn valid-date-format? [date-str]
+  (or (nil? date-str)
+      (empty? date-str)
+      (re-matches #"^\d{4}-\d{2}-\d{2}$" date-str)))
+
+(defn valid-url? [link]
+  (some? (re-matches #"https?://\S+" link)))
+
+(defn make-categorize-handler [db-fn]
+  (fn [req]
+    (let [user-id (get-user-id req)
+          entity-id (Integer/parseInt (get-in req [:params :id]))
+          {:keys [category-type category-id]} (:body req)]
+      (cond
+        (or (nil? category-type) (str/blank? category-type))
+        {:status 400 :body {:success false :error "category-type is required"}}
+
+        (or (nil? category-id) (not (integer? category-id)) (< category-id 1))
+        {:status 400 :body {:success false :error "category-id must be a positive integer"}}
+
+        :else
+        (do
+          (db-fn (ensure-ds) user-id entity-id category-type category-id)
+          {:status 200 :body {:success true}})))))
+
+(defn make-uncategorize-handler [db-fn]
+  (fn [req]
+    (let [user-id (get-user-id req)
+          entity-id (Integer/parseInt (get-in req [:params :id]))
+          {:keys [category-type category-id]} (:body req)]
+      (cond
+        (or (nil? category-type) (str/blank? category-type))
+        {:status 400 :body {:success false :error "category-type is required"}}
+
+        (or (nil? category-id) (not (integer? category-id)) (< category-id 1))
+        {:status 400 :body {:success false :error "category-id must be a positive integer"}}
+
+        :else
+        (do
+          (db-fn (ensure-ds) user-id entity-id category-type category-id)
+          {:status 200 :body {:success true}})))))
+
+(defn make-entity-property-handler [field valid-values error-message {:keys [entity-type set-fn]}]
+  (fn [req]
+    (let [value (get-in req [:body field])]
+      (if-not (contains? valid-values value)
+        {:status 400 :body {:error error-message}}
+        (let [user-id (get-user-id req)
+              entity-id (Integer/parseInt (get-in req [:params :id]))
+              result (set-fn (ensure-ds) user-id entity-id field value)]
+          (if result
+            {:status 200 :body result}
+            {:status 404 :body {:error (str (name entity-type) " not found")}}))))))
