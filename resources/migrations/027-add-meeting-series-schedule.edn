@@ -1,0 +1,4 @@
+{:up ["ALTER TABLE meeting_series ADD COLUMN schedule_days TEXT NOT NULL DEFAULT ''"
+       "ALTER TABLE meeting_series ADD COLUMN schedule_time TEXT DEFAULT NULL"]
+ :down ["ALTER TABLE meeting_series DROP COLUMN schedule_time"
+        "ALTER TABLE meeting_series DROP COLUMN schedule_days"]}

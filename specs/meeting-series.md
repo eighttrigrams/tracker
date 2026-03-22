@@ -22,4 +22,20 @@ When the "Series" button is activated, the Sort Order group and Importance setti
 
 The edit modal for Meeting Series has an additional tab called "Scheduling". In it, we can set a schedule for meetings.
 We can check any of the seven days of a week, and select a time (remember a Meeting must always have both a date and a time).
+But we also can choose, based on a setting, different times for different days. 
 These settings will be used (will be explained later) when spawning off follow up Meetings.
+
+## Creating new Meetings for Meeting series
+
+In the card for the Meeting Series item, in the buttom left, always visible (not on hover like usually), there is a blue box
+button which reads "Create next Meeting". Pressing it creates another Meeting for the series, based on the schedule. The button
+is unavailable by default, visible but grayed out; we show the rules for when it is available below.
+
+There are rules for this. First of all we start with the assumption that there can only be at most one Meeting per day for any
+given Meeting Series.
+
+When another Meeting for that series exists for today, and no other future Meeting exists, then the button is shown, and when pressing
+that button will create the next meeting - based on our schedule.
+
+When no Meeting for that series exists for today, and no other future Meeting exists, and the schedule happens to say that on the day of the week
+that is today a meeting should happen, then the button is visible and lets us create Today's meeting.

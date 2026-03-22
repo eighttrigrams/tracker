@@ -137,6 +137,16 @@
                    :returning [:id field :modified_at]})
       db/jdbc-opts)))
 
+(defn set-meeting-series-schedule [ds user-id series-id schedule-days schedule-time]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :meeting_series
+                 :set {:schedule_days (or schedule-days "")
+                       :schedule_time schedule-time
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id series-id] (db/user-id-where-clause user-id)]
+                 :returning [:id :schedule_days :schedule_time :modified_at]})
+    db/jdbc-opts))
+
 (defn categorize-meeting-series [ds user-id series-id category-type category-id]
   (db/validate-category-type! category-type)
   (when (and (meeting-series-owned-by-user? ds series-id user-id)

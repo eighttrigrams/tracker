@@ -92,6 +92,21 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
+(defn set-meeting-series-schedule [app-state auth-headers series-id schedule-days schedule-time on-success]
+  (api/put-json (str "/api/meeting-series/" series-id "/schedule")
+    {:schedule-days schedule-days :schedule-time schedule-time}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :meeting-series
+             (fn [series]
+               (mapv #(if (= (:id %) series-id)
+                        (merge % result)
+                        %)
+                     series)))
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update schedule")))))
+
 (defn categorize-meeting-series [app-state auth-headers fetch-fn series-id category-type category-id]
   (api/post-json (str "/api/meeting-series/" series-id "/categorize")
     {:category-type category-type :category-id category-id}

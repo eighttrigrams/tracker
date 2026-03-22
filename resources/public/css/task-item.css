@@ -251,6 +251,15 @@
 .tasks-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .tasks-header h2 { margin: 0; }
 .series-mode-toggle { margin-left: 12px; }
+.scheduling-form { padding: 16px 0; }
+.schedule-days { display: flex; gap: 4px; margin-bottom: 16px; }
+.schedule-per-day-row { margin-bottom: 16px; }
+.schedule-per-day-row label { cursor: pointer; }
+.schedule-time-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.schedule-time-row label { white-space: nowrap; }
+.schedule-per-day-times { display: flex; flex-direction: column; gap: 8px; }
+.schedule-day-time-row { display: flex; align-items: center; gap: 8px; }
+.schedule-day-label { min-width: 32px; font-weight: 500; }
 .items > li[draggable="true"] { cursor: grab; }
 .items > li[draggable="true"]:active { cursor: grabbing; }
 .items > li.drag-disabled { cursor: default !important; }

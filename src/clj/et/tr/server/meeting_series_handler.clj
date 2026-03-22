@@ -50,6 +50,27 @@
 (def categorize-meeting-series-handler (common/make-categorize-handler db.meeting-series/categorize-meeting-series))
 (def uncategorize-meeting-series-handler (common/make-uncategorize-handler db.meeting-series/uncategorize-meeting-series))
 
+(defn- valid-schedule-time? [schedule-time]
+  (or (nil? schedule-time)
+      (str/blank? schedule-time)
+      (common/valid-time-format? schedule-time)
+      (every? (fn [pair]
+                (let [parts (str/split pair #"=" 2)]
+                  (and (= 2 (count parts))
+                       (re-matches #"[1-7]" (first parts))
+                       (common/valid-time-format? (second parts)))))
+              (str/split schedule-time #","))))
+
+(defn set-meeting-series-schedule-handler [req]
+  (let [user-id (common/get-user-id req)
+        series-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [schedule-days schedule-time]} (:body req)]
+    (if (not (valid-schedule-time? schedule-time))
+      {:status 400 :body {:error "Invalid time format"}}
+      (if-let [result (db.meeting-series/set-meeting-series-schedule (common/ensure-ds) user-id series-id schedule-days schedule-time)]
+        {:status 200 :body result}
+        {:status 404 :body {:error "Meeting series not found"}}))))
+
 (def set-meeting-series-scope-handler
   (common/make-entity-property-handler :scope db/valid-scopes
                                        "Invalid scope. Must be 'private', 'both', or 'work'"

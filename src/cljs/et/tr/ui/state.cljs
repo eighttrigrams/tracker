@@ -425,6 +425,9 @@
 (defn clear-confirm-delete-series []
   (meeting-series-state/clear-confirm-delete-series))
 
+(defn set-meeting-series-schedule [series-id schedule-days schedule-time on-success]
+  (meeting-series-state/set-meeting-series-schedule *app-state auth-headers series-id schedule-days schedule-time on-success))
+
 (defn set-meeting-series-filter-search [search-term]
   (meeting-series-state/set-filter-search fetch-meeting-series search-term))
 

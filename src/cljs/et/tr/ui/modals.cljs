@@ -1,5 +1,6 @@
 (ns et.tr.ui.modals
   (:require [reagent.core :as r]
+            [clojure.string]
             [et.tr.ui.state :as state]
             [et.tr.ui.url :as url]
             [et.tr.ui.state.mail :as mail-state]
@@ -179,9 +180,14 @@
 
 (defn- edit-modal-fields [{:keys [type entity]}]
   (let [field-atoms (case type
-                      (:task :meet :meeting-series) {:title (r/atom (:title entity))
+                      (:task :meet) {:title (r/atom (:title entity))
                                      :description (r/atom (or (:description entity) ""))
                                      :tags (r/atom (or (:tags entity) ""))}
+                      :meeting-series {:title (r/atom (:title entity))
+                                       :description (r/atom (or (:description entity) ""))
+                                       :tags (r/atom (or (:tags entity) ""))
+                                       :schedule-days (r/atom (or (:schedule_days entity) ""))
+                                       :schedule-time (r/atom (or (:schedule_time entity) ""))}
                       :resource {:title (r/atom (:title entity))
                                  :link (r/atom (:link entity))
                                  :description (r/atom (or (:description entity) ""))
@@ -192,12 +198,13 @@
                        :badge-title (r/atom (or (:badge_title entity) ""))})]
     (assoc field-atoms :type type :entity entity)))
 
-(defn- edit-modal-save [{:keys [type entity title description tags link badge-title]}]
+(defn- edit-modal-save [{:keys [type entity title description tags link badge-title schedule-days schedule-time]}]
   (let [id (:id entity)]
     (case type
       :task (state/update-task id @title @description @tags state/clear-editing-modal)
       :meet (state/update-meet id @title @description @tags state/clear-editing-modal)
-      :meeting-series (state/update-meeting-series id @title @description @tags state/clear-editing-modal)
+      :meeting-series (do (state/update-meeting-series id @title @description @tags state/clear-editing-modal)
+                          (state/set-meeting-series-schedule id @schedule-days @schedule-time nil))
       :resource (state/update-resource id @title @link @description @tags state/clear-editing-modal)
       (let [category-type (subs (name type) 9)
             update-fn (case category-type
@@ -206,6 +213,161 @@
                         "project" state/update-project
                         "goal" state/update-goal)]
         (update-fn id @title @description @tags @badge-title state/clear-editing-modal)))))
+
+(def ^:private day-keys
+  [{:num "1" :label-key :date/mon}
+   {:num "2" :label-key :date/tue}
+   {:num "3" :label-key :date/wed}
+   {:num "4" :label-key :date/thu}
+   {:num "5" :label-key :date/fri}
+   {:num "6" :label-key :date/sat}
+   {:num "7" :label-key :date/sun}])
+
+(defn- parse-schedule-days [s]
+  (if (or (nil? s) (= s ""))
+    #{}
+    (set (clojure.string/split s #","))))
+
+(defn- serialize-schedule-days [day-set]
+  (clojure.string/join "," (sort day-set)))
+
+(defn- per-day-time? [s]
+  (and (some? s) (clojure.string/includes? s "=")))
+
+(defn- parse-per-day-times [s]
+  (if (or (nil? s) (= s "") (not (per-day-time? s)))
+    {}
+    (into {} (for [pair (clojure.string/split s #",")
+                   :let [[d t] (clojure.string/split pair #"=" 2)]
+                   :when (and d t)]
+               [d t]))))
+
+(defn- serialize-per-day-times [day-time-map]
+  (clojure.string/join "," (for [[d t] (sort-by key day-time-map)] (str d "=" t))))
+
+(defn- shared-time [s]
+  (if (or (nil? s) (per-day-time? s)) "" s))
+
+(defn- parse-time [time-str]
+  (when (seq time-str)
+    (let [[h m] (map js/parseInt (.split time-str ":"))]
+      {:hour h :minute m})))
+
+(defn- format-time [hour minute]
+  (str (.padStart (str hour) 2 "0") ":" (.padStart (str minute) 2 "0")))
+
+(defn- schedule-time-picker [_time-value _on-change]
+  (let [open? (r/atom false)]
+    (fn [time-value on-change]
+      (let [parsed (parse-time time-value)
+            current-hour (:hour parsed)
+            current-minute (:minute parsed)]
+        [:span.time-picker-wrapper
+         {:on-click #(.stopPropagation %)}
+         [:button.clock-icon
+          {:on-click (fn [e]
+                       (.stopPropagation e)
+                       (when (and (not @open?) (not (seq time-value)))
+                         (on-change "09:00"))
+                       (swap! open? not))}
+          (if (seq time-value) time-value "🕐")]
+         (when @open?
+           [:div.time-picker-dropdown
+            {:on-click #(.stopPropagation %)}
+            [:div.time-picker-columns
+             [:div.time-picker-column
+              [:div.time-picker-column-label "H"]
+              [:div.time-picker-values
+               (doall
+                (for [h (range 24)]
+                  ^{:key h}
+                  [:button.time-picker-value
+                   {:class (when (= h current-hour) "selected")
+                    :on-click (fn [e]
+                                (.stopPropagation e)
+                                (on-change (format-time h (or current-minute 0))))}
+                   (.padStart (str h) 2 "0")]))]]
+             [:div.time-picker-column
+              [:div.time-picker-column-label "M"]
+              [:div.time-picker-values
+               (doall
+                (for [m (range 0 60 5)]
+                  ^{:key m}
+                  [:button.time-picker-value
+                   {:class (when (= m current-minute) "selected")
+                    :on-click (fn [e]
+                                (.stopPropagation e)
+                                (on-change (format-time (or current-hour 0) m)))}
+                   (.padStart (str m) 2 "0")]))]]]
+            [:div.time-picker-actions
+             [:button.time-picker-close
+              {:on-click (fn [e]
+                           (.stopPropagation e)
+                           (reset! open? false))}
+              "Done"]]])]))))
+
+(defn- scheduling-tab-content []
+  (let [per-day? (r/atom false)
+        day-times (r/atom {})
+        shared-time-val (r/atom "")
+        initialized? (r/atom false)]
+    (fn [_entity schedule-days schedule-time]
+      (when-not @initialized?
+        (reset! initialized? true)
+        (let [st @schedule-time]
+          (if (per-day-time? st)
+            (do (reset! per-day? true)
+                (reset! day-times (parse-per-day-times st))
+                (reset! shared-time-val ""))
+            (do (reset! per-day? false)
+                (reset! day-times {})
+                (reset! shared-time-val (shared-time st))))))
+      (let [active-days (parse-schedule-days @schedule-days)
+            sync-schedule-time! (fn []
+                                  (if @per-day?
+                                    (reset! schedule-time (serialize-per-day-times @day-times))
+                                    (reset! schedule-time @shared-time-val)))]
+        [:div.scheduling-form
+         [:div.schedule-days.toggle-group
+          (doall
+           (for [{:keys [num label-key]} day-keys]
+             ^{:key num}
+             [:button.toggle-option
+              {:class (when (contains? active-days num) "active")
+               :on-click (fn [_]
+                           (let [new-days (if (contains? active-days num)
+                                            (disj active-days num)
+                                            (conj active-days num))]
+                             (reset! schedule-days (serialize-schedule-days new-days))))}
+              (t label-key)]))]
+         [:div.schedule-per-day-row
+          [:label
+           [:input {:type "checkbox"
+                    :checked @per-day?
+                    :on-change (fn [_]
+                                 (swap! per-day? not)
+                                 (sync-schedule-time!))}]
+           (str " " (t :scheduling/per-day))]]
+         (if @per-day?
+           [:div.schedule-per-day-times
+            (doall
+             (for [{:keys [num label-key]} day-keys
+                   :when (contains? active-days num)]
+               ^{:key num}
+               [:div.schedule-day-time-row
+                [:span.schedule-day-label (t label-key)]
+                [schedule-time-picker
+                 (get @day-times num "")
+                 (fn [v]
+                   (swap! day-times assoc num v)
+                   (sync-schedule-time!))]]))]
+           [:div.schedule-time-row
+            [:label (t :scheduling/time)]
+            [schedule-time-picker
+             @shared-time-val
+             (fn [v]
+               (reset! shared-time-val v)
+               (sync-schedule-time!))]])]))))
 
 (defn edit-item-modal []
   (let [fields-state (r/atom nil)
@@ -218,7 +380,7 @@
             (reset! prev-entity entity)
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
             (reset! active-tab (or tab :edit)))
-          (when-let [{:keys [title description tags link badge-title]} @fields-state]
+          (when-let [{:keys [title description tags link badge-title schedule-days schedule-time]} @fields-state]
             (let [is-category (not (#{:task :meet :meeting-series :resource} type))
                   preview-tab-key (case type
                                     :task :modal/tab-task
@@ -238,8 +400,16 @@
                             :on-click #(do (reset! active-tab :edit)
                                            (when-let [path (url/entity->path {:type type :entity entity})]
                                              (url/replace-state! (str path "?section=edit"))))}
-                   (t :modal/edit)]]
-                 (if (= @active-tab :preview)
+                   (t :modal/edit)]
+                  (when (= type :meeting-series)
+                    [:button {:class (when (= @active-tab :scheduling) "active")
+                              :on-click #(reset! active-tab :scheduling)}
+                     (t :modal/tab-scheduling)])]
+                 (case @active-tab
+                   :scheduling
+                   [scheduling-tab-content entity schedule-days schedule-time]
+
+                   :preview
                    [:div.edit-modal-preview
                     [:h2.preview-title @title]
                     (when (and link (seq @link))
