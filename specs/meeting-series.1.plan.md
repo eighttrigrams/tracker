@@ -1,13 +1,15 @@
 # Implementation Plan: Meeting Series
 
 Based on [specs/meeting-series.md](meeting-series.md).
-Branch: `meetin
+Branch: `add-meeting-series`.
 
-## Phase 1: Database Migrations
+## Phase 1: Database Migration
 
 ### 026-add-meeting-series
 
-New `meeting_series` table, same shape as `meets` but without `start_date`/`start_time`:
+Single migration with three statements:
+
+1. New `meeting_series` table (same shape as `meets` minus `start_date`/`start_time`):
 
 | Column | Type | Notes |
 |---|---|---|
@@ -24,9 +26,7 @@ New `meeting_series` table, same shape as `meets` but without `start_date`/`star
 
 Index: `idx_meeting_series_user_scope (user_id, scope)`.
 
-### 027-add-meeting-series-categories
-
-New `meeting_series_categories` table (same pattern as `meet_categories`):
+2. New `meeting_series_categories` table (same pattern as `meet_categories`):
 
 | Column | Type |
 |---|---|
@@ -36,9 +36,7 @@ New `meeting_series_categories` table (same pattern as `meet_categories`):
 
 PK: `(meeting_series_id, category_type, category_id)`.
 
-### 028-add-meets-meeting-series-id
-
-Add nullable column to `meets`:
+3. Add nullable column to `meets`:
 
 ```sql
 ALTER TABLE meets ADD COLUMN meeting_series_id INTEGER REFERENCES meeting_series(id) ON DELETE SET NULL;
@@ -144,9 +142,7 @@ Category filters work the same way for both modes — same sidebar, same shared 
 
 | File | Change |
 |---|---|
-| `resources/migrations/026-add-meeting-series.edn` | New |
-| `resources/migrations/027-add-meeting-series-categories.edn` | New |
-| `resources/migrations/028-add-meets-meeting-series-id.edn` | New |
+| `resources/migrations/026-add-meeting-series.edn` | New (table + categories table + FK on meets) |
 | `src/clj/et/tr/db.clj` | Add ~80 lines of meeting series DB functions |
 | `src/clj/et/tr/server.clj` | Add ~60 lines of handlers + routes |
 | `src/cljs/et/tr/ui/state/meeting-series.cljs` | New, ~120 lines |
@@ -155,7 +151,7 @@ Category filters work the same way for both modes — same sidebar, same shared 
 
 ## Implementation Order
 
-1. Migrations (026, 027, 028)
+1. Migration (026)
 2. DB functions in `db.clj`
 3. API routes in `server.clj`
 4. Frontend state (`meeting-series.cljs` + `state.cljs`)
