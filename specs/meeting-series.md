@@ -48,3 +48,6 @@ When no Meeting for that series exists for today, and no other future Meeting ex
 
 When a Meeting of a Meeting Series appears in the Today section of that page (we ignore the Upcoming section from what we say), and the Meeting Series has no other Meeting
 in that series for a **future** day, then in the uncollapsed card for that Meeting item the same blue button appears which let's us create the next Meeting in that Series, according to schedule.
+When we click the button and the new Meeting creation went successfully, then we should see a brief notice in a green alert on the top right of the screen (with a fixed positioning, not re-using 
+existing widgets) and should disapear after 2 seconds automatically, saying that a Meeting got created. Also, the button should disappear from the original Meeting item immediately after success
+has been confirmed (by the backend).

@@ -85,8 +85,35 @@
                              db/jdbc-opts))
          {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
          categories-by-meet (group-by :meet_id categories-data)
-         meets-with-categories (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id goals-by-id)]
-     (relation/associate-relations-with-items meets-with-categories "met" conn))))
+         meets-with-categories (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id goals-by-id)
+         series-ids (->> meets (keep :meeting_series_id) distinct vec)
+         series-info (when (seq series-ids)
+                       (let [today-expr [:raw "date('now','localtime')"]
+                             rows (jdbc/execute! conn
+                                    (sql/format {:select [:meeting_series.id
+                                                          :meeting_series.schedule_days
+                                                          :meeting_series.schedule_time
+                                                          [[:exists {:select [1]
+                                                                     :from [:meets]
+                                                                     :where [:and
+                                                                             [:= :meets.meeting_series_id :meeting_series.id]
+                                                                             [:> :meets.start_date today-expr]]
+                                                                     :limit 1}]
+                                                           :has_future_meet]]
+                                                  :from [:meeting_series]
+                                                  :where [:in :meeting_series.id series-ids]})
+                                    db/jdbc-opts)]
+                         (into {} (map (fn [r] [(:id r) {:schedule_days (:schedule_days r)
+                                                          :schedule_time (:schedule_time r)
+                                                          :series_has_future_meet (= 1 (:has_future_meet r))}]) rows))))
+         meets-enriched (if series-info
+                          (mapv (fn [m]
+                                  (if-let [si (get series-info (:meeting_series_id m))]
+                                    (merge m si)
+                                    m))
+                                meets-with-categories)
+                          meets-with-categories)]
+     (relation/associate-relations-with-items meets-enriched "met" conn))))
 
 (defn meet-owned-by-user? [ds meet-id user-id]
   (some? (jdbc/execute-one! (db/get-conn ds)

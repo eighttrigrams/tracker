@@ -1,5 +1,6 @@
 (ns et.tr.ui.views.today
-  (:require [reagent.core :as r]
+  (:require [clojure.string]
+            [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
@@ -66,6 +67,31 @@
      (when is-expanded
        [today-task-expanded-details task :show-unlink? show-unlink?])]))
 
+(defn- show-success-notification! [message]
+  (let [el (.createElement js/document "div")]
+    (set! (.-className el) "success-notification")
+    (set! (.-textContent el) message)
+    (.appendChild (.-body js/document) el)
+    (js/setTimeout #(.remove el) 2000)))
+
+(defn- today-meet-create-next-button [meet]
+  (when (and (:meeting_series_id meet) (not (:series_has_future_meet meet)))
+    (let [{:keys [schedule_days schedule_time]} meet
+          schedule-days-set (when (and schedule_days (not= schedule_days ""))
+                              (set (clojure.string/split schedule_days #",")))
+          next-info (when (seq schedule-days-set)
+                      (state/next-scheduled-date-from schedule-days-set (state/tomorrow-str)))
+          time-val (when next-info
+                     (state/get-schedule-time-for-day schedule_time (:day-num next-info)))]
+      (when next-info
+        [:button.create-next-meeting-btn
+         {:on-click (fn [e]
+                      (.stopPropagation e)
+                      (state/create-meeting-for-series-with-notification
+                        (:meeting_series_id meet) (:date next-info) time-val
+                        (fn [] (show-success-notification! (t :meets/meeting-created)))))}
+         (t :meets/create-next-meeting)]))))
+
 (defn- today-meet-expanded-details [meet]
   [:div.today-task-details
    (when (seq (:description meet))
@@ -80,7 +106,8 @@
         [:span.tag.place (filters/badge-label place)])
       (for [project (:projects meet)]
         ^{:key (str "project-" (:id project))}
-        [:span.tag.project (filters/badge-label project)])])])
+        [:span.tag.project (filters/badge-label project)])])
+   [today-meet-create-next-button meet]])
 
 (defn- today-meet-item [meet & {:keys [show-day-prefix hide-date] :or {show-day-prefix false hide-date false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:start_date meet) 6))

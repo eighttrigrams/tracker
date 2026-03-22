@@ -432,13 +432,20 @@
 (defn create-meeting-for-series [series-id date time]
   (meeting-series-state/create-meeting-for-series *app-state auth-headers fetch-meeting-series series-id date time))
 
+(defn create-meeting-for-series-with-notification [series-id date time on-success]
+  (meeting-series-state/create-meeting-for-series *app-state auth-headers
+    (fn []
+      (fetch-meeting-series)
+      (fetch-today-meets))
+    series-id date time on-success))
+
 (defn- js-day-to-iso-day [js-day]
   (if (= js-day 0) 7 js-day))
 
 (defn- per-day-time? [s]
   (and (some? s) (clojure.string/includes? s "=")))
 
-(defn- get-schedule-time-for-day [schedule-time day-num]
+(defn get-schedule-time-for-day [schedule-time day-num]
   (if (per-day-time? schedule-time)
     (let [pairs (clojure.string/split schedule-time #",")]
       (some (fn [pair]
@@ -447,7 +454,7 @@
             pairs))
     schedule-time))
 
-(defn- next-scheduled-date-from [schedule-days-set start-date]
+(defn next-scheduled-date-from [schedule-days-set start-date]
   (loop [d start-date i 0]
     (when (< i 8)
       (let [js-d (js/Date. (str d "T00:00:00"))
@@ -468,7 +475,7 @@
         d (.padStart (str (.getDate now)) 2 "0")]
     (str y "-" m "-" d)))
 
-(defn- tomorrow-str []
+(defn tomorrow-str []
   (let [now (js/Date.)
         tomorrow (js/Date. (.getTime now))]
     (.setDate tomorrow (+ (.getDate tomorrow) 1))
