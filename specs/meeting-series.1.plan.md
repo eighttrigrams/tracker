@@ -9,7 +9,7 @@ Branch: `add-meeting-series`.
 
 Single migration with three statements:
 
-1. New `meeting_series` table (same shape as `meets` minus `start_date`/`start_time`):
+1. New `meeting_series` table (same shape as `meets` minus `start_date`/`start_time`/`importance`):
 
 | Column | Type | Notes |
 |---|---|---|
@@ -21,7 +21,6 @@ Single migration with three statements:
 | modified_at | DATETIME | DEFAULT datetime('now') |
 | sort_order | REAL NOT NULL DEFAULT 0 | |
 | scope | TEXT NOT NULL DEFAULT 'both' | CHECK private/both/work |
-| importance | TEXT NOT NULL DEFAULT 'normal' | CHECK normal/important/critical |
 | user_id | INTEGER | FK to users |
 
 Index: `idx_meeting_series_user_scope (user_id, scope)`.
@@ -46,16 +45,16 @@ This establishes the 1:n relationship. Regular one-off meetings have `meeting_se
 
 ## Phase 2: Backend DB Functions — new `src/clj/et/tr/db/meeting_series.clj`
 
-New per-entity namespace `et.tr.db.meeting-series`, following the pattern of `db/meet.clj`. Uses shared helpers from `db.clj` (`build-search-clause`, `build-importance-clause`, `build-scope-clause`, `build-category-subquery`).
+New per-entity namespace `et.tr.db.meeting-series`, following the pattern of `db/meet.clj`. Uses shared helpers from `db.clj` (`build-search-clause`, `build-scope-clause`, `build-category-subquery`). No importance support.
 
 Functions:
 
 - `add-meeting-series [ds title scope user-id]` — insert with max sort_order + 1
-- `list-meeting-series [ds opts]` — query with search, importance, scope, category filters (no date/sort-mode filtering since series have no dates)
+- `list-meeting-series [ds opts]` — query with search, scope, category filters (no date/sort-mode/importance filtering since series have no dates and no importance)
 - `get-meeting-series [ds id]` — fetch single with categories
 - `update-meeting-series [ds id title description tags]` — update title/description/tags + modified_at
 - `delete-meeting-series [ds id]` — cascade delete categories, then series (in transaction). Also set `meeting_series_id = NULL` on related meets.
-- `set-meeting-series-field [ds id field value]` — for scope and importance
+- `set-meeting-series-field [ds id field value]` — for scope
 - `categorize-meeting-series [ds id category-type category-id]`
 - `uncategorize-meeting-series [ds id category-type category-id]`
 
@@ -72,11 +71,11 @@ New per-entity namespace `et.tr.server.meeting-series-handler`, following the pa
 | GET | /api/meeting-series/:id | get-meeting-series-handler |
 | PUT | /api/meeting-series/:id | update-meeting-series-handler |
 | DELETE | /api/meeting-series/:id | delete-meeting-series-handler |
-| PUT | /api/meeting-series/:id/:field | set-meeting-series-field-handler |
+| PUT | /api/meeting-series/:id/scope | set-meeting-series-scope-handler |
 | POST | /api/meeting-series/:id/categorize | categorize-meeting-series-handler |
 | DELETE | /api/meeting-series/:id/uncategorize | uncategorize-meeting-series-handler |
 
-Query params for GET list: `q`, `importance`, `context`, `strict`, `people`, `places`, `projects`, `goals` (same as meets, minus `sort`).
+Query params for GET list: `q`, `context`, `strict`, `people`, `places`, `projects`, `goals` (same as meets, minus `sort` and `importance`).
 
 Also add the `/api/meeting-series` route context to `server.clj` (which composes all per-entity routes).
 
@@ -91,11 +90,10 @@ New page state atom `*meeting-series-page-state`:
  :editing-series nil
  :confirm-delete-series nil
  :filter-search ""
- :importance-filter nil
  :fetch-request-id 0}
 ```
 
-Functions: `fetch-meeting-series`, `add-meeting-series`, `update-meeting-series`, `delete-meeting-series`, `set-meeting-series-scope`, `set-meeting-series-importance`, `categorize-meeting-series`, `uncategorize-meeting-series`, `set-expanded-series`, `set-series-filter-search`, `set-series-importance-filter`.
+Functions: `fetch-meeting-series`, `add-meeting-series`, `update-meeting-series`, `delete-meeting-series`, `set-meeting-series-scope`, `categorize-meeting-series`, `uncategorize-meeting-series`, `set-expanded-series`, `set-series-filter-search`.
 
 ### `state.cljs` additions
 
@@ -119,7 +117,7 @@ New layout: `[heading] [importance-filter] [sort-mode] [series-toggle]`
 
 The `series-toggle` is a single button labeled with `(t :meets/series)`. When active, it gets CSS class `"active"`. Clicking it calls `state/toggle-series-mode`.
 
-When series mode is **on**, `sort-mode-toggle` is not rendered.
+When series mode is **on**, `sort-mode-toggle` and `importance-filter` are not rendered.
 
 ### Meeting series list (`views/meets.cljs` or new `views/meeting-series.cljs`)
 
@@ -134,7 +132,8 @@ When series mode is on, the main content area renders meeting series items inste
 Like a meet item but:
 - **No date/time** in header or expanded view (no `meet-date-time-pickers`)
 - **No urgency** selector
-- **Has**: title, importance badge, description, category selectors (people, places, projects, goals), scope selector, importance selector, relation badges, edit button, delete button, tags
+- **No importance** badge or selector
+- **Has**: title, description, category selectors (people, places, projects, goals), scope selector, edit button, delete button, tags
 
 ### Search/Add form in series mode
 

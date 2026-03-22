@@ -5,6 +5,7 @@
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.meets :as meets-state]
+            [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.i18n :refer [t tf]]
             ["marked" :refer [marked]]))
 
@@ -118,6 +119,16 @@
     :clear-fn state/clear-confirm-delete-meet
     :delete-fn state/delete-meet}))
 
+(def confirm-delete-meeting-series-modal
+  (make-confirm-delete-modal
+   {:state-atom meeting-series-state/*meeting-series-page-state
+    :state-key :confirm-delete-series
+    :header-i18n :modal/delete-meeting-series
+    :confirm-i18n :modal/delete-meeting-series-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-series
+    :delete-fn state/delete-meeting-series}))
+
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable
    {:class (str category-type (when selected? " selected"))
@@ -145,8 +156,8 @@
           selected-places (or places #{})
           selected-projects (or projects #{})
           selected-goals (or goals #{})
-          header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories :meet :modal/add-meet-categories)
-          confirm-key (case type :task :modal/add-task :resource :modal/add-resource :meet :modal/add-meet)]
+          header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories (:meet :meeting-series) :modal/add-meet-categories)
+          confirm-key (case type :task :modal/add-task :resource :modal/add-resource (:meet :meeting-series) :modal/add-meet)]
       [:div.modal-overlay {:on-click #(state/clear-pending-new-item)}
        [:div.modal.pending-task-modal {:on-click #(.stopPropagation %)}
         [:div.modal-header (t header-key)]
@@ -168,7 +179,7 @@
 
 (defn- edit-modal-fields [{:keys [type entity]}]
   (let [field-atoms (case type
-                      (:task :meet) {:title (r/atom (:title entity))
+                      (:task :meet :meeting-series) {:title (r/atom (:title entity))
                                      :description (r/atom (or (:description entity) ""))
                                      :tags (r/atom (or (:tags entity) ""))}
                       :resource {:title (r/atom (:title entity))
@@ -186,6 +197,7 @@
     (case type
       :task (state/update-task id @title @description @tags state/clear-editing-modal)
       :meet (state/update-meet id @title @description @tags state/clear-editing-modal)
+      :meeting-series (state/update-meeting-series id @title @description @tags state/clear-editing-modal)
       :resource (state/update-resource id @title @link @description @tags state/clear-editing-modal)
       (let [category-type (subs (name type) 9)
             update-fn (case category-type
@@ -207,10 +219,10 @@
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
             (reset! active-tab (or tab :edit)))
           (when-let [{:keys [title description tags link badge-title]} @fields-state]
-            (let [is-category (not (#{:task :meet :resource} type))
+            (let [is-category (not (#{:task :meet :meeting-series :resource} type))
                   preview-tab-key (case type
                                     :task :modal/tab-task
-                                    :meet :modal/tab-meet
+                                    (:meet :meeting-series) :modal/tab-meet
                                     :resource :modal/tab-resource
                                     :modal/tab-category)]
               [:div.modal-overlay
@@ -255,7 +267,7 @@
                     [:textarea {:value @description
                                 :on-change #(reset! description (-> % .-target .-value))
                                 :placeholder (t :task/description-placeholder)
-                                :rows (if (= type :meet) 20 3)}]])]
+                                :rows (if (#{:meet :meeting-series} type) 20 3)}]])]
                 [:div.modal-footer
                  (when is-category
                    (let [category-type (subs (name type) 9)]

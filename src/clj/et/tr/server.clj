@@ -5,6 +5,7 @@
             [et.tr.server.task-handler :as task-handler]
             [et.tr.server.resource-handler :as resource-handler]
             [et.tr.server.meet-handler :as meet-handler]
+            [et.tr.server.meeting-series-handler :as meeting-series-handler]
             [et.tr.server.message-handler :as message-handler]
             [et.tr.server.relation-handler :as relation-handler]
             [et.tr.server.user-handler :as user-handler]
@@ -168,6 +169,16 @@
       (PUT "/:id/start-time" [] meet-handler/set-meet-start-time-handler)
       (PUT "/:id/scope" [] meet-handler/set-meet-scope-handler)
       (PUT "/:id/importance" [] meet-handler/set-meet-importance-handler))
+
+    (context "/meeting-series" []
+      (GET "/" [] meeting-series-handler/list-meeting-series-handler)
+      (GET "/:id" [] meeting-series-handler/get-meeting-series-handler)
+      (POST "/" [] meeting-series-handler/add-meeting-series-handler)
+      (PUT "/:id" [] meeting-series-handler/update-meeting-series-handler)
+      (DELETE "/:id" [] meeting-series-handler/delete-meeting-series-handler)
+      (POST "/:id/categorize" [] meeting-series-handler/categorize-meeting-series-handler)
+      (DELETE "/:id/categorize" [] meeting-series-handler/uncategorize-meeting-series-handler)
+      (PUT "/:id/scope" [] meeting-series-handler/set-meeting-series-scope-handler))
 
     (context "/relations" []
       (POST "/" [] relation-handler/add-relation-handler)

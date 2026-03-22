@@ -13,6 +13,7 @@
             [et.tr.ui.state.today-page :as today-page]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.meets :as meets-state]
+            [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.ui.state.relations :as relations-state]
             [et.tr.ui.state.ui :as ui]))
 
@@ -30,6 +31,7 @@
    :messages []
    :resources []
    :meets []
+   :meeting-series []
    :today-meets []
    :upcoming-horizon nil})
 
@@ -42,6 +44,7 @@
                             :messages []
                             :resources []
                             :meets []
+                            :meeting-series []
                             :users []
                             :available-users []
 
@@ -82,6 +85,7 @@
                             :resources-page/category-search {:people "" :places "" :projects "" :goals ""}
 
                             ;; Meets page state
+                            :meets-page/series-mode false
                             :meets-page/filter-goals #{}
                             :meets-page/collapsed-filters #{:people :places :projects :goals}
                             :meets-page/category-search {:people "" :places "" :projects "" :goals ""}
@@ -376,6 +380,75 @@
 (defn uncategorize-meet [meet-id category-type category-id]
   (meets-state/uncategorize-meet *app-state auth-headers fetch-meets meet-id category-type category-id))
 
+(declare fetch-meeting-series)
+
+(defn- meeting-series-fetch-opts []
+  {:search-term (:filter-search @meeting-series-state/*meeting-series-page-state)
+   :context (:work-private-mode @*app-state)
+   :strict (:strict-mode @*app-state)
+   :filter-people (:shared/filter-people @*app-state)
+   :filter-places (:shared/filter-places @*app-state)
+   :filter-projects (:shared/filter-projects @*app-state)
+   :filter-goals (:meets-page/filter-goals @*app-state)})
+
+(defn fetch-meeting-series
+  ([] (fetch-meeting-series (meeting-series-fetch-opts)))
+  ([opts]
+   (meeting-series-state/fetch-meeting-series *app-state auth-headers opts)))
+
+(defn add-meeting-series [title on-success]
+  (if (has-active-shared-filters?)
+    (set-pending-new-item :meeting-series title on-success)
+    (meeting-series-state/add-meeting-series *app-state auth-headers current-scope title on-success fetch-meeting-series)))
+
+(defn update-meeting-series [series-id title description tags on-success]
+  (meeting-series-state/update-meeting-series *app-state auth-headers series-id title description tags on-success))
+
+(defn delete-meeting-series [series-id]
+  (meeting-series-state/delete-meeting-series *app-state auth-headers series-id))
+
+(defn set-meeting-series-scope [series-id scope]
+  (meeting-series-state/set-meeting-series-scope *app-state auth-headers series-id scope))
+
+(defn set-expanded-series [id]
+  (meeting-series-state/set-expanded-series id))
+
+(defn set-editing-series [id]
+  (meeting-series-state/set-editing-series id))
+
+(defn clear-editing-series []
+  (meeting-series-state/clear-editing-series))
+
+(defn set-confirm-delete-series [series]
+  (meeting-series-state/set-confirm-delete-series series))
+
+(defn clear-confirm-delete-series []
+  (meeting-series-state/clear-confirm-delete-series))
+
+(defn set-meeting-series-filter-search [search-term]
+  (meeting-series-state/set-filter-search fetch-meeting-series search-term))
+
+(defn clear-all-meeting-series-filters []
+  (meeting-series-state/clear-all-meeting-series-filters fetch-meeting-series))
+
+(defn categorize-meeting-series [series-id category-type category-id]
+  (meeting-series-state/categorize-meeting-series *app-state auth-headers fetch-meeting-series series-id category-type category-id))
+
+(defn uncategorize-meeting-series [series-id category-type category-id]
+  (meeting-series-state/uncategorize-meeting-series *app-state auth-headers fetch-meeting-series series-id category-type category-id))
+
+(defn add-meeting-series-with-categories [title categories on-success]
+  (meeting-series-state/add-meeting-series-with-categories *app-state auth-headers fetch-meeting-series current-scope title categories on-success))
+
+(defn toggle-series-mode []
+  (swap! *app-state update :meets-page/series-mode not)
+  (if (:meets-page/series-mode @*app-state)
+    (fetch-meeting-series)
+    (fetch-meets)))
+
+(defn series-mode? []
+  (:meets-page/series-mode @*app-state))
+
 (defn toggle-meets-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:meets-page/collapsed-filters @*app-state) filter-key)
         all-filters #{:people :places :projects :goals}]
@@ -400,11 +473,15 @@
 (defn toggle-meets-goal-filter [id]
   (swap! *app-state update :meets-page/filter-goals
          #(if (contains? % id) (disj % id) (conj % id)))
-  (fetch-meets))
+  (if (:meets-page/series-mode @*app-state)
+    (fetch-meeting-series)
+    (fetch-meets)))
 
 (defn clear-meets-goal-filter []
   (swap! *app-state assoc :meets-page/filter-goals #{})
-  (fetch-meets))
+  (if (:meets-page/series-mode @*app-state)
+    (fetch-meeting-series)
+    (fetch-meets)))
 
 (defn has-meets-goal-filter? []
   (seq (:meets-page/filter-goals @*app-state)))
@@ -433,8 +510,10 @@
         (swap! *app-state assoc
                :meets-page/collapsed-filters all-filters
                :meets-page/category-search {:people "" :places "" :projects "" :goals ""})))
-    (meets-state/set-importance-filter fetch-meets nil)
-    (fetch-meets)))
+    (if (:meets-page/series-mode @*app-state)
+      (fetch-meeting-series)
+      (do (meets-state/set-importance-filter fetch-meets nil)
+          (fetch-meets)))))
 
 (defn toggle-resources-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:resources-page/collapsed-filters @*app-state) filter-key)
@@ -489,7 +568,9 @@
       (case (:active-tab @*app-state)
         :tasks (fetch-tasks)
         :resources (fetch-resources)
-        :meets (fetch-meets)
+        :meets (if (:meets-page/series-mode @*app-state)
+                 (fetch-meeting-series)
+                 (fetch-meets))
         nil))))
 
 (defn clear-shared-filter [filter-type]
@@ -501,7 +582,9 @@
     (case (:active-tab @*app-state)
       :tasks (fetch-tasks)
       :resources (fetch-resources)
-      :meets (fetch-meets)
+      :meets (if (:meets-page/series-mode @*app-state)
+               (fetch-meeting-series)
+               (fetch-meets))
       nil)))
 
 (defn clear-uncollapsed-resource-filters []
@@ -830,7 +913,8 @@
   (tasks-page/confirm-pending-new-item *app-state
     {:task add-task-with-categories
      :resource add-resource-with-categories
-     :meet add-meet-with-categories}))
+     :meet add-meet-with-categories
+     :meeting-series add-meeting-series-with-categories}))
 
 (defn set-upcoming-horizon [horizon]
   (today-page/set-upcoming-horizon *app-state horizon))
@@ -883,12 +967,17 @@
 (defn upcoming-meets []
   (today-page/upcoming-meets *app-state))
 
+(defn- fetch-meets-or-series []
+  (if (:meets-page/series-mode @*app-state)
+    (fetch-meeting-series)
+    (fetch-meets)))
+
 (def tab-initializers
   (ui/make-tab-initializers *app-state {:fetch-tasks fetch-tasks
                                         :fetch-today-meets fetch-today-meets
                                         :fetch-messages fetch-messages
                                         :fetch-resources fetch-resources
-                                        :fetch-meets fetch-meets
+                                        :fetch-meets fetch-meets-or-series
                                         :is-admin is-admin?}))
 
 (defn set-active-tab [tab]
@@ -927,10 +1016,10 @@
   (url/push-state! "/"))
 
 (defn set-work-private-mode [mode]
-  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets mode))
+  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets-or-series mode))
 
 (defn toggle-strict-mode []
-  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets))
+  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets-or-series))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))
@@ -959,7 +1048,9 @@
   (case (:active-tab @*app-state)
     :tasks (fetch-tasks)
     :resources (fetch-resources)
-    :meets (fetch-meets)
+    :meets (if (:meets-page/series-mode @*app-state)
+             (fetch-meeting-series)
+             (fetch-meets))
     :today (do (fetch-tasks) (fetch-today-meets))
     nil))
 

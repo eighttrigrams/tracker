@@ -100,6 +100,7 @@
      [modals/confirm-delete-message-modal]
      [modals/confirm-delete-resource-modal]
      [modals/confirm-delete-meet-modal]
+     [modals/confirm-delete-meeting-series-modal]
      [modals/pending-item-modal]
      [modals/edit-item-modal]
      (cond

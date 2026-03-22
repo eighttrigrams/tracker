@@ -15,5 +15,11 @@ and Sort Order Selector, as the rightmost group, there is a single button, calle
 switched **on**, let's us see Meeting Series only, not any invididual Meetings (whether related to a Meeting Series or not).
 
 Meeting Series then behave like regular Entities, they can be searched for with a query string, added (via the Add button),
-and filtered by Category Selectors. Meeting Series have Importance but no Urgency settings. Meeting Series have no time or date by themselves.
-When the "Series" button is activated, the Sort Order group disappears.
+and filtered by Category Selectors. Meeting Series have neither Importance nor Urgency settings, neither do they time or date by themselves.
+When the "Series" button is activated, the Sort Order group and Importance settings disappear accordingly.
+
+## Scheduling
+
+The edit modal for Meeting Series has an additional tab called "Scheduling". In it, we can set a schedule for meetings.
+We can check any of the seven days of a week, and select a time (remember a Meeting must always have both a date and a time).
+These settings will be used (will be explained later) when spawning off follow up Meetings.

@@ -48,6 +48,8 @@
 
 (def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time])
 
+(def meeting-series-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope])
+
 (defn user-id-where-clause [user-id]
   (if user-id
     [:= :user_id user-id]
@@ -289,5 +291,5 @@
 
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
-    (doseq [table [:relations :task_categories :resource_categories :meet_categories :tasks :messages :resources :meets :people :places :projects :goals :users]]
+    (doseq [table [:relations :task_categories :resource_categories :meet_categories :meeting_series_categories :tasks :messages :resources :meets :meeting_series :people :places :projects :goals :users]]
       (jdbc/execute-one! conn (sql/format {:delete-from table})))))

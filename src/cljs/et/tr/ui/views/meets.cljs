@@ -1,6 +1,7 @@
 (ns et.tr.ui.views.meets
   (:require [et.tr.ui.state :as state]
             [et.tr.ui.state.meets :as meets-state]
+            [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
@@ -264,20 +265,148 @@
                                                #(state/clear-shared-filter category-type))
                                    :collapsed? (contains? collapsed-filters filter-key)}]))))
 
+(defn- series-scope-selector [series]
+  (let [scope (or (:scope series) "both")]
+    [:div.task-scope-selector.toggle-group.compact
+     (for [s ["private" "both" "work"]]
+       ^{:key s}
+       [:button.toggle-option
+        {:class (when (= scope s) "active")
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-meeting-series-scope (:id series) s))}
+        s])]))
+
+(defn- series-category-selector [series category-type entities label]
+  (let [current-categories (case category-type
+                             state/CATEGORY-TYPE-PERSON (:people series)
+                             state/CATEGORY-TYPE-PLACE (:places series)
+                             state/CATEGORY-TYPE-PROJECT (:projects series)
+                             state/CATEGORY-TYPE-GOAL (:goals series)
+                             [])]
+    [category-selector/category-selector
+     {:entity series
+      :entity-id-key :id
+      :category-type category-type
+      :entities entities
+      :label label
+      :current-categories current-categories
+      :on-categorize #(state/categorize-meeting-series (:id series) category-type %)
+      :on-uncategorize #(state/uncategorize-meeting-series (:id series) category-type %)
+      :on-close-focus-fn nil
+      :open-selector-state (:category-selector/open @state/*app-state)
+      :search-state (:category-selector/search @state/*app-state)
+      :open-selector-fn state/open-category-selector
+      :close-selector-fn state/close-category-selector
+      :set-search-fn state/set-category-selector-search}]))
+
+(defn- series-expanded-view [series people places projects goals]
+  [:div.item-details
+   (when (seq (:description series))
+     [:div.item-description [task-item/markdown (:description series)]])
+   [:div.item-tags
+    [series-category-selector series state/CATEGORY-TYPE-PERSON people (t :category/person)]
+    [series-category-selector series state/CATEGORY-TYPE-PLACE places (t :category/place)]
+    [series-category-selector series state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+    [series-category-selector series state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+   [:div.item-actions
+    [series-scope-selector series]
+    [:div.combined-button-wrapper
+     [:button.delete-btn {:on-click #(state/set-confirm-delete-series series)}
+      (t :task/delete)]]]])
+
+(defn- series-header [series is-expanded]
+  [:div.item-header
+   {:on-click #(state/set-expanded-series (when-not is-expanded (:id series)))}
+   [:div.item-title
+    (:title series)
+    (when is-expanded
+      [:button.edit-icon {:on-click (fn [e]
+                                      (.stopPropagation e)
+                                      (state/set-editing-modal :meeting-series series))}
+       "✎"])]])
+
+(defn- series-categories-readonly [series]
+  [:div.item-tags-readonly
+   [task-item/category-badges
+    {:item series
+     :category-types [[state/CATEGORY-TYPE-PERSON :people]
+                      [state/CATEGORY-TYPE-PLACE :places]
+                      [state/CATEGORY-TYPE-PROJECT :projects]
+                      [state/CATEGORY-TYPE-GOAL :goals]]
+     :toggle-fn state/toggle-shared-filter
+     :has-filter-fn state/has-filter-for-type?}]])
+
+(defn- series-item [series expanded-id people places projects goals]
+  (let [is-expanded (= expanded-id (:id series))]
+    [:li {:class (when is-expanded "expanded")}
+     [series-header series is-expanded]
+     (if is-expanded
+       [series-expanded-view series people places projects goals]
+       [series-categories-readonly series])]))
+
+(defn- series-search-add-form []
+  (let [input-value (:filter-search @meeting-series-state/*meeting-series-page-state)]
+    [:div.combined-search-add-form
+     [:input#meets-filter-search
+      {:type "text"
+       :auto-complete "off"
+       :placeholder (t :meets/search-or-add-series)
+       :value input-value
+       :on-change #(state/set-meeting-series-filter-search (-> % .-target .-value))
+       :on-key-down (fn [e]
+                      (cond
+                        (and (.-altKey e) (= (.-key e) "Enter") (seq input-value))
+                        (do
+                          (.preventDefault e)
+                          (state/add-meeting-series input-value
+                                                    #(state/set-meeting-series-filter-search "")))
+
+                        (= (.-key e) "Escape")
+                        (state/set-meeting-series-filter-search "")))}]
+     [:button {:on-click #(when (seq input-value)
+                            (state/add-meeting-series input-value
+                                                      (fn [] (state/set-meeting-series-filter-search ""))))}
+      (t :tasks/add-button)]
+     (when (seq input-value)
+       [:button.clear-search {:on-click #(state/set-meeting-series-filter-search "")} "x"])]))
+
+(defn- series-toggle []
+  (let [series-mode (:meets-page/series-mode @state/*app-state)]
+    [:div.series-mode-toggle.toggle-group
+     [:button {:class (when series-mode "active")
+               :on-click #(state/toggle-series-mode)}
+      (t :meets/series)]]))
+
 (defn meets-tab []
-  (let [{:keys [meets people places projects goals]} @state/*app-state
-        {:keys [expanded-meet]} @meets-state/*meets-page-state]
+  (let [{:keys [meets meeting-series people places projects goals]} @state/*app-state
+        series-mode (state/series-mode?)
+        {:keys [expanded-meet]} @meets-state/*meets-page-state
+        {:keys [expanded-series]} @meeting-series-state/*meeting-series-page-state]
     [:div.main-layout
      [sidebar-filters]
      [:div.main-content.meets-page
       [:div.tasks-header
        [:h2 (t :meets/heading)]
-       [importance-filter-toggle]
-       [sort-mode-toggle]]
-      [search-add-form]
-      (if (empty? meets)
-        [:p.empty-message (t :meets/no-meets)]
-        [:ul.items
-         (for [meet meets]
-           ^{:key (:id meet)}
-           [meet-item meet expanded-meet people places projects goals])])]]))
+       (when-not series-mode
+         [importance-filter-toggle])
+       (when-not series-mode
+         [sort-mode-toggle])
+       [series-toggle]]
+      (if series-mode
+        [series-search-add-form]
+        [search-add-form])
+      (if series-mode
+        (if (empty? meeting-series)
+          [:p.empty-message (t :meets/no-series)]
+          [:ul.items
+           (for [s meeting-series]
+             ^{:key (:id s)}
+             [series-item s expanded-series people places projects goals])])
+        (if (empty? meets)
+          [:p.empty-message (t :meets/no-meets)]
+          [:ul.items
+           (for [meet meets]
+             ^{:key (:id meet)}
+             [meet-item meet expanded-meet people places projects goals])]))]]))
+
