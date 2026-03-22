@@ -1,5 +1,6 @@
 (ns et.tr.telegram
-  (:require [et.tr.db :as db]
+  (:require [et.tr.db.task :as db.task]
+            [et.tr.db.message :as db.message]
             [clj-http.client :as http]
             [clojure.string :as str]
             [taoensso.telemere :as tel]))
@@ -45,11 +46,11 @@
                     task-match (re-matches #"(?i)(?:t|task)\s+(.*)" text)]
                 (if task-match
                   (let [task-title (str/trim (second task-match))]
-                    (db/add-task ds nil task-title)
+                    (db.task/add-task ds nil task-title)
                     (delete-telegram-message chat-id message-id)
                     {:status 200 :body {:ok true :type "task"}})
                   (let [title text]
-                    (db/add-message ds nil "Note" title text nil)
+                    (db.message/add-message ds nil "Note" title text nil)
                     (delete-telegram-message chat-id message-id)
                     {:status 200 :body {:ok true}}))))
             {:status 200 :body {:ok true :skipped "no text"}}))))))
