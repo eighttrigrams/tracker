@@ -1,6 +1,13 @@
 (ns et.tr.server
   (:require [ring.adapter.jetty9 :as jetty]
             [et.tr.db :as db]
+            [et.tr.db.user :as db.user]
+            [et.tr.db.task :as db.task]
+            [et.tr.db.resource :as db.resource]
+            [et.tr.db.meet :as db.meet]
+            [et.tr.db.message :as db.message]
+            [et.tr.db.category :as db.category]
+            [et.tr.db.relation :as db.relation]
             [et.tr.auth :as auth]
             [et.tr.telegram :as telegram]
             [et.tr.export :as export]
@@ -82,7 +89,7 @@
     (if (allow-skip-logins?)
       (if (= username "admin")
         {:status 200 :body {:success true :user {:id nil :username "admin" :is_admin true :language "en"}}}
-        (if-let [user (db/get-user-by-username (ensure-ds) username)]
+        (if-let [user (db.user/get-user-by-username (ensure-ds) username)]
           {:status 200 :body {:success true :user (dissoc user :password_hash)}}
           {:status 401 :body {:success false :error "User not found"}}))
       (if (= username "admin")
@@ -91,7 +98,7 @@
                               :token (auth/create-token nil "admin" true)
                               :user {:id nil :username "admin" :is_admin true :language "en"}}}
           {:status 401 :body {:success false :error "Invalid credentials"}})
-        (if-let [user (db/verify-user (ensure-ds) username password)]
+        (if-let [user (db.user/verify-user (ensure-ds) username password)]
           {:status 200 :body {:success true
                               :token (auth/create-token (:id user) (:username user) false)
                               :user user}}
@@ -102,7 +109,7 @@
 
 (defn available-users-handler [_req]
   (if (allow-skip-logins?)
-    (let [users (db/list-users (ensure-ds))
+    (let [users (db.user/list-users (ensure-ds))
           admin {:id nil :username "admin" :is_admin true :language "en"}]
       {:status 200 :body (cons admin users)})
     {:status 403 :body {:error "Not available in production mode"}}))
@@ -114,7 +121,7 @@
 (defn get-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))]
-    (if-let [task (db/get-task (ensure-ds) user-id task-id)]
+    (if-let [task (db.task/get-task (ensure-ds) user-id task-id)]
       {:status 200 :body task}
       {:status 404 :body {:error "Task not found"}})))
 
@@ -133,14 +140,14 @@
         excluded-projects (parse-category-param (get-in req [:params "excluded-projects"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db/list-tasks (ensure-ds) user-id sort-mode {:search-term search-term :importance importance :context context :strict strict :categories categories :excluded-places excluded-places :excluded-projects excluded-projects})}))
+    {:status 200 :body (db.task/list-tasks (ensure-ds) user-id sort-mode {:search-term search-term :importance importance :context context :strict strict :categories categories :excluded-places excluded-places :excluded-projects excluded-projects})}))
 
 (defn add-task-handler [req]
   (let [user-id (get-user-id req)
         {:keys [title scope]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [task (db/add-task (ensure-ds) user-id title (or scope "both"))]
+      (let [task (db.task/add-task (ensure-ds) user-id title (or scope "both"))]
         {:status 201 :body (assoc task :people [] :places [] :projects [] :goals [])}))))
 
 (defn update-task-handler [req]
@@ -149,12 +156,12 @@
         {:keys [title description tags]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [task (db/update-task (ensure-ds) user-id task-id {:title title :description (or description "") :tags (or tags "")})]
+      (let [task (db.task/update-task (ensure-ds) user-id task-id {:title title :description (or description "") :tags (or tags "")})]
         {:status 200 :body task}))))
 
 (defn list-people-handler [req]
   (let [user-id (get-user-id req)]
-    {:status 200 :body (db/list-people (ensure-ds) user-id)}))
+    {:status 200 :body (db.category/list-people (ensure-ds) user-id)}))
 
 (defn add-person-handler [req]
   (let [user-id (get-user-id req)
@@ -162,13 +169,13 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db/add-person (ensure-ds) user-id name)}
+        {:status 201 :body (db.category/add-person (ensure-ds) user-id name)}
         (catch Exception _
           {:status 409 :body {:success false :error "Person already exists"}})))))
 
 (defn list-places-handler [req]
   (let [user-id (get-user-id req)]
-    {:status 200 :body (db/list-places (ensure-ds) user-id)}))
+    {:status 200 :body (db.category/list-places (ensure-ds) user-id)}))
 
 (defn add-place-handler [req]
   (let [user-id (get-user-id req)
@@ -176,13 +183,13 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db/add-place (ensure-ds) user-id name)}
+        {:status 201 :body (db.category/add-place (ensure-ds) user-id name)}
         (catch Exception _
           {:status 409 :body {:success false :error "Place already exists"}})))))
 
 (defn list-projects-handler [req]
   (let [user-id (get-user-id req)]
-    {:status 200 :body (db/list-projects (ensure-ds) user-id)}))
+    {:status 200 :body (db.category/list-projects (ensure-ds) user-id)}))
 
 (defn add-project-handler [req]
   (let [user-id (get-user-id req)
@@ -190,13 +197,13 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db/add-project (ensure-ds) user-id name)}
+        {:status 201 :body (db.category/add-project (ensure-ds) user-id name)}
         (catch Exception _
           {:status 409 :body {:success false :error "Project already exists"}})))))
 
 (defn list-goals-handler [req]
   (let [user-id (get-user-id req)]
-    {:status 200 :body (db/list-goals (ensure-ds) user-id)}))
+    {:status 200 :body (db.category/list-goals (ensure-ds) user-id)}))
 
 (defn add-goal-handler [req]
   (let [user-id (get-user-id req)
@@ -204,7 +211,7 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db/add-goal (ensure-ds) user-id name)}
+        {:status 201 :body (db.category/add-goal (ensure-ds) user-id name)}
         (catch Exception _
           {:status 409 :body {:success false :error "Goal already exists"}})))))
 
@@ -215,7 +222,7 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        (let [result (db/update-person (ensure-ds) user-id person-id name (or description "") (or tags "") badge-title)]
+        (let [result (db.category/update-person (ensure-ds) user-id person-id name (or description "") (or tags "") badge-title)]
           (if result
             {:status 200 :body result}
             {:status 404 :body {:success false :error "Person not found"}}))
@@ -229,7 +236,7 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        (let [result (db/update-place (ensure-ds) user-id place-id name (or description "") (or tags "") badge-title)]
+        (let [result (db.category/update-place (ensure-ds) user-id place-id name (or description "") (or tags "") badge-title)]
           (if result
             {:status 200 :body result}
             {:status 404 :body {:success false :error "Place not found"}}))
@@ -243,7 +250,7 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        (let [result (db/update-project (ensure-ds) user-id project-id name (or description "") (or tags "") badge-title)]
+        (let [result (db.category/update-project (ensure-ds) user-id project-id name (or description "") (or tags "") badge-title)]
           (if result
             {:status 200 :body result}
             {:status 404 :body {:success false :error "Project not found"}}))
@@ -257,7 +264,7 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        (let [result (db/update-goal (ensure-ds) user-id goal-id name (or description "") (or tags "") badge-title)]
+        (let [result (db.category/update-goal (ensure-ds) user-id goal-id name (or description "") (or tags "") badge-title)]
           (if result
             {:status 200 :body result}
             {:status 404 :body {:success false :error "Goal not found"}}))
@@ -277,7 +284,7 @@
         {:keys [type table]} (get category-config category-key)]
     (if-not type
       {:status 400 :body {:success false :error "Invalid category type"}}
-      (let [result (db/delete-category (ensure-ds) user-id category-id type table)]
+      (let [result (db.category/delete-category (ensure-ds) user-id category-id type table)]
         (if (:success result)
           {:status 200 :body {:success true}}
           {:status 404 :body {:success false :error (str (str/capitalize type) " not found")}})))))
@@ -301,7 +308,7 @@
                       (+ target-order 1.0))
                     :else
                     (/ (+ target-order neighbor-order) 2.0))]
-    (db/reorder-category (ensure-ds) user-id category-id new-order table-name)
+    (db.category/reorder-category (ensure-ds) user-id category-id new-order table-name)
     {:status 200 :body {:success true :sort_order new-order}}))
 
 (defn- make-categorize-handler [db-fn]
@@ -338,17 +345,17 @@
           (db-fn (ensure-ds) user-id entity-id category-type category-id)
           {:status 200 :body {:success true}})))))
 
-(def categorize-task-handler (make-categorize-handler db/categorize-task))
-(def uncategorize-task-handler (make-uncategorize-handler db/uncategorize-task))
+(def categorize-task-handler (make-categorize-handler db.task/categorize-task))
+(def uncategorize-task-handler (make-uncategorize-handler db.task/uncategorize-task))
 
-(def categorize-resource-handler (make-categorize-handler db/categorize-resource))
-(def uncategorize-resource-handler (make-uncategorize-handler db/uncategorize-resource))
+(def categorize-resource-handler (make-categorize-handler db.resource/categorize-resource))
+(def uncategorize-resource-handler (make-uncategorize-handler db.resource/uncategorize-resource))
 
 (defn reorder-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [target-task-id position]} (:body req)
-        all-tasks (db/list-tasks (ensure-ds) user-id :manual)
+        all-tasks (db.task/list-tasks (ensure-ds) user-id :manual)
         target-idx (->> all-tasks
                         (map-indexed vector)
                         (some (fn [[idx task]] (when (= (:id task) target-task-id) idx))))
@@ -363,14 +370,14 @@
                       (+ target-order 1.0))
                     :else
                     (/ (+ target-order neighbor-order) 2.0))]
-    (db/reorder-task (ensure-ds) user-id task-id new-order)
+    (db.task/reorder-task (ensure-ds) user-id task-id new-order)
     {:status 200 :body {:success true :sort_order new-order}}))
 
 (defn set-due-date-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [due-date]} (:body req)
-        result (db/set-task-due-date (ensure-ds) user-id task-id due-date)]
+        result (db.task/set-task-due-date (ensure-ds) user-id task-id due-date)]
     {:status 200 :body result}))
 
 (defn valid-time-format? [time-str]
@@ -388,7 +395,7 @@
         task-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [due-time]} (:body req)]
     (if (valid-time-format? due-time)
-      (let [result (db/set-task-due-time (ensure-ds) user-id task-id due-time)]
+      (let [result (db.task/set-task-due-time (ensure-ds) user-id task-id due-time)]
         {:status 200 :body result})
       {:status 400 :body {:error "Invalid time format. Use HH:MM (24-hour format)"}})))
 
@@ -398,14 +405,14 @@
     (let [user-id (get-user-id req)
           task-id (Integer/parseInt (get-in req [:params :id]))
           done? (boolean (get-in req [:body :done]))
-          result (db/set-task-done (ensure-ds) user-id task-id done?)]
+          result (db.task/set-task-done (ensure-ds) user-id task-id done?)]
       (if result
         {:status 200 :body result}
         {:status 404 :body {:error "Task not found"}}))))
 
 (defn- make-entity-property-handler
   ([field valid-values error-message]
-   (make-entity-property-handler field valid-values error-message {:entity-type :task :set-fn db/set-task-field}))
+   (make-entity-property-handler field valid-values error-message {:entity-type :task :set-fn db.task/set-task-field}))
   ([field valid-values error-message {:keys [entity-type set-fn]}]
    (fn [req]
      (let [value (get-in req [:body field])]
@@ -436,7 +443,7 @@
     (let [user-id (get-user-id req)
           task-id (Integer/parseInt (get-in req [:params :id]))
           today? (boolean (get-in req [:body :today]))
-          result (db/set-task-today (ensure-ds) user-id task-id today?)]
+          result (db.task/set-task-today (ensure-ds) user-id task-id today?)]
       (if result
         {:status 200 :body result}
         {:status 404 :body {:error "Task not found"}}))))
@@ -444,7 +451,7 @@
 (defn get-resource-handler [req]
   (let [user-id (get-user-id req)
         resource-id (Integer/parseInt (get-in req [:params :id]))]
-    (if-let [resource (db/get-resource (ensure-ds) user-id resource-id)]
+    (if-let [resource (db.resource/get-resource (ensure-ds) user-id resource-id)]
       {:status 200 :body resource}
       {:status 404 :body {:error "Resource not found"}})))
 
@@ -460,7 +467,7 @@
         goals (parse-category-param (get-in req [:params "goals"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db/list-resources (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
+    {:status 200 :body (db.resource/list-resources (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
 
 (defn- valid-url? [link]
   (some? (re-matches #"https?://\S+" link)))
@@ -479,7 +486,7 @@
       {:status 400 :body {:success false :error "Invalid URL. Must start with http:// or https://"}}
 
       :else
-      (let [resource (db/add-resource (ensure-ds) user-id title link (or scope "both"))]
+      (let [resource (db.resource/add-resource (ensure-ds) user-id title link (or scope "both"))]
         {:status 201 :body resource}))))
 
 (defn update-resource-handler [req]
@@ -497,13 +504,13 @@
       {:status 400 :body {:success false :error "Invalid URL. Must start with http:// or https://"}}
 
       :else
-      (let [resource (db/update-resource (ensure-ds) user-id resource-id {:title title :link link :description (or description "") :tags (or tags "")})]
+      (let [resource (db.resource/update-resource (ensure-ds) user-id resource-id {:title title :link link :description (or description "") :tags (or tags "")})]
         {:status 200 :body resource}))))
 
 (defn delete-resource-handler [req]
   (let [user-id (get-user-id req)
         resource-id (Integer/parseInt (get-in req [:params :id]))
-        result (db/delete-resource (ensure-ds) user-id resource-id)]
+        result (db.resource/delete-resource (ensure-ds) user-id resource-id)]
     (if (:success result)
       {:status 200 :body {:success true}}
       {:status 404 :body {:success false :error "Resource not found"}})))
@@ -511,17 +518,17 @@
 (def set-resource-scope-handler
   (make-entity-property-handler :scope db/valid-scopes
                                 "Invalid scope. Must be 'private', 'both', or 'work'"
-                                {:entity-type :resource :set-fn db/set-resource-field}))
+                                {:entity-type :resource :set-fn db.resource/set-resource-field}))
 
 (def set-resource-importance-handler
   (make-entity-property-handler :importance db/valid-importances
                                 "Invalid importance. Must be 'normal', 'important', or 'critical'"
-                                {:entity-type :resource :set-fn db/set-resource-field}))
+                                {:entity-type :resource :set-fn db.resource/set-resource-field}))
 
 (defn get-meet-handler [req]
   (let [user-id (get-user-id req)
         meet-id (Integer/parseInt (get-in req [:params :id]))]
-    (if-let [meet (db/get-meet (ensure-ds) user-id meet-id)]
+    (if-let [meet (db.meet/get-meet (ensure-ds) user-id meet-id)]
       {:status 200 :body meet}
       {:status 404 :body {:error "Meet not found"}})))
 
@@ -540,14 +547,14 @@
         excluded-projects (parse-category-param (get-in req [:params "excluded-projects"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db/list-meets (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects})}))
+    {:status 200 :body (db.meet/list-meets (ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects})}))
 
 (defn add-meet-handler [req]
   (let [user-id (get-user-id req)
         {:keys [title scope]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      {:status 201 :body (db/add-meet (ensure-ds) user-id title (or scope "both"))})))
+      {:status 201 :body (db.meet/add-meet (ensure-ds) user-id title (or scope "both"))})))
 
 (defn update-meet-handler [req]
   (let [user-id (get-user-id req)
@@ -555,35 +562,35 @@
         {:keys [title description tags]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      {:status 200 :body (db/update-meet (ensure-ds) user-id meet-id {:title title :description (or description "") :tags (or tags "")})})))
+      {:status 200 :body (db.meet/update-meet (ensure-ds) user-id meet-id {:title title :description (or description "") :tags (or tags "")})})))
 
 (defn delete-meet-handler [req]
   (let [user-id (get-user-id req)
         meet-id (Integer/parseInt (get-in req [:params :id]))
-        result (db/delete-meet (ensure-ds) user-id meet-id)]
+        result (db.meet/delete-meet (ensure-ds) user-id meet-id)]
     (if (:success result)
       {:status 200 :body {:success true}}
       {:status 404 :body {:success false :error "Meet not found"}})))
 
-(def categorize-meet-handler (make-categorize-handler db/categorize-meet))
-(def uncategorize-meet-handler (make-uncategorize-handler db/uncategorize-meet))
+(def categorize-meet-handler (make-categorize-handler db.meet/categorize-meet))
+(def uncategorize-meet-handler (make-uncategorize-handler db.meet/uncategorize-meet))
 
 (def set-meet-scope-handler
   (make-entity-property-handler :scope db/valid-scopes
                                 "Invalid scope. Must be 'private', 'both', or 'work'"
-                                {:entity-type :meet :set-fn db/set-meet-field}))
+                                {:entity-type :meet :set-fn db.meet/set-meet-field}))
 
 (def set-meet-importance-handler
   (make-entity-property-handler :importance db/valid-importances
                                 "Invalid importance. Must be 'normal', 'important', or 'critical'"
-                                {:entity-type :meet :set-fn db/set-meet-field}))
+                                {:entity-type :meet :set-fn db.meet/set-meet-field}))
 
 (defn set-meet-start-date-handler [req]
   (let [user-id (get-user-id req)
         meet-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [start-date]} (:body req)]
     (if (valid-date-format? start-date)
-      {:status 200 :body (db/set-meet-start-date (ensure-ds) user-id meet-id start-date)}
+      {:status 200 :body (db.meet/set-meet-start-date (ensure-ds) user-id meet-id start-date)}
       {:status 400 :body {:error "Invalid date format. Use YYYY-MM-DD"}})))
 
 (defn set-meet-start-time-handler [req]
@@ -591,7 +598,7 @@
         meet-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [start-time]} (:body req)]
     (if (valid-time-format? start-time)
-      {:status 200 :body (db/set-meet-start-time (ensure-ds) user-id meet-id start-time)}
+      {:status 200 :body (db.meet/set-meet-start-time (ensure-ds) user-id meet-id start-time)}
       {:status 400 :body {:error "Invalid time format. Use HH:MM (24-hour format)"}})))
 
 (def ^:private valid-relation-types #{"tsk" "res" "met"})
@@ -613,7 +620,7 @@
       {:status 400 :body {:success false :error "target-id must be an integer"}}
 
       :else
-      (if-let [result (db/add-relation (ensure-ds) user-id source-type source-id target-type target-id)]
+      (if-let [result (db.relation/add-relation (ensure-ds) user-id source-type source-id target-type target-id)]
         {:status 201 :body result}
         {:status 404 :body {:success false :error "Item not found"}}))))
 
@@ -634,7 +641,7 @@
       {:status 400 :body {:success false :error "target-id must be an integer"}}
 
       :else
-      (if-let [result (db/delete-relation (ensure-ds) user-id source-type source-id target-type target-id)]
+      (if-let [result (db.relation/delete-relation (ensure-ds) user-id source-type source-id target-type target-id)]
         {:status 200 :body result}
         {:status 404 :body {:success false :error "Item not found"}}))))
 
@@ -643,13 +650,13 @@
         item-type (get-in req [:params :type])
         item-id (Integer/parseInt (get-in req [:params :id]))]
     (if (contains? valid-relation-types item-type)
-      {:status 200 :body (or (db/get-relations-with-titles (ensure-ds) user-id item-type item-id) [])}
+      {:status 200 :body (or (db.relation/get-relations-with-titles (ensure-ds) user-id item-type item-id) [])}
       {:status 400 :body {:error "Invalid item type"}})))
 
 (defn delete-task-handler [req]
   (let [user-id (get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
-        result (db/delete-task (ensure-ds) user-id task-id)]
+        result (db.task/delete-task (ensure-ds) user-id task-id)]
     (if (:success result)
       {:status 200 :body {:success true}}
       {:status 404 :body {:success false :error "Task not found"}})))
@@ -667,7 +674,7 @@
 
 (defn list-users-handler [req]
   (if (is-admin? req)
-    {:status 200 :body (db/list-users (ensure-ds))}
+    {:status 200 :body (db.user/list-users (ensure-ds))}
     {:status 403 :body {:error "Admin access required"}}))
 
 (defn add-user-handler [req]
@@ -678,7 +685,7 @@
         (if (= username "admin")
           {:status 400 :body {:error "Cannot create user named 'admin'"}}
           (try
-            (let [user (db/create-user (ensure-ds) username password)]
+            (let [user (db.user/create-user (ensure-ds) username password)]
               {:status 201 :body (dissoc user :password_hash)})
             (catch Exception _
               {:status 409 :body {:error "Username already exists"}})))))
@@ -687,7 +694,7 @@
 (defn delete-user-handler [req]
   (if (is-admin? req)
     (let [user-id (Integer/parseInt (get-in req [:params :id]))
-          result (db/delete-user (ensure-ds) user-id)]
+          result (db.user/delete-user (ensure-ds) user-id)]
       (if (:success result)
         {:status 200 :body {:success true}}
         {:status 404 :body {:error "User not found"}}))
@@ -710,7 +717,7 @@
       {:status 400 :body {:error "Invalid language"}}
 
       :else
-      (if-let [result (db/set-user-language (ensure-ds) user-id language)]
+      (if-let [result (db.user/set-user-language (ensure-ds) user-id language)]
         {:status 200 :body result}
         {:status 404 :body {:error "User not found"}}))))
 
@@ -722,7 +729,7 @@
           excluded-senders-param (get-in req [:params "excludedSenders"])
           excluded-senders (when (and excluded-senders-param (not (str/blank? excluded-senders-param)))
                              (set (str/split excluded-senders-param #",")))]
-      {:status 200 :body (db/list-messages (ensure-ds) user-id {:sort-mode sort-mode
+      {:status 200 :body (db.message/list-messages (ensure-ds) user-id {:sort-mode sort-mode
                                                                  :sender-filter sender
                                                                  :excluded-senders excluded-senders})})
     {:status 403 :body {:error "Admin access required"}}))
@@ -743,7 +750,7 @@
         {:status 400 :body {:success false :error "Type must be one of: text, markdown, html"}}
 
         :else
-        (let [message (db/add-message (ensure-ds) user-id sender title description type)]
+        (let [message (db.message/add-message (ensure-ds) user-id sender title description type)]
           {:status 201 :body message})))
     {:status 403 :body {:error "Admin access required"}}))
 
@@ -752,14 +759,14 @@
     {:status 400 :body {:error "Missing required field: done"}}
     (with-admin-message-context req user-id message-id
       (let [done? (boolean (get-in req [:body :done]))
-            result (db/set-message-done (ensure-ds) user-id message-id done?)]
+            result (db.message/set-message-done (ensure-ds) user-id message-id done?)]
         (if result
           {:status 200 :body result}
           {:status 404 :body {:error "Message not found"}})))))
 
 (defn delete-message-handler [req]
   (with-admin-message-context req user-id message-id
-    (let [result (db/delete-message (ensure-ds) user-id message-id)]
+    (let [result (db.message/delete-message (ensure-ds) user-id message-id)]
       (if (:success result)
         {:status 200 :body {:success true}}
         {:status 404 :body {:success false :error "Message not found"}}))))
@@ -767,7 +774,7 @@
 (defn update-message-annotation-handler [req]
   (with-admin-message-context req user-id message-id
     (let [annotation (get-in req [:body :annotation])
-          result (db/update-message-annotation (ensure-ds) user-id message-id annotation)]
+          result (db.message/update-message-annotation (ensure-ds) user-id message-id annotation)]
       (if result
         {:status 200 :body result}
         {:status 404 :body {:error "Message not found"}}))))
@@ -777,7 +784,7 @@
     (let [link (get-in req [:body :link])]
       (if (or (str/blank? link) (not (re-matches #"https?://.*" link)))
         {:status 400 :body {:error "Invalid or missing link URL"}}
-        (if-let [result (db/convert-message-to-resource (ensure-ds) user-id message-id link)]
+        (if-let [result (db.resource/convert-message-to-resource (ensure-ds) user-id message-id link)]
           {:status 200 :body result}
           {:status 404 :body {:error "Message not found"}})))))
 
@@ -786,7 +793,7 @@
     (let [target-id (get-in req [:body :target-id])]
       (if (nil? target-id)
         {:status 400 :body {:error "Missing required field: target-id"}}
-        (if-let [result (db/merge-messages (ensure-ds) user-id message-id target-id)]
+        (if-let [result (db.message/merge-messages (ensure-ds) user-id message-id target-id)]
           {:status 200 :body result}
           {:status 404 :body {:error "Message not found"}})))))
 
@@ -875,25 +882,25 @@
       (GET "/" [] list-people-handler)
       (POST "/" [] add-person-handler)
       (PUT "/:id" [] update-person-handler)
-      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-people "people"))))
+      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db.category/list-people "people"))))
 
     (context "/places" []
       (GET "/" [] list-places-handler)
       (POST "/" [] add-place-handler)
       (PUT "/:id" [] update-place-handler)
-      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-places "places"))))
+      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db.category/list-places "places"))))
 
     (context "/projects" []
       (GET "/" [] list-projects-handler)
       (POST "/" [] add-project-handler)
       (PUT "/:id" [] update-project-handler)
-      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-projects "projects"))))
+      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db.category/list-projects "projects"))))
 
     (context "/goals" []
       (GET "/" [] list-goals-handler)
       (POST "/" [] add-goal-handler)
       (PUT "/:id" [] update-goal-handler)
-      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db/list-goals "goals"))))
+      (POST "/:id/reorder" [] (fn [req] (reorder-category-handler req db.category/list-goals "goals"))))
 
     (context "/messages" []
       (GET "/" [] list-messages-handler)
