@@ -181,12 +181,13 @@
                    :due_time nil
                    :modified_at [:raw "datetime('now')"]}
                   {:due_date due-date
+                   :today 0
                    :modified_at [:raw "datetime('now')"]})]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set set-map
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :due_date :due_time :modified_at]})
+                   :returning [:id :due_date :due_time :today :modified_at]})
       db/jdbc-opts)))
 
 (defn set-task-due-time [ds user-id task-id due-time]
