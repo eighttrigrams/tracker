@@ -154,19 +154,21 @@
         rounded (* 5 (js/Math.round (/ m 5)))]
     (format-time (.getHours now) (mod rounded 60))))
 
-(defn time-picker [task & {:keys [show-clear?] :or {show-clear? false}}]
+(defn generic-time-picker [_entity & _opts]
   (let [open? (r/atom false)
         close! (fn [] (reset! open? false))]
-    (fn [task & {:keys [show-clear?] :or {show-clear? false}}]
-      (let [parsed (parse-time (:due_time task))
+    (fn [entity & {:keys [show-clear? time-key on-change] :or {show-clear? false time-key :due_time on-change nil}}]
+      (let [on-change (or on-change #(state/set-task-due-time (:id entity) %))
+            time-val (get entity time-key)
+            parsed (parse-time time-val)
             current-hour (:hour parsed)
             current-minute (:minute parsed)]
         [:span.time-picker-wrapper
          {:on-click #(.stopPropagation %)}
          [:button.clock-icon {:on-click (fn [e]
                                           (.stopPropagation e)
-                                          (when (and (not @open?) (not (seq (:due_time task))))
-                                            (state/set-task-due-time (:id task) (current-time-default)))
+                                          (when (and (not @open?) (not (seq time-val)))
+                                            (on-change (current-time-default)))
                                           (swap! open? not))}
           "🕐"]
          (when @open?
@@ -182,7 +184,7 @@
                   {:class (when (= h current-hour) "selected")
                    :on-click (fn [e]
                                (.stopPropagation e)
-                               (state/set-task-due-time (:id task) (format-time h (or current-minute 0))))}
+                               (on-change (format-time h (or current-minute 0))))}
                   (.padStart (str h) 2 "0")])]]
              [:div.time-picker-column
               [:div.time-picker-column-label "M"]
@@ -193,14 +195,14 @@
                   {:class (when (= m current-minute) "selected")
                    :on-click (fn [e]
                                (.stopPropagation e)
-                               (state/set-task-due-time (:id task) (format-time (or current-hour 0) m)))}
+                               (on-change (format-time (or current-hour 0) m)))}
                   (.padStart (str m) 2 "0")])]]]
             [:div.time-picker-actions
-             (when (and show-clear? (seq (:due_time task)))
+             (when (and show-clear? (seq time-val))
                [:button.time-picker-clear
                 {:on-click (fn [e]
                              (.stopPropagation e)
-                             (state/set-task-due-time (:id task) nil)
+                             (on-change nil)
                              (close!))}
                 "Clear"])
              [:button.time-picker-close
@@ -208,6 +210,9 @@
                            (.stopPropagation e)
                            (close!))}
               "Done"]]])]))))
+
+(defn time-picker [task & {:keys [show-clear?] :or {show-clear? false}}]
+  [generic-time-picker task :show-clear? show-clear?])
 
 (defn item-edit-form
   [{:keys [title-atom description-atom tags-atom

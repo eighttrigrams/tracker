@@ -179,7 +179,8 @@
       (POST "/:id/categorize" [] meeting-series-handler/categorize-meeting-series-handler)
       (DELETE "/:id/categorize" [] meeting-series-handler/uncategorize-meeting-series-handler)
       (PUT "/:id/scope" [] meeting-series-handler/set-meeting-series-scope-handler)
-      (PUT "/:id/schedule" [] meeting-series-handler/set-meeting-series-schedule-handler))
+      (PUT "/:id/schedule" [] meeting-series-handler/set-meeting-series-schedule-handler)
+      (POST "/:id/create-meeting" [] meeting-series-handler/create-next-meeting-handler))
 
     (context "/relations" []
       (POST "/" [] relation-handler/add-relation-handler)

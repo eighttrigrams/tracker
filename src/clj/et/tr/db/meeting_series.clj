@@ -57,12 +57,32 @@
          where-clause (into [:and user-where]
                             (concat (filter some? [search-clause scope-clause])
                                     category-clauses))
+         today-expr [:raw "date('now','localtime')"]
+         has-today-meet {:select [1]
+                         :from [:meets]
+                         :where [:and
+                                 [:= :meets.meeting_series_id :meeting_series.id]
+                                 [:= :meets.start_date today-expr]]
+                         :limit 1}
+         has-future-meet {:select [1]
+                          :from [:meets]
+                          :where [:and
+                                  [:= :meets.meeting_series_id :meeting_series.id]
+                                  [:> :meets.start_date today-expr]]
+                          :limit 1}
          series (jdbc/execute! conn
-                  (sql/format {:select db/meeting-series-select-columns
+                  (sql/format {:select (into db/meeting-series-select-columns
+                                             [[[:exists has-today-meet] :has_today_meet]
+                                              [[:exists has-future-meet] :has_future_meet]])
                                :from [:meeting_series]
                                :where where-clause
                                :order-by [[:sort_order :asc]]})
                   db/jdbc-opts)
+         series (mapv (fn [s]
+                        (-> s
+                            (update :has_today_meet #(= 1 %))
+                            (update :has_future_meet #(= 1 %))))
+                      series)
          series-ids (mapv :id series)
          categories-data (when (seq series-ids)
                            (jdbc/execute! conn
@@ -146,6 +166,51 @@
                  :where [:and [:= :id series-id] (db/user-id-where-clause user-id)]
                  :returning [:id :schedule_days :schedule_time :modified_at]})
     db/jdbc-opts))
+
+(defn create-meeting-for-series [ds user-id series-id date time]
+  (when (meeting-series-owned-by-user? ds series-id user-id)
+    (let [conn (db/get-conn ds)
+          series (jdbc/execute-one! conn
+                   (sql/format {:select [:title :scope]
+                                :from [:meeting_series]
+                                :where [:= :id series-id]})
+                   db/jdbc-opts)]
+      (when series
+        (jdbc/with-transaction [tx conn]
+          (let [min-order (or (:min_order (jdbc/execute-one! tx
+                                            (sql/format {:select [[[:min :sort_order] :min_order]]
+                                                         :from [:meets]
+                                                         :where (db/user-id-where-clause user-id)})
+                                            db/jdbc-opts))
+                              1.0)
+                new-order (- min-order 1.0)
+                meet (jdbc/execute-one! tx
+                       (sql/format {:insert-into :meets
+                                    :values [{:title (:title series)
+                                              :sort_order new-order
+                                              :user_id user-id
+                                              :modified_at [:raw "datetime('now')"]
+                                              :start_date date
+                                              :start_time time
+                                              :scope (:scope series)
+                                              :meeting_series_id series-id}]
+                                    :returning db/meet-select-columns})
+                       db/jdbc-opts)
+                series-cats (jdbc/execute! tx
+                              (sql/format {:select [:category_type :category_id]
+                                           :from [:meeting_series_categories]
+                                           :where [:= :meeting_series_id series-id]})
+                              db/jdbc-opts)]
+            (doseq [{:keys [category_type category_id]} series-cats]
+              (jdbc/execute-one! tx
+                (sql/format {:insert-into :meet_categories
+                             :values [{:meet_id (:id meet)
+                                       :category_type category_type
+                                       :category_id category_id}]
+                             :on-conflict []
+                             :do-nothing true})))
+            (tel/log! {:level :info :data {:meet-id (:id meet) :series-id series-id :user-id user-id}} "Meet created from series")
+            (assoc meet :people [] :places [] :projects [] :goals [])))))))
 
 (defn categorize-meeting-series [ds user-id series-id category-type category-id]
   (db/validate-category-type! category-type)

@@ -92,6 +92,14 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
+(defn create-meeting-for-series [app-state auth-headers fetch-fn series-id date time]
+  (api/post-json (str "/api/meeting-series/" series-id "/create-meeting")
+    {:date date :time time}
+    (auth-headers)
+    (fn [_] (fetch-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to create meeting")))))
+
 (defn set-meeting-series-schedule [app-state auth-headers series-id schedule-days schedule-time on-success]
   (api/put-json (str "/api/meeting-series/" series-id "/schedule")
     {:schedule-days schedule-days :schedule-time schedule-time}

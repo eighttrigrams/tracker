@@ -260,6 +260,8 @@
 .schedule-per-day-times { display: flex; flex-direction: column; gap: 8px; }
 .schedule-day-time-row { display: flex; align-items: center; gap: 8px; }
 .schedule-day-label { min-width: 32px; font-weight: 500; }
+.create-next-meeting-btn { margin: 8px 0 4px; padding: 4px 12px; font-size: 0.85em; border-radius: 4px; border: none; background: var(--primary-blue, #007bff); color: white; cursor: pointer; }
+.create-next-meeting-btn.disabled { background: var(--border-color, #ddd); color: var(--text-secondary, #999); cursor: default; }
 .items > li[draggable="true"] { cursor: grab; }
 .items > li[draggable="true"]:active { cursor: grabbing; }
 .items > li.drag-disabled { cursor: default !important; }

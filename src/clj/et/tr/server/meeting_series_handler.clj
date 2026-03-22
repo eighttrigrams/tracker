@@ -47,6 +47,22 @@
       {:status 200 :body {:success true}}
       {:status 404 :body {:success false :error "Meeting series not found"}})))
 
+(defn create-next-meeting-handler [req]
+  (let [user-id (common/get-user-id req)
+        series-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [date time]} (:body req)]
+    (cond
+      (not (common/valid-date-format? date))
+      {:status 400 :body {:error "Invalid date format. Use YYYY-MM-DD"}}
+
+      (not (common/valid-time-format? time))
+      {:status 400 :body {:error "Invalid time format. Use HH:MM (24-hour format)"}}
+
+      :else
+      (if-let [meet (db.meeting-series/create-meeting-for-series (common/ensure-ds) user-id series-id date time)]
+        {:status 201 :body meet}
+        {:status 404 :body {:error "Meeting series not found"}}))))
+
 (def categorize-meeting-series-handler (common/make-categorize-handler db.meeting-series/categorize-meeting-series))
 (def uncategorize-meeting-series-handler (common/make-uncategorize-handler db.meeting-series/uncategorize-meeting-series))
 

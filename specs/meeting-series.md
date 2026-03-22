@@ -1,6 +1,9 @@
 # Feature: Meeting series
 
 Status: Draft
+E2E: doesn't exist yet
+
+## Description
 
 Meeting Series are entities in our system which are separate from Meetings. Meeting Series
 group Meetings - there exists a 1:n relationship between a Meeting Series and its Meetings.
@@ -37,5 +40,11 @@ given Meeting Series.
 When another Meeting for that series exists for today, and no other future Meeting exists, then the button is shown, and when pressing
 that button will create the next meeting - based on our schedule.
 
-When no Meeting for that series exists for today, and no other future Meeting exists, and the schedule happens to say that on the day of the week
-that is today a meeting should happen, then the button is visible and lets us create Today's meeting.
+When no Meeting for that series exists for today, and no other future Meeting exists, 
+- and the schedule happens to say that on the day of the week that is today a meeting should happen, then the button is visible and lets us create Today's meeting.
+- and today is not a scheduled day, then the button lets us create the next upcoming scheduled meeting.
+
+## Today page behaviour
+
+When a Meeting of a Meeting Series appears in the Today section of that page (we ignore the Upcoming section from what we say), and the Meeting Series has no other Meeting
+in that series for a **future** day, then in the uncollapsed card for that Meeting item the same blue button appears which let's us create the next Meeting in that Series, according to schedule.

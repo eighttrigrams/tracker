@@ -91,6 +91,7 @@
       {:on-click #(state/toggle-expanded :today-page/expanded-meet (:id meet))}
       [:div.today-task-content
        [:span.task-title
+        "🗓️ "
         (when show-prefix?
           [:span.task-day-prefix (str (date/get-day-name (:start_date meet))
                                       (when (seq (:start_time meet)) ","))])

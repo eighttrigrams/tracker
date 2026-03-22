@@ -1,5 +1,6 @@
 (ns et.tr.ui.state
   (:require [clojure.set]
+            [clojure.string]
             [reagent.core :as r]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.url :as url]
@@ -427,6 +428,77 @@
 
 (defn set-meeting-series-schedule [series-id schedule-days schedule-time on-success]
   (meeting-series-state/set-meeting-series-schedule *app-state auth-headers series-id schedule-days schedule-time on-success))
+
+(defn create-meeting-for-series [series-id date time]
+  (meeting-series-state/create-meeting-for-series *app-state auth-headers fetch-meeting-series series-id date time))
+
+(defn- js-day-to-iso-day [js-day]
+  (if (= js-day 0) 7 js-day))
+
+(defn- per-day-time? [s]
+  (and (some? s) (clojure.string/includes? s "=")))
+
+(defn- get-schedule-time-for-day [schedule-time day-num]
+  (if (per-day-time? schedule-time)
+    (let [pairs (clojure.string/split schedule-time #",")]
+      (some (fn [pair]
+              (let [[d t] (clojure.string/split pair #"=" 2)]
+                (when (= d (str day-num)) t)))
+            pairs))
+    schedule-time))
+
+(defn- next-scheduled-date-from [schedule-days-set start-date]
+  (loop [d start-date i 0]
+    (when (< i 8)
+      (let [js-d (js/Date. (str d "T00:00:00"))
+            day-num (js-day-to-iso-day (.getDay js-d))]
+        (if (contains? schedule-days-set (str day-num))
+          {:date d :day-num day-num}
+          (let [next-d (js/Date. (.getTime js-d))]
+            (.setDate next-d (+ (.getDate next-d) 1))
+            (let [y (.getFullYear next-d)
+                  m (.padStart (str (+ 1 (.getMonth next-d))) 2 "0")
+                  day (.padStart (str (.getDate next-d)) 2 "0")]
+              (recur (str y "-" m "-" day) (inc i)))))))))
+
+(defn- today-str []
+  (let [now (js/Date.)
+        y (.getFullYear now)
+        m (.padStart (str (+ 1 (.getMonth now))) 2 "0")
+        d (.padStart (str (.getDate now)) 2 "0")]
+    (str y "-" m "-" d)))
+
+(defn- tomorrow-str []
+  (let [now (js/Date.)
+        tomorrow (js/Date. (.getTime now))]
+    (.setDate tomorrow (+ (.getDate tomorrow) 1))
+    (let [y (.getFullYear tomorrow)
+          m (.padStart (str (+ 1 (.getMonth tomorrow))) 2 "0")
+          d (.padStart (str (.getDate tomorrow)) 2 "0")]
+      (str y "-" m "-" d))))
+
+(defn next-meeting-action [series]
+  (let [{:keys [has_today_meet has_future_meet schedule_days schedule_time]} series
+        schedule-days-set (if (or (nil? schedule_days) (= schedule_days ""))
+                            #{}
+                            (set (clojure.string/split schedule_days #",")))
+        today (today-str)
+        today-js (js/Date. (str today "T00:00:00"))
+        today-day-num (js-day-to-iso-day (.getDay today-js))]
+    (cond
+      has_future_meet
+      {:action :none}
+
+      has_today_meet
+      (when-let [{:keys [date day-num]} (next-scheduled-date-from schedule-days-set (tomorrow-str))]
+        {:action :create-next :date date :time (get-schedule-time-for-day schedule_time day-num)})
+
+      (contains? schedule-days-set (str today-day-num))
+      {:action :create-today :date today :time (get-schedule-time-for-day schedule_time today-day-num)}
+
+      :else
+      (when-let [{:keys [date day-num]} (next-scheduled-date-from schedule-days-set (tomorrow-str))]
+        {:action :create-next :date date :time (get-schedule-time-for-day schedule_time day-num)}))))
 
 (defn set-meeting-series-filter-search [search-term]
   (meeting-series-state/set-filter-search fetch-meeting-series search-term))

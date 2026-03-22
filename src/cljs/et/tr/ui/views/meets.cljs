@@ -70,7 +70,7 @@
       :set-search-fn state/set-category-selector-search}]))
 
 (defn- meet-date-time-pickers [meet]
-  [:div.meet-date-time-pickers
+  [:<>
    [:span.date-picker-wrapper
     {:on-click #(.stopPropagation %)}
     [:input.date-picker-input
@@ -83,24 +83,15 @@
                                         (.stopPropagation e)
                                         (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
      "📅"]]
-   [:span.time-picker-wrapper
-    {:on-click #(.stopPropagation %)}
-    [:input.time-picker-input
-     {:type "time"
-      :value (or (:start_time meet) "")
-      :on-change (fn [e]
-                   (let [v (.. e -target -value)]
-                     (state/set-meet-start-time (:id meet) (when (seq v) v))))}]
-    [:button.clock-icon {:on-click (fn [e]
-                                     (.stopPropagation e)
-                                     (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-     "🕐"]]])
+   [task-item/generic-time-picker meet
+    :time-key :start_time
+    :on-change #(state/set-meet-start-time (:id meet) %)
+    :show-clear? true]])
 
 (defn- meet-expanded-view [meet people places projects goals]
   [:div.item-details
    (when (seq (:description meet))
      [:div.item-description [task-item/markdown (:description meet)]])
-   [meet-date-time-pickers meet]
    [:div.item-tags
     [meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -127,10 +118,12 @@
         [:span.task-time (:start_time meet)])
       (:title meet)
       (when is-expanded
-        [:button.edit-icon {:on-click (fn [e]
-                                        (.stopPropagation e)
-                                        (state/set-editing-modal :meet meet))}
-         "✎"])]
+        [:<>
+         [:button.edit-icon {:on-click (fn [e]
+                                         (.stopPropagation e)
+                                         (state/set-editing-modal :meet meet))}
+          "✎"]
+         [meet-date-time-pickers meet]])]
      [:div.item-date
       (when (:start_date meet)
         [:span.due-date {:data-tooltip (date/get-day-name (:start_date meet))}
@@ -337,13 +330,26 @@
      :toggle-fn state/toggle-shared-filter
      :has-filter-fn state/has-filter-for-type?}]])
 
+(defn- series-create-meeting-button [series]
+  (let [action (state/next-meeting-action series)
+        enabled? (and action (not= (:action action) :none))]
+    [:button.create-next-meeting-btn
+     {:class (when-not enabled? "disabled")
+      :disabled (not enabled?)
+      :on-click (fn [e]
+                  (.stopPropagation e)
+                  (when enabled?
+                    (state/create-meeting-for-series (:id series) (:date action) (:time action))))}
+     (t :meets/create-next-meeting)]))
+
 (defn- series-item [series expanded-id people places projects goals]
   (let [is-expanded (= expanded-id (:id series))]
     [:li {:class (when is-expanded "expanded")}
      [series-header series is-expanded]
      (if is-expanded
        [series-expanded-view series people places projects goals]
-       [series-categories-readonly series])]))
+       [series-categories-readonly series])
+     [series-create-meeting-button series]]))
 
 (defn- series-search-add-form []
   (let [input-value (:filter-search @meeting-series-state/*meeting-series-page-state)]
