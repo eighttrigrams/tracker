@@ -27,7 +27,7 @@ lint:
 	clj-kondo --lint src/clj src/cljc test/clj
 
 deploy: e2e-docker backup
-	fly deploy
+	fly deploy --build-arg CACHE_BUST=$$(git rev-parse --short HEAD)
 
 clean:
 	rm -rf target node_modules .shadow-cljs resources/public/js
