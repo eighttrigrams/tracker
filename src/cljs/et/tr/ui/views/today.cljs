@@ -1,5 +1,6 @@
 (ns et.tr.ui.views.today
-  (:require [et.tr.ui.state :as state]
+  (:require [reagent.core :as r]
+            [et.tr.ui.state :as state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
@@ -221,6 +222,47 @@
                       (state/abort-relation-mode))}
          "◎"]))))
 
+(defn- today-add-button []
+  (let [ui-state (r/atom {:mode :closed})]
+    (fn []
+      (when-not (state/relation-mode-active?)
+        (let [{:keys [mode input-value]} @ui-state]
+          (case mode
+            :closed
+            [:button.today-add-btn
+             {:on-click (fn [e]
+                          (.stopPropagation e)
+                          (swap! ui-state assoc :mode :input :input-value "")
+                          (js/setTimeout #(when-let [el (.querySelector js/document ".today-add-input")]
+                                            (.focus el)) 0))}
+             "+"]
+
+            :input
+            [:div.today-add-form
+             [:input.today-add-input
+              {:type "text"
+               :placeholder (t :tasks/add-placeholder)
+               :value (or input-value "")
+               :on-change #(swap! ui-state assoc :input-value (.. % -target -value))
+               :on-key-down (fn [e]
+                              (when (= "Enter" (.-key e))
+                                (let [title (.-value (.-target e))]
+                                  (when (seq (.trim title))
+                                    (state/add-task-to-today title #(swap! ui-state assoc :mode :closed))
+                                    (swap! ui-state assoc :mode :closed))))
+                              (when (= "Escape" (.-key e))
+                                (swap! ui-state assoc :mode :closed)))}]
+             [:button.today-add-submit
+              {:on-click (fn [e]
+                           (.stopPropagation e)
+                           (let [title (:input-value @ui-state)]
+                             (when (seq (.trim (or title "")))
+                               (state/add-task-to-today title #(swap! ui-state assoc :mode :closed))
+                               (swap! ui-state assoc :mode :closed))))}
+              (t :tasks/add-button)]]
+
+            nil))))))
+
 (defn- handle-today-drop [drag-task-id]
   (let [task (find-task-by-id* drag-task-id)
         today (date/today-str)]
@@ -245,7 +287,8 @@
                    (handle-today-drop drag-task)))}
      [:div.today-section-header
       [:h3 (date/today-formatted)]
-      [today-link-button]]
+      [today-link-button]
+      [today-add-button]]
      (if (or (seq items) (seq today-flagged))
        [:div
         (when (seq items)

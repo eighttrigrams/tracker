@@ -722,6 +722,14 @@
 (defn set-task-today [task-id today?]
   (tasks/set-task-today *app-state auth-headers fetch-tasks task-id today?))
 
+(defn add-task-to-today [title on-success]
+  (tasks/add-task *app-state auth-headers current-scope (constantly false) nil title
+                  (fn []
+                    (let [task (first (:tasks @*app-state))]
+                      (when task
+                        (set-task-today (:id task) true)))
+                    (when on-success (on-success)))))
+
 (defn set-drag-task [task-id]
   (tasks/set-drag-task *app-state task-id))
 

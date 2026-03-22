@@ -44,6 +44,56 @@
   color: white;
   transform: none;
 }
+.today-add-btn {
+  font-size: 1.2em;
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.today-add-btn:hover {
+  background: var(--accent);
+  color: white;
+  transform: none;
+}
+.today-add-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.today-add-input {
+  padding: 6px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 0.9em;
+  outline: none;
+  width: 200px;
+}
+.today-add-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.15);
+}
+.today-add-submit {
+  padding: 6px 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.today-add-submit:hover {
+  transform: none;
+  opacity: 0.9;
+}
 .today-section.overdue h3 { color: #ff3b30; }
 .today-section.today h3 { color: var(--accent); }
 .today-section.upcoming h3 { color: var(--text-primary); }
