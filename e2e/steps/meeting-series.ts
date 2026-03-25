@@ -67,6 +67,10 @@ When("I click the {string} button", async ({ page }, name: string) => {
   await page.getByRole("button", { name }).click();
 });
 
+When("I trigger auto-create", async ({ request }) => {
+  await request.post("/api/meeting-series/auto-create", { headers });
+});
+
 When("I type {string} in the meets search field", async ({ page }, text: string) => {
   await page.locator("#meets-filter-search").fill(text);
 });
@@ -150,8 +154,34 @@ Then(
   },
 );
 
+async function waitForMeet(
+  request: any,
+  predicate: (m: any) => boolean,
+  timeoutMs = 5000,
+): Promise<any> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const meets = await (await request.get("/api/meets")).json();
+    const found = meets.find(predicate);
+    if (found) return found;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  return undefined;
+}
+
 Then("a meeting should exist for {string}", async ({ request }, title: string) => {
-  const meets = await (await request.get("/api/meets")).json();
-  const found = meets.find((m: any) => m.title === title);
+  const found = await waitForMeet(request, (m: any) => m.title === title);
   expect(found).toBeTruthy();
 });
+
+Then(
+  "a future meeting should exist for {string}",
+  async ({ request }, title: string) => {
+    const today = todayStr();
+    const found = await waitForMeet(
+      request,
+      (m: any) => m.title === title && m.start_date > today,
+    );
+    expect(found).toBeTruthy();
+  },
+);
