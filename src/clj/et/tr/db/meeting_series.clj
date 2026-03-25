@@ -159,16 +159,16 @@
                    :returning [:id field :modified_at]})
       db/jdbc-opts)))
 
-(defn set-meeting-series-schedule [ds user-id series-id schedule-days schedule-time schedule-mode schedule-anchor]
+(defn set-meeting-series-schedule [ds user-id series-id schedule-days schedule-time schedule-mode biweekly-offset]
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update :meeting_series
                  :set {:schedule_days (or schedule-days "")
                        :schedule_time schedule-time
                        :schedule_mode (or schedule-mode "weekly")
-                       :schedule_anchor schedule-anchor
+                       :biweekly_offset (if biweekly-offset 1 0)
                        :modified_at [:raw "datetime('now')"]}
                  :where [:and [:= :id series-id] (db/user-id-where-clause user-id)]
-                 :returning [:id :schedule_days :schedule_time :schedule_mode :schedule_anchor :modified_at]})
+                 :returning [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset :modified_at]})
     db/jdbc-opts))
 
 (defn create-meeting-for-series [ds user-id series-id date time]
@@ -274,9 +274,20 @@
                     (.withDayOfMonth (.plusMonths start-date 1) dom))]
     {:date (str candidate) :day-num nil}))
 
+(defn- first-monday-of-year []
+  (let [year (.getYear (LocalDate/now))
+        jan1 (LocalDate/of year 1 1)
+        dow (.getValue (.getDayOfWeek jan1))
+        offset (if (<= dow 1) (- 1 dow) (- 8 dow))]
+    (.plusDays jan1 offset)))
+
+(defn- biweekly-anchor [offset-flag]
+  (let [mon1 (first-monday-of-year)]
+    (if (= 1 offset-flag) (.plusDays mon1 7) mon1)))
+
 (defn- next-biweekly-date [day-of-week anchor-str ^LocalDate start-date]
   (let [dow (Integer/parseInt day-of-week)
-        anchor (if anchor-str (LocalDate/parse anchor-str) start-date)]
+        anchor (biweekly-anchor anchor-str)]
     (loop [d start-date i 0]
       (when (< i 15)
         (let [d-dow (.getValue (.getDayOfWeek d))
@@ -286,7 +297,7 @@
             {:date (str d) :day-num dow}
             (recur (.plusDays d 1) (inc i))))))))
 
-(defn- is-today-scheduled? [mode schedule-days-set schedule-anchor ^LocalDate today]
+(defn- is-today-scheduled? [mode schedule-days-set biweekly-offset ^LocalDate today]
   (case mode
     "monthly"
     (let [dom (first schedule-days-set)]
@@ -294,7 +305,7 @@
 
     "biweekly"
     (let [dow (first schedule-days-set)
-          anchor (if schedule-anchor (LocalDate/parse schedule-anchor) today)
+          anchor (biweekly-anchor biweekly-offset)
           today-dow (.getValue (.getDayOfWeek today))
           days-between (.until anchor today java.time.temporal.ChronoUnit/DAYS)
           weeks-since (quot days-between 7)]
@@ -302,7 +313,7 @@
 
     (contains? schedule-days-set (str (.getValue (.getDayOfWeek today))))))
 
-(defn- next-scheduled-date [mode schedule-days-set schedule-time schedule-anchor ^LocalDate start-date]
+(defn- next-scheduled-date [mode schedule-days-set schedule-time biweekly-offset ^LocalDate start-date]
   (case mode
     "monthly"
     (let [dom (first schedule-days-set)]
@@ -310,7 +321,7 @@
 
     "biweekly"
     (let [dow (first schedule-days-set)]
-      (next-biweekly-date dow schedule-anchor start-date))
+      (next-biweekly-date dow biweekly-offset start-date))
 
     (next-weekly-date schedule-days-set start-date)))
 
@@ -330,7 +341,7 @@
                                  [:> :meets.start_date today-expr]]
                          :limit 1}
         all-series (jdbc/execute! conn
-                     (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :schedule_anchor
+                     (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset
                                            [[:exists has-today-meet] :has_today_meet]
                                            [[:exists has-future-meet] :has_future_meet]]
                                   :from [:meeting_series]
@@ -345,17 +356,17 @@
                          all-series)
         today (LocalDate/now)
         created (atom [])]
-    (doseq [{:keys [id schedule_days schedule_time schedule_mode schedule_anchor has_today_meet has_future_meet]} all-series]
+    (doseq [{:keys [id schedule_days schedule_time schedule_mode biweekly_offset has_today_meet has_future_meet]} all-series]
       (let [mode (or schedule_mode "weekly")
             schedule-days-set (set (str/split schedule_days #","))]
         (when (and (not has_today_meet)
-                   (is-today-scheduled? mode schedule-days-set schedule_anchor today))
+                   (is-today-scheduled? mode schedule-days-set biweekly_offset today))
           (let [today-day (.getValue (.getDayOfWeek today))
                 time (get-schedule-time-for-day schedule_time today-day)]
             (when-let [meet (create-meeting-for-series ds user-id id (str today) time)]
               (swap! created conj meet))))
         (when (not has_future_meet)
-          (when-let [{:keys [date day-num]} (next-scheduled-date mode schedule-days-set schedule_time schedule_anchor (.plusDays today 1))]
+          (when-let [{:keys [date day-num]} (next-scheduled-date mode schedule-days-set schedule_time biweekly_offset (.plusDays today 1))]
             (let [time (if day-num
                          (get-schedule-time-for-day schedule_time day-num)
                          schedule_time)]

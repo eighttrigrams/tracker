@@ -80,10 +80,10 @@
 (defn set-meeting-series-schedule-handler [req]
   (let [user-id (common/get-user-id req)
         series-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [schedule-days schedule-time schedule-mode schedule-anchor]} (:body req)]
+        {:keys [schedule-days schedule-time schedule-mode biweekly-offset]} (:body req)]
     (if (not (valid-schedule-time? schedule-time))
       {:status 400 :body {:error "Invalid time format"}}
-      (if-let [result (db.meeting-series/set-meeting-series-schedule (common/ensure-ds) user-id series-id schedule-days schedule-time schedule-mode schedule-anchor)]
+      (if-let [result (db.meeting-series/set-meeting-series-schedule (common/ensure-ds) user-id series-id schedule-days schedule-time schedule-mode biweekly-offset)]
         {:status 200 :body result}
         {:status 404 :body {:error "Meeting series not found"}}))))
 

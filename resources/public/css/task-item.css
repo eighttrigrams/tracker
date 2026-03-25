@@ -256,6 +256,10 @@
 .schedule-days { display: flex; gap: 4px; margin-bottom: 16px; }
 .schedule-month-days { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
 .schedule-month-days .month-day { min-width: 32px; padding: 4px 6px; }
+.schedule-next-date-row { margin-bottom: 12px; }
+.schedule-next-date { font-size: 0.85em; color: var(--text-secondary, #666); }
+.schedule-offset-row { margin-bottom: 12px; }
+.schedule-offset-row label { cursor: pointer; }
 .schedule-per-day-row { margin-bottom: 16px; }
 .schedule-per-day-row label { cursor: pointer; }
 .schedule-time-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }

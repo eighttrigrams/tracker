@@ -105,9 +105,9 @@
      (fn [resp]
        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to create meeting"))))))
 
-(defn set-meeting-series-schedule [app-state auth-headers series-id schedule-days schedule-time schedule-mode schedule-anchor on-success]
+(defn set-meeting-series-schedule [app-state auth-headers series-id schedule-days schedule-time schedule-mode biweekly-offset on-success]
   (api/put-json (str "/api/meeting-series/" series-id "/schedule")
-    {:schedule-days schedule-days :schedule-time schedule-time :schedule-mode schedule-mode :schedule-anchor schedule-anchor}
+    {:schedule-days schedule-days :schedule-time schedule-time :schedule-mode schedule-mode :biweekly-offset biweekly-offset}
     (auth-headers)
     (fn [result]
       (swap! app-state update :meeting-series

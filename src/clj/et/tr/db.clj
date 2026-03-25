@@ -48,7 +48,7 @@
 
 (def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time :meeting_series_id :archived])
 
-(def meeting-series-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_days :schedule_time :schedule_mode :schedule_anchor])
+(def meeting-series-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_days :schedule_time :schedule_mode :biweekly_offset])
 
 (defn user-id-where-clause [user-id]
   (if user-id

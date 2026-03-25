@@ -209,6 +209,9 @@
   :scheduling/weekly "Weekly"
   :scheduling/biweekly "Bi-weekly"
   :scheduling/monthly "Monthly"
+
+  :scheduling/next-meeting "Next:"
+  :scheduling/offset-week "Offset by one week"
   :date/mon "Mon"
   :date/tue "Tue"
   :date/wed "Wed"
@@ -428,6 +431,9 @@
   :scheduling/weekly "Wöchentlich"
   :scheduling/biweekly "Zweiwöchentlich"
   :scheduling/monthly "Monatlich"
+
+  :scheduling/next-meeting "Nächstes:"
+  :scheduling/offset-week "Um eine Woche versetzt"
   :date/mon "Mo"
   :date/tue "Di"
   :date/wed "Mi"
@@ -647,6 +653,9 @@
   :scheduling/weekly "Semanal"
   :scheduling/biweekly "Quinzenal"
   :scheduling/monthly "Mensal"
+
+  :scheduling/next-meeting "Próximo:"
+  :scheduling/offset-week "Deslocar uma semana"
   :date/mon "Seg"
   :date/tue "Ter"
   :date/wed "Qua"

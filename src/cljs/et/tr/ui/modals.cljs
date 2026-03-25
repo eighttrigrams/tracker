@@ -189,7 +189,7 @@
                                        :schedule-days (r/atom (or (:schedule_days entity) ""))
                                        :schedule-time (r/atom (or (:schedule_time entity) ""))
                                        :schedule-mode (r/atom (or (:schedule_mode entity) "weekly"))
-                                       :schedule-anchor (r/atom (:schedule_anchor entity))}
+                                       :biweekly-offset (r/atom (= 1 (:biweekly_offset entity)))}
                       :resource {:title (r/atom (:title entity))
                                  :link (r/atom (:link entity))
                                  :description (r/atom (or (:description entity) ""))
@@ -200,13 +200,13 @@
                        :badge-title (r/atom (or (:badge_title entity) ""))})]
     (assoc field-atoms :type type :entity entity)))
 
-(defn- edit-modal-save [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode schedule-anchor]}]
+(defn- edit-modal-save [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset]}]
   (let [id (:id entity)]
     (case type
       :task (state/update-task id @title @description @tags state/clear-editing-modal)
       :meet (state/update-meet id @title @description @tags state/clear-editing-modal)
       :meeting-series (do (state/update-meeting-series id @title @description @tags state/clear-editing-modal)
-                          (state/set-meeting-series-schedule id @schedule-days @schedule-time @schedule-mode @schedule-anchor nil))
+                          (state/set-meeting-series-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset nil))
       :resource (state/update-resource id @title @link @description @tags state/clear-editing-modal)
       (let [category-type (subs (name type) 9)
             update-fn (case category-type
@@ -311,19 +311,20 @@
 (def ^:private month-days
   (mapv (fn [n] {:num (str n) :label (str n)}) (range 1 29)))
 
-(defn- today-date-str []
-  (let [now (js/Date.)
-        y (.getFullYear now)
-        m (.padStart (str (+ 1 (.getMonth now))) 2 "0")
-        d (.padStart (str (.getDate now)) 2 "0")]
+(defn- format-date [js-d]
+  (let [y (.getFullYear js-d)
+        m (.padStart (str (+ 1 (.getMonth js-d))) 2 "0")
+        d (.padStart (str (.getDate js-d)) 2 "0")]
     (str y "-" m "-" d)))
+
+(defn- today-date-str [] (format-date (js/Date.)))
 
 (defn- scheduling-tab-content []
   (let [per-day? (r/atom false)
         day-times (r/atom {})
         shared-time-val (r/atom "")
         initialized? (r/atom false)]
-    (fn [_entity schedule-days schedule-time schedule-mode schedule-anchor]
+    (fn [_entity schedule-days schedule-time schedule-mode biweekly-offset]
       (when-not @initialized?
         (reset! initialized? true)
         (let [st @schedule-time]
@@ -346,7 +347,7 @@
                         (when (not= new-mode "weekly")
                           (reset! per-day? false))
                         (when (= new-mode "biweekly")
-                          (reset! schedule-anchor (today-date-str)))
+                          (reset! biweekly-offset false))
                         (sync-schedule-time!))]
         [:div.scheduling-form
          [:div.schedule-mode-selector.toggle-group
@@ -381,23 +382,40 @@
                 (sync-schedule-time!))]]]
 
            "biweekly"
-           [:div
-            [:div.schedule-days.toggle-group
-             (doall
-              (for [{:keys [num label-key]} day-keys]
-                ^{:key num}
-                [:button.toggle-option
-                 {:class (when (contains? active-days num) "active")
-                  :on-click (fn [_]
-                              (reset! schedule-days num))}
-                 (t label-key)]))]
-            [:div.schedule-time-row
-             [:label (t :scheduling/time)]
-             [schedule-time-picker
-              @shared-time-val
-              (fn [v]
-                (reset! shared-time-val v)
-                (sync-schedule-time!))]]]
+           (let [selected-day (first active-days)
+                 offset-val @biweekly-offset
+                 offset-int (if offset-val 1 0)
+                 today-dow (let [d (.getDay (js/Date.))] (if (= d 0) 7 d))
+                 rotated-days (let [idx (dec today-dow)]
+                                (into (subvec day-keys idx) (subvec day-keys 0 idx)))
+                 next-date (when selected-day
+                             (state/next-biweekly-date-from selected-day offset-int (today-date-str)))]
+             [:div
+              [:div.schedule-days.toggle-group
+               (doall
+                (for [{:keys [num label-key]} rotated-days]
+                  ^{:key num}
+                  [:button.toggle-option
+                   {:class (when (contains? active-days num) "active")
+                    :on-click (fn [_]
+                                (reset! schedule-days num))}
+                   (t label-key)]))]
+              (when (:date next-date)
+                [:div.schedule-next-date-row
+                 [:span.schedule-next-date (str (t :scheduling/next-meeting) " " (:date next-date))]])
+              [:div.schedule-offset-row
+               [:label
+                [:input {:type "checkbox"
+                         :checked @biweekly-offset
+                         :on-change (fn [_] (swap! biweekly-offset not))}]
+                (str " " (t :scheduling/offset-week))]]
+              [:div.schedule-time-row
+               [:label (t :scheduling/time)]
+               [schedule-time-picker
+                @shared-time-val
+                (fn [v]
+                  (reset! shared-time-val v)
+                  (sync-schedule-time!))]]])
 
            [:div
             [:div.schedule-days.toggle-group
@@ -452,7 +470,7 @@
             (reset! prev-entity entity)
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
             (reset! active-tab (or tab :edit)))
-          (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode schedule-anchor]} @fields-state]
+          (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset]} @fields-state]
             (let [is-category (not (#{:task :meet :meeting-series :resource} type))
                   preview-tab-key (case type
                                     :task :modal/tab-task
@@ -479,7 +497,7 @@
                      (t :modal/tab-scheduling)])]
                  (case @active-tab
                    :scheduling
-                   [scheduling-tab-content entity schedule-days schedule-time schedule-mode schedule-anchor]
+                   [scheduling-tab-content entity schedule-days schedule-time schedule-mode biweekly-offset]
 
                    :preview
                    [:div.edit-modal-preview

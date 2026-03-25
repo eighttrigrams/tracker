@@ -76,12 +76,12 @@
 
 (defn- today-meet-create-next-button [meet]
   (when (and (:meeting_series_id meet) (not (:series_has_future_meet meet)))
-    (let [{:keys [schedule_days schedule_time schedule_mode schedule_anchor]} meet
+    (let [{:keys [schedule_days schedule_time schedule_mode biweekly_offset]} meet
           mode (or schedule_mode "weekly")
           schedule-days-set (when (and schedule_days (not= schedule_days ""))
                               (set (clojure.string/split schedule_days #",")))
           next-info (when (seq schedule-days-set)
-                      (state/next-scheduled-date-for-mode mode schedule-days-set schedule_time schedule_anchor (state/tomorrow-str)))
+                      (state/next-scheduled-date-for-mode mode schedule-days-set schedule_time biweekly_offset (state/tomorrow-str)))
           time-val (when next-info
                      (if (:day-num next-info)
                        (state/get-schedule-time-for-day schedule_time (:day-num next-info))

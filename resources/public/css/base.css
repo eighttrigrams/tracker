@@ -26,6 +26,7 @@
   --cat-goal-color: #d70015;
 }
 html.dark-mode {
+  color-scheme: dark;
   --glass-bg: rgba(30, 30, 32, 0.85);
   --glass-bg-subtle: rgba(50, 50, 52, 0.7);
   --glass-bg-elevated: rgba(50, 50, 52, 0.95);

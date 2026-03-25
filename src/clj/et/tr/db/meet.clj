@@ -98,7 +98,7 @@
                                                           :meeting_series.schedule_days
                                                           :meeting_series.schedule_time
                                                           :meeting_series.schedule_mode
-                                                          :meeting_series.schedule_anchor
+                                                          :meeting_series.biweekly_offset
                                                           [[:exists {:select [1]
                                                                      :from [:meets]
                                                                      :where [:and
@@ -112,7 +112,7 @@
                          (into {} (map (fn [r] [(:id r) {:schedule_days (:schedule_days r)
                                                           :schedule_time (:schedule_time r)
                                                           :schedule_mode (:schedule_mode r)
-                                                          :schedule_anchor (:schedule_anchor r)
+                                                          :biweekly_offset (:biweekly_offset r)
                                                           :series_has_future_meet (= 1 (:has_future_meet r))}]) rows))))
          meets-enriched (if series-info
                           (mapv (fn [m]
