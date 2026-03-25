@@ -187,7 +187,9 @@
                                        :description (r/atom (or (:description entity) ""))
                                        :tags (r/atom (or (:tags entity) ""))
                                        :schedule-days (r/atom (or (:schedule_days entity) ""))
-                                       :schedule-time (r/atom (or (:schedule_time entity) ""))}
+                                       :schedule-time (r/atom (or (:schedule_time entity) ""))
+                                       :schedule-mode (r/atom (or (:schedule_mode entity) "weekly"))
+                                       :schedule-anchor (r/atom (:schedule_anchor entity))}
                       :resource {:title (r/atom (:title entity))
                                  :link (r/atom (:link entity))
                                  :description (r/atom (or (:description entity) ""))
@@ -198,13 +200,13 @@
                        :badge-title (r/atom (or (:badge_title entity) ""))})]
     (assoc field-atoms :type type :entity entity)))
 
-(defn- edit-modal-save [{:keys [type entity title description tags link badge-title schedule-days schedule-time]}]
+(defn- edit-modal-save [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode schedule-anchor]}]
   (let [id (:id entity)]
     (case type
       :task (state/update-task id @title @description @tags state/clear-editing-modal)
       :meet (state/update-meet id @title @description @tags state/clear-editing-modal)
       :meeting-series (do (state/update-meeting-series id @title @description @tags state/clear-editing-modal)
-                          (state/set-meeting-series-schedule id @schedule-days @schedule-time nil))
+                          (state/set-meeting-series-schedule id @schedule-days @schedule-time @schedule-mode @schedule-anchor nil))
       :resource (state/update-resource id @title @link @description @tags state/clear-editing-modal)
       (let [category-type (subs (name type) 9)
             update-fn (case category-type
@@ -306,12 +308,22 @@
                            (reset! open? false))}
               "Done"]]])]))))
 
+(def ^:private month-days
+  (mapv (fn [n] {:num (str n) :label (str n)}) (range 1 29)))
+
+(defn- today-date-str []
+  (let [now (js/Date.)
+        y (.getFullYear now)
+        m (.padStart (str (+ 1 (.getMonth now))) 2 "0")
+        d (.padStart (str (.getDate now)) 2 "0")]
+    (str y "-" m "-" d)))
+
 (defn- scheduling-tab-content []
   (let [per-day? (r/atom false)
         day-times (r/atom {})
         shared-time-val (r/atom "")
         initialized? (r/atom false)]
-    (fn [_entity schedule-days schedule-time]
+    (fn [_entity schedule-days schedule-time schedule-mode schedule-anchor]
       (when-not @initialized?
         (reset! initialized? true)
         (let [st @schedule-time]
@@ -322,52 +334,112 @@
             (do (reset! per-day? false)
                 (reset! day-times {})
                 (reset! shared-time-val (shared-time st))))))
-      (let [active-days (parse-schedule-days @schedule-days)
+      (let [mode @schedule-mode
+            active-days (parse-schedule-days @schedule-days)
             sync-schedule-time! (fn []
-                                  (if @per-day?
+                                  (if (and @per-day? (= mode "weekly"))
                                     (reset! schedule-time (serialize-per-day-times @day-times))
-                                    (reset! schedule-time @shared-time-val)))]
+                                    (reset! schedule-time @shared-time-val)))
+            set-mode! (fn [new-mode]
+                        (reset! schedule-mode new-mode)
+                        (reset! schedule-days "")
+                        (when (not= new-mode "weekly")
+                          (reset! per-day? false))
+                        (when (= new-mode "biweekly")
+                          (reset! schedule-anchor (today-date-str)))
+                        (sync-schedule-time!))]
         [:div.scheduling-form
-         [:div.schedule-days.toggle-group
-          (doall
-           (for [{:keys [num label-key]} day-keys]
-             ^{:key num}
-             [:button.toggle-option
-              {:class (when (contains? active-days num) "active")
-               :on-click (fn [_]
-                           (let [new-days (if (contains? active-days num)
-                                            (disj active-days num)
-                                            (conj active-days num))]
-                             (reset! schedule-days (serialize-schedule-days new-days))))}
-              (t label-key)]))]
-         [:div.schedule-per-day-row
-          [:label
-           [:input {:type "checkbox"
-                    :checked @per-day?
-                    :on-change (fn [_]
-                                 (swap! per-day? not)
-                                 (sync-schedule-time!))}]
-           (str " " (t :scheduling/per-day))]]
-         (if @per-day?
-           [:div.schedule-per-day-times
-            (doall
-             (for [{:keys [num label-key]} day-keys
-                   :when (contains? active-days num)]
-               ^{:key num}
-               [:div.schedule-day-time-row
-                [:span.schedule-day-label (t label-key)]
-                [schedule-time-picker
-                 (get @day-times num "")
-                 (fn [v]
-                   (swap! day-times assoc num v)
-                   (sync-schedule-time!))]]))]
-           [:div.schedule-time-row
-            [:label (t :scheduling/time)]
-            [schedule-time-picker
-             @shared-time-val
-             (fn [v]
-               (reset! shared-time-val v)
-               (sync-schedule-time!))]])]))))
+         [:div.schedule-mode-selector.toggle-group
+          [:button.toggle-option {:class (when (= mode "weekly") "active")
+                                  :on-click #(set-mode! "weekly")}
+           (t :scheduling/weekly)]
+          [:button.toggle-option {:class (when (= mode "biweekly") "active")
+                                  :on-click #(set-mode! "biweekly")}
+           (t :scheduling/biweekly)]
+          [:button.toggle-option {:class (when (= mode "monthly") "active")
+                                  :on-click #(set-mode! "monthly")}
+           (t :scheduling/monthly)]]
+
+         (case mode
+           "monthly"
+           [:div
+            [:div.schedule-month-days
+             (doall
+              (for [{:keys [num label]} month-days]
+                ^{:key num}
+                [:button.toggle-option.month-day
+                 {:class (when (contains? active-days num) "active")
+                  :on-click (fn [_]
+                              (reset! schedule-days num))}
+                 label]))]
+            [:div.schedule-time-row
+             [:label (t :scheduling/time)]
+             [schedule-time-picker
+              @shared-time-val
+              (fn [v]
+                (reset! shared-time-val v)
+                (sync-schedule-time!))]]]
+
+           "biweekly"
+           [:div
+            [:div.schedule-days.toggle-group
+             (doall
+              (for [{:keys [num label-key]} day-keys]
+                ^{:key num}
+                [:button.toggle-option
+                 {:class (when (contains? active-days num) "active")
+                  :on-click (fn [_]
+                              (reset! schedule-days num))}
+                 (t label-key)]))]
+            [:div.schedule-time-row
+             [:label (t :scheduling/time)]
+             [schedule-time-picker
+              @shared-time-val
+              (fn [v]
+                (reset! shared-time-val v)
+                (sync-schedule-time!))]]]
+
+           [:div
+            [:div.schedule-days.toggle-group
+             (doall
+              (for [{:keys [num label-key]} day-keys]
+                ^{:key num}
+                [:button.toggle-option
+                 {:class (when (contains? active-days num) "active")
+                  :on-click (fn [_]
+                              (let [new-days (if (contains? active-days num)
+                                               (disj active-days num)
+                                               (conj active-days num))]
+                                (reset! schedule-days (serialize-schedule-days new-days))))}
+                 (t label-key)]))]
+            [:div.schedule-per-day-row
+             [:label
+              [:input {:type "checkbox"
+                       :checked @per-day?
+                       :on-change (fn [_]
+                                    (swap! per-day? not)
+                                    (sync-schedule-time!))}]
+              (str " " (t :scheduling/per-day))]]
+            (if @per-day?
+              [:div.schedule-per-day-times
+               (doall
+                (for [{:keys [num label-key]} day-keys
+                      :when (contains? active-days num)]
+                  ^{:key num}
+                  [:div.schedule-day-time-row
+                   [:span.schedule-day-label (t label-key)]
+                   [schedule-time-picker
+                    (get @day-times num "")
+                    (fn [v]
+                      (swap! day-times assoc num v)
+                      (sync-schedule-time!))]]))]
+              [:div.schedule-time-row
+               [:label (t :scheduling/time)]
+               [schedule-time-picker
+                @shared-time-val
+                (fn [v]
+                  (reset! shared-time-val v)
+                  (sync-schedule-time!))]])])]))))
 
 (defn edit-item-modal []
   (let [fields-state (r/atom nil)
@@ -380,7 +452,7 @@
             (reset! prev-entity entity)
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
             (reset! active-tab (or tab :edit)))
-          (when-let [{:keys [title description tags link badge-title schedule-days schedule-time]} @fields-state]
+          (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode schedule-anchor]} @fields-state]
             (let [is-category (not (#{:task :meet :meeting-series :resource} type))
                   preview-tab-key (case type
                                     :task :modal/tab-task
@@ -407,7 +479,7 @@
                      (t :modal/tab-scheduling)])]
                  (case @active-tab
                    :scheduling
-                   [scheduling-tab-content entity schedule-days schedule-time]
+                   [scheduling-tab-content entity schedule-days schedule-time schedule-mode schedule-anchor]
 
                    :preview
                    [:div.edit-modal-preview

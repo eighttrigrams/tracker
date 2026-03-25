@@ -346,6 +346,9 @@
 (defn set-meet-start-date [meet-id start-date]
   (meets-state/set-meet-start-date *app-state auth-headers fetch-meets meet-id start-date))
 
+(defn archive-meet [meet-id]
+  (meets-state/archive-meet *app-state auth-headers fetch-today-meets meet-id))
+
 (defn set-meet-start-time [meet-id start-time]
   (meets-state/set-meet-start-time *app-state auth-headers fetch-meets meet-id start-time))
 
@@ -427,8 +430,8 @@
 (defn clear-confirm-delete-series []
   (meeting-series-state/clear-confirm-delete-series))
 
-(defn set-meeting-series-schedule [series-id schedule-days schedule-time on-success]
-  (meeting-series-state/set-meeting-series-schedule *app-state auth-headers series-id schedule-days schedule-time on-success))
+(defn set-meeting-series-schedule [series-id schedule-days schedule-time schedule-mode schedule-anchor on-success]
+  (meeting-series-state/set-meeting-series-schedule *app-state auth-headers series-id schedule-days schedule-time schedule-mode schedule-anchor on-success))
 
 (defn create-meeting-for-series [series-id date time]
   (meeting-series-state/create-meeting-for-series *app-state auth-headers fetch-meeting-series series-id date time))
@@ -455,6 +458,17 @@
             pairs))
     schedule-time))
 
+(defn- format-js-date [js-d]
+  (let [y (.getFullYear js-d)
+        m (.padStart (str (+ 1 (.getMonth js-d))) 2 "0")
+        day (.padStart (str (.getDate js-d)) 2 "0")]
+    (str y "-" m "-" day)))
+
+(defn- advance-day [date-str]
+  (let [js-d (js/Date. (str date-str "T00:00:00"))]
+    (.setDate js-d (+ (.getDate js-d) 1))
+    (format-js-date js-d)))
+
 (defn next-scheduled-date-from [schedule-days-set start-date]
   (loop [d start-date i 0]
     (when (< i 8)
@@ -462,51 +476,88 @@
             day-num (js-day-to-iso-day (.getDay js-d))]
         (if (contains? schedule-days-set (str day-num))
           {:date d :day-num day-num}
-          (let [next-d (js/Date. (.getTime js-d))]
-            (.setDate next-d (+ (.getDate next-d) 1))
-            (let [y (.getFullYear next-d)
-                  m (.padStart (str (+ 1 (.getMonth next-d))) 2 "0")
-                  day (.padStart (str (.getDate next-d)) 2 "0")]
-              (recur (str y "-" m "-" day) (inc i)))))))))
+          (recur (advance-day d) (inc i)))))))
+
+(defn- next-monthly-date-from [day-of-month start-date]
+  (let [dom (js/parseInt day-of-month)
+        js-d (js/Date. (str start-date "T00:00:00"))
+        current-dom (.getDate js-d)]
+    (if (>= dom current-dom)
+      (do (.setDate js-d dom)
+          {:date (format-js-date js-d) :day-num nil})
+      (do (.setMonth js-d (+ (.getMonth js-d) 1))
+          (.setDate js-d dom)
+          {:date (format-js-date js-d) :day-num nil}))))
+
+(defn- next-biweekly-date-from [day-of-week anchor-str start-date]
+  (let [dow (js/parseInt day-of-week)
+        anchor-js (js/Date. (str (or anchor-str start-date) "T00:00:00"))
+        anchor-time (.getTime anchor-js)]
+    (loop [d start-date i 0]
+      (when (< i 15)
+        (let [js-d (js/Date. (str d "T00:00:00"))
+              d-dow (js-day-to-iso-day (.getDay js-d))
+              days-between (js/Math.round (/ (- (.getTime js-d) anchor-time) 86400000))
+              weeks-since (js/Math.floor (/ days-between 7))]
+          (if (and (= d-dow dow) (even? weeks-since))
+            {:date d :day-num dow}
+            (recur (advance-day d) (inc i))))))))
 
 (defn- today-str []
-  (let [now (js/Date.)
-        y (.getFullYear now)
-        m (.padStart (str (+ 1 (.getMonth now))) 2 "0")
-        d (.padStart (str (.getDate now)) 2 "0")]
-    (str y "-" m "-" d)))
+  (format-js-date (js/Date.)))
 
 (defn tomorrow-str []
   (let [now (js/Date.)
         tomorrow (js/Date. (.getTime now))]
     (.setDate tomorrow (+ (.getDate tomorrow) 1))
-    (let [y (.getFullYear tomorrow)
-          m (.padStart (str (+ 1 (.getMonth tomorrow))) 2 "0")
-          d (.padStart (str (.getDate tomorrow)) 2 "0")]
-      (str y "-" m "-" d))))
+    (format-js-date tomorrow)))
+
+(defn- is-today-scheduled? [mode schedule-days-set schedule-anchor today-str]
+  (let [today-js (js/Date. (str today-str "T00:00:00"))]
+    (case mode
+      "monthly"
+      (let [dom (first schedule-days-set)]
+        (= (str (.getDate today-js)) dom))
+
+      "biweekly"
+      (let [dow (first schedule-days-set)
+            today-dow (js-day-to-iso-day (.getDay today-js))
+            anchor-js (js/Date. (str (or schedule-anchor today-str) "T00:00:00"))
+            days-between (js/Math.round (/ (- (.getTime today-js) (.getTime anchor-js)) 86400000))
+            weeks-since (js/Math.floor (/ days-between 7))]
+        (and (= today-dow (js/parseInt dow)) (even? weeks-since)))
+
+      (contains? schedule-days-set (str (js-day-to-iso-day (.getDay today-js)))))))
+
+(defn next-scheduled-date-for-mode [mode schedule-days-set schedule-time schedule-anchor start-date]
+  (case mode
+    "monthly"  (next-monthly-date-from (first schedule-days-set) start-date)
+    "biweekly" (next-biweekly-date-from (first schedule-days-set) schedule-anchor start-date)
+    (next-scheduled-date-from schedule-days-set start-date)))
 
 (defn next-meeting-action [series]
-  (let [{:keys [has_today_meet has_future_meet schedule_days schedule_time]} series
+  (let [{:keys [has_today_meet has_future_meet schedule_days schedule_time schedule_mode schedule_anchor]} series
+        mode (or schedule_mode "weekly")
         schedule-days-set (if (or (nil? schedule_days) (= schedule_days ""))
                             #{}
                             (set (clojure.string/split schedule_days #",")))
-        today (today-str)
-        today-js (js/Date. (str today "T00:00:00"))
-        today-day-num (js-day-to-iso-day (.getDay today-js))]
+        today (today-str)]
     (cond
       has_future_meet
       {:action :none}
 
       has_today_meet
-      (when-let [{:keys [date day-num]} (next-scheduled-date-from schedule-days-set (tomorrow-str))]
-        {:action :create-next :date date :time (get-schedule-time-for-day schedule_time day-num)})
+      (when-let [{:keys [date day-num]} (next-scheduled-date-for-mode mode schedule-days-set schedule_time schedule_anchor (tomorrow-str))]
+        {:action :create-next :date date :time (if day-num (get-schedule-time-for-day schedule_time day-num) schedule_time)})
 
-      (contains? schedule-days-set (str today-day-num))
-      {:action :create-today :date today :time (get-schedule-time-for-day schedule_time today-day-num)}
+      (is-today-scheduled? mode schedule-days-set schedule_anchor today)
+      (let [today-js (js/Date. (str today "T00:00:00"))
+            today-day-num (js-day-to-iso-day (.getDay today-js))]
+        {:action :create-today :date today :time (get-schedule-time-for-day schedule_time today-day-num)})
 
       :else
-      (when-let [{:keys [date day-num]} (next-scheduled-date-from schedule-days-set (tomorrow-str))]
-        {:action :create-next :date date :time (get-schedule-time-for-day schedule_time day-num)}))))
+      (when-let [{:keys [date day-num]} (next-scheduled-date-for-mode mode schedule-days-set schedule_time schedule_anchor (tomorrow-str))]
+        {:action :create-next :date date :time (if day-num (get-schedule-time-for-day schedule_time day-num) schedule_time)}))))
 
 (defn set-meeting-series-filter-search [search-term]
   (meeting-series-state/set-filter-search fetch-meeting-series search-term))
@@ -1055,12 +1106,19 @@
     (fetch-meeting-series)
     (fetch-meets)))
 
+(defn auto-create-meetings-and-refresh []
+  (meeting-series-state/auto-create-meetings auth-headers
+    (fn []
+      (fetch-meets)
+      (fetch-meeting-series))))
+
 (def tab-initializers
   (ui/make-tab-initializers *app-state {:fetch-tasks fetch-tasks
                                         :fetch-today-meets fetch-today-meets
                                         :fetch-messages fetch-messages
                                         :fetch-resources fetch-resources
                                         :fetch-meets fetch-meets-or-series
+                                        :auto-create-meetings auto-create-meetings-and-refresh
                                         :is-admin is-admin?}))
 
 (defn set-active-tab [tab]

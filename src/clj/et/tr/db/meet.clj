@@ -55,8 +55,12 @@
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          date-clause (case sort-mode
-                       :past [:< :start_date [:raw "date('now','localtime')"]]
-                       [:>= :start_date [:raw "date('now','localtime')"]])
+                       :past [:or
+                              [:< :start_date [:raw "date('now','localtime')"]]
+                              [:= :archived 1]]
+                       [:and
+                        [:>= :start_date [:raw "date('now','localtime')"]]
+                        [:= :archived 0]])
          search-clause (db/build-search-clause search-term [:title :tags])
          importance-clause (db/build-importance-clause importance)
          scope-clause (db/build-scope-clause context strict)
@@ -93,6 +97,8 @@
                                     (sql/format {:select [:meeting_series.id
                                                           :meeting_series.schedule_days
                                                           :meeting_series.schedule_time
+                                                          :meeting_series.schedule_mode
+                                                          :meeting_series.schedule_anchor
                                                           [[:exists {:select [1]
                                                                      :from [:meets]
                                                                      :where [:and
@@ -105,6 +111,8 @@
                                     db/jdbc-opts)]
                          (into {} (map (fn [r] [(:id r) {:schedule_days (:schedule_days r)
                                                           :schedule_time (:schedule_time r)
+                                                          :schedule_mode (:schedule_mode r)
+                                                          :schedule_anchor (:schedule_anchor r)
                                                           :series_has_future_meet (= 1 (:has_future_meet r))}]) rows))))
          meets-enriched (if series-info
                           (mapv (fn [m]
@@ -197,6 +205,15 @@
                    :where [:and [:= :id meet-id] (db/user-id-where-clause user-id)]
                    :returning [:id :start_date :start_time :modified_at]})
       db/jdbc-opts)))
+
+(defn archive-meet [ds user-id meet-id]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :meets
+                 :set {:archived 1
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id meet-id] (db/user-id-where-clause user-id)]
+                 :returning [:id :archived :modified_at]})
+    db/jdbc-opts))
 
 (defn categorize-meet [ds user-id meet-id category-type category-id]
   (db/validate-category-type! category-type)

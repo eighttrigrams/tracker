@@ -51,6 +51,13 @@
       {:status 200 :body {:success true}}
       {:status 404 :body {:success false :error "Meet not found"}})))
 
+(defn archive-meet-handler [req]
+  (let [user-id (common/get-user-id req)
+        meet-id (Integer/parseInt (get-in req [:params :id]))]
+    (if-let [result (db.meet/archive-meet (common/ensure-ds) user-id meet-id)]
+      {:status 200 :body result}
+      {:status 404 :body {:error "Meet not found"}})))
+
 (def categorize-meet-handler (common/make-categorize-handler db.meet/categorize-meet))
 (def uncategorize-meet-handler (common/make-uncategorize-handler db.meet/uncategorize-meet))
 

@@ -105,9 +105,9 @@
      (fn [resp]
        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to create meeting"))))))
 
-(defn set-meeting-series-schedule [app-state auth-headers series-id schedule-days schedule-time on-success]
+(defn set-meeting-series-schedule [app-state auth-headers series-id schedule-days schedule-time schedule-mode schedule-anchor on-success]
   (api/put-json (str "/api/meeting-series/" series-id "/schedule")
-    {:schedule-days schedule-days :schedule-time schedule-time}
+    {:schedule-days schedule-days :schedule-time schedule-time :schedule-mode schedule-mode :schedule-anchor schedule-anchor}
     (auth-headers)
     (fn [result]
       (swap! app-state update :meeting-series
@@ -177,6 +177,14 @@
 
 (defn clear-confirm-delete-series []
   (swap! *meeting-series-page-state assoc :confirm-delete-series nil))
+
+(defn auto-create-meetings [auth-headers on-success]
+  (api/post-json "/api/meeting-series/auto-create" {}
+    (auth-headers)
+    (fn [result]
+      (when (and on-success (seq (:created result)))
+        (on-success)))
+    (fn [_])))
 
 (defn set-filter-search [fetch-fn search-term]
   (swap! *meeting-series-page-state assoc :filter-search search-term)

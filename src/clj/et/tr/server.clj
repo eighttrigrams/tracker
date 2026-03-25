@@ -168,12 +168,14 @@
       (PUT "/:id/start-date" [] meet-handler/set-meet-start-date-handler)
       (PUT "/:id/start-time" [] meet-handler/set-meet-start-time-handler)
       (PUT "/:id/scope" [] meet-handler/set-meet-scope-handler)
-      (PUT "/:id/importance" [] meet-handler/set-meet-importance-handler))
+      (PUT "/:id/importance" [] meet-handler/set-meet-importance-handler)
+      (PUT "/:id/archive" [] meet-handler/archive-meet-handler))
 
     (context "/meeting-series" []
       (GET "/" [] meeting-series-handler/list-meeting-series-handler)
       (GET "/:id" [] meeting-series-handler/get-meeting-series-handler)
       (POST "/" [] meeting-series-handler/add-meeting-series-handler)
+      (POST "/auto-create" [] meeting-series-handler/auto-create-meetings-handler)
       (PUT "/:id" [] meeting-series-handler/update-meeting-series-handler)
       (DELETE "/:id" [] meeting-series-handler/delete-meeting-series-handler)
       (POST "/:id/categorize" [] meeting-series-handler/categorize-meeting-series-handler)

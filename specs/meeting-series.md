@@ -25,6 +25,10 @@ We can check any of the seven days of a week, and select a time (remember a Meet
 But we also can choose, based on a setting, different times for different days. 
 These settings will be used (will be explained later) when spawning off follow up Meetings.
 
+There are two more modes. Both work exclusively with the setting that the time is always the same, not different per day.
+- One mode lets you choose a day of the month (up to day 28)
+- One mode lets you choose a day of the week, and then runs that on a bi-weekly schedule
+
 ## Creating new Meetings for Meeting series
 
 In the card for the Meeting Series item, in the buttom left, always visible (not on hover like usually), there is a blue box
@@ -51,6 +55,13 @@ When we click the button and the new Meeting creation went successfully, then we
 existing widgets) and should disapear after 2 seconds automatically, saying that a Meeting got created. Also, the button should disappear from the original Meeting item immediately after success
 has been confirmed (by the backend).
 
+When a Meeting of a Meeting Series appears in the Today section of that page, and the Meeting Series **does have** another Meetingin that series for a **future** day already,
+then, and only then, do we show an archive button for that event (for normal Meets, i.e. those not associated with a series, the archive button is always shown). The archive button
+marks the Meet as "done for the day" i.e. it will already be shown on the Meets page under the past sort order, where normally only those Meets are which are for a day in the past 
+(we are using an :archived property to mark these Meets).
+
 ## Automatic next meeting creation
 
-When visiting the Meets page, it should detect Meeting series with non-existing next Meetings and create these accordingly. Status: OPEN
+When visiting the Meets page, it should detect Meeting series with non-existing next Meetings and create these accordingly. 
+When for a Meeting Series no Meet exists for today, and per schedule one should exist, then create that (and show immediately).
+Whether or not for a Meeting series exists a Meeting for today, and there exists no Meeting yet for a future day, create one for the next scheduled date (and time).

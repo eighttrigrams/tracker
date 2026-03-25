@@ -76,13 +76,16 @@
 
 (defn- today-meet-create-next-button [meet]
   (when (and (:meeting_series_id meet) (not (:series_has_future_meet meet)))
-    (let [{:keys [schedule_days schedule_time]} meet
+    (let [{:keys [schedule_days schedule_time schedule_mode schedule_anchor]} meet
+          mode (or schedule_mode "weekly")
           schedule-days-set (when (and schedule_days (not= schedule_days ""))
                               (set (clojure.string/split schedule_days #",")))
           next-info (when (seq schedule-days-set)
-                      (state/next-scheduled-date-from schedule-days-set (state/tomorrow-str)))
+                      (state/next-scheduled-date-for-mode mode schedule-days-set schedule_time schedule_anchor (state/tomorrow-str)))
           time-val (when next-info
-                     (state/get-schedule-time-for-day schedule_time (:day-num next-info)))]
+                     (if (:day-num next-info)
+                       (state/get-schedule-time-for-day schedule_time (:day-num next-info))
+                       schedule_time))]
       (when next-info
         [:button.create-next-meeting-btn
          {:on-click (fn [e]
@@ -91,6 +94,16 @@
                         (:meeting_series_id meet) (:date next-info) time-val
                         (fn [] (show-success-notification! (t :meets/meeting-created)))))}
          (t :meets/create-next-meeting)]))))
+
+(defn- today-meet-archive-button [meet]
+  (let [show? (or (nil? (:meeting_series_id meet))
+                  (:series_has_future_meet meet))]
+    (when show?
+      [:button.archive-meet-btn
+       {:on-click (fn [e]
+                    (.stopPropagation e)
+                    (state/archive-meet (:id meet)))}
+       (t :meets/archive)])))
 
 (defn- today-meet-expanded-details [meet]
   [:div.today-task-details
@@ -107,7 +120,8 @@
       (for [project (:projects meet)]
         ^{:key (str "project-" (:id project))}
         [:span.tag.project (filters/badge-label project)])])
-   [today-meet-create-next-button meet]])
+   [today-meet-create-next-button meet]
+   [today-meet-archive-button meet]])
 
 (defn- today-meet-item [meet & {:keys [show-day-prefix hide-date] :or {show-day-prefix false hide-date false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:start_date meet) 6))

@@ -2,7 +2,9 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
-            [et.tr.db :as db]))
+            [clojure.string :as str]
+            [et.tr.db :as db])
+  (:import [java.time LocalDate DayOfWeek]))
 
 (defn add-meeting-series
   ([ds user-id title] (add-meeting-series ds user-id title "both"))
@@ -157,14 +159,16 @@
                    :returning [:id field :modified_at]})
       db/jdbc-opts)))
 
-(defn set-meeting-series-schedule [ds user-id series-id schedule-days schedule-time]
+(defn set-meeting-series-schedule [ds user-id series-id schedule-days schedule-time schedule-mode schedule-anchor]
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update :meeting_series
                  :set {:schedule_days (or schedule-days "")
                        :schedule_time schedule-time
+                       :schedule_mode (or schedule-mode "weekly")
+                       :schedule_anchor schedule-anchor
                        :modified_at [:raw "datetime('now')"]}
                  :where [:and [:= :id series-id] (db/user-id-where-clause user-id)]
-                 :returning [:id :schedule_days :schedule_time :modified_at]})
+                 :returning [:id :schedule_days :schedule_time :schedule_mode :schedule_anchor :modified_at]})
     db/jdbc-opts))
 
 (defn create-meeting-for-series [ds user-id series-id date time]
@@ -246,3 +250,115 @@
           (sql/format {:update :meeting_series
                        :set {:modified_at [:raw "datetime('now')"]}
                        :where [:= :id series-id]}))))))
+
+(defn- get-schedule-time-for-day [schedule-time day-num]
+  (if (and (some? schedule-time) (str/includes? schedule-time "="))
+    (some (fn [pair]
+            (let [[d t] (str/split pair #"=" 2)]
+              (when (= d (str day-num)) t)))
+          (str/split schedule-time #","))
+    schedule-time))
+
+(defn- next-weekly-date [schedule-days-set ^LocalDate start-date]
+  (loop [d start-date i 0]
+    (when (< i 8)
+      (let [day-num (.getValue (.getDayOfWeek d))]
+        (if (contains? schedule-days-set (str day-num))
+          {:date (str d) :day-num day-num}
+          (recur (.plusDays d 1) (inc i)))))))
+
+(defn- next-monthly-date [day-of-month ^LocalDate start-date]
+  (let [dom (Integer/parseInt day-of-month)
+        candidate (if (>= dom (.getDayOfMonth start-date))
+                    (.withDayOfMonth start-date dom)
+                    (.withDayOfMonth (.plusMonths start-date 1) dom))]
+    {:date (str candidate) :day-num nil}))
+
+(defn- next-biweekly-date [day-of-week anchor-str ^LocalDate start-date]
+  (let [dow (Integer/parseInt day-of-week)
+        anchor (if anchor-str (LocalDate/parse anchor-str) start-date)]
+    (loop [d start-date i 0]
+      (when (< i 15)
+        (let [d-dow (.getValue (.getDayOfWeek d))
+              days-between (.until anchor d java.time.temporal.ChronoUnit/DAYS)
+              weeks-since (quot days-between 7)]
+          (if (and (= d-dow dow) (even? weeks-since))
+            {:date (str d) :day-num dow}
+            (recur (.plusDays d 1) (inc i))))))))
+
+(defn- is-today-scheduled? [mode schedule-days-set schedule-anchor ^LocalDate today]
+  (case mode
+    "monthly"
+    (let [dom (first schedule-days-set)]
+      (= (str (.getDayOfMonth today)) dom))
+
+    "biweekly"
+    (let [dow (first schedule-days-set)
+          anchor (if schedule-anchor (LocalDate/parse schedule-anchor) today)
+          today-dow (.getValue (.getDayOfWeek today))
+          days-between (.until anchor today java.time.temporal.ChronoUnit/DAYS)
+          weeks-since (quot days-between 7)]
+      (and (= today-dow (Integer/parseInt dow)) (even? weeks-since)))
+
+    (contains? schedule-days-set (str (.getValue (.getDayOfWeek today))))))
+
+(defn- next-scheduled-date [mode schedule-days-set schedule-time schedule-anchor ^LocalDate start-date]
+  (case mode
+    "monthly"
+    (let [dom (first schedule-days-set)]
+      (next-monthly-date dom start-date))
+
+    "biweekly"
+    (let [dow (first schedule-days-set)]
+      (next-biweekly-date dow schedule-anchor start-date))
+
+    (next-weekly-date schedule-days-set start-date)))
+
+(defn auto-create-meetings [ds user-id]
+  (let [conn (db/get-conn ds)
+        today-expr [:raw "date('now','localtime')"]
+        has-today-meet {:select [1]
+                        :from [:meets]
+                        :where [:and
+                                [:= :meets.meeting_series_id :meeting_series.id]
+                                [:= :meets.start_date today-expr]]
+                        :limit 1}
+        has-future-meet {:select [1]
+                         :from [:meets]
+                         :where [:and
+                                 [:= :meets.meeting_series_id :meeting_series.id]
+                                 [:> :meets.start_date today-expr]]
+                         :limit 1}
+        all-series (jdbc/execute! conn
+                     (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :schedule_anchor
+                                           [[:exists has-today-meet] :has_today_meet]
+                                           [[:exists has-future-meet] :has_future_meet]]
+                                  :from [:meeting_series]
+                                  :where [:and
+                                          (db/user-id-where-clause user-id)
+                                          [:!= :schedule_days ""]]})
+                     db/jdbc-opts)
+        all-series (mapv (fn [s]
+                           (-> s
+                               (update :has_today_meet #(= 1 %))
+                               (update :has_future_meet #(= 1 %))))
+                         all-series)
+        today (LocalDate/now)
+        created (atom [])]
+    (doseq [{:keys [id schedule_days schedule_time schedule_mode schedule_anchor has_today_meet has_future_meet]} all-series]
+      (let [mode (or schedule_mode "weekly")
+            schedule-days-set (set (str/split schedule_days #","))]
+        (when (and (not has_today_meet)
+                   (is-today-scheduled? mode schedule-days-set schedule_anchor today))
+          (let [today-day (.getValue (.getDayOfWeek today))
+                time (get-schedule-time-for-day schedule_time today-day)]
+            (when-let [meet (create-meeting-for-series ds user-id id (str today) time)]
+              (swap! created conj meet))))
+        (when (not has_future_meet)
+          (when-let [{:keys [date day-num]} (next-scheduled-date mode schedule-days-set schedule_time schedule_anchor (.plusDays today 1))]
+            (let [time (if day-num
+                         (get-schedule-time-for-day schedule_time day-num)
+                         schedule_time)]
+              (when-let [meet (create-meeting-for-series ds user-id id date time)]
+                (swap! created conj meet)))))))
+    @created))

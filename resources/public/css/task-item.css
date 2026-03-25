@@ -252,7 +252,10 @@
 .tasks-header h2 { margin: 0; }
 .series-mode-toggle { margin-left: 12px; }
 .scheduling-form { padding: 16px 0; }
+.schedule-mode-selector { margin-bottom: 16px; }
 .schedule-days { display: flex; gap: 4px; margin-bottom: 16px; }
+.schedule-month-days { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+.schedule-month-days .month-day { min-width: 32px; padding: 4px 6px; }
 .schedule-per-day-row { margin-bottom: 16px; }
 .schedule-per-day-row label { cursor: pointer; }
 .schedule-time-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }

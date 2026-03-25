@@ -202,6 +202,13 @@
   (swap! *meets-page-state assoc :filter-search "" :importance-filter nil)
   (fetch-meets-fn))
 
+(defn archive-meet [app-state auth-headers fetch-today-meets-fn meet-id]
+  (api/put-json (str "/api/meets/" meet-id "/archive") {}
+    (auth-headers)
+    (fn [_] (fetch-today-meets-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to archive meet")))))
+
 (defn reset-meets-page-view-state! []
   (swap! *meets-page-state assoc
          :expanded-meet nil
