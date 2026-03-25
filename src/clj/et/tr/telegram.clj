@@ -43,10 +43,13 @@
               {:status 200 :body {:ok true :skipped "start command"}}
               (let [chat-id (get-in message [:chat :id])
                     message-id (:message_id message)
+                    today-match (re-matches #"(?i)(?:today|td|tt)\s+(.*)" text)
                     task-match (re-matches #"(?i)(?:t|task)\s+(.*)" text)]
-                (if task-match
-                  (let [task-title (str/trim (second task-match))]
-                    (db.task/add-task ds nil task-title)
+                (if (or today-match task-match)
+                  (let [task-title (str/trim (second (or today-match task-match)))
+                        task (db.task/add-task ds nil task-title)]
+                    (when today-match
+                      (db.task/set-task-today ds nil (:id task) true))
                     (delete-telegram-message chat-id message-id)
                     {:status 200 :body {:ok true :type "task"}})
                   (let [title text]
