@@ -60,7 +60,9 @@
               :class (when (= current-value scope) "active")
               :on-click (fn [e]
                           (.stopPropagation e)
-                          (on-change scope))}
+                          (if (= current-value scope)
+                            (state/toggle-strict-mode)
+                            (on-change scope)))}
              (t (keyword "toggle" scope))]))))
 
 (defn work-private-toggle []
