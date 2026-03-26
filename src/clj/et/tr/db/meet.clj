@@ -51,7 +51,7 @@
 (defn list-meets
   ([ds user-id] (list-meets ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories sort-mode excluded-places excluded-projects]} opts
+   (let [{:keys [search-term importance context strict categories sort-mode excluded-places excluded-projects series-id]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          date-clause (case sort-mode
@@ -65,10 +65,11 @@
          importance-clause (db/build-importance-clause importance)
          scope-clause (db/build-scope-clause context strict)
          category-clauses (build-meet-category-clauses categories)
+         series-clause (when series-id [:= :meeting_series_id series-id])
          exclusion-clauses (filterv some? [(db/build-exclusion-subquery :meet_categories :meet_id :meets "place" excluded-places)
                                            (db/build-exclusion-subquery :meet_categories :meet_id :meets "project" excluded-projects)])
          where-clause (into [:and user-where date-clause]
-                            (concat (filter some? [search-clause importance-clause scope-clause])
+                            (concat (filter some? [search-clause importance-clause scope-clause series-clause])
                                     category-clauses
                                     exclusion-clauses))
          order-by (case sort-mode

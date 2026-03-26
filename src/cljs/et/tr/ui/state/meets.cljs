@@ -22,7 +22,7 @@
 
 (defn fetch-meets [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *meets-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode]} opts
+        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode series-id]} opts
         people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
@@ -33,6 +33,7 @@
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
               (= sort-mode :past) (str "sort=past&")
+              series-id (str "series-id=" series-id "&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")

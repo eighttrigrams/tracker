@@ -24,9 +24,10 @@
         goals (common/parse-category-param (get-in req [:params "goals"]))
         excluded-places (common/parse-category-param (get-in req [:params "excluded-places"]))
         excluded-projects (common/parse-category-param (get-in req [:params "excluded-projects"]))
+        series-id (when-let [s (get-in req [:params "series-id"])] (Integer/parseInt s))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.meet/list-meets (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects})}))
+    {:status 200 :body (db.meet/list-meets (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects :series-id series-id})}))
 
 (defn add-meet-handler [req]
   (let [user-id (common/get-user-id req)

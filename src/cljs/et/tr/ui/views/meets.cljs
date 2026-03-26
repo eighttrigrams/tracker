@@ -317,7 +317,12 @@
       [:button.edit-icon {:on-click (fn [e]
                                       (.stopPropagation e)
                                       (state/set-editing-modal :meeting-series series))}
-       "✎"])]])
+       "✎"])]
+   [:button.series-filter-btn {:on-click (fn [e]
+                                           (.stopPropagation e)
+                                           (state/set-series-filter series))
+                                :title (t :meets/filter-by-series)}
+    "⏚"]])
 
 (defn- series-categories-readonly [series]
   [:div.item-tags-readonly
@@ -382,6 +387,12 @@
      (when (seq input-value)
        [:button.clear-search {:on-click #(state/set-meeting-series-filter-search "")} "x"])]))
 
+(defn- series-filter-bar []
+  (let [series-filter (state/series-filter)]
+    [:div.series-filter-bar
+     [:span.series-filter-label (:title series-filter)]
+     [:button.clear-search {:on-click #(state/clear-series-filter)} "x"]]))
+
 (defn- series-toggle []
   (let [series-mode (:meets-page/series-mode @state/*app-state)]
     [:div.series-mode-toggle.toggle-group
@@ -392,6 +403,7 @@
 (defn meets-tab []
   (let [{:keys [meets meeting-series people places projects goals]} @state/*app-state
         series-mode (state/series-mode?)
+        series-filter (state/series-filter)
         {:keys [expanded-meet]} @meets-state/*meets-page-state
         {:keys [expanded-series]} @meeting-series-state/*meeting-series-page-state]
     [:div.main-layout
@@ -404,9 +416,10 @@
        (when-not series-mode
          [sort-mode-toggle])
        [series-toggle]]
-      (if series-mode
-        [series-search-add-form]
-        [search-add-form])
+      (cond
+        series-mode [series-search-add-form]
+        series-filter [series-filter-bar]
+        :else [search-add-form])
       (if series-mode
         (if (empty? meeting-series)
           [:p.empty-message (t :meets/no-series)]

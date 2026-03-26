@@ -87,6 +87,7 @@
 
                             ;; Meets page state
                             :meets-page/series-mode false
+                            :meets-page/filter-series nil
                             :meets-page/filter-goals #{}
                             :meets-page/collapsed-filters #{:people :places :projects :goals}
                             :meets-page/category-search {:people "" :places "" :projects "" :goals ""}
@@ -319,15 +320,17 @@
   (resources-state/uncategorize-resource *app-state auth-headers fetch-resources resource-id category-type category-id))
 
 (defn- meets-fetch-opts []
-  {:search-term (:filter-search @meets-state/*meets-page-state)
-   :importance (:importance-filter @meets-state/*meets-page-state)
-   :sort-mode (:sort-mode @meets-state/*meets-page-state)
-   :context (:work-private-mode @*app-state)
-   :strict (:strict-mode @*app-state)
-   :filter-people (:shared/filter-people @*app-state)
-   :filter-places (:shared/filter-places @*app-state)
-   :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:meets-page/filter-goals @*app-state)})
+  (let [series-filter (:meets-page/filter-series @*app-state)]
+    (cond-> {:search-term (:filter-search @meets-state/*meets-page-state)
+             :importance (:importance-filter @meets-state/*meets-page-state)
+             :sort-mode (:sort-mode @meets-state/*meets-page-state)
+             :context (:work-private-mode @*app-state)
+             :strict (:strict-mode @*app-state)
+             :filter-people (:shared/filter-people @*app-state)
+             :filter-places (:shared/filter-places @*app-state)
+             :filter-projects (:shared/filter-projects @*app-state)
+             :filter-goals (:meets-page/filter-goals @*app-state)}
+      series-filter (assoc :series-id (:id series-filter)))))
 
 (defn fetch-meets
   ([] (fetch-meets (meets-fetch-opts)))
@@ -596,13 +599,28 @@
   (meeting-series-state/add-meeting-series-with-categories *app-state auth-headers fetch-meeting-series current-scope title categories on-success))
 
 (defn toggle-series-mode []
-  (swap! *app-state update :meets-page/series-mode not)
+  (swap! *app-state (fn [s] (-> s
+                                (update :meets-page/series-mode not)
+                                (assoc :meets-page/filter-series nil))))
   (if (:meets-page/series-mode @*app-state)
     (fetch-meeting-series)
     (fetch-meets)))
 
 (defn series-mode? []
   (:meets-page/series-mode @*app-state))
+
+(defn set-series-filter [series]
+  (swap! *app-state assoc
+         :meets-page/filter-series {:id (:id series) :title (:title series)}
+         :meets-page/series-mode false)
+  (fetch-meets))
+
+(defn clear-series-filter []
+  (swap! *app-state assoc :meets-page/filter-series nil)
+  (fetch-meets))
+
+(defn series-filter []
+  (:meets-page/filter-series @*app-state))
 
 (defn toggle-meets-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:meets-page/collapsed-filters @*app-state) filter-key)

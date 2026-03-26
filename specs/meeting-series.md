@@ -47,6 +47,13 @@ When no Meeting for that series exists for today, and no other future Meeting ex
 
 When the button is grayed out, on hoover it should give an explanation as to why it is grayed out.
 
+## Meets page behaviour
+
+Once a time series has been created, and we are on the Meets page in "Series" mode, each Series card has a filter button, always visible, in its heading line, in the right corner.
+Upon pressing that button, we immediately return to normal (non-"Series mode") where Meets, not Series, are listed. But then, instead of the combined search/add input field and button,
+we see the name of the Meeting Series just "selected" (filtered by), and we filter only for Meets of that Series, accordingly. And that in both sort orders, Upcoming or Past Meets.
+That name of the Series we filter by shown instead the searchbar has an 'X' button, with which we deactivate the filter.
+
 ## Today page behaviour
 
 When a Meeting of a Meeting Series appears in the Today section of that page (we ignore the Upcoming section from what we say), and the Meeting Series has no other Meeting
