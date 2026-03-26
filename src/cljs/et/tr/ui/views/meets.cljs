@@ -114,8 +114,6 @@
       (when (and importance (not= importance "normal"))
         [:span.importance-badge {:class importance}
          (case importance "important" "★" "critical" "★★" nil)])
-      (when (seq (:start_time meet))
-        [:span.task-time (:start_time meet)])
       (:title meet)
       (when is-expanded
         [:<>
@@ -127,7 +125,9 @@
      [:div.item-date
       (when (:start_date meet)
         [:span.due-date {:data-tooltip (date/get-day-name (:start_date meet))}
-         (date/format-date-localized (:start_date meet))])]]))
+         (str (date/format-date-localized (:start_date meet))
+              (when (seq (:start_time meet))
+                (str " - " (:start_time meet))))])]]))
 
 (defn- meet-categories-readonly [meet]
   [:div.item-tags-readonly
