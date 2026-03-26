@@ -47,7 +47,7 @@
                       (apply-user-language user)
                       (fetch-all-fn user)))))}))
 
-(defn login [app-state fetch-messages-fn fetch-users-fn username password on-success]
+(defn login [app-state username password on-success]
   (POST "/api/auth/login"
     {:params {:username username :password password}
      :format :json
@@ -63,10 +63,7 @@
                          :error nil)
                   (save-auth-to-storage token user)
                   (apply-user-language user)
-                  (when on-success (on-success))
-                  (when (:is_admin user)
-                    (fetch-messages-fn)
-                    (fetch-users-fn))))
+                  (when on-success (on-success))))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Invalid credentials")))}))
 

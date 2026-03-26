@@ -1,6 +1,7 @@
 (ns et.tr.telegram
   (:require [et.tr.db.task :as db.task]
             [et.tr.db.message :as db.message]
+            [et.tr.db.user :as db.user]
             [clj-http.client :as http]
             [clojure.string :as str]
             [taoensso.telemere :as tel]))
@@ -37,23 +38,28 @@
 
         :else
         (let [update (:body req)
-              message (or (:message update) (:edited_message update))]
-          (if-let [text (:text message)]
-            (if (= text "/start")
-              {:status 200 :body {:ok true :skipped "start command"}}
-              (let [chat-id (get-in message [:chat :id])
-                    message-id (:message_id message)
-                    today-match (re-matches #"(?i)(?:today|td|tt)\s+(.*)" text)
-                    task-match (re-matches #"(?i)(?:t|task)\s+(.*)" text)]
-                (if (or today-match task-match)
-                  (let [task-title (str/trim (second (or today-match task-match)))
-                        task (db.task/add-task ds nil task-title)]
-                    (when today-match
-                      (db.task/set-task-today ds nil (:id task) true))
-                    (delete-telegram-message chat-id message-id)
-                    {:status 200 :body {:ok true :type "task"}})
-                  (let [title text]
-                    (db.message/add-message ds nil "Note" title text nil)
-                    (delete-telegram-message chat-id message-id)
-                    {:status 200 :body {:ok true}}))))
-            {:status 200 :body {:ok true :skipped "no text"}}))))))
+              message (or (:message update) (:edited_message update))
+              mail-user-id (db.user/get-mail-user-id ds)]
+          (if (nil? mail-user-id)
+            (do
+              (tel/log! :warn "No mail user configured")
+              {:status 500 :body {:error "No mail user configured"}})
+            (if-let [text (:text message)]
+              (if (= text "/start")
+                {:status 200 :body {:ok true :skipped "start command"}}
+                (let [chat-id (get-in message [:chat :id])
+                      message-id (:message_id message)
+                      today-match (re-matches #"(?i)(?:today|td|tt)\s+(.*)" text)
+                      task-match (re-matches #"(?i)(?:t|task)\s+(.*)" text)]
+                  (if (or today-match task-match)
+                    (let [task-title (str/trim (second (or today-match task-match)))
+                          task (db.task/add-task ds mail-user-id task-title)]
+                      (when today-match
+                        (db.task/set-task-today ds mail-user-id (:id task) true))
+                      (delete-telegram-message chat-id message-id)
+                      {:status 200 :body {:ok true :type "task"}})
+                    (let [title text]
+                      (db.message/add-message ds mail-user-id "Note" title text nil)
+                      (delete-telegram-message chat-id message-id)
+                      {:status 200 :body {:ok true}}))))
+              {:status 200 :body {:ok true :skipped "no text"}})))))))

@@ -22,12 +22,7 @@
                        (state/login @username @password
                                     (fn []
                                       (reset! username "")
-                                      (reset! password "")
-                                      (state/fetch-tasks)
-                                      (state/fetch-people)
-                                      (state/fetch-places)
-                                      (state/fetch-projects)
-                                      (state/fetch-goals))))]
+                                      (reset! password ""))))]
         [:div.login-form
          [:h2 (t :auth/login)]
          (when-let [error (:error @state/*app-state)]
@@ -63,15 +58,18 @@
 
 (defn tabs []
   (let [active-tab (:active-tab @state/*app-state)]
-    [:div.tabs
-     [tab-button active-tab :today :nav/today]
-     [tab-button active-tab :tasks :nav/tasks]
-     [tab-button active-tab :resources :nav/resources]
-     [tab-button active-tab :meets :nav/meets]
-     [tab-button active-tab :categories :nav/categories
-      #(contains? #{:categories :people-places :projects-goals} %)]
-     (when (state/is-admin?)
-       [tab-button active-tab :mail :nav/mail])]))
+    (if (state/is-admin?)
+      [:div.tabs
+       [tab-button active-tab :users :nav/users]]
+      [:div.tabs
+       [tab-button active-tab :today :nav/today]
+       [tab-button active-tab :tasks :nav/tasks]
+       [tab-button active-tab :resources :nav/resources]
+       [tab-button active-tab :meets :nav/meets]
+       [tab-button active-tab :categories :nav/categories
+        #(contains? #{:categories :people-places :projects-goals} %)]
+       (when (state/has-mail?)
+         [tab-button active-tab :mail :nav/mail])])))
 
 (defn- any-modal-open? []
   (or (:pending-new-item @state/*app-state)

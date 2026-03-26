@@ -8,39 +8,39 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
-            [et.tr.test-helpers :refer [*ds* with-in-memory-db]]))
+            [et.tr.test-helpers :refer [*ds* *user-id* with-in-memory-db]]))
 
 (use-fixtures :each with-in-memory-db)
 
 (deftest people-crud-test
   (testing "add and list people"
-    (db.category/add-person *ds* nil "Alice")
-    (db.category/add-person *ds* nil "Bob")
-    (let [people (db.category/list-people *ds* nil)]
+    (db.category/add-person *ds* *user-id* "Alice")
+    (db.category/add-person *ds* *user-id* "Bob")
+    (let [people (db.category/list-people *ds* *user-id*)]
       (is (= 2 (count people)))
       (is (= ["Alice" "Bob"] (map :name people))))))
 
 (deftest places-crud-test
   (testing "add and list places"
-    (db.category/add-place *ds* nil "Home")
-    (db.category/add-place *ds* nil "Work")
-    (let [places (db.category/list-places *ds* nil)]
+    (db.category/add-place *ds* *user-id* "Home")
+    (db.category/add-place *ds* *user-id* "Work")
+    (let [places (db.category/list-places *ds* *user-id*)]
       (is (= 2 (count places)))
       (is (= ["Home" "Work"] (map :name places))))))
 
 (deftest projects-crud-test
   (testing "add and list projects"
-    (db.category/add-project *ds* nil "Alpha")
-    (db.category/add-project *ds* nil "Beta")
-    (let [projects (db.category/list-projects *ds* nil)]
+    (db.category/add-project *ds* *user-id* "Alpha")
+    (db.category/add-project *ds* *user-id* "Beta")
+    (let [projects (db.category/list-projects *ds* *user-id*)]
       (is (= 2 (count projects)))
       (is (= ["Alpha" "Beta"] (map :name projects))))))
 
 (deftest goals-crud-test
   (testing "add and list goals"
-    (db.category/add-goal *ds* nil "Learn Clojure")
-    (db.category/add-goal *ds* nil "Ship product")
-    (let [goals (db.category/list-goals *ds* nil)]
+    (db.category/add-goal *ds* *user-id* "Learn Clojure")
+    (db.category/add-goal *ds* *user-id* "Ship product")
+    (let [goals (db.category/list-goals *ds* *user-id*)]
       (is (= 2 (count goals)))
       (is (= ["Learn Clojure" "Ship product"] (map :name goals))))))
 
@@ -79,43 +79,43 @@
           {:builder-fn rs/as-unqualified-maps})))
 
 (deftest delete-category-cleans-up-task-categories-test
-  (let [task (db.task/add-task *ds* nil "My task")
-        person (db.category/add-person *ds* nil "Alice")]
-    (db.task/categorize-task *ds* nil (:id task) "person" (:id person))
+  (let [task (db.task/add-task *ds* *user-id* "My task")
+        person (db.category/add-person *ds* *user-id* "Alice")]
+    (db.task/categorize-task *ds* *user-id* (:id task) "person" (:id person))
     (is (= 1 (count-join-rows :task_categories)))
-    (db.category/delete-category *ds* nil (:id person) "person" "people")
+    (db.category/delete-category *ds* *user-id* (:id person) "person" "people")
     (is (= 0 (count-join-rows :task_categories)))))
 
 (deftest delete-category-cleans-up-resource-categories-test
-  (let [resource (db.resource/add-resource *ds* nil "My resource" "https://example.com" "both")
-        person (db.category/add-person *ds* nil "Alice")]
-    (db.resource/categorize-resource *ds* nil (:id resource) "person" (:id person))
+  (let [resource (db.resource/add-resource *ds* *user-id* "My resource" "https://example.com" "both")
+        person (db.category/add-person *ds* *user-id* "Alice")]
+    (db.resource/categorize-resource *ds* *user-id* (:id resource) "person" (:id person))
     (is (= 1 (count-join-rows :resource_categories)))
-    (db.category/delete-category *ds* nil (:id person) "person" "people")
+    (db.category/delete-category *ds* *user-id* (:id person) "person" "people")
     (is (= 0 (count-join-rows :resource_categories)))))
 
 (deftest delete-category-cleans-up-meet-categories-test
-  (let [meet (db.meet/add-meet *ds* nil "My meet")
-        person (db.category/add-person *ds* nil "Alice")]
-    (db.meet/categorize-meet *ds* nil (:id meet) "person" (:id person))
+  (let [meet (db.meet/add-meet *ds* *user-id* "My meet")
+        person (db.category/add-person *ds* *user-id* "Alice")]
+    (db.meet/categorize-meet *ds* *user-id* (:id meet) "person" (:id person))
     (is (= 1 (count-join-rows :meet_categories)))
-    (db.category/delete-category *ds* nil (:id person) "person" "people")
+    (db.category/delete-category *ds* *user-id* (:id person) "person" "people")
     (is (= 0 (count-join-rows :meet_categories)))))
 
 (deftest update-category-badge-title-test
-  (let [person (db.category/add-person *ds* nil "Alice Johnson")]
+  (let [person (db.category/add-person *ds* *user-id* "Alice Johnson")]
     (is (= "" (:badge_title person)))
-    (let [updated (db.category/update-person *ds* nil (:id person) "Alice Johnson" "" "" "AJ")]
+    (let [updated (db.category/update-person *ds* *user-id* (:id person) "Alice Johnson" "" "" "AJ")]
       (is (= "AJ" (:badge_title updated))))
-    (let [listed (first (db.category/list-people *ds* nil))]
+    (let [listed (first (db.category/list-people *ds* *user-id*))]
       (is (= "AJ" (:badge_title listed))))))
 
 (deftest badge-title-appears-on-tasks-test
-  (let [person (db.category/add-person *ds* nil "Alice Johnson")
-        _ (db.category/update-person *ds* nil (:id person) "Alice Johnson" "" "" "AJ")
-        task (db.task/add-task *ds* nil "My task")]
-    (db.task/categorize-task *ds* nil (:id task) "person" (:id person))
-    (let [tasks (db.task/list-tasks *ds* nil)
+  (let [person (db.category/add-person *ds* *user-id* "Alice Johnson")
+        _ (db.category/update-person *ds* *user-id* (:id person) "Alice Johnson" "" "" "AJ")
+        task (db.task/add-task *ds* *user-id* "My task")]
+    (db.task/categorize-task *ds* *user-id* (:id task) "person" (:id person))
+    (let [tasks (db.task/list-tasks *ds* *user-id*)
           t (first tasks)
           p (first (:people t))]
       (is (= "AJ" (:badge_title p))))))

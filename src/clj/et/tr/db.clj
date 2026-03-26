@@ -3,9 +3,25 @@
             [next.jdbc.result-set :as rs]
             [et.tr.migrations :as migrations]
             [clojure.string :as str]
-            [honey.sql :as sql]))
+            [honey.sql :as sql]
+            [buddy.hashers :as hashers]
+            [taoensso.telemere :as tel]))
 
 (def jdbc-opts {:builder-fn rs/as-unqualified-maps})
+
+(defn- sync-mail-user-password! [conn]
+  (when-let [admin-pw (System/getenv "ADMIN_PASSWORD")]
+    (when-let [mail-user (jdbc/execute-one! conn
+                           (sql/format {:select [:id :password_hash]
+                                        :from [:users]
+                                        :where [:= :has_mail 1]})
+                           jdbc-opts)]
+      (when-not (hashers/check admin-pw (:password_hash mail-user))
+        (jdbc/execute-one! conn
+          (sql/format {:update :users
+                       :set {:password_hash (hashers/derive admin-pw)}
+                       :where [:= :id (:id mail-user)]}))
+        (tel/log! :info "Synced mail user password with ADMIN_PASSWORD")))))
 
 (defn init-conn [{:keys [type path]}]
   (let [db-spec (case type
@@ -15,6 +31,7 @@
         persistent-conn (when (= type :sqlite-memory) (jdbc/get-connection ds))
         conn-for-use (or persistent-conn ds)]
     (migrations/migrate! conn-for-use)
+    (sync-mail-user-password! conn-for-use)
     {:conn conn-for-use
      :persistent-conn persistent-conn
      :type type}))

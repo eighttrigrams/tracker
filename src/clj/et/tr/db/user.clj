@@ -17,7 +17,7 @@
 
 (defn get-user-by-username [ds username]
   (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:select [:id :username :password_hash :language :created_at]
+    (sql/format {:select [:id :username :password_hash :language :has_mail :created_at]
                  :from [:users]
                  :where [:= :username username]})
     db/jdbc-opts))
@@ -29,11 +29,18 @@
 
 (defn list-users [ds]
   (jdbc/execute! (db/get-conn ds)
-    (sql/format {:select [:id :username :language :created_at]
+    (sql/format {:select [:id :username :language :has_mail :created_at]
                  :from [:users]
                  :where [:not= :username "admin"]
                  :order-by [[:created_at :asc]]})
     db/jdbc-opts))
+
+(defn get-mail-user-id [ds]
+  (:id (jdbc/execute-one! (db/get-conn ds)
+         (sql/format {:select [:id]
+                      :from [:users]
+                      :where [:= :has_mail 1]})
+         db/jdbc-opts)))
 
 (defn delete-user [ds user-id]
   (let [conn (db/get-conn ds)]

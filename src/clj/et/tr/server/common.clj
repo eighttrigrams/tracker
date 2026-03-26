@@ -4,6 +4,8 @@
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.string :as str]
+            [next.jdbc :as jdbc]
+            [honey.sql :as sql]
             [taoensso.telemere :as tel]))
 
 (defonce ds (atom nil))
@@ -49,9 +51,12 @@
   (if (allow-skip-logins?)
     (let [user-id-str (get-in req [:headers "x-user-id"])]
       (if (or (nil? user-id-str) (= user-id-str "null"))
-        {:user-id nil :is-admin true}
-        (let [user-id (Integer/parseInt user-id-str)]
-          {:user-id user-id :is-admin false})))
+        {:user-id nil :is-admin true :has-mail false}
+        (let [user-id (Integer/parseInt user-id-str)
+              user (jdbc/execute-one! (db/get-conn (ensure-ds))
+                     (sql/format {:select [:has_mail] :from [:users] :where [:= :id user-id]})
+                     db/jdbc-opts)]
+          {:user-id user-id :is-admin false :has-mail (= 1 (:has_mail user))})))
     (when-let [token (auth/extract-token req)]
       (auth/verify-token token))))
 
@@ -63,6 +68,9 @@
 
 (defn is-admin? [req]
   (:is-admin (get-user-from-request req)))
+
+(defn has-mail? [req]
+  (:has-mail (get-user-from-request req)))
 
 (defn parse-category-param [param]
   (when (and param (not (str/blank? param)))

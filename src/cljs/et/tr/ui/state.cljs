@@ -133,9 +133,10 @@
   (swap! *app-state assoc :error nil))
 
 (defn is-admin? []
-  (let [current-user (:current-user @*app-state)]
-    (or (nil? (:id current-user))
-        (:is_admin current-user))))
+  (:is_admin (:current-user @*app-state)))
+
+(defn has-mail? []
+  (:has_mail (:current-user @*app-state)))
 
 (defn- current-scope []
   (name (:work-private-mode @*app-state)))
@@ -152,14 +153,18 @@
 (declare fetch-goals)
 
 (defn- fetch-all [user]
-  (fetch-tasks)
-  (fetch-people)
-  (fetch-places)
-  (fetch-projects)
-  (fetch-goals)
-  (when (:is_admin user)
-    (fetch-messages)
-    (fetch-users)))
+  (if (:is_admin user)
+    (do
+      (fetch-users)
+      (swap! *app-state assoc :active-tab :users))
+    (do
+      (fetch-tasks)
+      (fetch-people)
+      (fetch-places)
+      (fetch-projects)
+      (fetch-goals)
+      (when (:has_mail user)
+        (fetch-messages)))))
 
 (defn- restore-from-url []
   (when-let [{:keys [type api-path]} (url/parse-item-path (.-pathname js/location))]
@@ -177,7 +182,10 @@
     :on-skip-logins #(users/fetch-available-users *app-state)))
 
 (defn login [username password on-success]
-  (auth/login *app-state fetch-messages fetch-users username password on-success))
+  (auth/login *app-state username password
+    (fn []
+      (fetch-all (:current-user @*app-state))
+      (when on-success (on-success)))))
 
 (defn logout []
   (auth/logout *app-state initial-collection-state))
