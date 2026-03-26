@@ -145,6 +145,7 @@
     (->> (:tasks @app-state)
          (filter #(= urgency-level (:urgency %)))
          (remove #(= (:due_date %) today))
+         (remove #(and (:due_date %) (< (:due_date %) today)))
          (remove #(= 1 (:today %)))
          (sort-by :sort_order))))
 

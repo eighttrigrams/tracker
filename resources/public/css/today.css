@@ -284,9 +284,11 @@
   padding: 8px 0;
   margin: 0;
 }
-.today-section.today.drop-target {
+.today-subsection.other-things.drop-target {
   border: 2px dashed var(--accent);
   background: rgba(0, 113, 227, 0.05);
+  border-radius: 8px;
+  padding: 8px;
 }
 .task-emoji-prefix {
   margin-right: 6px;
@@ -308,4 +310,16 @@
 .draggable-today-task:active,
 .draggable-overdue-task:active {
   cursor: grabbing;
+}
+.draggable-today-task {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+.draggable-today-task.dragging {
+  opacity: 0.5;
+}
+.draggable-today-task.drag-over {
+  border-color: var(--accent);
+  border-style: dashed;
 }
