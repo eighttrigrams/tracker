@@ -10,6 +10,8 @@
             [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t]]))
 
+(declare series-create-meeting-button)
+
 (def ^:private meets-category-shortcut-keys
   {"Digit1" :people
    "Digit2" :places
@@ -358,8 +360,9 @@
      [series-header series is-expanded]
      (if is-expanded
        [series-expanded-view series people places projects goals]
-       [series-categories-readonly series])
-     [series-create-meeting-button series]]))
+       [:<>
+        [series-categories-readonly series]
+        [series-create-meeting-button series]])]))
 
 (defn- series-search-add-form []
   (let [input-value (:filter-search @meeting-series-state/*meeting-series-page-state)]
