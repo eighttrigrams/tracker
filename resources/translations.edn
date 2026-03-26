@@ -187,6 +187,7 @@
 
   :nav/meets "Meets"
   :meets/heading "Meetings"
+  :meets/series-heading "Meeting Series"
   :meets/title-placeholder "Title"
   :meets/search-or-add "Search or add meet..."
   :meets/no-meets "No meets"
@@ -411,6 +412,7 @@
 
   :nav/meets "Treffen"
   :meets/heading "Besprechungen"
+  :meets/series-heading "Besprechungsreihen"
   :meets/title-placeholder "Titel"
   :meets/search-or-add "Suchen oder Treffen hinzufügen..."
   :meets/no-meets "Keine Treffen"
@@ -635,6 +637,7 @@
 
   :nav/meets "Encontros"
   :meets/heading "Reuniões"
+  :meets/series-heading "Séries de Reuniões"
   :meets/title-placeholder "Título"
   :meets/search-or-add "Pesquisar ou adicionar encontro..."
   :meets/no-meets "Sem encontros"

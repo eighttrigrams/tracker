@@ -410,7 +410,7 @@
      [sidebar-filters]
      [:div.main-content.meets-page
       [:div.tasks-header
-       [:h2 (t :meets/heading)]
+       [:h2 (if series-mode (t :meets/series-heading) (t :meets/heading))]
        (when-not series-mode
          [importance-filter-toggle])
        (when-not series-mode

@@ -138,7 +138,12 @@
                                       (when (seq (:start_time meet)) ","))])
         (when (seq (:start_time meet))
           [:span.task-time (:start_time meet)])
-        (:title meet)]
+        (:title meet)
+        (when is-expanded
+          [:button.edit-icon {:on-click (fn [e]
+                                          (.stopPropagation e)
+                                          (state/set-editing-modal :meet meet))}
+           "✎"])]
        (when-not is-expanded
          (when (or (seq (:people meet)) (seq (:places meet)) (seq (:projects meet)))
            [:div.task-badges
