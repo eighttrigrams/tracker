@@ -309,4 +309,10 @@
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
     (doseq [table [:relations :task_categories :resource_categories :meet_categories :meeting_series_categories :tasks :messages :resources :meets :meeting_series :people :places :projects :goals :users]]
-      (jdbc/execute-one! conn (sql/format {:delete-from table})))))
+      (jdbc/execute-one! conn (sql/format {:delete-from table})))
+    (jdbc/execute-one! conn
+      (sql/format {:insert-into :users
+                   :values [{:username "e2e-user"
+                             :password_hash (hashers/derive "testpass")
+                             :has_mail 1}]})
+      jdbc-opts)))

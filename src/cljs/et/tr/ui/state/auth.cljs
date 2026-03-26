@@ -31,13 +31,18 @@
      :handler (fn [resp]
                 (swap! app-state assoc :auth-required? (:required resp))
                 (if-not (:required resp)
-                  (let [admin-user {:id nil :username "admin" :is_admin true :language "en"}]
-                    (swap! app-state assoc
-                           :logged-in? true
-                           :current-user admin-user)
-                    (apply-user-language admin-user)
-                    (fetch-all-fn admin-user)
-                    (when on-skip-logins (on-skip-logins)))
+                  (GET "/api/auth/available-users"
+                    {:response-format :json
+                     :keywords? true
+                     :handler (fn [users]
+                                (let [regular-user (first (remove :is_admin users))
+                                      selected-user (or regular-user {:id nil :username "admin" :is_admin true :has_mail false :language "en"})]
+                                  (swap! app-state assoc
+                                         :logged-in? true
+                                         :current-user selected-user
+                                         :available-users users)
+                                  (apply-user-language selected-user)
+                                  (fetch-all-fn selected-user)))})
                   (let [{:keys [token user]} (load-auth-from-storage)]
                     (when (and token user)
                       (swap! app-state assoc

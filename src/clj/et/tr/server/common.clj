@@ -51,7 +51,10 @@
   (if (allow-skip-logins?)
     (let [user-id-str (get-in req [:headers "x-user-id"])]
       (if (or (nil? user-id-str) (= user-id-str "null"))
-        {:user-id nil :is-admin true :has-mail false}
+        (let [first-user (jdbc/execute-one! (db/get-conn (ensure-ds))
+                           (sql/format {:select [:id :has_mail] :from [:users] :order-by [[:id :asc]] :limit 1})
+                           db/jdbc-opts)]
+          {:user-id (:id first-user) :is-admin true :has-mail (= 1 (:has_mail first-user))})
         (let [user-id (Integer/parseInt user-id-str)
               user (jdbc/execute-one! (db/get-conn (ensure-ds))
                      (sql/format {:select [:has_mail] :from [:users] :where [:= :id user-id]})
