@@ -60,19 +60,18 @@
   width: 36px;
   height: 36px;
   padding: 0;
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
+  background: transparent;
+  border: none;
   border-radius: 8px;
-  font-size: 1.1em;
-  color: var(--text-primary);
+  font-size: 1.2em;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease, background-color 2s ease, border-color 2s ease, color 2s ease;
+  transition: all 0.2s ease, color 2s ease;
 }
 .dark-mode-toggle:hover {
   background: var(--surface-subtle);
-  transform: scale(1.05);
+  color: var(--text-primary);
+  transform: none;
 }
 .relation-mode-toggle {
   display: flex;

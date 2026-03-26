@@ -119,7 +119,6 @@
             [controls/work-private-toggle])
           (when (contains? #{:today :tasks :resources :meets} active-tab)
             [controls/relation-mode-toggle])
-          [controls/dark-mode-toggle]
           [controls/user-info]]]
         (case active-tab
           :today [today/today-tab]
