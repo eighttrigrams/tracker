@@ -8,7 +8,7 @@
   (let [{:keys [username password]} (:body req)]
     (if (common/allow-skip-logins?)
       (if (= username "admin")
-        {:status 200 :body {:success true :user {:id nil :username "admin" :is_admin true :has_mail false :language "en"}}}
+        {:status 200 :body {:success true :user {:id nil :username "admin" :is_admin true :has_mail false :language "en" :vim_keys 0}}}
         (if-let [user (db.user/get-user-by-username (common/ensure-ds) username)]
           {:status 200 :body {:success true :user (-> user (dissoc :password_hash) (update :has_mail #(= 1 %)))}}
           {:status 401 :body {:success false :error "User not found"}}))
@@ -16,7 +16,7 @@
         (if (= password (common/admin-password))
           {:status 200 :body {:success true
                               :token (auth/create-token nil "admin" true false)
-                              :user {:id nil :username "admin" :is_admin true :has_mail false :language "en"}}}
+                              :user {:id nil :username "admin" :is_admin true :has_mail false :language "en" :vim_keys 0}}}
           {:status 401 :body {:success false :error "Invalid credentials"}})
         (if-let [user (db.user/verify-user (common/ensure-ds) username password)]
           (let [has-mail (= 1 (:has_mail user))]
@@ -32,7 +32,7 @@
   (if (common/allow-skip-logins?)
     (let [users (->> (db.user/list-users (common/ensure-ds))
                       (map #(update % :has_mail (fn [v] (= 1 v)))))
-          admin {:id nil :username "admin" :is_admin true :has_mail false :language "en"}]
+          admin {:id nil :username "admin" :is_admin true :has_mail false :language "en" :vim_keys 0}]
       {:status 200 :body (cons admin users)})
     {:status 403 :body {:error "Not available in production mode"}}))
 
@@ -82,5 +82,24 @@
 
       :else
       (if-let [result (db.user/set-user-language (common/ensure-ds) user-id language)]
+        {:status 200 :body result}
+        {:status 404 :body {:error "User not found"}}))))
+
+(defn update-vim-keys-handler [req]
+  (let [user-info (common/get-user-from-request req)
+        user-id (:user-id user-info)
+        vim-keys (:vim_keys (:body req))]
+    (cond
+      (:is-admin user-info)
+      {:status 400 :body {:error "Admin settings cannot be changed"}}
+
+      (nil? user-id)
+      {:status 400 :body {:error "User not found"}}
+
+      (not (contains? #{0 1} vim-keys))
+      {:status 400 :body {:error "Invalid value"}}
+
+      :else
+      (if-let [result (db.user/set-vim-keys (common/ensure-ds) user-id (= 1 vim-keys))]
         {:status 200 :body result}
         {:status 404 :body {:error "User not found"}}))))

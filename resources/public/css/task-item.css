@@ -212,7 +212,8 @@
   font-family: inherit;
   font-size: 0.95em;
   resize: vertical;
-  background: white;
+  background: var(--glass-bg);
+  color: var(--text-primary);
 }
 .item-edit-form textarea:focus {
   outline: none;

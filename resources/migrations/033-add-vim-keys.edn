@@ -1,0 +1,3 @@
+{:id "033-add-vim-keys"
+ :up ["ALTER TABLE users ADD COLUMN vim_keys INTEGER NOT NULL DEFAULT 0"]
+ :down ["ALTER TABLE users DROP COLUMN vim_keys"]}

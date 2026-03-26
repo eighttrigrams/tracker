@@ -91,3 +91,13 @@
         (save-auth-to-storage token user)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update language")))))
+
+(defn update-vim-keys [app-state auth-headers enabled]
+  (api/put-json "/api/user/vim-keys" {:vim_keys (if enabled 1 0)} (auth-headers)
+    (fn [_]
+      (swap! app-state update :current-user assoc :vim_keys (if enabled 1 0))
+      (let [user (:current-user @app-state)
+            token (:token @app-state)]
+        (save-auth-to-storage token user)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update setting")))))

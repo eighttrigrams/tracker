@@ -89,7 +89,8 @@
       (POST "/login" [] user-handler/login-handler))
 
     (context "/user" []
-      (PUT "/language" [] user-handler/update-language-handler))
+      (PUT "/language" [] user-handler/update-language-handler)
+      (PUT "/vim-keys" [] user-handler/update-vim-keys-handler))
 
     (context "/users" []
       (GET "/" [] user-handler/list-users-handler)

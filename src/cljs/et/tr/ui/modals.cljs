@@ -7,6 +7,7 @@
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
+            [et.tr.ui.components.cm-textarea :refer [cm-textarea]]
             [et.tr.i18n :refer [t tf]]
             ["marked" :refer [marked]]))
 
@@ -524,10 +525,15 @@
                              :value @tags
                              :on-change #(reset! tags (-> % .-target .-value))
                              :placeholder (t :task/tags-placeholder)}]
-                    [:textarea {:value @description
-                                :on-change #(reset! description (-> % .-target .-value))
-                                :placeholder (t :task/description-placeholder)
-                                :rows (if (#{:meet :meeting-series} type) 20 3)}]])]
+                    (if (state/vim-keys?)
+                      [cm-textarea {:value description
+                                    :on-change #(reset! description %)
+                                    :placeholder (t :task/description-placeholder)
+                                    :rows (if (#{:meet :meeting-series} type) 20 3)}]
+                      [:textarea {:value @description
+                                  :on-change #(reset! description (-> % .-target .-value))
+                                  :placeholder (t :task/description-placeholder)
+                                  :rows (if (#{:meet :meeting-series} type) 20 3)}])])]
                 [:div.modal-footer
                  (when is-category
                    (let [category-type (subs (name type) 9)]

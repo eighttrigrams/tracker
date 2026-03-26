@@ -14,6 +14,16 @@
       [:option {:value "de"} (t :settings/language-de)]
       [:option {:value "pt"} (t :settings/language-pt)]]]))
 
+(defn- vim-keys-toggle []
+  (let [current-user (:current-user @state/*app-state)
+        enabled (= 1 (:vim_keys current-user))]
+    [:div.settings-item
+     [:label
+      [:input {:type "checkbox"
+               :checked enabled
+               :on-change #(state/update-vim-keys (not enabled))}]
+      (str " " (t :settings/vim-keys))]]))
+
 (defn settings-tab []
   (let [current-user (:current-user @state/*app-state)
         is-admin (:is_admin current-user)]
@@ -28,7 +38,9 @@
         [:span.settings-label (t :settings/role)]
         [:span.settings-value (if is-admin (t :settings/role-admin) (t :settings/role-user))]]
        (when-not is-admin
-         [language-selector])]
+         [language-selector])
+       (when-not is-admin
+         [vim-keys-toggle])]
       [:div.manage-section.settings-section
        [:h3 (t :settings/data)]
        [:div.settings-item

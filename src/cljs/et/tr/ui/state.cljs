@@ -194,6 +194,12 @@
 (defn update-user-language [language]
   (auth/update-user-language *app-state auth-headers language))
 
+(defn update-vim-keys [enabled]
+  (auth/update-vim-keys *app-state auth-headers enabled))
+
+(defn vim-keys? []
+  (= 1 (:vim_keys (:current-user @*app-state))))
+
 (defn fetch-messages []
   (mail/fetch-messages *app-state auth-headers))
 

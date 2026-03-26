@@ -17,7 +17,7 @@
 
 (defn get-user-by-username [ds username]
   (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:select [:id :username :password_hash :language :has_mail :created_at]
+    (sql/format {:select [:id :username :password_hash :language :has_mail :vim_keys :created_at]
                  :from [:users]
                  :where [:= :username username]})
     db/jdbc-opts))
@@ -29,7 +29,7 @@
 
 (defn list-users [ds]
   (jdbc/execute! (db/get-conn ds)
-    (sql/format {:select [:id :username :language :has_mail :created_at]
+    (sql/format {:select [:id :username :language :has_mail :vim_keys :created_at]
                  :from [:users]
                  :where [:not= :username "admin"]
                  :order-by [[:created_at :asc]]})
@@ -81,4 +81,13 @@
                    :set {:language language}
                    :where [:= :id user-id]
                    :returning [:id :language]})
+      db/jdbc-opts)))
+
+(defn set-vim-keys [ds user-id enabled]
+  (when user-id
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :users
+                   :set {:vim_keys (if enabled 1 0)}
+                   :where [:= :id user-id]
+                   :returning [:id :vim_keys]})
       db/jdbc-opts)))
