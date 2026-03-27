@@ -351,27 +351,41 @@
 (defn- draggable-today-flagged-task-item [task drag-task-id drag-enabled?]
   (let [drag-over-task (:drag-over-task @state/*app-state)
         is-dragging (= drag-task-id (:id task))
-        is-drag-over (= drag-over-task (:id task))]
+        accept-drop? (and drag-enabled? (not (drag-task-overdue?)))
+        is-drag-over (and accept-drop? (= drag-over-task (:id task)))]
     [:div.draggable-today-task
      {:class (str (when is-dragging "dragging")
                   (when is-drag-over " drag-over"))
       :draggable drag-enabled?
       :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task drag-enabled?)
       :on-drag-end (fn [_] (state/clear-drag-state))
-      :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task drag-enabled?)
+      :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task accept-drop?)
       :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
-      :on-drop (fn [e] (handle-today-flagged-drop e drag-task-id task))}
+      :on-drop (fn [e] (when accept-drop? (handle-today-flagged-drop e drag-task-id task)))}
      [today-task-item task :hide-date true :emoji-prefix (urgency-emoji task) :show-unlink? true]]))
 
 (defn- today-today-section [today-tasks today-meets today-flagged]
   (let [items (interleave-by-date today-tasks today-meets)
         drag-task (:drag-task @state/*app-state)
         expanded-task (:today-page/expanded-task @state/*app-state)
-        drag-enabled? (and drag-task (not expanded-task))]
+        drag-enabled? (and drag-task (not expanded-task))
+        from-overdue? (drag-task-overdue?)]
     [:div.today-section.today
      [:div.today-section-header
       [:h3 (date/today-formatted)]]
      [:div.today-subsection
+      {:class (when (and drag-enabled? (= (:drag-over-urgency-section @state/*app-state) :due-or-happening)) "drop-target")
+       :on-drag-over (fn [e]
+                       (when drag-enabled?
+                         (.preventDefault e)
+                         (state/set-drag-over-urgency-section :due-or-happening)))
+       :on-drag-leave (fn [e]
+                        (when (= (.-target e) (.-currentTarget e))
+                          (state/set-drag-over-urgency-section nil)))
+       :on-drop (fn [e]
+                  (when drag-enabled?
+                    (.preventDefault e)
+                    (handle-today-drop drag-task)))}
       [:h4 (t :today/due-or-happening)]
       (if (seq items)
         [:div.task-list
@@ -383,15 +397,20 @@
               ^{:key (str "task-" (:id item))}
               [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳")])))]
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])]
-     [:div.today-subsection.other-things
-      {:class (when drag-enabled? "drop-target")
-       :on-drag-over (fn [e]
-                       (when drag-enabled?
-                         (.preventDefault e)))
-       :on-drop (fn [e]
-                  (when drag-enabled?
-                    (.preventDefault e)
-                    (handle-today-drop drag-task)))}
+     (let [other-drop-enabled? (and drag-enabled? (not from-overdue?))]
+       [:div.today-subsection.other-things
+        {:class (when (and other-drop-enabled? (= (:drag-over-urgency-section @state/*app-state) :other-things)) "drop-target")
+         :on-drag-over (fn [e]
+                         (when other-drop-enabled?
+                           (.preventDefault e)
+                           (state/set-drag-over-urgency-section :other-things)))
+         :on-drag-leave (fn [e]
+                          (when (= (.-target e) (.-currentTarget e))
+                            (state/set-drag-over-urgency-section nil)))
+         :on-drop (fn [e]
+                    (when other-drop-enabled?
+                      (.preventDefault e)
+                      (handle-today-drop drag-task)))}
       [:div.today-subsection-header
        [:h4 (t :today/other-things)]
        [today-link-button]
@@ -404,7 +423,7 @@
             (for [task today-flagged]
               ^{:key (str "flagged-" (:id task))}
               [draggable-today-flagged-task-item task drag-task-id flagged-drag-enabled?]))])
-        [:p.empty-urgency-message (t :today/no-tasks-in-section)])]]))
+        [:p.empty-urgency-message (t :today/no-tasks-in-section)])])]))
 
 (defn- find-task-by-id [task-id]
   (first (filter #(= (:id %) task-id) (:tasks @state/*app-state))))

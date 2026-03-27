@@ -284,7 +284,7 @@
   padding: 8px 0;
   margin: 0;
 }
-.today-subsection.other-things.drop-target {
+.today-subsection.drop-target {
   border: 2px dashed var(--accent);
   background: rgba(0, 113, 227, 0.05);
   border-radius: 8px;
