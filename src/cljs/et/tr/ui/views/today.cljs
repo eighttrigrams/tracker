@@ -242,6 +242,23 @@
 (defn- find-task-by-id* [task-id]
   (first (filter #(= (:id %) task-id) (:tasks @state/*app-state))))
 
+(defn- find-task-by-id [task-id]
+  (first (filter #(= (:id %) task-id) (:tasks @state/*app-state))))
+
+(defn- ensure-urgency [task-id target-urgency]
+  (let [task (find-task-by-id task-id)]
+    (when (not= (:urgency task) target-urgency)
+      (state/set-task-urgency task-id target-urgency))
+    (when (= 1 (:today task))
+      (state/set-task-today task-id false))))
+
+(defn- drag-task-overdue? []
+  (let [drag-task-id (:drag-task @state/*app-state)
+        today (date/today-str)]
+    (when drag-task-id
+      (let [task (find-task-by-id drag-task-id)]
+        (and task (:due_date task) (< (:due_date task) today))))))
+
 (defn- task-already-in-today? [task]
   (let [today (date/today-str)]
     (or (= 1 (:today task))
@@ -332,8 +349,6 @@
           false)
       (do (when (not= 1 (:today task))
             (state/set-task-today task-id true))
-          (when (and (:urgency task) (not= "default" (:urgency task)))
-            (state/set-task-urgency task-id "default"))
           true))))
 
 (defn- handle-today-flagged-drop [e drag-task-id target-task]
@@ -424,23 +439,6 @@
               ^{:key (str "flagged-" (:id task))}
               [draggable-today-flagged-task-item task drag-task-id flagged-drag-enabled?]))])
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])])]))
-
-(defn- find-task-by-id [task-id]
-  (first (filter #(= (:id %) task-id) (:tasks @state/*app-state))))
-
-(defn- ensure-urgency [task-id target-urgency]
-  (let [task (find-task-by-id task-id)]
-    (when (not= (:urgency task) target-urgency)
-      (state/set-task-urgency task-id target-urgency))
-    (when (= 1 (:today task))
-      (state/set-task-today task-id false))))
-
-(defn- drag-task-overdue? []
-  (let [drag-task-id (:drag-task @state/*app-state)
-        today (date/today-str)]
-    (when drag-task-id
-      (let [task (find-task-by-id drag-task-id)]
-        (and task (:due_date task) (< (:due_date task) today))))))
 
 (defn- draggable-urgent-task-item [task target-urgency drag-enabled?]
   (let [drag-task (:drag-task @state/*app-state)
