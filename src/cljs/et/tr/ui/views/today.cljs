@@ -259,39 +259,6 @@
       (let [task (find-task-by-id drag-task-id)]
         (and task (:due_date task) (< (:due_date task) today))))))
 
-(defn- task-already-in-today? [task]
-  (let [today (date/today-str)]
-    (or (= 1 (:today task))
-        (= (:due_date task) today)
-        (and (:due_date task) (< (:due_date task) today)))))
-
-(defn- today-link-button []
-  (let [source (state/relation-source)]
-    (when (state/relation-mode-active?)
-      (cond
-        (nil? source)
-        [:button.today-link-btn
-         {:on-click (fn [e]
-                      (.stopPropagation e)
-                      (state/set-relation-source-raw "today" nil))}
-         "◎"]
-
-        (= "today" (:type source))
-        [:button.today-link-btn.has-source
-         {:on-click (fn [e]
-                      (.stopPropagation e))}
-         "◎"]
-
-        (and (= "tsk" (:type source))
-             (let [task (find-task-by-id* (:id source))]
-               (or (nil? task) (not (task-already-in-today? task)))))
-        [:button.today-link-btn
-         {:on-click (fn [e]
-                      (.stopPropagation e)
-                      (state/set-task-today (:id source) true)
-                      (state/abort-relation-mode))}
-         "◎"]))))
-
 (defn- today-add-button []
   (let [ui-state (r/atom {:mode :closed})]
     (fn []
@@ -428,7 +395,6 @@
                       (handle-today-drop drag-task)))}
       [:div.today-subsection-header
        [:h4 (t :today/other-things)]
-       [today-link-button]
        [today-add-button]]
       (if (seq today-flagged)
         (let [flagged-drag-enabled? (not expanded-task)

@@ -1,10 +1,6 @@
 (ns et.tr.ui.components.relation-link
   (:require [et.tr.ui.state :as state]))
 
-(defn- task-ineligible-for-today? [task]
-  (or (= 1 (:today task))
-      (:due_date task)))
-
 (def ^:private item-type->collection-key
   {:task :tasks
    :resource :resources
@@ -22,11 +18,7 @@
 (defn relation-link-button [item-type item-id]
   (when (state/relation-mode-active?)
     (let [source (state/relation-source)]
-      (when-not (or (and (= "today" (:type source))
-                         (or (not= :task item-type)
-                             (when-let [task (first (filter #(= (:id %) item-id) (:tasks @state/*app-state)))]
-                               (task-ineligible-for-today? task))))
-                    (already-linked? source item-type item-id))
+      (when-not (already-linked? source item-type item-id)
         (let [is-source? (and source
                               (= (:type source) (state/item-type->prefix item-type))
                               (= (:id source) item-id))]

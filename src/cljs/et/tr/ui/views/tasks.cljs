@@ -151,6 +151,15 @@
     [task-item/category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
     [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]]
    [:div.item-actions
+    (when (and (not= 1 (:today task))
+              (nil? (:due_date task))
+              (not= 1 (:done task)))
+      [:button.link-today-btn
+       {:on-click (fn [e]
+                    (.stopPropagation e)
+                    (state/set-task-today (:id task) true))
+        :title (t :task/link-today)}
+       "←"])
     [task-item/task-attribute-selectors task]
     [task-item/task-combined-action-button task]]])
 

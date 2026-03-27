@@ -1,7 +1,8 @@
 (ns et.tr.ui.state.ui
   (:require [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
-            [et.tr.ui.state.meets :as meets-state]))
+            [et.tr.ui.state.meets :as meets-state]
+            [et.tr.ui.state.relations :as relations-state]))
 
 (defn focus-tasks-search []
   (js/setTimeout #(when-let [el (.getElementById js/document "tasks-filter-search")]
@@ -69,6 +70,8 @@
   (mail-state/reset-mail-page-view-state!)
   (resources-state/reset-resources-page-view-state!)
   (meets-state/reset-meets-page-view-state!)
+  (when-not (contains? #{:tasks :resources :meets} tab)
+    (relations-state/abort-relation-mode))
   (when-let [init-fn (get tab-initializers tab)]
     (init-fn)))
 
