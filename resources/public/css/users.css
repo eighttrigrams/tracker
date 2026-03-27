@@ -5,7 +5,7 @@
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  padding: 4px;
+  padding: 2px;
   border-radius: 10px;
   border: 1px solid var(--glass-border);
   position: relative;
@@ -35,8 +35,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
@@ -176,13 +176,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   background: transparent;
   border: none;
   color: var(--text-secondary);
   font-size: 1.6em;
+  line-height: 1;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
