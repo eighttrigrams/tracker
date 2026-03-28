@@ -2,8 +2,6 @@ import { execSync } from "child_process";
 import { defineConfig } from "@playwright/test";
 import { defineBddConfig } from "playwright-bdd";
 
-const ci = !!process.env.CI;
-
 let port = process.env.PORT;
 if (!port) {
   try {
@@ -25,7 +23,7 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: `http://localhost:${port}`,
-    headless: ci,
+    headless: true, // !!process.env.CI
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   webServer: {

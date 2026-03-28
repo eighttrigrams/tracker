@@ -32,6 +32,11 @@ Given("test data with categorized tasks exists", async ({ request }) => {
   });
 });
 
+When("I reload the page", async ({ page }) => {
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+});
+
 When("I click the {string} tab", async ({ page }, name: string) => {
   await page.getByRole("button", { name }).click();
 });
@@ -69,6 +74,11 @@ When(
 When("I filter by place {string}", async ({ page }, place: string) => {
   await page.locator(".filter-section.places .collapse-toggle").click();
   await page.locator(".filter-section.places .filter-item").filter({ hasText: place }).click();
+});
+
+When("I filter by project {string}", async ({ page }, project: string) => {
+  await page.locator(".filter-section.projects .collapse-toggle").click();
+  await page.locator(".filter-section.projects .filter-item").filter({ hasText: project }).click();
 });
 
 When("I switch to {string}", async ({ page }, tab: string) => {

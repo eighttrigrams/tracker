@@ -16,9 +16,9 @@
     :importance (:tasks-page/importance-filter @app-state)
     :context context
     :strict strict
-    :filter-people (:tasks-page/filter-people @app-state)
+    :filter-people (:shared/filter-people @app-state)
     :filter-places (:shared/filter-places @app-state)
-    :filter-projects (:tasks-page/filter-projects @app-state)
+    :filter-projects (:shared/filter-projects @app-state)
     :filter-goals (:tasks-page/filter-goals @app-state)}))
 
 (defn- today-fetch-opts
