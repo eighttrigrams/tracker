@@ -33,9 +33,9 @@
 
 (defn start-scheduler [ds]
   (let [scheduler (Executors/newSingleThreadScheduledExecutor)
-        initial-delay (seconds-until-minute 30)]
+        initial-delay (seconds-until-minute 40)]
     (tel/log! {:level :info :data {:initial-delay-seconds initial-delay}}
-              "Meeting series worker: scheduling (every hour at :30)")
+              "Meeting series worker: scheduling (every hour at :40)")
     (.scheduleAtFixedRate scheduler
       ^Runnable (fn [] (run-meeting-series-check ds))
       initial-delay
