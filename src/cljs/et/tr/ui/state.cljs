@@ -1164,7 +1164,8 @@
                                         :fetch-resources fetch-resources
                                         :fetch-meets fetch-meets-or-series
                                         :auto-create-meetings auto-create-meetings-and-refresh
-                                        :is-admin is-admin?}))
+                                        :is-admin is-admin?
+                                        :has-mail has-mail?}))
 
 (defn set-active-tab [tab]
   (ui/set-active-tab *app-state tab-initializers tab))
