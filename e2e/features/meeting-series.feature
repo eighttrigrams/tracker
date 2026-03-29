@@ -29,13 +29,6 @@ Feature: Meeting Series
     And I click "Save" in the modal
     Then the series "Daily Sync" should have schedule days "1,3"
 
-  Scenario: Auto-create generates meetings when visiting meets page
-    Given I am on the app
-    And a meeting series "Today Series" exists with today as a scheduled day
-    When I trigger auto-create
-    Then a meeting should exist for "Today Series"
-    And a future meeting should exist for "Today Series"
-
   Scenario: Create next meeting button is disabled when a future meeting exists
     Given I am on the app
     And a meeting series "Future Series" exists with a future meeting

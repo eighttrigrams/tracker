@@ -5,11 +5,6 @@ const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
 
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 function todayIsoDayNum(): string {
   const d = new Date();
   const jsDay = d.getDay();
@@ -25,22 +20,6 @@ function futureDateStr(): string {
 Given("a meeting series {string} exists", async ({ request }, title: string) => {
   await request.post("/api/meeting-series", { headers, data: { title } });
 });
-
-Given(
-  "a meeting series {string} exists with today as a scheduled day",
-  async ({ request }, title: string) => {
-    const series = await (
-      await request.post("/api/meeting-series", { headers, data: { title } })
-    ).json();
-    await request.put(`/api/meeting-series/${series.id}/schedule`, {
-      headers,
-      data: {
-        "schedule-days": todayIsoDayNum(),
-        "schedule-time": "09:00",
-      },
-    });
-  },
-);
 
 Given(
   "a meeting series {string} exists with a future meeting",
@@ -65,10 +44,6 @@ Given(
 
 When("I click the {string} button", async ({ page }, name: string) => {
   await page.getByRole("button", { name }).click();
-});
-
-When("I trigger auto-create", async ({ request }) => {
-  await request.post("/api/meeting-series/auto-create", { headers });
 });
 
 When("I type {string} in the meets search field", async ({ page }, text: string) => {
@@ -154,34 +129,3 @@ Then(
   },
 );
 
-async function waitForMeet(
-  request: any,
-  predicate: (m: any) => boolean,
-  timeoutMs = 5000,
-): Promise<any> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const meets = await (await request.get("/api/meets")).json();
-    const found = meets.find(predicate);
-    if (found) return found;
-    await new Promise((r) => setTimeout(r, 300));
-  }
-  return undefined;
-}
-
-Then("a meeting should exist for {string}", async ({ request }, title: string) => {
-  const found = await waitForMeet(request, (m: any) => m.title === title);
-  expect(found).toBeTruthy();
-});
-
-Then(
-  "a future meeting should exist for {string}",
-  async ({ request }, title: string) => {
-    const today = todayStr();
-    const found = await waitForMeet(
-      request,
-      (m: any) => m.title === title && m.start_date > today,
-    );
-    expect(found).toBeTruthy();
-  },
-);

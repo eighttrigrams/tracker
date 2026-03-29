@@ -87,11 +87,6 @@
         {:status 200 :body result}
         {:status 404 :body {:error "Meeting series not found"}}))))
 
-(defn auto-create-meetings-handler [req]
-  (let [user-id (common/get-user-id req)
-        created (db.meeting-series/auto-create-meetings (common/ensure-ds) user-id)]
-    {:status 200 :body {:created created}}))
-
 (def set-meeting-series-scope-handler
   (common/make-entity-property-handler :scope db/valid-scopes
                                        "Invalid scope. Must be 'private', 'both', or 'work'"

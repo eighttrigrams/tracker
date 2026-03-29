@@ -13,6 +13,7 @@
             [et.tr.auth :as auth]
             [et.tr.telegram :as telegram]
             [et.tr.export :as export]
+            [et.tr.worker :as worker]
             [et.tr.db.category :as db.category]
             [et.tr.middleware.rate-limit :refer [wrap-rate-limit]]
             [clojure.java.io :as io]
@@ -176,7 +177,6 @@
       (GET "/" [] meeting-series-handler/list-meeting-series-handler)
       (GET "/:id" [] meeting-series-handler/get-meeting-series-handler)
       (POST "/" [] meeting-series-handler/add-meeting-series-handler)
-      (POST "/auto-create" [] meeting-series-handler/auto-create-meetings-handler)
       (PUT "/:id" [] meeting-series-handler/update-meeting-series-handler)
       (DELETE "/:id" [] meeting-series-handler/delete-meeting-series-handler)
       (POST "/:id/categorize" [] meeting-series-handler/categorize-meeting-series-handler)
@@ -268,6 +268,8 @@
         (nrepl/start-server :port nrepl-port)
         (spit ".nrepl-port" nrepl-port)
         (tel/log! :info (str "nREPL server started on port " nrepl-port))))
+    (when prod?
+      (worker/start-scheduler (common/ensure-ds)))
     (if-let [port (env-int "PORT" (:port @common/*config))]
       (do
         (tel/log! :info (str "Starting server on port " port))

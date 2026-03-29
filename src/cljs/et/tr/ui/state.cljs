@@ -1151,19 +1151,12 @@
     (fetch-meeting-series)
     (fetch-meets)))
 
-(defn auto-create-meetings-and-refresh []
-  (meeting-series-state/auto-create-meetings auth-headers
-    (fn []
-      (fetch-meets)
-      (fetch-meeting-series))))
-
 (def tab-initializers
   (ui/make-tab-initializers *app-state {:fetch-tasks fetch-tasks
                                         :fetch-today-meets fetch-today-meets
                                         :fetch-messages fetch-messages
                                         :fetch-resources fetch-resources
                                         :fetch-meets fetch-meets-or-series
-                                        :auto-create-meetings auto-create-meetings-and-refresh
                                         :is-admin is-admin?
                                         :has-mail has-mail?}))
 

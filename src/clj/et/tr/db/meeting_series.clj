@@ -325,51 +325,56 @@
 
     (next-weekly-date schedule-days-set start-date)))
 
-(defn auto-create-meetings [ds user-id]
-  (let [conn (db/get-conn ds)
-        today-expr [:raw "date('now','localtime')"]
-        has-today-meet {:select [1]
-                        :from [:meets]
-                        :where [:and
-                                [:= :meets.meeting_series_id :meeting_series.id]
-                                [:= :meets.start_date today-expr]]
-                        :limit 1}
-        has-future-meet {:select [1]
+(defn auto-create-meetings
+  ([ds user-id] (auto-create-meetings ds user-id {}))
+  ([ds user-id {:keys [short-circuit?] :or {short-circuit? false}}]
+   (let [conn (db/get-conn ds)
+         today-expr [:raw "date('now','localtime')"]
+         has-today-meet {:select [1]
                          :from [:meets]
                          :where [:and
                                  [:= :meets.meeting_series_id :meeting_series.id]
-                                 [:> :meets.start_date today-expr]]
+                                 [:= :meets.start_date today-expr]]
                          :limit 1}
-        all-series (jdbc/execute! conn
-                     (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset
-                                           [[:exists has-today-meet] :has_today_meet]
-                                           [[:exists has-future-meet] :has_future_meet]]
-                                  :from [:meeting_series]
-                                  :where [:and
-                                          (db/user-id-where-clause user-id)
-                                          [:!= :schedule_days ""]]})
-                     db/jdbc-opts)
-        all-series (mapv (fn [s]
-                           (-> s
-                               (update :has_today_meet #(= 1 %))
-                               (update :has_future_meet #(= 1 %))))
-                         all-series)
-        today (LocalDate/now)
-        created (atom [])]
-    (doseq [{:keys [id schedule_days schedule_time schedule_mode biweekly_offset has_today_meet has_future_meet]} all-series]
-      (let [mode (or schedule_mode "weekly")
-            schedule-days-set (set (str/split schedule_days #","))]
-        (when (and (not has_today_meet)
-                   (is-today-scheduled? mode schedule-days-set biweekly_offset today))
-          (let [today-day (.getValue (.getDayOfWeek today))
-                time (get-schedule-time-for-day schedule_time today-day)]
-            (when-let [meet (create-meeting-for-series ds user-id id (str today) time)]
-              (swap! created conj meet))))
-        (when (not has_future_meet)
-          (when-let [{:keys [date day-num]} (next-scheduled-date mode schedule-days-set schedule_time biweekly_offset (.plusDays today 1))]
-            (let [time (if day-num
-                         (get-schedule-time-for-day schedule_time day-num)
-                         schedule_time)]
-              (when-let [meet (create-meeting-for-series ds user-id id date time)]
-                (swap! created conj meet)))))))
-    @created))
+         has-future-meet {:select [1]
+                          :from [:meets]
+                          :where [:and
+                                  [:= :meets.meeting_series_id :meeting_series.id]
+                                  [:> :meets.start_date today-expr]]
+                          :limit 1}
+         all-series (jdbc/execute! conn
+                      (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset
+                                            [[:exists has-today-meet] :has_today_meet]
+                                            [[:exists has-future-meet] :has_future_meet]]
+                                   :from [:meeting_series]
+                                   :where [:and
+                                           (db/user-id-where-clause user-id)
+                                           [:!= :schedule_days ""]]})
+                      db/jdbc-opts)
+         all-series (mapv (fn [s]
+                            (-> s
+                                (update :has_today_meet #(= 1 %))
+                                (update :has_future_meet #(= 1 %))))
+                          all-series)
+         today (LocalDate/now)
+         created (atom [])]
+     (doseq [{:keys [id schedule_days schedule_time schedule_mode biweekly_offset has_today_meet has_future_meet]} all-series]
+       (let [mode (or schedule_mode "weekly")
+             schedule-days-set (set (str/split schedule_days #","))
+             created-today? (atom false)]
+         (when (and (not has_today_meet)
+                    (is-today-scheduled? mode schedule-days-set biweekly_offset today))
+           (let [today-day (.getValue (.getDayOfWeek today))
+                 time (get-schedule-time-for-day schedule_time today-day)]
+             (when-let [meet (create-meeting-for-series ds user-id id (str today) time)]
+               (swap! created conj meet)
+               (reset! created-today? true))))
+         (when (and (not has_future_meet)
+                    (not (and short-circuit? @created-today?)))
+           (when-let [{:keys [date day-num]} (next-scheduled-date mode schedule-days-set schedule_time biweekly_offset (.plusDays today 1))]
+             (let [time (if day-num
+                          (get-schedule-time-for-day schedule_time day-num)
+                          schedule_time)]
+               (when-let [meet (create-meeting-for-series ds user-id id date time)]
+                 (swap! created conj meet)))))))
+     @created)))
