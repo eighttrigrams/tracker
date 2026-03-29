@@ -20,7 +20,7 @@ When the "Recurring" button is activated, the Sort Order group and Importance se
 
 ## Scheduling
 
-In the first version, we only focus on Tasks with Due Date.
+In the first version, we only focus on **Tasks with Due Date**.
 
 The edit modal for Recurring Tasks has an additional tab called "Scheduling". In it, we can set a schedule for tasks.
 We can check any of the seven days of a week.
