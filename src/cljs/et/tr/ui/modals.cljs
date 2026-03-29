@@ -378,7 +378,7 @@
          (case mode
            "monthly"
            [:div
-            [:div.schedule-month-days
+            [:div.schedule-month-days.toggle-group
              (doall
               (for [{:keys [num label]} month-days]
                 ^{:key num}
