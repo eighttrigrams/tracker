@@ -5,6 +5,7 @@
             [et.tr.ui.constants :as constants]
             [et.tr.ui.url :as url]
             [et.tr.ui.api :as api]
+            [et.tr.ui.scheduling :as scheduling]
             [et.tr.ui.state.auth :as auth]
             [et.tr.ui.state.mail :as mail]
             [et.tr.ui.state.users :as users]
@@ -15,6 +16,7 @@
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
+            [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.state.relations :as relations-state]
             [et.tr.ui.state.ui :as ui]))
 
@@ -33,6 +35,7 @@
    :resources []
    :meets []
    :meeting-series []
+   :recurring-tasks []
    :today-meets []
    :upcoming-horizon nil})
 
@@ -46,6 +49,7 @@
                             :resources []
                             :meets []
                             :meeting-series []
+                            :recurring-tasks []
                             :users []
                             :available-users []
 
@@ -84,6 +88,9 @@
                             :resources-page/filter-goals #{}
                             :resources-page/collapsed-filters #{:people :places :projects :goals}
                             :resources-page/category-search {:people "" :places "" :projects "" :goals ""}
+
+                            ;; Tasks page recurring mode
+                            :tasks-page/recurring-mode false
 
                             ;; Meets page state
                             :meets-page/series-mode false
@@ -460,134 +467,16 @@
       (fetch-today-meets))
     series-id date time on-success))
 
-(defn- js-day-to-iso-day [js-day]
-  (if (= js-day 0) 7 js-day))
-
-(defn- per-day-time? [s]
-  (and (some? s) (clojure.string/includes? s "=")))
-
-(defn get-schedule-time-for-day [schedule-time day-num]
-  (if (per-day-time? schedule-time)
-    (let [pairs (clojure.string/split schedule-time #",")]
-      (some (fn [pair]
-              (let [[d t] (clojure.string/split pair #"=" 2)]
-                (when (= d (str day-num)) t)))
-            pairs))
-    schedule-time))
-
-(defn- format-js-date [js-d]
-  (let [y (.getFullYear js-d)
-        m (.padStart (str (+ 1 (.getMonth js-d))) 2 "0")
-        day (.padStart (str (.getDate js-d)) 2 "0")]
-    (str y "-" m "-" day)))
-
-(defn- advance-day [date-str]
-  (let [js-d (js/Date. (str date-str "T00:00:00"))]
-    (.setDate js-d (+ (.getDate js-d) 1))
-    (format-js-date js-d)))
-
-(defn next-scheduled-date-from [schedule-days-set start-date]
-  (loop [d start-date i 0]
-    (when (< i 8)
-      (let [js-d (js/Date. (str d "T00:00:00"))
-            day-num (js-day-to-iso-day (.getDay js-d))]
-        (if (contains? schedule-days-set (str day-num))
-          {:date d :day-num day-num}
-          (recur (advance-day d) (inc i)))))))
-
-(defn- next-monthly-date-from [day-of-month start-date]
-  (let [dom (js/parseInt day-of-month)
-        js-d (js/Date. (str start-date "T00:00:00"))
-        current-dom (.getDate js-d)]
-    (if (>= dom current-dom)
-      (do (.setDate js-d dom)
-          {:date (format-js-date js-d) :day-num nil})
-      (do (.setMonth js-d (+ (.getMonth js-d) 1))
-          (.setDate js-d dom)
-          {:date (format-js-date js-d) :day-num nil}))))
-
-(defn- first-monday-of-year []
-  (let [y (.getFullYear (js/Date.))
-        jan1 (js/Date. y 0 1)
-        dow (.getDay jan1)
-        offset (if (<= dow 1) (- 1 dow) (- 8 dow))]
-    (js/Date. y 0 (+ 1 offset))))
-
-(defn- biweekly-anchor [offset-flag]
-  (let [mon1 (first-monday-of-year)]
-    (if (= 1 offset-flag)
-      (js/Date. (.getFullYear mon1) (.getMonth mon1) (+ (.getDate mon1) 7))
-      mon1)))
-
-(defn next-biweekly-date-from [day-of-week offset-flag start-date]
-  (let [dow (js/parseInt day-of-week)
-        anchor-js (biweekly-anchor offset-flag)
-        anchor-time (.getTime anchor-js)]
-    (loop [d start-date i 0]
-      (when (< i 15)
-        (let [js-d (js/Date. (str d "T00:00:00"))
-              d-dow (js-day-to-iso-day (.getDay js-d))
-              days-between (js/Math.round (/ (- (.getTime js-d) anchor-time) 86400000))
-              weeks-since (js/Math.floor (/ days-between 7))]
-          (if (and (= d-dow dow) (even? weeks-since))
-            {:date d :day-num dow}
-            (recur (advance-day d) (inc i))))))))
-
-(defn- today-str []
-  (format-js-date (js/Date.)))
-
-(defn tomorrow-str []
-  (let [now (js/Date.)
-        tomorrow (js/Date. (.getTime now))]
-    (.setDate tomorrow (+ (.getDate tomorrow) 1))
-    (format-js-date tomorrow)))
-
-(defn- is-today-scheduled? [mode schedule-days-set biweekly-offset today-str]
-  (let [today-js (js/Date. (str today-str "T00:00:00"))]
-    (case mode
-      "monthly"
-      (let [dom (first schedule-days-set)]
-        (= (str (.getDate today-js)) dom))
-
-      "biweekly"
-      (let [dow (first schedule-days-set)
-            today-dow (js-day-to-iso-day (.getDay today-js))
-            anchor-js (biweekly-anchor biweekly-offset)
-            days-between (js/Math.round (/ (- (.getTime today-js) (.getTime anchor-js)) 86400000))
-            weeks-since (js/Math.floor (/ days-between 7))]
-        (and (= today-dow (js/parseInt dow)) (even? weeks-since)))
-
-      (contains? schedule-days-set (str (js-day-to-iso-day (.getDay today-js)))))))
-
-(defn next-scheduled-date-for-mode [mode schedule-days-set schedule-time biweekly-offset start-date]
-  (case mode
-    "monthly"  (next-monthly-date-from (first schedule-days-set) start-date)
-    "biweekly" (next-biweekly-date-from (first schedule-days-set) biweekly-offset start-date)
-    (next-scheduled-date-from schedule-days-set start-date)))
+(def get-schedule-time-for-day scheduling/get-schedule-time-for-day)
+(def next-biweekly-date-from scheduling/next-biweekly-date-from)
+(def next-scheduled-date-for-mode scheduling/next-scheduled-date-for-mode)
+(def tomorrow-str scheduling/tomorrow-str)
 
 (defn next-meeting-action [series]
-  (let [{:keys [has_today_meet has_future_meet schedule_days schedule_time schedule_mode biweekly_offset]} series
-        mode (or schedule_mode "weekly")
-        schedule-days-set (if (or (nil? schedule_days) (= schedule_days ""))
-                            #{}
-                            (set (clojure.string/split schedule_days #",")))
-        today (today-str)]
-    (cond
-      has_future_meet
-      {:action :none}
+  (scheduling/next-scheduled-action series {:has-today-key :has_today_meet :has-future-key :has_future_meet}))
 
-      has_today_meet
-      (when-let [{:keys [date day-num]} (next-scheduled-date-for-mode mode schedule-days-set schedule_time biweekly_offset (tomorrow-str))]
-        {:action :create-next :date date :time (if day-num (get-schedule-time-for-day schedule_time day-num) schedule_time)})
-
-      (is-today-scheduled? mode schedule-days-set biweekly_offset today)
-      (let [today-js (js/Date. (str today "T00:00:00"))
-            today-day-num (js-day-to-iso-day (.getDay today-js))]
-        {:action :create-today :date today :time (get-schedule-time-for-day schedule_time today-day-num)})
-
-      :else
-      (when-let [{:keys [date day-num]} (next-scheduled-date-for-mode mode schedule-days-set schedule_time biweekly_offset (tomorrow-str))]
-        {:action :create-next :date date :time (if day-num (get-schedule-time-for-day schedule_time day-num) schedule_time)}))))
+(defn next-recurring-task-action [rtask]
+  (scheduling/next-scheduled-action rtask {:has-today-key :has_today_task :has-future-key :has_future_task}))
 
 (defn set-meeting-series-filter-search [search-term]
   (meeting-series-state/set-filter-search fetch-meeting-series search-term))
@@ -603,6 +492,72 @@
 
 (defn add-meeting-series-with-categories [title categories on-success]
   (meeting-series-state/add-meeting-series-with-categories *app-state auth-headers fetch-meeting-series current-scope title categories on-success))
+
+(declare fetch-recurring-tasks)
+
+(defn- recurring-tasks-fetch-opts []
+  {:search-term (:filter-search @recurring-tasks-state/*recurring-tasks-page-state)
+   :context (:work-private-mode @*app-state)
+   :strict (:strict-mode @*app-state)
+   :filter-people (:shared/filter-people @*app-state)
+   :filter-places (:shared/filter-places @*app-state)
+   :filter-projects (:shared/filter-projects @*app-state)
+   :filter-goals (:tasks-page/filter-goals @*app-state)})
+
+(defn fetch-recurring-tasks
+  ([] (fetch-recurring-tasks (recurring-tasks-fetch-opts)))
+  ([opts]
+   (recurring-tasks-state/fetch-recurring-tasks *app-state auth-headers opts)))
+
+(defn add-recurring-task [title on-success]
+  (if (has-active-shared-filters?)
+    (set-pending-new-item :recurring-task title on-success)
+    (recurring-tasks-state/add-recurring-task *app-state auth-headers current-scope title on-success fetch-recurring-tasks)))
+
+(defn update-recurring-task [rtask-id title description tags on-success]
+  (recurring-tasks-state/update-recurring-task *app-state auth-headers rtask-id title description tags on-success))
+
+(defn delete-recurring-task [rtask-id]
+  (recurring-tasks-state/delete-recurring-task *app-state auth-headers rtask-id))
+
+(defn set-recurring-task-scope [rtask-id scope]
+  (recurring-tasks-state/set-recurring-task-scope *app-state auth-headers rtask-id scope))
+
+(defn set-expanded-rtask [id]
+  (recurring-tasks-state/set-expanded-rtask id))
+
+(defn set-confirm-delete-rtask [rtask]
+  (recurring-tasks-state/set-confirm-delete-rtask rtask))
+
+(defn clear-confirm-delete-rtask []
+  (recurring-tasks-state/clear-confirm-delete-rtask))
+
+(defn set-recurring-task-schedule [rtask-id schedule-days schedule-time schedule-mode biweekly-offset on-success]
+  (recurring-tasks-state/set-recurring-task-schedule *app-state auth-headers rtask-id schedule-days schedule-time schedule-mode biweekly-offset on-success))
+
+(defn create-task-for-recurring [rtask-id date time]
+  (recurring-tasks-state/create-task-for-recurring *app-state auth-headers fetch-recurring-tasks rtask-id date time))
+
+(defn set-recurring-task-filter-search [search-term]
+  (recurring-tasks-state/set-filter-search fetch-recurring-tasks search-term))
+
+(defn categorize-recurring-task [rtask-id category-type category-id]
+  (recurring-tasks-state/categorize-recurring-task *app-state auth-headers fetch-recurring-tasks rtask-id category-type category-id))
+
+(defn uncategorize-recurring-task [rtask-id category-type category-id]
+  (recurring-tasks-state/uncategorize-recurring-task *app-state auth-headers fetch-recurring-tasks rtask-id category-type category-id))
+
+(defn add-recurring-task-with-categories [title categories on-success]
+  (recurring-tasks-state/add-recurring-task-with-categories *app-state auth-headers fetch-recurring-tasks current-scope title categories on-success))
+
+(defn toggle-recurring-mode []
+  (swap! *app-state update :tasks-page/recurring-mode not)
+  (if (:tasks-page/recurring-mode @*app-state)
+    (fetch-recurring-tasks)
+    (fetch-tasks)))
+
+(defn recurring-mode? []
+  (:tasks-page/recurring-mode @*app-state))
 
 (defn toggle-series-mode []
   (swap! *app-state (fn [s] (-> s
@@ -745,7 +700,9 @@
                 (disj % id)
                 (conj % id)))
       (case (:active-tab @*app-state)
-        :tasks (fetch-tasks)
+        :tasks (if (:tasks-page/recurring-mode @*app-state)
+                 (fetch-recurring-tasks)
+                 (fetch-tasks))
         :resources (fetch-resources)
         :meets (if (:meets-page/series-mode @*app-state)
                  (fetch-meeting-series)
@@ -759,7 +716,9 @@
                      constants/CATEGORY-TYPE-PROJECT :shared/filter-projects)]
     (swap! *app-state assoc filter-key #{})
     (case (:active-tab @*app-state)
-      :tasks (fetch-tasks)
+      :tasks (if (:tasks-page/recurring-mode @*app-state)
+               (fetch-recurring-tasks)
+               (fetch-tasks))
       :resources (fetch-resources)
       :meets (if (:meets-page/series-mode @*app-state)
                (fetch-meeting-series)
@@ -1093,7 +1052,8 @@
     {:task add-task-with-categories
      :resource add-resource-with-categories
      :meet add-meet-with-categories
-     :meeting-series add-meeting-series-with-categories}))
+     :meeting-series add-meeting-series-with-categories
+     :recurring-task add-recurring-task-with-categories}))
 
 (defn set-upcoming-horizon [horizon]
   (today-page/set-upcoming-horizon *app-state horizon))

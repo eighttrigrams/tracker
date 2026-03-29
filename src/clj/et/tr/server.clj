@@ -6,6 +6,7 @@
             [et.tr.server.resource-handler :as resource-handler]
             [et.tr.server.meet-handler :as meet-handler]
             [et.tr.server.meeting-series-handler :as meeting-series-handler]
+            [et.tr.server.recurring-task-handler :as recurring-task-handler]
             [et.tr.server.message-handler :as message-handler]
             [et.tr.server.relation-handler :as relation-handler]
             [et.tr.server.user-handler :as user-handler]
@@ -184,6 +185,18 @@
       (PUT "/:id/scope" [] meeting-series-handler/set-meeting-series-scope-handler)
       (PUT "/:id/schedule" [] meeting-series-handler/set-meeting-series-schedule-handler)
       (POST "/:id/create-meeting" [] meeting-series-handler/create-next-meeting-handler))
+
+    (context "/recurring-tasks" []
+      (GET "/" [] recurring-task-handler/list-recurring-tasks-handler)
+      (GET "/:id" [] recurring-task-handler/get-recurring-task-handler)
+      (POST "/" [] recurring-task-handler/add-recurring-task-handler)
+      (PUT "/:id" [] recurring-task-handler/update-recurring-task-handler)
+      (DELETE "/:id" [] recurring-task-handler/delete-recurring-task-handler)
+      (POST "/:id/categorize" [] recurring-task-handler/categorize-recurring-task-handler)
+      (DELETE "/:id/categorize" [] recurring-task-handler/uncategorize-recurring-task-handler)
+      (PUT "/:id/scope" [] recurring-task-handler/set-recurring-task-scope-handler)
+      (PUT "/:id/schedule" [] recurring-task-handler/set-recurring-task-schedule-handler)
+      (POST "/:id/create-task" [] recurring-task-handler/create-next-task-handler))
 
     (context "/relations" []
       (POST "/" [] relation-handler/add-relation-handler)

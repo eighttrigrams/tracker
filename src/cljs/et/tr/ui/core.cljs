@@ -11,6 +11,7 @@
             [et.tr.ui.views.categories :as categories]
             [et.tr.ui.views.resources :as resources]
             [et.tr.ui.views.meets :as meets]
+            [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.components.controls :as controls]
             [et.tr.i18n :as i18n :refer [t]]))
 
@@ -79,7 +80,8 @@
       (:confirm-delete-category @state/*app-state)
       (:confirm-delete-message @state/*app-state)
       (:confirm-delete-resource @state/*app-state)
-      (:confirm-delete-meet @state/*app-state)))
+      (:confirm-delete-meet @state/*app-state)
+      (:confirm-delete-rtask @recurring-tasks-state/*recurring-tasks-page-state)))
 
 (defn- body-scroll-lock []
   (let [modal-open? (any-modal-open?)]
@@ -99,6 +101,7 @@
      [modals/confirm-delete-resource-modal]
      [modals/confirm-delete-meet-modal]
      [modals/confirm-delete-meeting-series-modal]
+     [modals/confirm-delete-recurring-task-modal]
      [modals/pending-item-modal]
      [modals/edit-item-modal]
      (cond
@@ -130,16 +133,25 @@
           :mail [mail/mail-page]
           :users [users/users-tab]
           :settings [settings/settings-tab]
-          ;; Tasks tab layout: main-layout > [sidebar + main-content > [header + search + list]]
-          [:div.main-layout
-           [tasks/sidebar-filters]
-           [:div.main-content
-            [:div.tasks-header
-             [:h2 {:title (t :tasks/title-tooltip)} (t :tasks/title)]
-             [tasks/importance-filter-toggle]
-             [tasks/sort-mode-toggle]]
-            [tasks/combined-search-add-form]
-            [tasks/tasks-list]]])])]))
+          (let [recurring-mode (state/recurring-mode?)]
+            [:div.main-layout
+             [tasks/sidebar-filters]
+             [:div.main-content
+              [:div.tasks-header
+               [:h2 {:title (t :tasks/title-tooltip)}
+                (if recurring-mode (t :tasks/recurring-heading) (t :tasks/title))]
+               (when-not recurring-mode
+                 [tasks/importance-filter-toggle])
+               (when-not recurring-mode
+                 [tasks/sort-mode-toggle])
+               [tasks/recurring-toggle]]
+              (if recurring-mode
+                [:<>
+                 [tasks/recurring-search-add-form]
+                 [tasks/recurring-tasks-list]]
+                [:<>
+                 [tasks/combined-search-add-form]
+                 [tasks/tasks-list]])]]))])]))
 
 (defn- handle-keyboard-shortcuts [e]
   (when-not (any-modal-open?)

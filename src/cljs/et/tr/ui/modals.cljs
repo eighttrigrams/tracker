@@ -7,6 +7,7 @@
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
+            [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.components.cm-textarea :refer [cm-textarea]]
             [et.tr.i18n :refer [t tf]]
             ["marked" :refer [marked]]))
@@ -131,6 +132,16 @@
     :clear-fn state/clear-confirm-delete-series
     :delete-fn state/delete-meeting-series}))
 
+(def confirm-delete-recurring-task-modal
+  (make-confirm-delete-modal
+   {:state-atom recurring-tasks-state/*recurring-tasks-page-state
+    :state-key :confirm-delete-rtask
+    :header-i18n :modal/delete-recurring-task
+    :confirm-i18n :modal/delete-recurring-task-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-rtask
+    :delete-fn state/delete-recurring-task}))
+
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable
    {:class (str category-type (when selected? " selected"))
@@ -158,8 +169,8 @@
           selected-places (or places #{})
           selected-projects (or projects #{})
           selected-goals (or goals #{})
-          header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories (:meet :meeting-series) :modal/add-meet-categories)
-          confirm-key (case type :task :modal/add-task :resource :modal/add-resource (:meet :meeting-series) :modal/add-meet)]
+          header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories :recurring-task :modal/add-recurring-task-categories (:meet :meeting-series) :modal/add-meet-categories)
+          confirm-key (case type :task :modal/add-task :resource :modal/add-resource :recurring-task :modal/add-recurring-task (:meet :meeting-series) :modal/add-meet)]
       [:div.modal-overlay {:on-click #(state/clear-pending-new-item)}
        [:div.modal.pending-task-modal {:on-click #(.stopPropagation %)}
         [:div.modal-header (t header-key)]
@@ -184,7 +195,7 @@
                       (:task :meet) {:title (r/atom (:title entity))
                                      :description (r/atom (or (:description entity) ""))
                                      :tags (r/atom (or (:tags entity) ""))}
-                      :meeting-series {:title (r/atom (:title entity))
+                      (:meeting-series :recurring-task) {:title (r/atom (:title entity))
                                        :description (r/atom (or (:description entity) ""))
                                        :tags (r/atom (or (:tags entity) ""))
                                        :schedule-days (r/atom (or (:schedule_days entity) ""))
@@ -208,6 +219,8 @@
       :meet (state/update-meet id @title @description @tags state/clear-editing-modal)
       :meeting-series (do (state/update-meeting-series id @title @description @tags state/clear-editing-modal)
                           (state/set-meeting-series-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset nil))
+      :recurring-task (do (state/update-recurring-task id @title @description @tags state/clear-editing-modal)
+                          (state/set-recurring-task-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset nil))
       :resource (state/update-resource id @title @link @description @tags state/clear-editing-modal)
       (let [category-type (subs (name type) 9)
             update-fn (case category-type
@@ -472,9 +485,9 @@
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
             (reset! active-tab (or tab :edit)))
           (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset]} @fields-state]
-            (let [is-category (not (#{:task :meet :meeting-series :resource} type))
+            (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource} type))
                   preview-tab-key (case type
-                                    :task :modal/tab-task
+                                    (:task :recurring-task) :modal/tab-task
                                     (:meet :meeting-series) :modal/tab-meet
                                     :resource :modal/tab-resource
                                     :modal/tab-category)]
@@ -492,7 +505,7 @@
                                            (when-let [path (url/entity->path {:type type :entity entity})]
                                              (url/replace-state! (str path "?section=edit"))))}
                    (t :modal/edit)]
-                  (when (= type :meeting-series)
+                  (when (#{:meeting-series :recurring-task} type)
                     [:button {:class (when (= @active-tab :scheduling) "active")
                               :on-click #(reset! active-tab :scheduling)}
                      (t :modal/tab-scheduling)])]
@@ -529,11 +542,11 @@
                       [cm-textarea {:value description
                                     :on-change #(reset! description %)
                                     :placeholder (t :task/description-placeholder)
-                                    :rows (if (#{:meet :meeting-series} type) 20 3)}]
+                                    :rows (if (#{:meet :meeting-series :recurring-task} type) 20 3)}]
                       [:textarea {:value @description
                                   :on-change #(reset! description (-> % .-target .-value))
                                   :placeholder (t :task/description-placeholder)
-                                  :rows (if (#{:meet :meeting-series} type) 20 3)}])])]
+                                  :rows (if (#{:meet :meeting-series :recurring-task} type) 20 3)}])])]
                 [:div.modal-footer
                  (when is-category
                    (let [category-type (subs (name type) 9)]

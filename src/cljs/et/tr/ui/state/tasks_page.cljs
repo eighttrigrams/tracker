@@ -186,7 +186,7 @@
       (case type
         :task (add-fn title categories on-success)
         :resource (add-fn title (:link item) categories on-success)
-        :meet (add-fn title categories on-success))
+        (:meet :recurring-task) (add-fn title categories on-success))
       (when (empty? people) (swap! app-state assoc :shared/filter-people #{}))
       (when (empty? places) (swap! app-state assoc :shared/filter-places #{}))
       (when (empty? projects) (swap! app-state assoc :shared/filter-projects #{}))

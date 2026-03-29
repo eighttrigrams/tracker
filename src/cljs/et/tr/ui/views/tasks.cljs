@@ -1,9 +1,11 @@
 (ns et.tr.ui.views.tasks
   (:require [et.tr.ui.state :as state]
+            [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
+            [et.tr.ui.components.category-selector :as category-selector]
             [et.tr.ui.components.relation-link :as relation-link]
             [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t]]))
@@ -234,3 +236,145 @@
                 :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
                 :on-drop (drag-drop/make-drop-handler drag-task task state/reorder-task drag-enabled?)}
            [task-item-content task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?]])))))
+
+(defn- recurring-toggle []
+  (let [recurring-mode (:tasks-page/recurring-mode @state/*app-state)]
+    [:div.series-mode-toggle.toggle-group
+     [:button {:class (when recurring-mode "active")
+               :on-click #(state/toggle-recurring-mode)}
+      (t :tasks/recurring)]]))
+
+(defn- rtask-scope-selector [rtask]
+  (let [scope (or (:scope rtask) "both")]
+    [:div.task-scope-selector.toggle-group.compact
+     (for [s ["private" "both" "work"]]
+       ^{:key s}
+       [:button.toggle-option
+        {:class (when (= scope s) "active")
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-recurring-task-scope (:id rtask) s))}
+        s])]))
+
+(defn- rtask-category-selector [rtask category-type entities label]
+  (let [current-categories (case category-type
+                             state/CATEGORY-TYPE-PERSON (:people rtask)
+                             state/CATEGORY-TYPE-PLACE (:places rtask)
+                             state/CATEGORY-TYPE-PROJECT (:projects rtask)
+                             state/CATEGORY-TYPE-GOAL (:goals rtask)
+                             [])]
+    [category-selector/category-selector
+     {:entity rtask
+      :entity-id-key :id
+      :category-type category-type
+      :entities entities
+      :label label
+      :current-categories current-categories
+      :on-categorize #(state/categorize-recurring-task (:id rtask) category-type %)
+      :on-uncategorize #(state/uncategorize-recurring-task (:id rtask) category-type %)
+      :on-close-focus-fn nil
+      :open-selector-state (:category-selector/open @state/*app-state)
+      :search-state (:category-selector/search @state/*app-state)
+      :open-selector-fn state/open-category-selector
+      :close-selector-fn state/close-category-selector
+      :set-search-fn state/set-category-selector-search}]))
+
+(defn- rtask-expanded-view [rtask people places projects goals]
+  [:div.item-details
+   (when (seq (:description rtask))
+     [:div.item-description [task-item/markdown (:description rtask)]])
+   [:div.item-tags
+    [rtask-category-selector rtask state/CATEGORY-TYPE-PERSON people (t :category/person)]
+    [rtask-category-selector rtask state/CATEGORY-TYPE-PLACE places (t :category/place)]
+    [rtask-category-selector rtask state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+    [rtask-category-selector rtask state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+   [:div.item-actions
+    [rtask-scope-selector rtask]
+    [:div.combined-button-wrapper
+     [:button.delete-btn {:on-click #(state/set-confirm-delete-rtask rtask)}
+      (t :task/delete)]]]])
+
+(defn- rtask-header [rtask is-expanded]
+  [:div.item-header
+   {:on-click #(state/set-expanded-rtask (when-not is-expanded (:id rtask)))}
+   [:div.item-title
+    (:title rtask)
+    (when is-expanded
+      [:button.edit-icon {:on-click (fn [e]
+                                      (.stopPropagation e)
+                                      (state/set-editing-modal :recurring-task rtask))}
+       "✎"])]])
+
+(defn- rtask-categories-readonly [rtask]
+  [:div.item-tags-readonly
+   [task-item/category-badges
+    {:item rtask
+     :category-types [[state/CATEGORY-TYPE-PERSON :people]
+                      [state/CATEGORY-TYPE-PLACE :places]
+                      [state/CATEGORY-TYPE-PROJECT :projects]
+                      [state/CATEGORY-TYPE-GOAL :goals]]
+     :toggle-fn state/toggle-shared-filter
+     :has-filter-fn state/has-filter-for-type?}]])
+
+(defn- rtask-create-task-button [rtask]
+  (let [action (state/next-recurring-task-action rtask)
+        enabled? (and action (not= (:action action) :none))
+        disabled-reason (when-not enabled?
+                          (if (and action (= (:action action) :none))
+                            (t :tasks/create-next-disabled-future)
+                            (t :tasks/create-next-disabled-no-schedule)))]
+    [:button.create-next-meeting-btn
+     (cond-> {:class (when-not enabled? "disabled")
+              :disabled (not enabled?)
+              :on-click (fn [e]
+                          (.stopPropagation e)
+                          (when enabled?
+                            (state/create-task-for-recurring (:id rtask) (:date action) (:time action))))}
+       disabled-reason (assoc :title disabled-reason))
+     (t :tasks/create-next-task)]))
+
+(defn- rtask-item [rtask expanded-id people places projects goals]
+  (let [is-expanded (= expanded-id (:id rtask))]
+    [:li {:class (when is-expanded "expanded")}
+     [rtask-header rtask is-expanded]
+     (if is-expanded
+       [rtask-expanded-view rtask people places projects goals]
+       [:<>
+        [rtask-categories-readonly rtask]
+        [rtask-create-task-button rtask]])]))
+
+(defn- recurring-search-add-form []
+  (let [input-value (:filter-search @recurring-tasks-state/*recurring-tasks-page-state)]
+    [:div.combined-search-add-form
+     [:input#tasks-filter-search
+      {:type "text"
+       :auto-complete "off"
+       :placeholder (t :tasks/search-or-add-recurring)
+       :value input-value
+       :on-change #(state/set-recurring-task-filter-search (-> % .-target .-value))
+       :on-key-down (fn [e]
+                      (cond
+                        (and (.-altKey e) (= (.-key e) "Enter") (seq input-value))
+                        (do
+                          (.preventDefault e)
+                          (state/add-recurring-task input-value
+                                                    #(state/set-recurring-task-filter-search "")))
+
+                        (= (.-key e) "Escape")
+                        (state/set-recurring-task-filter-search "")))}]
+     [:button {:on-click #(when (seq input-value)
+                            (state/add-recurring-task input-value
+                                                      (fn [] (state/set-recurring-task-filter-search ""))))}
+      (t :tasks/add-button)]
+     (when (seq input-value)
+       [:button.clear-search {:on-click #(state/set-recurring-task-filter-search "")} "x"])]))
+
+(defn- recurring-tasks-list []
+  (let [{:keys [recurring-tasks people places projects goals]} @state/*app-state
+        {:keys [expanded-rtask]} @recurring-tasks-state/*recurring-tasks-page-state]
+    (if (empty? recurring-tasks)
+      [:p.empty-message (t :tasks/no-recurring)]
+      [:ul.items
+       (for [rtask recurring-tasks]
+         ^{:key (:id rtask)}
+         [rtask-item rtask expanded-rtask people places projects goals])])))

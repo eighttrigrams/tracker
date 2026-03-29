@@ -1,0 +1,28 @@
+{:up ["CREATE TABLE recurring_tasks (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         title TEXT NOT NULL,
+         description TEXT DEFAULT '',
+         tags TEXT DEFAULT '',
+         created_at DATETIME DEFAULT (datetime('now')),
+         modified_at DATETIME DEFAULT (datetime('now')),
+         sort_order REAL NOT NULL DEFAULT 0,
+         scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+         schedule_days TEXT DEFAULT '',
+         schedule_time TEXT,
+         schedule_mode TEXT DEFAULT 'weekly',
+         biweekly_offset INTEGER DEFAULT 0
+       )"
+       "CREATE INDEX idx_recurring_tasks_user_scope ON recurring_tasks (user_id, scope)"
+       "CREATE TABLE recurring_task_categories (
+         recurring_task_id INTEGER NOT NULL,
+         category_type TEXT NOT NULL,
+         category_id INTEGER NOT NULL,
+         PRIMARY KEY (recurring_task_id, category_type, category_id),
+         FOREIGN KEY (recurring_task_id) REFERENCES recurring_tasks(id) ON DELETE CASCADE
+       )"
+       "ALTER TABLE tasks ADD COLUMN recurring_task_id INTEGER REFERENCES recurring_tasks(id) ON DELETE SET NULL"]
+ :down ["ALTER TABLE tasks DROP COLUMN recurring_task_id"
+        "DROP TABLE IF EXISTS recurring_task_categories"
+        "DROP INDEX IF EXISTS idx_recurring_tasks_user_scope"
+        "DROP TABLE IF EXISTS recurring_tasks"]}

@@ -1,0 +1,311 @@
+(ns et.tr.db.recurring-task
+  (:require [next.jdbc :as jdbc]
+            [honey.sql :as sql]
+            [taoensso.telemere :as tel]
+            [clojure.string :as str]
+            [et.tr.db :as db]
+            [et.tr.scheduling :as scheduling])
+  (:import [java.time LocalDate]))
+
+(defn add-recurring-task
+  ([ds user-id title] (add-recurring-task ds user-id title "both"))
+  ([ds user-id title scope]
+   (let [conn (db/get-conn ds)
+         valid-scope (db/normalize-scope scope)
+         min-order (or (:min_order (jdbc/execute-one! conn
+                                     (sql/format {:select [[[:min :sort_order] :min_order]]
+                                                  :from [:recurring_tasks]
+                                                  :where (db/user-id-where-clause user-id)})
+                                     db/jdbc-opts))
+                       1.0)
+         new-order (- min-order 1.0)
+         result (jdbc/execute-one! conn
+                  (sql/format {:insert-into :recurring_tasks
+                               :values [{:title title
+                                         :sort_order new-order
+                                         :user_id user-id
+                                         :modified_at [:raw "datetime('now')"]
+                                         :scope valid-scope}]
+                               :returning db/recurring-task-select-columns})
+                  db/jdbc-opts)]
+     (tel/log! {:level :info :data {:recurring-task-id (:id result) :user-id user-id}} "Recurring task added")
+     (assoc result :people [] :places [] :projects [] :goals []))))
+
+(defn- build-recurring-task-category-clauses [categories]
+  (let [people-clause (db/build-category-subquery :recurring_task_categories :recurring_task_id :recurring_tasks "person" (:people categories))
+        places-clause (db/build-category-subquery :recurring_task_categories :recurring_task_id :recurring_tasks "place" (:places categories))
+        projects-clause (db/build-category-subquery :recurring_task_categories :recurring_task_id :recurring_tasks "project" (:projects categories))
+        goals-clause (db/build-category-subquery :recurring_task_categories :recurring_task_id :recurring_tasks "goal" (:goals categories))]
+    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+
+(defn- associate-categories-with-recurring-tasks [rtasks categories-by-rtask people-by-id places-by-id projects-by-id goals-by-id]
+  (mapv (fn [rt]
+          (let [rt-categories (get categories-by-rtask (:id rt) [])]
+            (assoc rt
+                   :people (db/extract-category rt-categories "person" people-by-id)
+                   :places (db/extract-category rt-categories "place" places-by-id)
+                   :projects (db/extract-category rt-categories "project" projects-by-id)
+                   :goals (db/extract-category rt-categories "goal" goals-by-id))))
+        rtasks))
+
+(defn list-recurring-tasks
+  ([ds user-id] (list-recurring-tasks ds user-id {}))
+  ([ds user-id opts]
+   (let [{:keys [search-term context strict categories]} opts
+         conn (db/get-conn ds)
+         user-where (db/user-id-where-clause user-id)
+         search-clause (db/build-search-clause search-term [:title :tags])
+         scope-clause (db/build-scope-clause context strict)
+         category-clauses (build-recurring-task-category-clauses categories)
+         where-clause (into [:and user-where]
+                            (concat (filter some? [search-clause scope-clause])
+                                    category-clauses))
+         today-expr [:raw "date('now','localtime')"]
+         has-today-task {:select [1]
+                         :from [:tasks]
+                         :where [:and
+                                 [:= :tasks.recurring_task_id :recurring_tasks.id]
+                                 [:= :tasks.due_date today-expr]
+                                 [:= :tasks.done 0]]
+                         :limit 1}
+         has-future-task {:select [1]
+                          :from [:tasks]
+                          :where [:and
+                                  [:= :tasks.recurring_task_id :recurring_tasks.id]
+                                  [:> :tasks.due_date today-expr]
+                                  [:= :tasks.done 0]]
+                          :limit 1}
+         rtasks (jdbc/execute! conn
+                  (sql/format {:select (into db/recurring-task-select-columns
+                                             [[[:exists has-today-task] :has_today_task]
+                                              [[:exists has-future-task] :has_future_task]])
+                               :from [:recurring_tasks]
+                               :where where-clause
+                               :order-by [[:sort_order :asc]]})
+                  db/jdbc-opts)
+         rtasks (mapv (fn [rt]
+                        (-> rt
+                            (update :has_today_task #(= 1 %))
+                            (update :has_future_task #(= 1 %))))
+                      rtasks)
+         rtask-ids (mapv :id rtasks)
+         categories-data (when (seq rtask-ids)
+                           (jdbc/execute! conn
+                             (sql/format {:select [:recurring_task_id :category_type :category_id]
+                                          :from [:recurring_task_categories]
+                                          :where [:in :recurring_task_id rtask-ids]})
+                             db/jdbc-opts))
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+         categories-by-rtask (group-by :recurring_task_id categories-data)]
+     (associate-categories-with-recurring-tasks rtasks categories-by-rtask people-by-id places-by-id projects-by-id goals-by-id))))
+
+(defn recurring-task-owned-by-user? [ds rtask-id user-id]
+  (some? (jdbc/execute-one! (db/get-conn ds)
+           (sql/format {:select [:id]
+                        :from [:recurring_tasks]
+                        :where [:and [:= :id rtask-id] (db/user-id-where-clause user-id)]})
+           db/jdbc-opts)))
+
+(defn get-recurring-task [ds user-id rtask-id]
+  (let [conn (db/get-conn ds)
+        user-where (db/user-id-where-clause user-id)
+        rtask (jdbc/execute-one! conn
+                (sql/format {:select db/recurring-task-select-columns
+                             :from [:recurring_tasks]
+                             :where [:and [:= :id rtask-id] user-where]})
+                db/jdbc-opts)]
+    (when rtask
+      (let [categories-data (jdbc/execute! conn
+                              (sql/format {:select [:recurring_task_id :category_type :category_id]
+                                           :from [:recurring_task_categories]
+                                           :where [:= :recurring_task_id rtask-id]})
+                              db/jdbc-opts)
+            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+            categories-by-rtask (group-by :recurring_task_id categories-data)]
+        (first (associate-categories-with-recurring-tasks [rtask] categories-by-rtask people-by-id places-by-id projects-by-id goals-by-id))))))
+
+(defn update-recurring-task [ds user-id rtask-id fields]
+  (let [set-map (assoc fields :modified_at [:raw "datetime('now')"])
+        return-cols (into [:id :created_at :modified_at] (keys fields))]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :recurring_tasks
+                   :set set-map
+                   :where [:and [:= :id rtask-id] (db/user-id-where-clause user-id)]
+                   :returning return-cols})
+      db/jdbc-opts)))
+
+(defn delete-recurring-task [ds user-id rtask-id]
+  (when (recurring-task-owned-by-user? ds rtask-id user-id)
+    (let [conn (db/get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:update :tasks
+                       :set {:recurring_task_id nil}
+                       :where [:= :recurring_task_id rtask-id]}))
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :recurring_task_categories
+                       :where [:= :recurring_task_id rtask-id]}))
+        (let [result (jdbc/execute-one! tx
+                       (sql/format {:delete-from :recurring_tasks
+                                    :where [:= :id rtask-id]}))]
+          (tel/log! {:level :info :data {:recurring-task-id rtask-id :user-id user-id}} "Recurring task deleted")
+          {:success (pos? (:next.jdbc/update-count result))})))))
+
+(defn set-recurring-task-field [ds user-id rtask-id field value]
+  (let [normalize-fn (get db/field-normalizers field identity)
+        valid-value (normalize-fn value)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :recurring_tasks
+                   :set {field valid-value
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id rtask-id] (db/user-id-where-clause user-id)]
+                   :returning [:id field :modified_at]})
+      db/jdbc-opts)))
+
+(defn set-recurring-task-schedule [ds user-id rtask-id schedule-days schedule-time schedule-mode biweekly-offset]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :recurring_tasks
+                 :set {:schedule_days (or schedule-days "")
+                       :schedule_time schedule-time
+                       :schedule_mode (or schedule-mode "weekly")
+                       :biweekly_offset (if biweekly-offset 1 0)
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id rtask-id] (db/user-id-where-clause user-id)]
+                 :returning [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset :modified_at]})
+    db/jdbc-opts))
+
+(defn create-task-for-recurring [ds user-id rtask-id date time]
+  (when (recurring-task-owned-by-user? ds rtask-id user-id)
+    (let [conn (db/get-conn ds)
+          rtask (jdbc/execute-one! conn
+                  (sql/format {:select [:title :scope]
+                               :from [:recurring_tasks]
+                               :where [:= :id rtask-id]})
+                  db/jdbc-opts)]
+      (when rtask
+        (jdbc/with-transaction [tx conn]
+          (let [min-order (or (:min_order (jdbc/execute-one! tx
+                                            (sql/format {:select [[[:min :sort_order] :min_order]]
+                                                         :from [:tasks]
+                                                         :where (db/user-id-where-clause user-id)})
+                                            db/jdbc-opts))
+                              1.0)
+                new-order (- min-order 1.0)
+                task (jdbc/execute-one! tx
+                       (sql/format {:insert-into :tasks
+                                    :values [{:title (:title rtask)
+                                              :sort_order new-order
+                                              :user_id user-id
+                                              :modified_at [:raw "datetime('now')"]
+                                              :due_date date
+                                              :due_time time
+                                              :scope (:scope rtask)
+                                              :recurring_task_id rtask-id}]
+                                    :returning db/task-select-columns})
+                       db/jdbc-opts)
+                rtask-cats (jdbc/execute! tx
+                             (sql/format {:select [:category_type :category_id]
+                                          :from [:recurring_task_categories]
+                                          :where [:= :recurring_task_id rtask-id]})
+                             db/jdbc-opts)]
+            (doseq [{:keys [category_type category_id]} rtask-cats]
+              (jdbc/execute-one! tx
+                (sql/format {:insert-into :task_categories
+                             :values [{:task_id (:id task)
+                                       :category_type category_type
+                                       :category_id category_id}]
+                             :on-conflict []
+                             :do-nothing true})))
+            (tel/log! {:level :info :data {:task-id (:id task) :recurring-task-id rtask-id :user-id user-id}} "Task created from recurring task")
+            (assoc task :people [] :places [] :projects [] :goals [])))))))
+
+(defn categorize-recurring-task [ds user-id rtask-id category-type category-id]
+  (db/validate-category-type! category-type)
+  (when (and (recurring-task-owned-by-user? ds rtask-id user-id)
+             (db/category-owned-by-user? ds category-type category-id user-id))
+    (let [conn (db/get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:insert-into :recurring_task_categories
+                       :values [{:recurring_task_id rtask-id
+                                 :category_type category-type
+                                 :category_id category-id}]
+                       :on-conflict []
+                       :do-nothing true}))
+        (jdbc/execute-one! tx
+          (sql/format {:update :recurring_tasks
+                       :set {:modified_at [:raw "datetime('now')"]}
+                       :where [:= :id rtask-id]}))))))
+
+(defn uncategorize-recurring-task [ds user-id rtask-id category-type category-id]
+  (db/validate-category-type! category-type)
+  (when (and (recurring-task-owned-by-user? ds rtask-id user-id)
+             (db/category-owned-by-user? ds category-type category-id user-id))
+    (let [conn (db/get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :recurring_task_categories
+                       :where [:and
+                               [:= :recurring_task_id rtask-id]
+                               [:= :category_type category-type]
+                               [:= :category_id category-id]]}))
+        (jdbc/execute-one! tx
+          (sql/format {:update :recurring_tasks
+                       :set {:modified_at [:raw "datetime('now')"]}
+                       :where [:= :id rtask-id]}))))))
+
+(defn auto-create-tasks
+  ([ds user-id] (auto-create-tasks ds user-id {}))
+  ([ds user-id {:keys [short-circuit?] :or {short-circuit? false}}]
+   (let [conn (db/get-conn ds)
+         today-expr [:raw "date('now','localtime')"]
+         has-today-task {:select [1]
+                         :from [:tasks]
+                         :where [:and
+                                 [:= :tasks.recurring_task_id :recurring_tasks.id]
+                                 [:= :tasks.due_date today-expr]
+                                 [:= :tasks.done 0]]
+                         :limit 1}
+         has-future-task {:select [1]
+                          :from [:tasks]
+                          :where [:and
+                                  [:= :tasks.recurring_task_id :recurring_tasks.id]
+                                  [:> :tasks.due_date today-expr]
+                                  [:= :tasks.done 0]]
+                          :limit 1}
+         all-rtasks (jdbc/execute! conn
+                      (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset
+                                            [[:exists has-today-task] :has_today_task]
+                                            [[:exists has-future-task] :has_future_task]]
+                                   :from [:recurring_tasks]
+                                   :where [:and
+                                           (db/user-id-where-clause user-id)
+                                           [:!= :schedule_days ""]]})
+                      db/jdbc-opts)
+         all-rtasks (mapv (fn [rt]
+                            (-> rt
+                                (update :has_today_task #(= 1 %))
+                                (update :has_future_task #(= 1 %))))
+                          all-rtasks)
+         today (LocalDate/now)
+         created (atom [])]
+     (doseq [{:keys [id schedule_days schedule_time schedule_mode biweekly_offset has_today_task has_future_task]} all-rtasks]
+       (let [mode (or schedule_mode "weekly")
+             schedule-days-set (set (str/split schedule_days #","))
+             created-today? (atom false)]
+         (when (and (not has_today_task)
+                    (scheduling/is-today-scheduled? mode schedule-days-set biweekly_offset today))
+           (let [today-day (.getValue (.getDayOfWeek today))
+                 time (scheduling/get-schedule-time-for-day schedule_time today-day)]
+             (when-let [task (create-task-for-recurring ds user-id id (str today) time)]
+               (swap! created conj task)
+               (reset! created-today? true))))
+         (when (and (not has_future_task)
+                    (not (and short-circuit? @created-today?)))
+           (when-let [{:keys [date day-num]} (scheduling/next-scheduled-date mode schedule-days-set schedule_time biweekly_offset (.plusDays today 1))]
+             (let [time (if day-num
+                          (scheduling/get-schedule-time-for-day schedule_time day-num)
+                          schedule_time)]
+               (when-let [task (create-task-for-recurring ds user-id id date time)]
+                 (swap! created conj task)))))))
+     @created)))
