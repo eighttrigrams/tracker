@@ -1,6 +1,7 @@
 (ns et.tr.ui.state.tasks
   (:require [ajax.core :refer [GET POST]]
             [clojure.string :as str]
+            [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
             [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE
                                         CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
@@ -192,10 +193,13 @@
     (fn [result]
       (swap! app-state update :tasks
              (fn [tasks]
-               (mapv #(if (= (:id %) task-id)
-                        (assoc % :scope (:scope result) :modified_at (:modified_at result))
-                        %)
-                     tasks))))
+               (let [mode (:work-private-mode @app-state)
+                     strict? (:strict-mode @app-state)]
+                 (->> tasks
+                      (mapv #(if (= (:id %) task-id)
+                               (assoc % :scope (:scope result) :modified_at (:modified_at result))
+                               %))
+                      (filterv #(filters/matches-scope? % mode strict?)))))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
