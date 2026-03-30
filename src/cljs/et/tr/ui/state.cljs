@@ -1012,7 +1012,10 @@
   (tasks-page/clear-importance-filter *app-state fetch-tasks))
 
 (defn clear-uncollapsed-task-filters []
-  (tasks-page/clear-uncollapsed-task-filters *app-state fetch-tasks))
+  (tasks-page/clear-uncollapsed-task-filters *app-state
+    (if (:tasks-page/recurring-mode @*app-state)
+      fetch-recurring-tasks
+      fetch-tasks)))
 
 (defn toggle-filter-collapsed [filter-key]
   (tasks-page/toggle-filter-collapsed *app-state filter-key))
