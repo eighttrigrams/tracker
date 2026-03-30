@@ -82,6 +82,7 @@
                             :today-page/expanded-meet nil
                             :today-page/selected-view :urgent
                             :today-page/confirm-move-to-today nil
+                            :today-page/selected-day 0
                             :upcoming-horizon nil
 
                             ;; Resources page state
@@ -1084,6 +1085,18 @@
 
 (defn set-today-selected-view [view]
   (today-page/set-today-selected-view *app-state view))
+
+(defn set-selected-day [day-offset]
+  (today-page/set-selected-day *app-state day-offset))
+
+(defn selected-day-date []
+  (today-page/selected-day-date *app-state))
+
+(defn selected-day-tasks []
+  (today-page/selected-day-tasks *app-state))
+
+(defn selected-day-meets []
+  (today-page/selected-day-meets *app-state))
 
 (defn overdue-tasks []
   (today-page/overdue-tasks *app-state))

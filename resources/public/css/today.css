@@ -220,6 +220,15 @@
   color: white;
   border-color: var(--accent);
 }
+.day-selector {
+  margin: 8px 0;
+  margin-left: auto;
+}
+.day-selector button.drop-target {
+  background: var(--accent);
+  color: white;
+  opacity: 0.7;
+}
 .today-view-switcher {
   margin: 16px 0;
   margin-left: auto;

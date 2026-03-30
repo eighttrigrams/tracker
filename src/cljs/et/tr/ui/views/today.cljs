@@ -259,6 +259,11 @@
       (let [task (find-task-by-id drag-task-id)]
         (and task (:due_date task) (< (:due_date task) today))))))
 
+(defn- drag-task-urgent? []
+  (when-let [drag-task-id (:drag-task @state/*app-state)]
+    (let [task (find-task-by-id drag-task-id)]
+      (and task (#{"urgent" "superurgent"} (:urgency task))))))
+
 (defn- today-add-button []
   (let [ui-state (r/atom {:mode :closed})]
     (fn []
@@ -304,15 +309,27 @@
   (let [task (find-task-by-id* drag-task-id)
         today (date/today-str)]
     (if (and task (:due_date task) (< (:due_date task) today))
-      (swap! state/*app-state assoc :today-page/confirm-move-to-today task)
+      (swap! state/*app-state assoc :today-page/confirm-move-to-today
+             {:task task :target-date today})
       (state/set-task-today drag-task-id true))
     (state/clear-drag-state)))
+
+(defn- handle-day-section-drop [drag-task-id target-date]
+  (let [task (find-task-by-id* drag-task-id)
+        today (date/today-str)]
+    (if (= target-date today)
+      (handle-today-drop drag-task-id)
+      (do
+        (swap! state/*app-state assoc :today-page/confirm-move-to-today
+               {:task task :target-date target-date})
+        (state/clear-drag-state)))))
 
 (defn- ensure-today [task-id]
   (let [task (find-task-by-id* task-id)
         today (date/today-str)]
     (if (and task (:due_date task) (< (:due_date task) today))
-      (do (swap! state/*app-state assoc :today-page/confirm-move-to-today task)
+      (do (swap! state/*app-state assoc :today-page/confirm-move-to-today
+                 {:task task :target-date today})
           false)
       (do (when (not= 1 (:today task))
             (state/set-task-today task-id true))
@@ -346,29 +363,70 @@
       :on-drop (fn [e] (when accept-drop? (handle-today-flagged-drop e drag-task-id task)))}
      [today-task-item task :hide-date true :emoji-prefix (urgency-emoji task) :show-unlink? true]]))
 
-(defn- today-today-section [today-tasks today-meets today-flagged]
-  (let [items (interleave-by-date today-tasks today-meets)
+(defn- day-selector []
+  (let [selected-day (or (:today-page/selected-day @state/*app-state) 0)
+        today (date/today-str)
         drag-task (:drag-task @state/*app-state)
         expanded-task (:today-page/expanded-task @state/*app-state)
         drag-enabled? (and drag-task (not expanded-task))
-        from-overdue? (drag-task-overdue?)]
+        drop-enabled? (and drag-enabled? (not (drag-task-urgent?)))]
+    [:div.day-selector.toggle-group
+     (doall
+      (for [offset (range 5)]
+        (let [target-date (date/add-days today offset)
+              label (if (zero? offset)
+                      (t :today/today)
+                      (date/get-day-name target-date))]
+          ^{:key offset}
+          [:button {:class (str (when (= selected-day offset) "active")
+                                (when (and drop-enabled? (= (:drag-over-urgency-section @state/*app-state) (keyword (str "day-" offset)))) " drop-target"))
+                    :on-click #(state/set-selected-day offset)
+                    :on-drag-over (fn [e]
+                                    (when drop-enabled?
+                                      (.preventDefault e)
+                                      (state/set-drag-over-urgency-section (keyword (str "day-" offset)))))
+                    :on-drag-leave (fn [e]
+                                     (when (= (.-target e) (.-currentTarget e))
+                                       (state/set-drag-over-urgency-section nil)))
+                    :on-drop (fn [e]
+                               (when drop-enabled?
+                                 (.preventDefault e)
+                                 (state/set-drag-over-urgency-section nil)
+                                 (handle-day-section-drop drag-task target-date)))}
+           label])))]))
+
+(defn- today-today-section [day-tasks day-meets today-flagged]
+  (let [selected-day (or (:today-page/selected-day @state/*app-state) 0)
+        is-today? (zero? selected-day)
+        target-date (state/selected-day-date)
+        items (interleave-by-date day-tasks day-meets)
+        drag-task (:drag-task @state/*app-state)
+        expanded-task (:today-page/expanded-task @state/*app-state)
+        drag-enabled? (and drag-task (not expanded-task))
+        from-overdue? (drag-task-overdue?)
+        from-urgent? (drag-task-urgent?)
+        due-drop-enabled? (and drag-enabled? (not from-urgent?))]
     [:div.today-section.today
      [:div.today-section-header
-      [:h3 (date/today-formatted)]]
+      [:h3 (date/day-formatted target-date)]]
      [:div.today-subsection
-      {:class (when (and drag-enabled? (= (:drag-over-urgency-section @state/*app-state) :due-or-happening)) "drop-target")
+      {:class (when (and due-drop-enabled? (= (:drag-over-urgency-section @state/*app-state) :due-or-happening)) "drop-target")
        :on-drag-over (fn [e]
-                       (when drag-enabled?
+                       (when due-drop-enabled?
                          (.preventDefault e)
                          (state/set-drag-over-urgency-section :due-or-happening)))
        :on-drag-leave (fn [e]
                         (when (= (.-target e) (.-currentTarget e))
                           (state/set-drag-over-urgency-section nil)))
        :on-drop (fn [e]
-                  (when drag-enabled?
+                  (when due-drop-enabled?
                     (.preventDefault e)
-                    (handle-today-drop drag-task)))}
-      [:h4 (t :today/due-or-happening)]
+                    (if is-today?
+                      (handle-today-drop drag-task)
+                      (handle-day-section-drop drag-task target-date))))}
+      [:h4 (if is-today?
+             (t :today/due-or-happening)
+             (t :today/due-or-happening-on {:day (date/get-day-name target-date)}))]
       (if (seq items)
         [:div.task-list
          (doall
@@ -379,32 +437,33 @@
               ^{:key (str "task-" (:id item))}
               [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳")])))]
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])]
-     (let [other-drop-enabled? (and drag-enabled? (not from-overdue?))]
-       [:div.today-subsection.other-things
-        {:class (when (and other-drop-enabled? (= (:drag-over-urgency-section @state/*app-state) :other-things)) "drop-target")
-         :on-drag-over (fn [e]
-                         (when other-drop-enabled?
-                           (.preventDefault e)
-                           (state/set-drag-over-urgency-section :other-things)))
-         :on-drag-leave (fn [e]
-                          (when (= (.-target e) (.-currentTarget e))
-                            (state/set-drag-over-urgency-section nil)))
-         :on-drop (fn [e]
-                    (when other-drop-enabled?
-                      (.preventDefault e)
-                      (handle-today-drop drag-task)))}
-      [:div.today-subsection-header
-       [:h4 (t :today/other-things)]
-       [today-add-button]]
-      (if (seq today-flagged)
-        (let [flagged-drag-enabled? (not expanded-task)
-              drag-task-id (:drag-task @state/*app-state)]
-          [:div.task-list.today-flagged
-           (doall
-            (for [task today-flagged]
-              ^{:key (str "flagged-" (:id task))}
-              [draggable-today-flagged-task-item task drag-task-id flagged-drag-enabled?]))])
-        [:p.empty-urgency-message (t :today/no-tasks-in-section)])])]))
+     (when is-today?
+       (let [other-drop-enabled? (and drag-enabled? (not from-overdue?))]
+         [:div.today-subsection.other-things
+          {:class (when (and other-drop-enabled? (= (:drag-over-urgency-section @state/*app-state) :other-things)) "drop-target")
+           :on-drag-over (fn [e]
+                           (when other-drop-enabled?
+                             (.preventDefault e)
+                             (state/set-drag-over-urgency-section :other-things)))
+           :on-drag-leave (fn [e]
+                            (when (= (.-target e) (.-currentTarget e))
+                              (state/set-drag-over-urgency-section nil)))
+           :on-drop (fn [e]
+                      (when other-drop-enabled?
+                        (.preventDefault e)
+                        (handle-today-drop drag-task)))}
+        [:div.today-subsection-header
+         [:h4 (t :today/other-things)]
+         [today-add-button]]
+        (if (seq today-flagged)
+          (let [flagged-drag-enabled? (not expanded-task)
+                drag-task-id (:drag-task @state/*app-state)]
+            [:div.task-list.today-flagged
+             (doall
+              (for [task today-flagged]
+                ^{:key (str "flagged-" (:id task))}
+                [draggable-today-flagged-task-item task drag-task-id flagged-drag-enabled?]))])
+          [:p.empty-urgency-message (t :today/no-tasks-in-section)])]))]))
 
 (defn- draggable-urgent-task-item [task target-urgency drag-enabled?]
   (let [drag-task (:drag-task @state/*app-state)
@@ -487,27 +546,33 @@
       (t :today/upcoming)]]))
 
 (defn- confirm-move-to-today-modal []
-  (when-let [task (:today-page/confirm-move-to-today @state/*app-state)]
-    [:div.modal-overlay
-     [:div.modal {:on-click #(.stopPropagation %)}
-      [:div.modal-header (t :modal/move-to-today)]
-      [:div.modal-body
-       [:p (t :modal/move-to-today-confirm)]
-       [:p.task-title (:title task)]]
-      [:div.modal-footer
-       [:button.cancel
-        {:on-click #(swap! state/*app-state assoc :today-page/confirm-move-to-today nil)}
-        (t :modal/cancel)]
-       [:button.confirm-delete
-        {:on-click (fn []
-                     (state/set-task-due-date (:id task) (date/today-str))
-                     (swap! state/*app-state assoc :today-page/confirm-move-to-today nil))}
-        (t :modal/confirm)]]]]))
+  (when-let [{:keys [task target-date]} (:today-page/confirm-move-to-today @state/*app-state)]
+    (let [today (date/today-str)
+          is-today? (= target-date today)]
+      [:div.modal-overlay
+       [:div.modal {:on-click #(.stopPropagation %)}
+        [:div.modal-header (if is-today?
+                             (t :modal/move-to-today)
+                             (t :modal/adjust-due-date))]
+        [:div.modal-body
+         [:p (if is-today?
+               (t :modal/move-to-today-confirm)
+               (t :modal/adjust-due-date-confirm {:date (date/day-formatted target-date)}))]
+         [:p.task-title (:title task)]]
+        [:div.modal-footer
+         [:button.cancel
+          {:on-click #(swap! state/*app-state assoc :today-page/confirm-move-to-today nil)}
+          (t :modal/cancel)]
+         [:button.confirm-delete
+          {:on-click (fn []
+                       (state/set-task-due-date (:id task) target-date)
+                       (swap! state/*app-state assoc :today-page/confirm-move-to-today nil))}
+          (t :modal/confirm)]]]])))
 
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
-        today (state/today-tasks)
-        today-m (state/today-meets)
+        day-tasks (state/selected-day-tasks)
+        day-meets (state/selected-day-meets)
         today-flagged (state/today-flagged-tasks)
         superurgent (state/superurgent-tasks)
         urgent (state/urgent-tasks)
@@ -520,7 +585,8 @@
       [today-sidebar-filters]
       [:div.main-content.today-content
        [today-overdue-section overdue]
-       [today-today-section today today-m today-flagged]
+       [day-selector]
+       [today-today-section day-tasks day-meets today-flagged]
        [today-view-switcher]
        (when (= selected-view :urgent)
          [today-urgent-section superurgent urgent])

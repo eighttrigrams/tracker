@@ -81,6 +81,13 @@
         day-key (day-number->translation-key (day-of-week today))]
     (str (i18n/t :today/today) ", " (i18n/t day-key) ", " (format-date-localized today))))
 
+(defn day-formatted [date-str]
+  (let [today (today-str)
+        day-key (day-number->translation-key (day-of-week date-str))]
+    (if (= date-str today)
+      (str (i18n/t :today/today) ", " (i18n/t day-key) ", " (format-date-localized date-str))
+      (str (i18n/t day-key) ", " (format-date-localized date-str)))))
+
 (def horizon-order [:three-days :week :month :three-months :year :eighteen-months])
 
 (defn horizon-end-date [horizon]
