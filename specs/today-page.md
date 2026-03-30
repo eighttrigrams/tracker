@@ -19,12 +19,23 @@ The Day section itself is always divided into two subsections
 1. Due or happening today, for tasks with a due date on that day or Meets to happen that day
 2. Other things, to line up tasks for that day which are not marked as Urgent, and have no Due Date
 
-We implement only the Due or happening today section. It is straightforward, for a Due Date or a scheduled Meet,
+### Due or happening today subsection
+
+This is straightforward, for a Due Date or a scheduled Meet,
 show it in the right day's tab. Dragging and dropping from the Overdue tab into each of the day tabs is fine. In 
 any case, it asks for confirmation whether you want to adjust the due date accordingly.
 
 When we have a day selected. Then in the Upcoming section below, should that be open, we only show Meets or Tasks with Due Dates
 **after** the selected day. Every time we switch the day, we recalculate the best horizon of the Upcoming section.
+
+### Other things section
+
+On every day, I can add things via the plus button. Or drag and drop between the Urgent Matters and the Other things subsection.
+When I add something to one of the upcoming days in the Day section under Other things, the Task gets marked either with `:today`
+if it's for today, or with a property `:lined_up_for` (which has ISO dates as values). And then tasks get associated to the specific
+days. We then have a worker process (which we already use for Recurring Tasks and Meeting Series) which checks regularly, and if we 
+have a task which is lined up for the day which is actually today, we "nil" that property and set `:today` to true/1, which means that
+tasks for actual today accumulate there.
 
 # Drag & Drop behaviour
 

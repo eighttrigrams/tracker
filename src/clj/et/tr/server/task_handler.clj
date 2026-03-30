@@ -123,6 +123,15 @@
         {:status 200 :body result}
         {:status 404 :body {:error "Task not found"}}))))
 
+(defn set-task-lined-up-for-handler [req]
+  (let [user-id (common/get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
+        date (get-in req [:body :lined_up_for])
+        result (db.task/set-task-lined-up-for (common/ensure-ds) user-id task-id date)]
+    (if result
+      {:status 200 :body result}
+      {:status 404 :body {:error "Task not found"}})))
+
 (defn delete-task-handler [req]
   (let [user-id (common/get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))

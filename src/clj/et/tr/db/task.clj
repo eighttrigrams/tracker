@@ -50,7 +50,8 @@
                       :today [:and user-where [:= :done 0]
                               [:or [:not= :due_date nil]
                                    [:in :urgency ["urgent" "superurgent"]]
-                                   [:= :today 1]]]
+                                   [:= :today 1]
+                                   [:not= :lined_up_for nil]]]
                       [:and user-where [:= :done 0]])
          search-clause (db/build-search-clause search-term)
          importance-clause (db/build-importance-clause importance)
@@ -182,12 +183,13 @@
                    :modified_at [:raw "datetime('now')"]}
                   {:due_date due-date
                    :today 0
+                   :lined_up_for nil
                    :modified_at [:raw "datetime('now')"]})]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set set-map
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :due_date :due_time :today :modified_at]})
+                   :returning [:id :due_date :due_time :today :lined_up_for :modified_at]})
       db/jdbc-opts)))
 
 (defn set-task-due-time [ds user-id task-id due-time]
@@ -233,10 +235,32 @@
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set {:today today-val
+                         :lined_up_for nil
                          :modified_at [:raw "datetime('now')"]}
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :today :modified_at]})
+                   :returning [:id :today :lined_up_for :modified_at]})
       db/jdbc-opts)))
+
+(defn set-task-lined-up-for [ds user-id task-id date]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:lined_up_for date
+                       :today 0
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                 :returning [:id :lined_up_for :today :modified_at]})
+    db/jdbc-opts))
+
+(defn promote-lined-up-tasks! [ds user-id]
+  (jdbc/execute! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:today 1
+                       :lined_up_for nil
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and
+                         [:= :lined_up_for [:raw "date('now','localtime')"]]
+                         (db/user-id-where-clause user-id)]})
+    db/jdbc-opts))
 
 (defn set-task-field [ds user-id task-id field value]
   (let [normalize-fn (get db/field-normalizers field identity)

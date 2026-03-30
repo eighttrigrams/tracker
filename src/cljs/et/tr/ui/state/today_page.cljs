@@ -157,15 +157,22 @@
          (remove #(= (:due_date %) today))
          (remove #(and (:due_date %) (< (:due_date %) today)))
          (remove #(= 1 (:today %)))
+         (remove #(:lined_up_for %))
          (sort-by :sort_order))))
 
 (defn today-flagged-tasks [app-state]
-  (let [today (today-str)]
-    (->> (:tasks @app-state)
-         (filter #(= 1 (:today %)))
-         (remove #(= (:due_date %) today))
-         (remove #(and (:due_date %) (< (:due_date %) today)))
-         (sort-by :sort_order))))
+  (let [today (today-str)
+        offset (or (:today-page/selected-day @app-state) 0)]
+    (if (zero? offset)
+      (->> (:tasks @app-state)
+           (filter #(= 1 (:today %)))
+           (remove #(= (:due_date %) today))
+           (remove #(and (:due_date %) (< (:due_date %) today)))
+           (sort-by :sort_order))
+      (let [target-date (date/add-days today offset)]
+        (->> (:tasks @app-state)
+             (filter #(= (:lined_up_for %) target-date))
+             (sort-by :sort_order))))))
 
 (defn superurgent-tasks [app-state]
   (tasks-by-urgency app-state "superurgent"))

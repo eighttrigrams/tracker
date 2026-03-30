@@ -114,7 +114,8 @@
       (PUT "/:id/scope" [] task-handler/set-task-scope-handler)
       (PUT "/:id/importance" [] task-handler/set-task-importance-handler)
       (PUT "/:id/urgency" [] task-handler/set-task-urgency-handler)
-      (PUT "/:id/today" [] task-handler/set-task-today-handler))
+      (PUT "/:id/today" [] task-handler/set-task-today-handler)
+      (PUT "/:id/lined-up-for" [] task-handler/set-task-lined-up-for-handler))
 
     (context "/people" []
       (GET "/" [] category-handler/list-people-handler)

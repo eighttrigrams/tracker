@@ -2,6 +2,7 @@
   (:require [et.tr.db :as db]
             [et.tr.db.meeting-series :as db.meeting-series]
             [et.tr.db.recurring-task :as db.recurring-task]
+            [et.tr.db.task :as db.task]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel])
@@ -35,6 +36,14 @@
     (catch Exception e
       (tel/log! {:level :error :data {:error (.getMessage e)}} "Recurring tasks worker failed"))))
 
+(defn run-lined-up-promotion [ds]
+  (tel/log! :info "Lined-up promotion worker: check started")
+  (try
+    (doseq [user-id (all-user-ids ds)]
+      (db.task/promote-lined-up-tasks! ds user-id))
+    (catch Exception e
+      (tel/log! {:level :error :data {:error (.getMessage e)}} "Lined-up promotion worker failed"))))
+
 (defn- seconds-until-minute [target-minute]
   (let [now (LocalDateTime/now)
         current-minute (.getMinute now)
@@ -51,7 +60,8 @@
     (.scheduleAtFixedRate scheduler
       ^Runnable (fn []
                   (run-meeting-series-check ds)
-                  (run-recurring-tasks-check ds))
+                  (run-recurring-tasks-check ds)
+                  (run-lined-up-promotion ds))
       initial-delay
       3600
       TimeUnit/SECONDS)
