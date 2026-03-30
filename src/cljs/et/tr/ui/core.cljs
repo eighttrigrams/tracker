@@ -65,8 +65,8 @@
       [:div.tabs
        [tab-button active-tab :today :nav/today]
        [tab-button active-tab :tasks :nav/tasks]
-       [tab-button active-tab :resources :nav/resources]
        [tab-button active-tab :meets :nav/meets]
+       [tab-button active-tab :resources :nav/resources]
        [tab-button active-tab :categories :nav/categories
         #(contains? #{:categories :people-places :projects-goals} %)]
        (when (state/has-mail?)
