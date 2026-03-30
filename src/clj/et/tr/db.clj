@@ -67,7 +67,7 @@
 
 (def meeting-series-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_days :schedule_time :schedule_mode :biweekly_offset])
 
-(def recurring-task-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_days :schedule_time :schedule_mode :biweekly_offset])
+(def recurring-task-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type])
 
 (defn user-id-where-clause [user-id]
   (if user-id

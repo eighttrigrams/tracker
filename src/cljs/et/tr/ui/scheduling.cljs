@@ -109,25 +109,31 @@
 (defn next-scheduled-action [entity {:keys [has-today-key has-future-key]}]
   (let [has-today (get entity has-today-key)
         has-future (get entity has-future-key)
-        {:keys [schedule_days schedule_time schedule_mode biweekly_offset]} entity
+        {:keys [schedule_days schedule_time schedule_mode biweekly_offset task_type]} entity
         mode (or schedule_mode "weekly")
         schedule-days-set (if (or (nil? schedule_days) (= schedule_days ""))
                             #{}
                             (set (clojure.string/split schedule_days #",")))
         today (today-str)]
-    (cond
-      has-future
-      {:action :none}
+    (if (= task_type "today")
+      (cond
+        has-today {:action :none}
+        (is-today-scheduled? mode schedule-days-set biweekly_offset today)
+        {:action :create-today :date today :time nil}
+        :else {:action :none})
+      (cond
+        has-future
+        {:action :none}
 
-      has-today
-      (when-let [{:keys [date day-num]} (next-scheduled-date-for-mode mode schedule-days-set schedule_time biweekly_offset (tomorrow-str))]
-        {:action :create-next :date date :time (if day-num (get-schedule-time-for-day schedule_time day-num) schedule_time)})
+        has-today
+        (when-let [{:keys [date day-num]} (next-scheduled-date-for-mode mode schedule-days-set schedule_time biweekly_offset (tomorrow-str))]
+          {:action :create-next :date date :time (if day-num (get-schedule-time-for-day schedule_time day-num) schedule_time)})
 
-      (is-today-scheduled? mode schedule-days-set biweekly_offset today)
-      (let [today-js (js/Date. (str today "T00:00:00"))
-            today-day-num (js-day-to-iso-day (.getDay today-js))]
-        {:action :create-today :date today :time (get-schedule-time-for-day schedule_time today-day-num)})
+        (is-today-scheduled? mode schedule-days-set biweekly_offset today)
+        (let [today-js (js/Date. (str today "T00:00:00"))
+              today-day-num (js-day-to-iso-day (.getDay today-js))]
+          {:action :create-today :date today :time (get-schedule-time-for-day schedule_time today-day-num)})
 
-      :else
-      (when-let [{:keys [date day-num]} (next-scheduled-date-for-mode mode schedule-days-set schedule_time biweekly_offset (tomorrow-str))]
-        {:action :create-next :date date :time (if day-num (get-schedule-time-for-day schedule_time day-num) schedule_time)}))))
+        :else
+        (when-let [{:keys [date day-num]} (next-scheduled-date-for-mode mode schedule-days-set schedule_time biweekly_offset (tomorrow-str))]
+          {:action :create-next :date date :time (if day-num (get-schedule-time-for-day schedule_time day-num) schedule_time)})))))

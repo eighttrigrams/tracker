@@ -80,10 +80,10 @@
 (defn set-recurring-task-schedule-handler [req]
   (let [user-id (common/get-user-id req)
         rtask-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [schedule-days schedule-time schedule-mode biweekly-offset]} (:body req)]
+        {:keys [schedule-days schedule-time schedule-mode biweekly-offset task-type]} (:body req)]
     (if (not (valid-schedule-time? schedule-time))
       {:status 400 :body {:error "Invalid time format"}}
-      (if-let [result (db.recurring-task/set-recurring-task-schedule (common/ensure-ds) user-id rtask-id schedule-days schedule-time schedule-mode biweekly-offset)]
+      (if-let [result (db.recurring-task/set-recurring-task-schedule (common/ensure-ds) user-id rtask-id schedule-days schedule-time schedule-mode biweekly-offset task-type)]
         {:status 200 :body result}
         {:status 404 :body {:error "Recurring task not found"}}))))
 

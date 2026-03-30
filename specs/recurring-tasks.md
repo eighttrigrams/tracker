@@ -20,8 +20,6 @@ When the "Recurring" button is activated, the Sort Order group and Importance se
 
 ## Scheduling
 
-In the first version, we only focus on **Tasks with Due Date**.
-
 The edit modal for Recurring Tasks has an additional tab called "Scheduling". In it, we can set a schedule for tasks.
 We can check any of the seven days of a week.
 These settings will be used (will be explained later) when spawning off follow up (recurring) Tasks.
@@ -29,6 +27,13 @@ These settings will be used (will be explained later) when spawning off follow u
 There are two more modes.
 - One mode lets you choose a day of the month (up to day 28)
 - One mode lets you choose a day of the week, and then runs that on a bi-weekly schedule
+
+There are two modes (selectable by radio button on the scheduling tab of the edit modal) for the "types" of (recurring) Tasks we create
+- The tasks has a due date and therefore is expected to appear on the due date in the "Due or happening today" sub-section of the Today section of the Today page. Here, for the creation of any follow up Task of a Recurring Task, it does not matter whether an overdue task exists, the next one gets created when the schedule says.
+- The task has no due date and is expected to appear in the "Other things" sub-section of the Today section of the Today page. When a Task of that Recurring Task already exists in that section, we won't create a follow up despite the schedule possibly saying so.
+
+On the second case: When we have a Task that has the `:today` marker and is not archived, then no new Task of that type. If we have a Task marked with `:today`, and already set archived, we won't allow a new Task
+to be created today.
 
 ## Automatic next meeting creation
 

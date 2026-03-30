@@ -105,9 +105,9 @@
      (fn [resp]
        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to create task"))))))
 
-(defn set-recurring-task-schedule [app-state auth-headers rtask-id schedule-days schedule-time schedule-mode biweekly-offset on-success]
+(defn set-recurring-task-schedule [app-state auth-headers rtask-id schedule-days schedule-time schedule-mode biweekly-offset task-type on-success]
   (api/put-json (str "/api/recurring-tasks/" rtask-id "/schedule")
-    {:schedule-days schedule-days :schedule-time schedule-time :schedule-mode schedule-mode :biweekly-offset biweekly-offset}
+    {:schedule-days schedule-days :schedule-time schedule-time :schedule-mode schedule-mode :biweekly-offset biweekly-offset :task-type task-type}
     (auth-headers)
     (fn [result]
       (swap! app-state update :recurring-tasks

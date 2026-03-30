@@ -227,6 +227,8 @@
 
   :scheduling/next-meeting "Next:"
   :scheduling/offset-week "Offset by one week"
+  :scheduling/with-due-date "With due date"
+  :scheduling/without-due-date "Without due date"
   :date/mon "Mon"
   :date/tue "Tue"
   :date/wed "Wed"
@@ -464,6 +466,8 @@
 
   :scheduling/next-meeting "Nächstes:"
   :scheduling/offset-week "Um eine Woche versetzt"
+  :scheduling/with-due-date "Mit Fälligkeitsdatum"
+  :scheduling/without-due-date "Ohne Fälligkeitsdatum"
   :date/mon "Mo"
   :date/tue "Di"
   :date/wed "Mi"
@@ -701,6 +705,8 @@
 
   :scheduling/next-meeting "Próximo:"
   :scheduling/offset-week "Deslocar uma semana"
+  :scheduling/with-due-date "Com data de vencimento"
+  :scheduling/without-due-date "Sem data de vencimento"
   :date/mon "Seg"
   :date/tue "Ter"
   :date/wed "Qua"

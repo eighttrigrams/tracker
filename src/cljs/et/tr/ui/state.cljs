@@ -532,8 +532,8 @@
 (defn clear-confirm-delete-rtask []
   (recurring-tasks-state/clear-confirm-delete-rtask))
 
-(defn set-recurring-task-schedule [rtask-id schedule-days schedule-time schedule-mode biweekly-offset on-success]
-  (recurring-tasks-state/set-recurring-task-schedule *app-state auth-headers rtask-id schedule-days schedule-time schedule-mode biweekly-offset on-success))
+(defn set-recurring-task-schedule [rtask-id schedule-days schedule-time schedule-mode biweekly-offset task-type on-success]
+  (recurring-tasks-state/set-recurring-task-schedule *app-state auth-headers rtask-id schedule-days schedule-time schedule-mode biweekly-offset task-type on-success))
 
 (defn create-task-for-recurring [rtask-id date time]
   (recurring-tasks-state/create-task-for-recurring *app-state auth-headers fetch-recurring-tasks rtask-id date time))
