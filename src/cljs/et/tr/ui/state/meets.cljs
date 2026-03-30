@@ -2,6 +2,7 @@
   (:require [ajax.core :refer [GET POST]]
             [clojure.string :as str]
             [reagent.core :as r]
+            [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
             [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
 
@@ -94,10 +95,13 @@
     (fn [result]
       (swap! app-state update :meets
              (fn [meets]
-               (mapv #(if (= (:id %) meet-id)
-                        (assoc % :scope (:scope result))
-                        %)
-                     meets))))
+               (let [mode (:work-private-mode @app-state)
+                     strict? (:strict-mode @app-state)]
+                 (->> meets
+                      (mapv #(if (= (:id %) meet-id)
+                               (assoc % :scope (:scope result))
+                               %))
+                      (filterv #(filters/matches-scope? % mode strict?)))))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
