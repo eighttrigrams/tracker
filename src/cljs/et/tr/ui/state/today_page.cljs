@@ -151,13 +151,15 @@
          (sort-by-date-and-time))))
 
 (defn- tasks-by-urgency [app-state urgency-level]
-  (let [today (today-str)]
+  (let [today (today-str)
+        sel-offset (or (:today-page/selected-day @app-state) 0)
+        sel-date (date/add-days today sel-offset)]
     (->> (:tasks @app-state)
          (filter #(= urgency-level (:urgency %)))
          (remove #(= (:due_date %) today))
          (remove #(and (:due_date %) (< (:due_date %) today)))
-         (remove #(= 1 (:today %)))
-         (remove #(:lined_up_for %))
+         (remove #(and (zero? sel-offset) (= 1 (:today %))))
+         (remove #(= (:lined_up_for %) sel-date))
          (sort-by :sort_order))))
 
 (defn today-flagged-tasks [app-state]

@@ -47,3 +47,9 @@ From the Urgent Matters section, I can drag and drop into any of the days' "Othe
 As for the Days section. I can drag and drop from the individual days' "Other things" subsections into the Urgent Matters sections, and from
 the Urgent Matters to *any of the days' "Other things" subsections. But I can also drag from any day's "Other things" to the other day buttons, 
 such that a Task so dragged and dropped will appear in the target day's "Other things" section. As drop targets, only the available days are marked.
+
+# Urgent Tasks
+
+When for a chosen day in the Day section in the Other things subsection a Super-Urgent or Urgent Task is listed, it won't be shown in the Urgent Matters section
+below. But other Super-Urgent or Urgent Tasks which are associated with other days, are shown in the Urgent Matters section. Should an urgent Task be already be associated
+with a day, and we drag it into another day, it gets associated to only *that* day. I.e. an urgent Task can only be associated to one of the select days.
