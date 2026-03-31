@@ -184,12 +184,13 @@
                   {:due_date due-date
                    :today 0
                    :lined_up_for nil
+                   :urgency "default"
                    :modified_at [:raw "datetime('now')"]})]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set set-map
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :due_date :due_time :today :lined_up_for :modified_at]})
+                   :returning [:id :due_date :due_time :today :lined_up_for :urgency :modified_at]})
       db/jdbc-opts)))
 
 (defn set-task-due-time [ds user-id task-id due-time]

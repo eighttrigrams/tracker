@@ -115,7 +115,7 @@
    [task-scope-selector task]
    (when show-importance?
      [task-importance-selector task])
-   (when show-urgency?
+   (when (and show-urgency? (not (:due_date task)))
      [task-urgency-selector task])])
 
 (defn task-combined-action-button [task & {:keys [extra-dropdown-items]}]
