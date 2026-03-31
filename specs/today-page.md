@@ -40,5 +40,10 @@ tasks for actual today accumulate there.
 # Drag & Drop behaviour
 
 From the overdue section I can drag into any of the days' "Due or happening today" subsections of the Day section, but to nowhere else.
+
 From the Urgent Matters section, I can drag and drop into any of the days' "Other things" subsections, and from there back to Urgent Matters
 (bot Super-Urgent and Urgent subsections).
+
+As for the Days section. I can drag and drop from the individual days' "Other things" subsections into the Urgent Matters sections, and from
+the Urgent Matters to *any of the days' "Other things" subsections. But I can also drag from any day's "Other things" to the other day buttons, 
+such that a Task so dragged and dropped will appear in the target day's "Other things" section. As drop targets, only the available days are marked.

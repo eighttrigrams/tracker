@@ -268,6 +268,11 @@
     (let [task (find-task-by-id drag-task-id)]
       (and task (#{"urgent" "superurgent"} (:urgency task))))))
 
+(defn- drag-task-other-things? []
+  (when-let [drag-task-id (:drag-task @state/*app-state)]
+    (let [task (find-task-by-id drag-task-id)]
+      (and task (or (= 1 (:today task)) (:lined_up_for task))))))
+
 (defn- add-task-for-selected-day [title on-success]
   (let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
     (if (zero? selected-day)
@@ -368,36 +373,53 @@
       :on-drop (fn [e] (when accept-drop? (handle-today-flagged-drop e drag-task-id task)))}
      [today-task-item task :hide-date true :emoji-prefix (urgency-emoji task) :show-unlink? true]]))
 
+(defn- handle-day-button-drop [drag-task-id target-date]
+  (let [task (find-task-by-id* drag-task-id)
+        today (date/today-str)]
+    (cond
+      (and task (:due_date task) (< (:due_date task) today))
+      (handle-day-section-drop drag-task-id target-date)
+
+      (or (= 1 (:today task)) (:lined_up_for task))
+      (do (if (= target-date today)
+            (state/set-task-today drag-task-id true)
+            (state/set-task-lined-up-for drag-task-id target-date))
+          (state/clear-drag-state)))))
+
 (defn- day-selector []
   (let [selected-day (or (:today-page/selected-day @state/*app-state) 0)
         today (date/today-str)
         drag-task (:drag-task @state/*app-state)
         expanded-task (:today-page/expanded-task @state/*app-state)
         drag-enabled? (and drag-task (not expanded-task))
-        drop-enabled? (and drag-enabled? (not (drag-task-urgent?)))]
-    [:div.day-selector.toggle-group
+        from-overdue? (drag-task-overdue?)
+        from-other-things? (drag-task-other-things?)
+        drop-enabled? (and drag-enabled? (or from-overdue? from-other-things?))]
+    [:div.day-selector.toggle-group {:class (when drop-enabled? "dragging")}
      (doall
       (for [offset (range 5)]
         (let [target-date (date/add-days today offset)
               label (if (zero? offset)
                       (t :today/today)
-                      (date/get-day-name target-date))]
+                      (date/get-day-name target-date))
+              is-source-day? (and from-other-things? (= offset selected-day))
+              btn-drop? (and drop-enabled? (not is-source-day?))]
           ^{:key offset}
           [:button {:class (str (when (= selected-day offset) "active")
-                                (when (and drop-enabled? (= (:drag-over-urgency-section @state/*app-state) (keyword (str "day-" offset)))) " drop-target"))
+                                (when (and btn-drop? (= (:drag-over-urgency-section @state/*app-state) (keyword (str "day-" offset)))) " drop-target"))
                     :on-click #(state/set-selected-day offset)
                     :on-drag-over (fn [e]
-                                    (when drop-enabled?
+                                    (when btn-drop?
                                       (.preventDefault e)
                                       (state/set-drag-over-urgency-section (keyword (str "day-" offset)))))
                     :on-drag-leave (fn [e]
                                      (when (= (.-target e) (.-currentTarget e))
                                        (state/set-drag-over-urgency-section nil)))
                     :on-drop (fn [e]
-                               (when drop-enabled?
+                               (when btn-drop?
                                  (.preventDefault e)
                                  (state/set-drag-over-urgency-section nil)
-                                 (handle-day-section-drop drag-task target-date)))}
+                                 (handle-day-button-drop drag-task target-date)))}
            label])))]))
 
 (defn- today-today-section [day-tasks day-meets today-flagged]
@@ -410,7 +432,8 @@
         drag-enabled? (and drag-task (not expanded-task))
         from-overdue? (drag-task-overdue?)
         from-urgent? (drag-task-urgent?)
-        due-drop-enabled? (and drag-enabled? (not from-urgent?))]
+        from-other-things? (drag-task-other-things?)
+        due-drop-enabled? (and drag-enabled? (not from-urgent?) (not from-other-things?))]
     [:div.today-section.today
      [:div.today-section-header
       [:h3 (date/day-formatted target-date)]]

@@ -224,10 +224,13 @@
   margin: 8px 0;
   margin-left: auto;
 }
+.day-selector.dragging button.active {
+  background: transparent;
+  color: var(--text-secondary);
+}
 .day-selector button.drop-target {
-  background: var(--accent);
-  color: white;
-  opacity: 0.7;
+  border: 2px dashed var(--accent);
+  background: rgba(0, 113, 227, 0.05);
 }
 .today-view-switcher {
   margin: 16px 0;
