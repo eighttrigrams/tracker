@@ -4,6 +4,7 @@
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.string :as str]
+            [clj-http.client :as http]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]))
@@ -91,6 +92,23 @@
 
 (defn valid-url? [link]
   (some? (re-matches #"https?://\S+" link)))
+
+(defn youtube-url? [url]
+  (some? (re-find #"(?:youtube\.com/watch|youtube\.com/shorts/|youtu\.be/)" url)))
+
+(defn fetch-youtube-title [url]
+  (try
+    (let [resp (http/get url {:headers {"Accept-Language" "en"}
+                              :socket-timeout 5000
+                              :connection-timeout 5000})
+          body (:body resp)
+          title (some-> (re-find #"<title>(.+?) - YouTube</title>" body) second str/trim)
+          channel (some-> (re-find #"\"ownerChannelName\":\"([^\"]+)\"" body) second)]
+      (when title
+        (if channel
+          (str channel " — " title)
+          title)))
+    (catch Exception _ nil)))
 
 (defn make-categorize-handler [db-fn]
   (fn [req]

@@ -40,7 +40,10 @@
       {:status 400 :body {:success false :error "Invalid URL. Must start with http:// or https://"}}
 
       :else
-      (let [resource (db.resource/add-resource (common/ensure-ds) user-id title link (or scope "both"))]
+      (let [title (if (common/youtube-url? link)
+                    (or (common/fetch-youtube-title link) title)
+                    title)
+            resource (db.resource/add-resource (common/ensure-ds) user-id title link (or scope "both"))]
         {:status 201 :body resource}))))
 
 (defn update-resource-handler [req]

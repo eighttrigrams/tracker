@@ -75,9 +75,10 @@
     (let [link (get-in req [:body :link])]
       (if (or (str/blank? link) (not (re-matches #"https?://.*" link)))
         {:status 400 :body {:error "Invalid or missing link URL"}}
-        (if-let [result (db.resource/convert-message-to-resource (common/ensure-ds) user-id message-id link)]
-          {:status 200 :body result}
-          {:status 404 :body {:error "Message not found"}})))))
+        (let [title (when (common/youtube-url? link) (common/fetch-youtube-title link))]
+          (if-let [result (db.resource/convert-message-to-resource (common/ensure-ds) user-id message-id link :title title)]
+            {:status 200 :body result}
+            {:status 404 :body {:error "Message not found"}}))))))
 
 (defn merge-messages-handler [req]
   (with-mail-message-context req user-id message-id

@@ -116,7 +116,7 @@
                    :returning return-cols})
       db/jdbc-opts)))
 
-(defn convert-message-to-resource [ds user-id message-id link]
+(defn convert-message-to-resource [ds user-id message-id link & {:keys [title]}]
   (let [conn (db/get-conn ds)]
     (jdbc/with-transaction [tx conn]
       (when-let [message (jdbc/execute-one! tx
@@ -136,7 +136,7 @@
               new-order (- min-order 1.0)
               resource (jdbc/execute-one! tx
                          (sql/format {:insert-into :resources
-                                      :values [{:title (:title message)
+                                      :values [{:title (or title (:title message))
                                                 :link link
                                                 :sort_order new-order
                                                 :user_id user-id
