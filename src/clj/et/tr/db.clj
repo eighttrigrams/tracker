@@ -103,8 +103,10 @@
                (map (fn [term]
                       (into [:or]
                             (mapcat (fn [col]
-                                      [[:like [:lower col] (str term "%")]
-                                       [:like [:lower col] (str "% " term "%")]])
+                                      (into [[:like [:lower col] (str term "%")]
+                                             [:like [:lower col] (str "% " term "%")]]
+                                            (map (fn [ch] [:like [:lower col] (str "%" ch term "%")])
+                                                 ["\"" "'" "(" "{" "[" "<"])))
                                     columns)))
                     terms)))))))
 
