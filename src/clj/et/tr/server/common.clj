@@ -98,15 +98,15 @@
 
 (defn fetch-youtube-title [url]
   (try
-    (let [resp (http/get url {:headers {"Accept-Language" "en"}
-                              :socket-timeout 5000
-                              :connection-timeout 5000})
-          body (:body resp)
-          title (some-> (re-find #"<title>(.+?) - YouTube</title>" body) second str/trim)
-          channel (some-> (re-find #"\"ownerChannelName\":\"([^\"]+)\"" body) second)]
+    (let [resp (http/get "https://www.youtube.com/oembed"
+                 {:query-params {:url url :format "json"}
+                  :as :json
+                  :socket-timeout 5000
+                  :connection-timeout 5000})
+          {:keys [author_name title]} (:body resp)]
       (when title
-        (if channel
-          (str channel " — " title)
+        (if author_name
+          (str author_name " — " title)
           title)))
     (catch Exception _ nil)))
 
