@@ -48,15 +48,19 @@
 (defn list-resources
   ([ds user-id] (list-resources ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories]} opts
+   (let [{:keys [search-term importance context strict categories domain]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags :link])
          importance-clause (db/build-importance-clause importance)
          scope-clause (db/build-scope-clause context strict)
+         domain-clause (when (and domain (seq domain))
+                         [:or
+                          [:like :link (str "%://" domain "/%")]
+                          [:like :link (str "%://www." domain "/%")]])
          category-clauses (build-resource-category-clauses categories)
          where-clause (into [:and user-where]
-                            (concat (filter some? [search-clause importance-clause scope-clause])
+                            (concat (filter some? [search-clause importance-clause scope-clause domain-clause])
                                     category-clauses))
          resources (jdbc/execute! conn
                      (sql/format {:select db/resource-select-columns

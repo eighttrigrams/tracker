@@ -274,6 +274,7 @@
 (defn- resources-fetch-opts []
   {:search-term (:filter-search @resources-state/*resources-page-state)
    :importance (:importance-filter @resources-state/*resources-page-state)
+   :domain (:domain-filter @resources-state/*resources-page-state)
    :context (:work-private-mode @*app-state)
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
@@ -323,6 +324,12 @@
 
 (defn set-resource-importance-filter [level]
   (resources-state/set-importance-filter fetch-resources level))
+
+(defn set-resource-domain-filter [domain]
+  (resources-state/set-domain-filter fetch-resources domain))
+
+(defn clear-resource-domain-filter []
+  (resources-state/clear-domain-filter fetch-resources))
 
 (defn clear-all-resource-filters []
   (resources-state/clear-all-resource-filters fetch-resources))

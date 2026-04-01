@@ -20,6 +20,10 @@
 (defn get-resources-category-shortcut-keys []
   resources-category-shortcut-keys)
 
+(defn- extract-domain [url]
+  (when (string? url)
+    (second (re-find #"https?://(?:www\.)?([^/]+)" url))))
+
 (defn- youtube-video-id [url]
   (when (string? url)
     (or (second (re-find #"(?:youtube\.com/watch[^\s]*[?&]v=)([^&\s]+)" url))
@@ -106,7 +110,8 @@
         (t :task/delete)]]]]))
 
 (defn- resource-header [resource is-expanded]
-  (let [importance (:importance resource)]
+  (let [importance (:importance resource)
+        domain (extract-domain (:link resource))]
     [:div.item-header
      {:on-click #(state/set-expanded-resource (when-not is-expanded (:id resource)))}
      [:div.item-title
@@ -114,6 +119,11 @@
       (when (and importance (not= importance "normal"))
         [:span.importance-badge {:class importance}
          (case importance "important" "★" "critical" "★★" nil)])
+      (when domain
+        [:span.mail-sender {:on-click (fn [e]
+                                        (.stopPropagation e)
+                                        (state/set-resource-domain-filter domain))}
+         domain])
       (:title resource)
       (when is-expanded
         [:button.edit-icon {:on-click (fn [e]
@@ -164,6 +174,14 @@
                :on-click #(state/set-resource-importance-filter :critical)
                :title (t :importance/filter-critical)}
       "★★"]]))
+
+(defn- resource-domain-filter-badge []
+  (let [domain-filter (:domain-filter @resources-state/*resources-page-state)]
+    (when domain-filter
+      [:div.mail-sender-filter
+       [:span.filter-item-label.included
+        domain-filter
+        [:button.remove-item {:on-click #(state/clear-resource-domain-filter)} "x"]]])))
 
 (defn- search-add-form []
   (let [input-value (:filter-search @resources-state/*resources-page-state)]
@@ -257,6 +275,7 @@
        [:h2 (t :nav/resources)]
        [importance-filter-toggle]]
       [search-add-form]
+      [resource-domain-filter-badge]
       (if (empty? resources)
         [:p.empty-message (t :resources/no-resources)]
         [:ul.items

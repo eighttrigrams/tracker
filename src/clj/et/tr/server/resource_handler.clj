@@ -21,9 +21,10 @@
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
+        domain (get-in req [:params "domain"])
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.resource/list-resources (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories})}))
+    {:status 200 :body (db.resource/list-resources (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :domain domain})}))
 
 (defn add-resource-handler [req]
   (let [user-id (common/get-user-id req)

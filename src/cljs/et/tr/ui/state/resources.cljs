@@ -11,6 +11,7 @@
                                         :confirm-delete-resource nil
                                         :filter-search ""
                                         :importance-filter nil
+                                        :domain-filter nil
                                         :fetch-request-id 0}))
 
 (defn- ids->names [ids collection]
@@ -25,11 +26,13 @@
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
         goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
+        domain (:domain opts)
         url (cond-> "/api/resources?"
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
               importance (str "importance=" (name importance) "&")
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
+              (seq domain) (str "domain=" (js/encodeURIComponent domain) "&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
@@ -178,8 +181,16 @@
   (swap! *resources-page-state assoc :importance-filter level)
   (fetch-resources-fn))
 
+(defn set-domain-filter [fetch-resources-fn domain]
+  (swap! *resources-page-state assoc :domain-filter domain)
+  (fetch-resources-fn))
+
+(defn clear-domain-filter [fetch-resources-fn]
+  (swap! *resources-page-state assoc :domain-filter nil)
+  (fetch-resources-fn))
+
 (defn clear-all-resource-filters [fetch-resources-fn]
-  (swap! *resources-page-state assoc :filter-search "" :importance-filter nil)
+  (swap! *resources-page-state assoc :filter-search "" :importance-filter nil :domain-filter nil)
   (fetch-resources-fn))
 
 (defn reset-resources-page-view-state! []
