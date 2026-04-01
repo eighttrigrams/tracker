@@ -108,7 +108,9 @@
         (if author_name
           (str author_name " — " title)
           title)))
-    (catch Exception _ nil)))
+    (catch Exception e
+      (tel/log! {:level :warn :data {:url url :error (.getMessage e)}} "Failed to fetch YouTube title")
+      nil)))
 
 (defn make-categorize-handler [db-fn]
   (fn [req]
