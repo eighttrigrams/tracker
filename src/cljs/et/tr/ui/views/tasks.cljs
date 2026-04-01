@@ -142,6 +142,56 @@
                              :number (tasks-category-shortcut-numbers filter-key)}]))))
 
 
+(defn- send-to-day-option [task-id offset target-date]
+  [:button.send-to-day-option
+   {:key offset
+    :on-click (fn [e]
+                (.stopPropagation e)
+                (if (zero? offset)
+                  (state/set-task-today task-id true)
+                  (state/set-task-lined-up-for task-id target-date))
+                (swap! state/*app-state assoc :tasks-page/send-to-day-open nil))}
+   (if (zero? offset) (t :today/today) (date/get-day-name target-date))])
+
+(defn- send-to-day-unassign [task]
+  [:button.send-to-day-option.unassign-option
+   {:on-click (fn [e]
+                (.stopPropagation e)
+                (if (= 1 (:today task))
+                  (state/set-task-today (:id task) false)
+                  (state/set-task-lined-up-for (:id task) nil))
+                (swap! state/*app-state assoc :tasks-page/send-to-day-open nil))}
+   (t :task/unassign-day)])
+
+(defn- send-to-day-dropdown [task assigned?]
+  (let [today (date/today-str)]
+    (into [:div.send-to-day-dropdown]
+      (concat
+        (for [offset (range 5)]
+          [send-to-day-option (:id task) offset (date/add-days today offset)])
+        (when assigned?
+          [[send-to-day-unassign task]])))))
+
+(defn- send-to-day-selector [task]
+  (when (and (nil? (:due_date task))
+             (not= 1 (:done task)))
+    (let [is-open (= (:tasks-page/send-to-day-open @state/*app-state) (:id task))
+          assigned? (or (= 1 (:today task)) (:lined_up_for task))
+          btn-label (cond
+                      (= 1 (:today task)) (t :today/today)
+                      (:lined_up_for task) (date/get-day-name (:lined_up_for task))
+                      :else "←")]
+      [:div.send-to-day-wrapper
+       [:button.link-today-btn
+        {:class (when assigned? "assigned")
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (swap! state/*app-state assoc :tasks-page/send-to-day-open
+                            (when-not is-open (:id task))))}
+        btn-label]
+       (when is-open
+         [send-to-day-dropdown task assigned?])])))
+
 (defn- task-expanded-details [task people places projects goals]
   [:div.item-details
    (when (seq (:description task))
@@ -153,15 +203,7 @@
     [task-item/category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
     [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]]
    [:div.item-actions
-    (when (and (not= 1 (:today task))
-              (nil? (:due_date task))
-              (not= 1 (:done task)))
-      [:button.link-today-btn
-       {:on-click (fn [e]
-                    (.stopPropagation e)
-                    (state/set-task-today (:id task) true))
-        :title (t :task/link-today)}
-       "←"])
+    [send-to-day-selector task]
     [task-item/task-attribute-selectors task]
     [task-item/task-combined-action-button task]]])
 
@@ -194,12 +236,19 @@
        (when (:due_date task)
          [task-item/time-picker task :show-clear? true])])]
    [:div.item-date
-    (when (and (:due_date task) (not done-mode?))
+    (cond
+      (and (:due_date task) (not done-mode?))
       (let [today (date/today-str)
             overdue? (< (:due_date task) today)]
         [:span.due-date {:class (when overdue? "overdue")
                          :data-tooltip (date/get-day-name (:due_date task))}
-         (date/format-date-localized (:due_date task))]))
+         (date/format-date-localized (:due_date task))])
+
+      (and (not is-expanded) (= 1 (:today task)))
+      [:span.assigned-day (t :today/today)]
+
+      (and (not is-expanded) (:lined_up_for task))
+      [:span.assigned-day (date/get-day-name (:lined_up_for task))])
     (when (and (not due-date-mode?) (not manual-mode?))
       [:span {:data-tooltip (some-> (:modified_at task) (.substring 0 10) date/get-day-name)}
        (date/format-datetime-localized (:modified_at task))])]])
