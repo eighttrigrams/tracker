@@ -69,6 +69,12 @@
     (when-let [day-key (day-number->translation-key (day-of-week date-str))]
       (i18n/t day-key))))
 
+(defn get-day-label [date-str]
+  (when date-str
+    (if (= date-str (add-days (today-str) 1))
+      (i18n/t :today/tomorrow)
+      (get-day-name date-str))))
+
 (defn within-days? [date-str days]
   (when date-str
     (let [today (today-str)

@@ -36,6 +36,7 @@
 
   :today/overdue "Overdue"
   :today/today "Today"
+  :today/tomorrow "Tomorrow"
   :today/upcoming "Upcoming"
   :today/show "Show: "
   :today/three-days "3 Days"
@@ -293,6 +294,7 @@
 
   :today/overdue "Überfällig"
   :today/today "Heute"
+  :today/tomorrow "Morgen"
   :today/upcoming "Anstehend"
   :today/show "Anzeigen: "
   :today/three-days "3 Tage"
@@ -550,6 +552,7 @@
 
   :today/overdue "Atrasadas"
   :today/today "Hoje"
+  :today/tomorrow "Amanhã"
   :today/upcoming "Próximas"
   :today/show "Mostrar: "
   :today/three-days "3 Dias"

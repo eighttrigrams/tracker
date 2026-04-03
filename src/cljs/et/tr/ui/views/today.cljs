@@ -391,7 +391,7 @@
         (let [target-date (date/add-days today offset)
               label (if (zero? offset)
                       (t :today/today)
-                      (date/get-day-name target-date))
+                      (date/get-day-label target-date))
               is-source-day? (and from-other-things? (= offset selected-day))
               btn-drop? (and drop-enabled? (not is-source-day?))]
           ^{:key offset}

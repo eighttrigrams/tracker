@@ -218,13 +218,16 @@
                               1.0)
                 new-order (- min-order 1.0)
                 today-type? (= "today" (:task_type rtask))
+                today-str (str (java.time.LocalDate/now))
+                is-today? (= date today-str)
                 task-values (cond-> {:title (:title rtask)
                                      :sort_order new-order
                                      :user_id user-id
                                      :modified_at [:raw "datetime('now')"]
                                      :scope (:scope rtask)
                                      :recurring_task_id rtask-id}
-                              today-type? (assoc :today 1)
+                              (and today-type? is-today?) (assoc :today 1)
+                              (and today-type? (not is-today?)) (assoc :lined_up_for date)
                               (not today-type?) (assoc :due_date date :due_time time))
                 task (jdbc/execute-one! tx
                        (sql/format {:insert-into :tasks
@@ -292,13 +295,24 @@
                   db/jdbc-opts)
           today-type? (= "today" (:task_type rtask))
           rows (if today-type?
-                 (jdbc/execute! conn
-                   (sql/format {:select-distinct [[[:raw "date(created_at,'localtime')"] :date]]
-                                :from [:tasks]
-                                :where [:and
-                                        [:= :recurring_task_id rtask-id]
-                                        [:= :today 1]]})
-                   db/jdbc-opts)
+                 (let [lined-up (jdbc/execute! conn
+                                  (sql/format {:select-distinct [:lined_up_for]
+                                               :from [:tasks]
+                                               :where [:and
+                                                       [:= :recurring_task_id rtask-id]
+                                                       [:!= :lined_up_for nil]]})
+                                  db/jdbc-opts)
+                       has-today? (some? (jdbc/execute-one! conn
+                                           (sql/format {:select [1]
+                                                        :from [:tasks]
+                                                        :where [:and
+                                                                [:= :recurring_task_id rtask-id]
+                                                                [:= :today 1]
+                                                                [:= :done 0]]
+                                                        :limit 1})
+                                           db/jdbc-opts))]
+                   (cond-> (mapv :lined_up_for lined-up)
+                     has-today? (conj (str (java.time.LocalDate/now)))))
                  (jdbc/execute! conn
                    (sql/format {:select-distinct [:due_date]
                                 :from [:tasks]
@@ -306,7 +320,9 @@
                                         [:= :recurring_task_id rtask-id]
                                         [:!= :due_date nil]]})
                    db/jdbc-opts))]
-      (mapv (fn [row] (or (:date row) (:due_date row))) rows))))
+      (if today-type?
+        rows
+        (mapv :due_date rows)))))
 
 (defn auto-create-tasks
   ([ds user-id] (auto-create-tasks ds user-id {}))

@@ -151,7 +151,7 @@
                   (state/set-task-today task-id true)
                   (state/set-task-lined-up-for task-id target-date))
                 (swap! state/*app-state assoc :tasks-page/send-to-day-open nil))}
-   (if (zero? offset) (t :today/today) (date/get-day-name target-date))])
+   (if (zero? offset) (t :today/today) (date/get-day-label target-date))])
 
 (defn- send-to-day-unassign [task]
   [:button.send-to-day-option.unassign-option
@@ -179,7 +179,7 @@
           assigned? (or (= 1 (:today task)) (:lined_up_for task))
           btn-label (cond
                       (= 1 (:today task)) (t :today/today)
-                      (:lined_up_for task) (date/get-day-name (:lined_up_for task))
+                      (:lined_up_for task) (date/get-day-label (:lined_up_for task))
                       :else "←")]
       [:div.send-to-day-wrapper
        [:button.link-today-btn
@@ -251,7 +251,7 @@
       [:span.assigned-day (t :today/today)]
 
       (and (not done-mode?) (not is-expanded) (:lined_up_for task))
-      [:span.assigned-day (date/get-day-name (:lined_up_for task))])
+      [:span.assigned-day (date/get-day-label (:lined_up_for task))])
     (when (and (not done-mode?) (not due-date-mode?) (not manual-mode?))
       [:span {:data-tooltip (some-> (:modified_at task) (.substring 0 10) date/get-day-name)}
        (date/format-datetime-localized (:modified_at task))])]])
