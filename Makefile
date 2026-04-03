@@ -15,7 +15,7 @@ build:
 	clj -T:build uber
 
 test:
-	clj -X:test
+	DEV=true clj -X:test
 
 e2e:
 	./scripts/stop.sh && npx shadow-cljs release app && npx bddgen && npx playwright test
