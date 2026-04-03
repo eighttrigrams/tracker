@@ -278,6 +278,7 @@
   {:search-term (:filter-search @resources-state/*resources-page-state)
    :importance (:importance-filter @resources-state/*resources-page-state)
    :domain (:domain-filter @resources-state/*resources-page-state)
+   :sort-mode (:sort-mode @resources-state/*resources-page-state)
    :context (:work-private-mode @*app-state)
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
@@ -324,6 +325,21 @@
 
 (defn set-resource-filter-search [search-term]
   (resources-state/set-filter-search fetch-resources search-term))
+
+(defn set-resource-sort-mode [mode]
+  (resources-state/set-sort-mode fetch-resources mode))
+
+(defn set-drag-resource [resource-id]
+  (resources-state/set-drag-resource *app-state resource-id))
+
+(defn set-drag-over-resource [resource-id]
+  (resources-state/set-drag-over-resource *app-state resource-id))
+
+(defn clear-resource-drag-state []
+  (resources-state/clear-resource-drag-state *app-state))
+
+(defn reorder-resource [resource-id target-resource-id position]
+  (resources-state/reorder-resource *app-state auth-headers fetch-resources resource-id target-resource-id position))
 
 (defn set-resource-importance-filter [level]
   (resources-state/set-importance-filter fetch-resources level))

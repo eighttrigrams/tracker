@@ -159,6 +159,7 @@
       (DELETE "/:id" [] resource-handler/delete-resource-handler)
       (POST "/:id/categorize" [] resource-handler/categorize-resource-handler)
       (DELETE "/:id/categorize" [] resource-handler/uncategorize-resource-handler)
+      (POST "/:id/reorder" [] resource-handler/reorder-resource-handler)
       (PUT "/:id/scope" [] resource-handler/set-resource-scope-handler)
       (PUT "/:id/importance" [] resource-handler/set-resource-importance-handler))
 

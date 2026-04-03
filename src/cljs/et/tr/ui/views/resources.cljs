@@ -2,6 +2,7 @@
   (:require [et.tr.ui.state :as state]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.components.task-item :as task-item]
+            [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
             [et.tr.ui.components.relation-link :as relation-link]
@@ -151,13 +152,34 @@
    (when (seq (:relations resource))
      [relation-badges/relation-badges-collapsed (:relations resource) "res" (:id resource)])])
 
-(defn- resource-item [resource expanded-id people places projects goals]
-  (let [is-expanded (= expanded-id (:id resource))]
-    [:li {:class (when is-expanded "expanded")}
+(defn- resource-item [resource expanded-id people places projects goals drag-enabled? drag-resource drag-over-resource]
+  (let [is-expanded (= expanded-id (:id resource))
+        is-dragging (= drag-resource (:id resource))
+        is-drag-over (= drag-over-resource (:id resource))]
+    [:li {:class (str (when is-expanded "expanded")
+                      (when is-dragging " dragging")
+                      (when is-drag-over " drag-over")
+                      (when-not drag-enabled? " drag-disabled"))
+          :draggable drag-enabled?
+          :on-drag-start (drag-drop/make-drag-start-handler resource state/set-drag-resource drag-enabled?)
+          :on-drag-end (fn [_] (state/clear-resource-drag-state))
+          :on-drag-over (drag-drop/make-drag-over-handler resource state/set-drag-over-resource drag-enabled?)
+          :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-resource resource #(state/set-drag-over-resource nil))
+          :on-drop (drag-drop/make-drop-handler drag-resource resource state/reorder-resource drag-enabled?)}
      [resource-header resource is-expanded]
      (if is-expanded
        [resource-expanded-view resource people places projects goals]
        [resource-categories-readonly resource])]))
+
+(defn- sort-mode-toggle []
+  (let [sort-mode (:sort-mode @resources-state/*resources-page-state)]
+    [:div.sort-toggle.toggle-group
+     [:button {:class (when (= sort-mode :manual) "active")
+               :on-click #(when (not= sort-mode :manual) (state/set-resource-sort-mode :manual))}
+      (t :resources/sort-manual)]
+     [:button {:class (when (= sort-mode :added) "active")
+               :on-click #(when (not= sort-mode :added) (state/set-resource-sort-mode :added))}
+      (t :resources/sort-added)]]))
 
 (defn- importance-filter-toggle []
   (let [importance-filter (:importance-filter @resources-state/*resources-page-state)]
@@ -266,14 +288,18 @@
                                        :collapsed? (contains? collapsed-filters filter-key)}]))))
 
 (defn resources-tab []
-  (let [{:keys [resources people places projects goals]} @state/*app-state
-        {:keys [expanded-resource]} @resources-state/*resources-page-state]
+  (let [{:keys [resources people places projects goals drag-resource drag-over-resource]} @state/*app-state
+        {:keys [expanded-resource sort-mode]} @resources-state/*resources-page-state
+        manual-mode? (= sort-mode :manual)
+        any-open? (some? expanded-resource)
+        drag-enabled? (and manual-mode? (not any-open?))]
     [:div.main-layout
      [sidebar-filters]
      [:div.main-content.resources-page
       [:div.tasks-header
        [:h2 (t :nav/resources)]
-       [importance-filter-toggle]]
+       [importance-filter-toggle]
+       [sort-mode-toggle]]
       [search-add-form]
       [resource-domain-filter-badge]
       (if (empty? resources)
@@ -281,4 +307,4 @@
         [:ul.items
          (for [resource resources]
            ^{:key (:id resource)}
-           [resource-item resource expanded-resource people places projects goals])])]]))
+           [resource-item resource expanded-resource people places projects goals drag-enabled? drag-resource drag-over-resource])])]]))

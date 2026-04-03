@@ -48,7 +48,7 @@
 (defn list-resources
   ([ds user-id] (list-resources ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories domain]} opts
+   (let [{:keys [search-term importance context strict categories domain sort-mode]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags :link])
@@ -66,7 +66,9 @@
                      (sql/format {:select db/resource-select-columns
                                   :from [:resources]
                                   :where where-clause
-                                  :order-by [[:modified_at :desc]]})
+                                  :order-by (case sort-mode
+                                              "added" [[:created_at :desc]]
+                                              [[:sort_order :asc]])})
                      db/jdbc-opts)
          resource-ids (mapv :id resources)
          categories-data (when (seq resource-ids)
@@ -104,6 +106,13 @@
             {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
             categories-by-resource (group-by :resource_id categories-data)]
         (first (associate-categories-with-resources [resource] categories-by-resource people-by-id places-by-id projects-by-id goals-by-id))))))
+
+(defn reorder-resource [ds user-id resource-id new-sort-order]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :resources
+                 :set {:sort_order new-sort-order}
+                 :where [:and [:= :id resource-id] (db/user-id-where-clause user-id)]}))
+  {:success true :sort_order new-sort-order})
 
 (defn update-resource [ds user-id resource-id fields]
   (let [field-names (keys fields)
