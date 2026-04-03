@@ -49,16 +49,28 @@
   (swap! *mail-page-state assoc :sort-mode mode)
   (fetch-messages app-state auth-headers))
 
+(defn- has-positive-filter? []
+  (let [{:keys [sender-filter importance-filter urgency-filter]} @*mail-page-state]
+    (or sender-filter importance-filter urgency-filter)))
+
+(defn- clear-positive-filters! []
+  (swap! *mail-page-state assoc :sender-filter nil :importance-filter nil :urgency-filter nil))
+
 (defn set-expanded-message [id]
   (swap! *mail-page-state assoc :expanded-message id))
 
 (defn set-message-done [app-state auth-headers message-id done?]
-  (api/put-json (str "/api/messages/" message-id "/done")
-    {:done done?}
-    (auth-headers)
-    (fn [_] (fetch-messages app-state auth-headers))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message")))))
+  (let [clear-filters? (and done?
+                            (has-positive-filter?)
+                            (<= (count (:messages @app-state)) 1))]
+    (api/put-json (str "/api/messages/" message-id "/done")
+      {:done done?}
+      (auth-headers)
+      (fn [_]
+        (when clear-filters? (clear-positive-filters!))
+        (fetch-messages app-state auth-headers))
+      (fn [resp]
+        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message"))))))
 
 (defn set-confirm-delete-message [message]
   (swap! *mail-page-state assoc :confirm-delete-message message))
@@ -72,7 +84,11 @@
     (fn [_]
       (swap! app-state update :messages
              (fn [messages] (filterv #(not= (:id %) message-id) messages)))
-      (clear-confirm-delete-message))
+      (clear-confirm-delete-message)
+      (when (and (has-positive-filter?)
+                 (empty? (:messages @app-state)))
+        (clear-positive-filters!)
+        (fetch-messages app-state auth-headers)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete message"))
       (clear-confirm-delete-message))))

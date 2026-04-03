@@ -266,21 +266,25 @@
                :on-click #(state/set-mail-sort-mode :done)}
       (t :mail/sort-archived)]]))
 
+(defn- any-filter-active? []
+  (let [{:keys [sender-filter excluded-senders importance-filter urgency-filter]} @mail-state/*mail-page-state]
+    (or sender-filter (seq excluded-senders) importance-filter urgency-filter)))
+
 (defn- mail-add-form []
   (let [input-val (r/atom "")]
     (fn []
-      [:div.mail-add-form
-       [:input {:type "text"
-                :value @input-val
-                :placeholder (t :mail/add-placeholder)
-                :on-change #(reset! input-val (-> % .-target .-value))
-                :on-key-down #(when (and (= (.-key %) "Enter")
-                                         (not (str/blank? @input-val)))
-                                (state/add-message @input-val (fn [] (reset! input-val ""))))}]
-       [:button {:disabled (str/blank? @input-val)
-                 :on-click #(when-not (str/blank? @input-val)
-                              (state/add-message @input-val (fn [] (reset! input-val ""))))}
-        (t :tasks/add-button)]])))
+      (let [disabled? (or (str/blank? @input-val) (any-filter-active?))]
+        [:div.mail-add-form
+         [:input {:type "text"
+                  :value @input-val
+                  :placeholder (t :mail/add-placeholder)
+                  :on-change #(reset! input-val (-> % .-target .-value))
+                  :on-key-down #(when (and (= (.-key %) "Enter") (not disabled?))
+                                  (state/add-message @input-val (fn [] (reset! input-val ""))))}]
+         [:button {:disabled disabled?
+                   :on-click #(when-not disabled?
+                                (state/add-message @input-val (fn [] (reset! input-val ""))))}
+          (t :tasks/add-button)]]))))
 
 (defn mail-page []
   (let [{:keys [messages]} @state/*app-state
