@@ -17,18 +17,22 @@
     (let [user-id (common/get-user-id req)
           sort-mode (keyword (get-in req [:params "sort"] "recent"))
           sender (get-in req [:params "sender"])
+          context (get-in req [:params "context"])
+          strict (= "true" (get-in req [:params "strict"]))
           excluded-senders-param (get-in req [:params "excludedSenders"])
           excluded-senders (when (and excluded-senders-param (not (str/blank? excluded-senders-param)))
                              (set (str/split excluded-senders-param #",")))]
       {:status 200 :body (db.message/list-messages (common/ensure-ds) user-id {:sort-mode sort-mode
                                                                                 :sender-filter sender
-                                                                                :excluded-senders excluded-senders})})
+                                                                                :excluded-senders excluded-senders
+                                                                                :context context
+                                                                                :strict strict})})
     {:status 403 :body {:error "Mail access required"}}))
 
 (defn add-message-handler [req]
   (if (common/has-mail? req)
     (let [user-id (common/get-user-id req)
-          {:keys [sender title description type]} (:body req)]
+          {:keys [sender title description type scope]} (:body req)]
       (cond
         (str/blank? sender)
         {:status 400 :body {:success false :error "Sender is required"}}
@@ -40,8 +44,12 @@
              (not (#{"text" "markdown" "html"} type)))
         {:status 400 :body {:success false :error "Type must be one of: text, markdown, html"}}
 
+        (and (some? scope)
+             (not (#{"private" "work"} scope)))
+        {:status 400 :body {:success false :error "Scope must be 'private' or 'work'"}}
+
         :else
-        (let [message (db.message/add-message (common/ensure-ds) user-id sender title description type)]
+        (let [message (db.message/add-message (common/ensure-ds) user-id sender title description type scope)]
           {:status 201 :body message})))
     {:status 403 :body {:error "Mail access required"}}))
 
@@ -69,6 +77,17 @@
       (if result
         {:status 200 :body result}
         {:status 404 :body {:error "Message not found"}}))))
+
+(defn set-message-scope-handler [req]
+  (with-mail-message-context req user-id message-id
+    (let [scope (get-in req [:body :scope])]
+      (if (and (some? scope) (not (#{"private" "work" "both"} scope)))
+        {:status 400 :body {:error "Scope must be 'private', 'work', or 'both'"}}
+        (let [result (db.message/set-message-scope (common/ensure-ds) user-id message-id
+                       (if (= scope "both") nil scope))]
+          (if result
+            {:status 200 :body result}
+            {:status 404 :body {:error "Message not found"}}))))))
 
 (defn convert-message-to-resource-handler [req]
   (with-mail-message-context req user-id message-id

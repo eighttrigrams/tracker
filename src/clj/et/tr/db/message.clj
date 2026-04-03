@@ -5,34 +5,48 @@
             [taoensso.telemere :as tel]
             [et.tr.db :as db]))
 
-(defn add-message [ds user-id sender title description type]
+(defn add-message [ds user-id sender title description type scope]
   (let [result (jdbc/execute-one! (db/get-conn ds)
                  (sql/format {:insert-into :messages
                               :values [{:sender sender
                                         :title title
                                         :description (or description "")
                                         :type (when-not (str/blank? type) type)
+                                        :scope (when (contains? #{"private" "work"} scope) scope)
                                         :user_id user-id}]
-                              :returning [:id :sender :title :description :created_at :done :type :user_id]})
+                              :returning [:id :sender :title :description :created_at :done :type :scope :user_id]})
                  db/jdbc-opts)]
     (tel/log! {:level :info :data {:message-id (:id result) :user-id user-id}} "Message added")
     result))
 
+(defn- build-message-scope-clause [context strict]
+  (when context
+    (if strict
+      (if (= context "both")
+        [:is :scope nil]
+        [:= :scope context])
+      (case context
+        "private" [:or [:= :scope "private"] [:is :scope nil]]
+        "work" [:or [:= :scope "work"] [:is :scope nil]]
+        nil))))
+
 (defn list-messages
   ([ds user-id] (list-messages ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [sort-mode sender-filter excluded-senders]
+   (let [{:keys [sort-mode sender-filter excluded-senders context strict]
           :or {sort-mode :recent}} opts
          user-where (db/user-id-where-clause user-id)
          done-filter (case sort-mode
                        :done [:= :done 1]
                        [:= :done 0])
          order-dir (if (= sort-mode :reverse) :asc :desc)
+         scope-clause (build-message-scope-clause context strict)
          where-clause (cond-> [:and user-where done-filter]
                         sender-filter (conj [:= :sender sender-filter])
-                        (seq excluded-senders) (conj [:not-in :sender excluded-senders]))]
+                        (seq excluded-senders) (conj [:not-in :sender excluded-senders])
+                        scope-clause (conj scope-clause))]
      (jdbc/execute! (db/get-conn ds)
-       (sql/format {:select [:id :sender :title :description :created_at :done :annotation :type]
+       (sql/format {:select [:id :sender :title :description :created_at :done :annotation :type :scope]
                     :from [:messages]
                     :where where-clause
                     :order-by [[:created_at order-dir]]})
@@ -76,6 +90,15 @@
                    :set {:annotation (or annotation "")}
                    :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]
                    :returning [:id :annotation]})
+      db/jdbc-opts)))
+
+(defn set-message-scope [ds user-id message-id scope]
+  (let [scope-val (when (contains? #{"private" "work"} scope) scope)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :messages
+                   :set {:scope scope-val}
+                   :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]
+                   :returning [:id :scope]})
       db/jdbc-opts)))
 
 (defn merge-messages [ds user-id source-id target-id]

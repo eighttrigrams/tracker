@@ -111,6 +111,11 @@
     (when current-user
       [:<>
        [:div.user-info
+        (when-not is-admin
+          [:button.categories-btn
+           {:class (when (contains? #{:categories :people-places :projects-goals} active-tab) "active")
+            :on-click #(state/set-active-tab :categories)}
+           (t :nav/categories)])
         [dark-mode-toggle]
         [:button.settings-btn
          {:class (when (= active-tab :settings) "active")

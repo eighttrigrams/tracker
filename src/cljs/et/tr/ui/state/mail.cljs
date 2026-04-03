@@ -21,9 +21,13 @@
         sort-mode (name (:sort-mode @*mail-page-state))
         sender-filter (:sender-filter @*mail-page-state)
         excluded-senders (:excluded-senders @*mail-page-state)
+        context (name (:work-private-mode @app-state))
+        strict (:strict-mode @app-state)
         url (cond-> (str "/api/messages?sort=" sort-mode)
               sender-filter (str "&sender=" (js/encodeURIComponent sender-filter))
-              (seq excluded-senders) (str "&excludedSenders=" (js/encodeURIComponent (str/join "," excluded-senders))))]
+              (seq excluded-senders) (str "&excludedSenders=" (js/encodeURIComponent (str/join "," excluded-senders)))
+              context (str "&context=" (js/encodeURIComponent context))
+              strict (str "&strict=true"))]
     (GET url
       {:response-format :json
        :keywords? true
@@ -101,6 +105,20 @@
   (swap! *mail-page-state assoc
          :expanded-message nil
          :editing-message nil))
+
+(defn set-message-scope [app-state auth-headers message-id scope]
+  (api/put-json (str "/api/messages/" message-id "/scope")
+    {:scope scope}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :messages
+             (fn [messages]
+               (mapv #(if (= (:id %) message-id)
+                        (assoc % :scope (:scope result))
+                        %)
+                     messages))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
 (defn update-message-annotation [app-state auth-headers message-id annotation]
   (api/put-json (str "/api/messages/" message-id "/annotation")

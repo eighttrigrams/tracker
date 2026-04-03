@@ -146,6 +146,7 @@
       (POST "/" [] message-handler/add-message-handler)
       (PUT "/:id/done" [] message-handler/set-message-done-handler)
       (PUT "/:id/annotation" [] message-handler/update-message-annotation-handler)
+      (PUT "/:id/scope" [] message-handler/set-message-scope-handler)
       (POST "/:id/convert-to-resource" [] message-handler/convert-message-to-resource-handler)
       (POST "/:id/merge" [] message-handler/merge-messages-handler)
       (DELETE "/:id" [] message-handler/delete-message-handler))

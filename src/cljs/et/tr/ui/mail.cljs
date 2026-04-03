@@ -99,10 +99,23 @@
         [:button.done-btn {:on-click #(state/set-message-done id true)}
          (t :mail/archive)]))))
 
+(defn- message-scope-selector [message]
+  (let [scope (or (:scope message) "both")]
+    [:div.task-scope-selector.toggle-group.compact
+     (for [s ["private" "both" "work"]]
+       ^{:key s}
+       [:button.toggle-option
+        {:class (when (= scope s) "active")
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-message-scope (:id message) s))}
+        s])]))
+
 (defn- mail-message-actions [message next-message-id]
   (let [dropdown-open? (= (:id message) (:message-action-dropdown-open @mail-state/*mail-page-state))]
     [:div.item-actions
      [archive-button-with-dropdown message]
+     [message-scope-selector message]
      [:div.combined-button-wrapper
       [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
        (t :task/delete)]

@@ -67,8 +67,6 @@
        [tab-button active-tab :tasks :nav/tasks]
        [tab-button active-tab :meets :nav/meets]
        [tab-button active-tab :resources :nav/resources]
-       [tab-button active-tab :categories :nav/categories
-        #(contains? #{:categories :people-places :projects-goals} %)]
        (when (state/has-mail?)
          [tab-button active-tab :mail :nav/mail])])))
 
@@ -118,10 +116,10 @@
         [:div.top-bar
          [tabs]
          [:div.top-bar-right
-          (when (contains? #{:today :tasks :resources :meets} active-tab)
-            [controls/work-private-toggle])
           (when (contains? #{:tasks :resources :meets} active-tab)
             [controls/relation-mode-toggle])
+          (when (contains? #{:today :tasks :resources :meets :mail} active-tab)
+            [controls/work-private-toggle])
           [controls/user-info]]]
         (case active-tab
           :today [today/today-tab]

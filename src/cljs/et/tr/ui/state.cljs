@@ -250,6 +250,9 @@
 (defn clear-editing-message []
   (mail/clear-editing-message))
 
+(defn set-message-scope [message-id scope]
+  (mail/set-message-scope *app-state auth-headers message-id scope))
+
 (defn update-message-annotation [message-id annotation]
   (mail/update-message-annotation *app-state auth-headers message-id annotation))
 
@@ -1190,10 +1193,10 @@
   (url/push-state! "/"))
 
 (defn set-work-private-mode [mode]
-  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets-or-series mode))
+  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets-or-series fetch-messages mode))
 
 (defn toggle-strict-mode []
-  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets-or-series))
+  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets-or-series fetch-messages))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))

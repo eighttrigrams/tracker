@@ -172,6 +172,24 @@
 .login-form button {
   width: 100%;
 }
+.categories-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.categories-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-subtle);
+}
+.categories-btn.active {
+  color: white;
+  background: var(--accent);
+}
 .settings-btn {
   display: flex;
   align-items: center;
