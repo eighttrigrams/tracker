@@ -368,7 +368,12 @@
       [:button.edit-icon {:on-click (fn [e]
                                       (.stopPropagation e)
                                       (state/set-editing-modal :recurring-task rtask))}
-       "✎"])]])
+       "✎"])]
+   [:button.series-filter-btn {:on-click (fn [e]
+                                           (.stopPropagation e)
+                                           (state/set-recurring-filter rtask))
+                                :title (t :tasks/filter-by-recurring)}
+    "⏚"]])
 
 (defn- rtask-categories-readonly [rtask]
   [:div.item-tags-readonly
@@ -407,6 +412,12 @@
        [:<>
         [rtask-categories-readonly rtask]
         [rtask-create-task-button rtask]])]))
+
+(defn recurring-filter-bar []
+  (let [recurring-filter (state/recurring-filter)]
+    [:div.series-filter-bar
+     [:span.series-filter-label (:title recurring-filter)]
+     [:button.clear-search {:on-click #(state/clear-recurring-filter)} "x"]]))
 
 (defn- recurring-search-add-form []
   (let [input-value (:filter-search @recurring-tasks-state/*recurring-tasks-page-state)]

@@ -93,6 +93,7 @@
 
                             ;; Tasks page recurring mode
                             :tasks-page/recurring-mode false
+                            :tasks-page/filter-recurring nil
 
                             ;; Meets page state
                             :meets-page/series-mode false
@@ -600,13 +601,28 @@
   (recurring-tasks-state/add-recurring-task-with-categories *app-state auth-headers fetch-recurring-tasks current-scope title categories on-success))
 
 (defn toggle-recurring-mode []
-  (swap! *app-state update :tasks-page/recurring-mode not)
+  (swap! *app-state (fn [s] (-> s
+                                (update :tasks-page/recurring-mode not)
+                                (assoc :tasks-page/filter-recurring nil))))
   (if (:tasks-page/recurring-mode @*app-state)
     (fetch-recurring-tasks)
     (fetch-tasks)))
 
 (defn recurring-mode? []
   (:tasks-page/recurring-mode @*app-state))
+
+(defn set-recurring-filter [rtask]
+  (swap! *app-state assoc
+         :tasks-page/filter-recurring {:id (:id rtask) :title (:title rtask)}
+         :tasks-page/recurring-mode false)
+  (fetch-tasks))
+
+(defn clear-recurring-filter []
+  (swap! *app-state assoc :tasks-page/filter-recurring nil)
+  (fetch-tasks))
+
+(defn recurring-filter []
+  (:tasks-page/filter-recurring @*app-state))
 
 (defn toggle-series-mode []
   (swap! *app-state (fn [s] (-> s
@@ -901,14 +917,16 @@
 
 (defn- fetch-opts-for-current-tab []
   (case (:active-tab @*app-state)
-    :tasks {:search-term (:tasks-page/filter-search @*app-state)
-            :importance (:tasks-page/importance-filter @*app-state)
-            :context (:work-private-mode @*app-state)
-            :strict (:strict-mode @*app-state)
-            :filter-people (:shared/filter-people @*app-state)
-            :filter-places (:shared/filter-places @*app-state)
-            :filter-projects (:shared/filter-projects @*app-state)
-            :filter-goals (:tasks-page/filter-goals @*app-state)}
+    :tasks (cond-> {:search-term (:tasks-page/filter-search @*app-state)
+                     :importance (:tasks-page/importance-filter @*app-state)
+                     :context (:work-private-mode @*app-state)
+                     :strict (:strict-mode @*app-state)
+                     :filter-people (:shared/filter-people @*app-state)
+                     :filter-places (:shared/filter-places @*app-state)
+                     :filter-projects (:shared/filter-projects @*app-state)
+                     :filter-goals (:tasks-page/filter-goals @*app-state)}
+             (:tasks-page/filter-recurring @*app-state)
+             (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @*app-state))))
     :today {:context (:work-private-mode @*app-state)
             :strict (:strict-mode @*app-state)
             :excluded-places (:today-page/excluded-places @*app-state)

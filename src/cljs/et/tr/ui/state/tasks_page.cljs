@@ -21,14 +21,16 @@
   (seq (get @app-state (filter-type->key filter-type))))
 
 (defn- current-fetch-opts [app-state]
-  {:search-term (:tasks-page/filter-search @app-state)
-   :importance (:tasks-page/importance-filter @app-state)
-   :context (:work-private-mode @app-state)
-   :strict (:strict-mode @app-state)
-   :filter-people (:shared/filter-people @app-state)
-   :filter-places (:shared/filter-places @app-state)
-   :filter-projects (:shared/filter-projects @app-state)
-   :filter-goals (:tasks-page/filter-goals @app-state)})
+  (cond-> {:search-term (:tasks-page/filter-search @app-state)
+           :importance (:tasks-page/importance-filter @app-state)
+           :context (:work-private-mode @app-state)
+           :strict (:strict-mode @app-state)
+           :filter-people (:shared/filter-people @app-state)
+           :filter-places (:shared/filter-places @app-state)
+           :filter-projects (:shared/filter-projects @app-state)
+           :filter-goals (:tasks-page/filter-goals @app-state)}
+    (:tasks-page/filter-recurring @app-state)
+    (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state)))))
 
 (defn toggle-filter [app-state fetch-tasks-fn filter-type id]
   (let [filter-key (filter-type->key filter-type)]

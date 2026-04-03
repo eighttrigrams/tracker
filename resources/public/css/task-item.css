@@ -451,6 +451,7 @@
   background-color: #f5f5f5;
 }
 .task-dropdown-menu .dropdown-item.convert-to-resource,
+.task-dropdown-menu .dropdown-item.convert-to-task,
 .task-dropdown-menu .dropdown-item.unlink-today {
   color: #007aff;
 }

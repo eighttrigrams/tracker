@@ -136,7 +136,8 @@
           :mail [mail/mail-page]
           :users [users/users-tab]
           :settings [settings/settings-tab]
-          (let [recurring-mode (state/recurring-mode?)]
+          (let [recurring-mode (state/recurring-mode?)
+                recurring-filter (state/recurring-filter)]
             [:div.main-layout
              [tasks/sidebar-filters]
              [:div.main-content
@@ -148,10 +149,18 @@
                (when-not recurring-mode
                  [tasks/sort-mode-toggle])
                [tasks/recurring-toggle]]
-              (if recurring-mode
+              (cond
+                recurring-mode
                 [:<>
                  [tasks/recurring-search-add-form]
                  [tasks/recurring-tasks-list]]
+
+                recurring-filter
+                [:<>
+                 [tasks/recurring-filter-bar]
+                 [tasks/tasks-list]]
+
+                :else
                 [:<>
                  [tasks/combined-search-add-form]
                  [tasks/tasks-list]])]]))])]))

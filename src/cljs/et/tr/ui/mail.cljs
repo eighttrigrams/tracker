@@ -96,7 +96,7 @@
                            (state/set-message-dropdown-open nil)
                            (state/convert-message-to-resource id url))}
              (t :mail/convert-to-resource)])
-          [:button.dropdown-item
+          [:button.dropdown-item.convert-to-task
            {:on-click #(do
                          (state/set-message-dropdown-open nil)
                          (state/convert-message-to-task id))}

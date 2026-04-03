@@ -41,7 +41,7 @@
   ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
   ([ds user-id sort-mode opts]
    (let [opts (if (string? opts) {:search-term opts} opts)
-         {:keys [search-term importance context strict categories excluded-places excluded-projects]} opts
+         {:keys [search-term importance context strict categories excluded-places excluded-projects recurring-task-id]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          base-where (case sort-mode
@@ -57,10 +57,11 @@
          importance-clause (db/build-importance-clause importance)
          scope-clause (db/build-scope-clause context strict)
          category-clauses (build-category-clauses categories)
+         recurring-clause (when recurring-task-id [:= :recurring_task_id recurring-task-id])
          exclusion-clauses (filterv some? [(db/build-exclusion-subquery "place" excluded-places)
                                            (db/build-exclusion-subquery "project" excluded-projects)])
          where-clause (into [:and base-where]
-                            (concat (filter some? [search-clause importance-clause scope-clause])
+                            (concat (filter some? [search-clause importance-clause scope-clause recurring-clause])
                                     category-clauses
                                     exclusion-clauses))
          order-by (case sort-mode
