@@ -111,11 +111,24 @@
                      (state/set-message-scope (:id message) s))}
         s])]))
 
+(defn- message-importance-selector [message]
+  (let [importance (or (:importance message) "normal")]
+    [:div.task-importance-selector.toggle-group.compact
+     (for [[level label] [["normal" "○"] ["important" "★"] ["critical" "★★"]]]
+       ^{:key level}
+       [:button.toggle-option
+        {:class (str level (when (= importance level) " active"))
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-message-importance (:id message) level))}
+        label])]))
+
 (defn- mail-message-actions [message next-message-id]
   (let [dropdown-open? (= (:id message) (:message-action-dropdown-open @mail-state/*mail-page-state))]
     [:div.item-actions
      [archive-button-with-dropdown message]
      [message-scope-selector message]
+     [message-importance-selector message]
      [:div.combined-button-wrapper
       [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
        (t :task/delete)]
@@ -192,6 +205,22 @@
        (when (>= (count excluded-senders) 2)
          [:button.remove-all-filters {:on-click #(state/clear-all-mail-filters)} "x"])])))
 
+(defn- importance-filter-toggle []
+  (let [importance-filter (:importance-filter @mail-state/*mail-page-state)]
+    [:div.importance-filter-toggle.toggle-group
+     [:button {:class (when (nil? importance-filter) "active")
+               :on-click #(state/set-message-importance-filter nil)
+               :title (t :importance/filter-off)}
+      "○"]
+     [:button {:class (str "important" (when (= importance-filter :important) " active"))
+               :on-click #(state/set-message-importance-filter :important)
+               :title (t :importance/filter-important)}
+      "★"]
+     [:button {:class (str "critical" (when (= importance-filter :critical) " active"))
+               :on-click #(state/set-message-importance-filter :critical)
+               :title (t :importance/filter-critical)}
+      "★★"]]))
+
 (defn- mail-sort-toggle []
   (let [sort-mode (:sort-mode @mail-state/*mail-page-state)]
     [:div.sort-toggle.toggle-group
@@ -227,6 +256,7 @@
     [:div.mail-page
      [:div.tasks-header
       [:h2 (t :mail/heading)]
+      [importance-filter-toggle]
       [mail-sort-toggle]]
      (when (= sort-mode :recent)
        [mail-add-form])

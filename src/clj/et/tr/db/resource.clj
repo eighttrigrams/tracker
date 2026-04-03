@@ -129,7 +129,7 @@
   (let [conn (db/get-conn ds)]
     (jdbc/with-transaction [tx conn]
       (when-let [message (jdbc/execute-one! tx
-                           (sql/format {:select [:id :sender :title :description :annotation :scope]
+                           (sql/format {:select [:id :sender :title :description :annotation :scope :importance]
                                         :from [:messages]
                                         :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
                            db/jdbc-opts)]
@@ -150,7 +150,8 @@
                                                 :sort_order new-order
                                                 :user_id user-id
                                                 :modified_at [:raw "datetime('now')"]
-                                                :scope (or (:scope message) "both")}]
+                                                :scope (or (:scope message) "both")
+                                                :importance (or (:importance message) "normal")}]
                                       :returning (conj db/resource-select-columns :user_id)})
                          db/jdbc-opts)]
           (when (seq description)

@@ -250,6 +250,12 @@
 (defn clear-editing-message []
   (mail/clear-editing-message))
 
+(defn set-message-importance [message-id importance]
+  (mail/set-message-importance *app-state auth-headers message-id importance))
+
+(defn set-message-importance-filter [level]
+  (mail/set-importance-filter fetch-messages level))
+
 (defn set-message-scope [message-id scope]
   (mail/set-message-scope *app-state auth-headers message-id scope))
 

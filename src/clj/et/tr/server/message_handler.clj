@@ -1,5 +1,6 @@
 (ns et.tr.server.message-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.db :as db]
             [et.tr.db.message :as db.message]
             [et.tr.db.resource :as db.resource]
             [clojure.string :as str]))
@@ -26,13 +27,14 @@
                                                                                 :sender-filter sender
                                                                                 :excluded-senders excluded-senders
                                                                                 :context context
-                                                                                :strict strict})})
+                                                                                :strict strict
+                                                                                :importance (get-in req [:params "importance"])})})
     {:status 403 :body {:error "Mail access required"}}))
 
 (defn add-message-handler [req]
   (if (common/has-mail? req)
     (let [user-id (common/get-user-id req)
-          {:keys [sender title description type scope]} (:body req)]
+          {:keys [sender title description type scope importance]} (:body req)]
       (cond
         (str/blank? sender)
         {:status 400 :body {:success false :error "Sender is required"}}
@@ -48,8 +50,12 @@
              (not (#{"private" "work"} scope)))
         {:status 400 :body {:success false :error "Scope must be 'private' or 'work'"}}
 
+        (and (some? importance)
+             (not (db/valid-importances importance)))
+        {:status 400 :body {:success false :error "Importance must be 'normal', 'important', or 'critical'"}}
+
         :else
-        (let [message (db.message/add-message (common/ensure-ds) user-id sender title description type scope)]
+        (let [message (db.message/add-message (common/ensure-ds) user-id sender title description type scope importance)]
           {:status 201 :body message})))
     {:status 403 :body {:error "Mail access required"}}))
 
@@ -85,6 +91,16 @@
         {:status 400 :body {:error "Scope must be 'private', 'work', or 'both'"}}
         (let [result (db.message/set-message-scope (common/ensure-ds) user-id message-id
                        (if (= scope "both") nil scope))]
+          (if result
+            {:status 200 :body result}
+            {:status 404 :body {:error "Message not found"}}))))))
+
+(defn set-message-importance-handler [req]
+  (with-mail-message-context req user-id message-id
+    (let [importance (get-in req [:body :importance])]
+      (if-not (contains? db/valid-importances importance)
+        {:status 400 :body {:error "Invalid importance. Must be 'normal', 'important', or 'critical'"}}
+        (let [result (db.message/set-message-importance (common/ensure-ds) user-id message-id importance)]
           (if result
             {:status 200 :body result}
             {:status 404 :body {:error "Message not found"}}))))))

@@ -59,7 +59,7 @@
                       (delete-telegram-message chat-id message-id)
                       {:status 200 :body {:ok true :type "task"}})
                     (let [title text]
-                      (db.message/add-message ds mail-user-id "Note" title text nil)
+                      (db.message/add-message ds mail-user-id "Note" title text nil nil nil)
                       (delete-telegram-message chat-id message-id)
                       {:status 200 :body {:ok true}}))))
               {:status 200 :body {:ok true :skipped "no text"}})))))))

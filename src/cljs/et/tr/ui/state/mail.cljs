@@ -11,6 +11,7 @@
                                    :fetch-request-id 0
                                    :sender-filter nil
                                    :excluded-senders #{}
+                                   :importance-filter nil
                                    :editing-message nil
                                    :confirm-delete-message nil
                                    :message-dropdown-open nil
@@ -21,11 +22,13 @@
         sort-mode (name (:sort-mode @*mail-page-state))
         sender-filter (:sender-filter @*mail-page-state)
         excluded-senders (:excluded-senders @*mail-page-state)
+        importance (:importance-filter @*mail-page-state)
         context (name (:work-private-mode @app-state))
         strict (:strict-mode @app-state)
         url (cond-> (str "/api/messages?sort=" sort-mode)
               sender-filter (str "&sender=" (js/encodeURIComponent sender-filter))
               (seq excluded-senders) (str "&excludedSenders=" (js/encodeURIComponent (str/join "," excluded-senders)))
+              importance (str "&importance=" (name importance))
               context (str "&context=" (js/encodeURIComponent context))
               strict (str "&strict=true"))]
     (GET url
@@ -105,6 +108,24 @@
   (swap! *mail-page-state assoc
          :expanded-message nil
          :editing-message nil))
+
+(defn set-message-importance [app-state auth-headers message-id importance]
+  (api/put-json (str "/api/messages/" message-id "/importance")
+    {:importance importance}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :messages
+             (fn [messages]
+               (mapv #(if (= (:id %) message-id)
+                        (assoc % :importance (:importance result))
+                        %)
+                     messages))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))))
+
+(defn set-importance-filter [fetch-messages-fn level]
+  (swap! *mail-page-state assoc :importance-filter level)
+  (fetch-messages-fn))
 
 (defn set-message-scope [app-state auth-headers message-id scope]
   (api/put-json (str "/api/messages/" message-id "/scope")
