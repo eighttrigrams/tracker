@@ -77,25 +77,15 @@
     (js/setTimeout #(.remove el) 2000)))
 
 (defn- today-meet-create-next-button [meet]
-  (when (and (:meeting_series_id meet) (not (:series_has_future_meet meet)))
-    (let [{:keys [schedule_days schedule_time schedule_mode biweekly_offset]} meet
-          mode (or schedule_mode "weekly")
-          schedule-days-set (when (and schedule_days (not= schedule_days ""))
-                              (set (clojure.string/split schedule_days #",")))
-          next-info (when (seq schedule-days-set)
-                      (state/next-scheduled-date-for-mode mode schedule-days-set schedule_time biweekly_offset (state/tomorrow-str)))
-          time-val (when next-info
-                     (if (:day-num next-info)
-                       (state/get-schedule-time-for-day schedule_time (:day-num next-info))
-                       schedule_time))]
-      (when next-info
-        [:button.create-next-meeting-btn
-         {:on-click (fn [e]
-                      (.stopPropagation e)
-                      (state/create-meeting-for-series-with-notification
-                        (:meeting_series_id meet) (:date next-info) time-val
-                        (fn [] (show-success-notification! (t :meets/meeting-created)))))}
-         (t :meets/create-next-meeting)]))))
+  (when (and (:meeting_series_id meet)
+             (:schedule_days meet)
+             (not= (:schedule_days meet) ""))
+    [:button.create-next-meeting-btn
+     {:on-click (fn [e]
+                  (.stopPropagation e)
+                  (state/open-create-date-modal :meeting-series
+                    (assoc meet :id (:meeting_series_id meet))))}
+     (t :meets/create-meeting)]))
 
 (defn- today-meet-archive-button [meet]
   (let [show? (or (nil? (:meeting_series_id meet))

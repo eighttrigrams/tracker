@@ -29,9 +29,9 @@ Feature: Meeting Series
     And I click "Save" in the modal
     Then the series "Daily Sync" should have schedule days "1,3"
 
-  Scenario: Create next meeting button is disabled when a future meeting exists
+  Scenario: Create meeting button is enabled when series has schedule and a future meeting exists
     Given I am on the app
     And a meeting series "Future Series" exists with a future meeting
     When I click the "Meets" tab
     And I click the "Series" button
-    Then the "Create next Meeting" button for "Future Series" should be disabled
+    Then the "Create Meeting" button for "Future Series" should be enabled

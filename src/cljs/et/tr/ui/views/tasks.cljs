@@ -387,21 +387,16 @@
      :has-filter-fn state/has-filter-for-type?}]])
 
 (defn- rtask-create-task-button [rtask]
-  (let [action (state/next-recurring-task-action rtask)
-        enabled? (and action (not= (:action action) :none))
-        disabled-reason (when-not enabled?
-                          (if (and action (= (:action action) :none))
-                            (t :tasks/create-next-disabled-future)
-                            (t :tasks/create-next-disabled-no-schedule)))]
+  (let [has-schedule? (and (:schedule_days rtask) (not= (:schedule_days rtask) ""))]
     [:button.create-next-meeting-btn
-     (cond-> {:class (when-not enabled? "disabled")
-              :disabled (not enabled?)
+     (cond-> {:class (when-not has-schedule? "disabled")
+              :disabled (not has-schedule?)
               :on-click (fn [e]
                           (.stopPropagation e)
-                          (when enabled?
-                            (state/create-task-for-recurring (:id rtask) (:date action) (:time action))))}
-       disabled-reason (assoc :title disabled-reason))
-     (t :tasks/create-next-task)]))
+                          (when has-schedule?
+                            (state/open-create-date-modal :recurring-task rtask)))}
+       (not has-schedule?) (assoc :title (t :tasks/create-next-disabled-no-schedule)))
+     (t :tasks/create-task)]))
 
 (defn- rtask-item [rtask expanded-id people places projects goals]
   (let [is-expanded (= expanded-id (:id rtask))]

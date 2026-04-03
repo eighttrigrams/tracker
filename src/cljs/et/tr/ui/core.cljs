@@ -107,6 +107,7 @@
      [modals/confirm-delete-recurring-task-modal]
      [modals/pending-item-modal]
      [modals/edit-item-modal]
+     [modals/create-date-modal]
      (cond
        (nil? auth-required?)
        [:div (t :auth/loading)]

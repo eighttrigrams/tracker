@@ -282,6 +282,32 @@
                        :set {:modified_at [:raw "datetime('now')"]}
                        :where [:= :id rtask-id]}))))))
 
+(defn get-taken-dates [ds user-id rtask-id]
+  (when (recurring-task-owned-by-user? ds rtask-id user-id)
+    (let [conn (db/get-conn ds)
+          rtask (jdbc/execute-one! conn
+                  (sql/format {:select [:task_type]
+                               :from [:recurring_tasks]
+                               :where [:= :id rtask-id]})
+                  db/jdbc-opts)
+          today-type? (= "today" (:task_type rtask))
+          rows (if today-type?
+                 (jdbc/execute! conn
+                   (sql/format {:select-distinct [[[:raw "date(created_at,'localtime')"] :date]]
+                                :from [:tasks]
+                                :where [:and
+                                        [:= :recurring_task_id rtask-id]
+                                        [:= :today 1]]})
+                   db/jdbc-opts)
+                 (jdbc/execute! conn
+                   (sql/format {:select-distinct [:due_date]
+                                :from [:tasks]
+                                :where [:and
+                                        [:= :recurring_task_id rtask-id]
+                                        [:!= :due_date nil]]})
+                   db/jdbc-opts))]
+      (mapv (fn [row] (or (:date row) (:due_date row))) rows))))
+
 (defn auto-create-tasks
   ([ds user-id] (auto-create-tasks ds user-id {}))
   ([ds user-id {:keys [short-circuit?] :or {short-circuit? false}}]

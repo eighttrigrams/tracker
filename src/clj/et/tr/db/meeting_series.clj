@@ -252,6 +252,18 @@
                        :set {:modified_at [:raw "datetime('now')"]}
                        :where [:= :id series-id]}))))))
 
+(defn get-taken-dates [ds user-id series-id]
+  (when (meeting-series-owned-by-user? ds series-id user-id)
+    (let [conn (db/get-conn ds)
+          rows (jdbc/execute! conn
+                 (sql/format {:select-distinct [:start_date]
+                              :from [:meets]
+                              :where [:and
+                                      [:= :meeting_series_id series-id]
+                                      [:!= :start_date nil]]})
+                 db/jdbc-opts)]
+      (mapv :start_date rows))))
+
 (def ^:private get-schedule-time-for-day scheduling/get-schedule-time-for-day)
 (def ^:private is-today-scheduled? scheduling/is-today-scheduled?)
 (def ^:private next-scheduled-date scheduling/next-scheduled-date)

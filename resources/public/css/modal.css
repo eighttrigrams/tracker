@@ -223,3 +223,29 @@
   padding-left: 1em;
   color: var(--text-secondary);
 }
+.create-date-modal .modal-footer button.confirm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.create-date-modal .modal-footer button.confirm:disabled:hover {
+  transform: none;
+}
+.create-date-picker .date-picker-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.create-date-picker .date-picker-input {
+  font-size: 1em;
+  padding: 8px;
+}
+.date-taken-error {
+  color: #ff3b30;
+  font-size: 0.9em;
+  margin-top: 8px;
+}
+.date-selected-display {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  margin-top: 8px;
+}

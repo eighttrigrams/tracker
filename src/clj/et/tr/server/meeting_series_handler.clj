@@ -63,6 +63,13 @@
         {:status 201 :body meet}
         {:status 404 :body {:error "Meeting series not found"}}))))
 
+(defn get-taken-dates-handler [req]
+  (let [user-id (common/get-user-id req)
+        series-id (Integer/parseInt (get-in req [:params :id]))]
+    (if-let [dates (db.meeting-series/get-taken-dates (common/ensure-ds) user-id series-id)]
+      {:status 200 :body {:dates dates}}
+      {:status 404 :body {:error "Meeting series not found"}})))
+
 (def categorize-meeting-series-handler (common/make-categorize-handler db.meeting-series/categorize-meeting-series))
 (def uncategorize-meeting-series-handler (common/make-uncategorize-handler db.meeting-series/uncategorize-meeting-series))
 

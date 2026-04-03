@@ -191,7 +191,8 @@
       (DELETE "/:id/categorize" [] meeting-series-handler/uncategorize-meeting-series-handler)
       (PUT "/:id/scope" [] meeting-series-handler/set-meeting-series-scope-handler)
       (PUT "/:id/schedule" [] meeting-series-handler/set-meeting-series-schedule-handler)
-      (POST "/:id/create-meeting" [] meeting-series-handler/create-next-meeting-handler))
+      (POST "/:id/create-meeting" [] meeting-series-handler/create-next-meeting-handler)
+      (GET "/:id/taken-dates" [] meeting-series-handler/get-taken-dates-handler))
 
     (context "/recurring-tasks" []
       (GET "/" [] recurring-task-handler/list-recurring-tasks-handler)
@@ -203,7 +204,8 @@
       (DELETE "/:id/categorize" [] recurring-task-handler/uncategorize-recurring-task-handler)
       (PUT "/:id/scope" [] recurring-task-handler/set-recurring-task-scope-handler)
       (PUT "/:id/schedule" [] recurring-task-handler/set-recurring-task-schedule-handler)
-      (POST "/:id/create-task" [] recurring-task-handler/create-next-task-handler))
+      (POST "/:id/create-task" [] recurring-task-handler/create-next-task-handler)
+      (GET "/:id/taken-dates" [] recurring-task-handler/get-taken-dates-handler))
 
     (context "/relations" []
       (POST "/" [] relation-handler/add-relation-handler)

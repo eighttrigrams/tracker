@@ -338,21 +338,16 @@
      :has-filter-fn state/has-filter-for-type?}]])
 
 (defn- series-create-meeting-button [series]
-  (let [action (state/next-meeting-action series)
-        enabled? (and action (not= (:action action) :none))
-        disabled-reason (when-not enabled?
-                          (if (and action (= (:action action) :none))
-                            (t :meets/create-next-disabled-future)
-                            (t :meets/create-next-disabled-no-schedule)))]
+  (let [has-schedule? (and (:schedule_days series) (not= (:schedule_days series) ""))]
     [:button.create-next-meeting-btn
-     (cond-> {:class (when-not enabled? "disabled")
-              :disabled (not enabled?)
+     (cond-> {:class (when-not has-schedule? "disabled")
+              :disabled (not has-schedule?)
               :on-click (fn [e]
                           (.stopPropagation e)
-                          (when enabled?
-                            (state/create-meeting-for-series (:id series) (:date action) (:time action))))}
-       disabled-reason (assoc :title disabled-reason))
-     (t :meets/create-next-meeting)]))
+                          (when has-schedule?
+                            (state/open-create-date-modal :meeting-series series)))}
+       (not has-schedule?) (assoc :title (t :meets/create-next-disabled-no-schedule)))
+     (t :meets/create-meeting)]))
 
 (defn- series-item [series expanded-id people places projects goals]
   (let [is-expanded (= expanded-id (:id series))]

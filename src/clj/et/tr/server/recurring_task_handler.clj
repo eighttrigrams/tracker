@@ -63,6 +63,13 @@
         {:status 201 :body task}
         {:status 404 :body {:error "Recurring task not found"}}))))
 
+(defn get-taken-dates-handler [req]
+  (let [user-id (common/get-user-id req)
+        rtask-id (Integer/parseInt (get-in req [:params :id]))]
+    (if-let [dates (db.recurring-task/get-taken-dates (common/ensure-ds) user-id rtask-id)]
+      {:status 200 :body {:dates dates}}
+      {:status 404 :body {:error "Recurring task not found"}})))
+
 (def categorize-recurring-task-handler (common/make-categorize-handler db.recurring-task/categorize-recurring-task))
 (def uncategorize-recurring-task-handler (common/make-uncategorize-handler db.recurring-task/uncategorize-recurring-task))
 

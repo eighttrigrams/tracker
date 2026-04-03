@@ -10,6 +10,7 @@
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.components.cm-textarea :refer [cm-textarea]]
             [et.tr.i18n :refer [t tf]]
+            [et.tr.ui.date :as date]
             ["marked" :refer [marked]]))
 
 (defn- generic-confirm-modal
@@ -597,3 +598,47 @@
                  [:button.cancel {:on-click #(state/clear-editing-modal)} (t :modal/cancel)]
                  [:button.confirm {:on-click #(edit-modal-save @fields-state)} (t :task/save)]]]])))
         (reset! prev-entity nil)))))
+
+(defn create-date-modal []
+  (let [selected-date (r/atom nil)
+        error (r/atom nil)]
+    (fn []
+      (when-let [{:keys [taken-dates loading?]} (state/create-date-modal-state)]
+        (let [today (today-date-str)
+              taken (or taken-dates #{})
+              date-taken? (contains? taken @selected-date)
+              valid? (and (some? @selected-date) (not date-taken?))]
+          [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! error nil) (state/close-create-date-modal))}
+           [:div.modal.create-date-modal {:on-click #(.stopPropagation %)}
+            [:div.modal-header (t :modal/create-item-header)]
+            [:div.modal-body
+             (if loading?
+               [:div.loading "..."]
+               [:div.create-date-picker
+                [:span.date-picker-wrapper
+                 [:input.date-picker-input
+                  {:type "date"
+                   :min today
+                   :value (or @selected-date "")
+                   :on-change (fn [e]
+                                (let [v (.. e -target -value)]
+                                  (reset! selected-date (when (seq v) v))
+                                  (reset! error (when (contains? taken v)
+                                                  (t :modal/date-taken)))))}]
+                 [:button.calendar-icon
+                  {:on-click (fn [e]
+                               (.stopPropagation e)
+                               (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+                  "📅"]]
+                (cond
+                  @error
+                  [:p.date-taken-error @error]
+                  (and @selected-date (not date-taken?))
+                  [:p.date-selected-display (date/format-date-with-day @selected-date)])])]
+            [:div.modal-footer
+             [:button.cancel {:on-click #(do (reset! selected-date nil) (reset! error nil) (state/close-create-date-modal))} (t :modal/cancel)]
+             [:button.confirm {:disabled (not valid?)
+                               :on-click #(do (state/confirm-create-date-modal @selected-date)
+                                              (reset! selected-date nil)
+                                              (reset! error nil))}
+              (t :modal/create)]]]])))))
