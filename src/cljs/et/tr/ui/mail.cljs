@@ -297,6 +297,10 @@
       [mail-sort-toggle]]
      (when (= sort-mode :recent)
        [mail-add-form])
+     (when (and (= sort-mode :done) (seq messages))
+       [:div.mail-delete-all-archived
+        [:button.delete-btn {:on-click #(state/set-confirm-delete-all-archived true)}
+         (t :mail/delete-all-archived)]])
      [mail-sender-filter-badge]
      (if (empty? messages)
        [:p.empty-message (t :mail/no-messages)]

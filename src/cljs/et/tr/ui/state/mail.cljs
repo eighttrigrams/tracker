@@ -15,6 +15,7 @@
                                    :urgency-filter nil
                                    :editing-message nil
                                    :confirm-delete-message nil
+                                   :confirm-delete-all-archived false
                                    :message-dropdown-open nil
                                    :message-action-dropdown-open nil}))
 
@@ -240,3 +241,16 @@
       (fetch-messages app-state auth-headers))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to task")))))
+
+(defn set-confirm-delete-all-archived [val]
+  (swap! *mail-page-state assoc :confirm-delete-all-archived val))
+
+(defn delete-all-archived [app-state auth-headers]
+  (api/delete-simple "/api/messages/archived"
+    (auth-headers)
+    (fn [_]
+      (set-confirm-delete-all-archived false)
+      (fetch-messages app-state auth-headers))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete archived messages"))
+      (set-confirm-delete-all-archived false))))

@@ -17,7 +17,8 @@
  :aliases {:run {:exec-fn et.tr.server/-main}
            :test {:extra-paths ["test/clj"]
                   :extra-deps {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1"
-                                                                     :git/sha "dfb30dd"}}
+                                                                     :git/sha "dfb30dd"}
+                               ring/ring-mock {:mvn/version "0.4.0"}}
                   :main-opts ["-m" "cognitect.test-runner"]
                   :exec-fn cognitect.test-runner.api/test}
            :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.5" :git/sha "2a21b7a"}}

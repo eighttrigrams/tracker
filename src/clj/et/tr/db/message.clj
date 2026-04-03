@@ -125,6 +125,13 @@
                    :returning [:id :urgency]})
       db/jdbc-opts)))
 
+(defn delete-all-archived-messages [ds user-id]
+  (let [result (jdbc/execute-one! (db/get-conn ds)
+                 (sql/format {:delete-from :messages
+                              :where [:and (db/user-id-where-clause user-id) [:= :done 1]]}))]
+    (tel/log! {:level :info :data {:user-id user-id :count (:next.jdbc/update-count result)}} "All archived messages deleted")
+    {:success true :deleted-count (:next.jdbc/update-count result)}))
+
 (defn merge-messages [ds user-id source-id target-id]
   (when (and (message-owned-by-user? ds source-id user-id)
              (message-owned-by-user? ds target-id user-id))

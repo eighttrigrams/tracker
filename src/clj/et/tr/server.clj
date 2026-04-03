@@ -144,6 +144,7 @@
     (context "/messages" []
       (GET "/" [] message-handler/list-messages-handler)
       (POST "/" [] message-handler/add-message-handler)
+      (DELETE "/archived" [] message-handler/delete-all-archived-handler)
       (PUT "/:id/done" [] message-handler/set-message-done-handler)
       (PUT "/:id/annotation" [] message-handler/update-message-annotation-handler)
       (PUT "/:id/scope" [] message-handler/set-message-scope-handler)

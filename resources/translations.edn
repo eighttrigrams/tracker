@@ -200,6 +200,8 @@
   :mail/convert-to-resource "Convert to resource"
   :mail/convert-to-task "Convert to task"
   :mail/merge-with-below "Merge with message below"
+  :mail/delete-all-archived "Delete all archived"
+  :mail/delete-all-archived-confirm "Are you sure you want to permanently delete all archived messages?"
 
   :nav/resources "Resources"
   :resources/title-placeholder "Title"
@@ -453,6 +455,8 @@
   :mail/convert-to-resource "In Ressource umwandeln"
   :mail/convert-to-task "In Aufgabe umwandeln"
   :mail/merge-with-below "Mit unterer Nachricht zusammenführen"
+  :mail/delete-all-archived "Alle archivierten löschen"
+  :mail/delete-all-archived-confirm "Möchten Sie wirklich alle archivierten Nachrichten dauerhaft löschen?"
 
   :nav/resources "Ressourcen"
   :resources/title-placeholder "Titel"
@@ -706,6 +710,8 @@
   :mail/convert-to-resource "Converter em recurso"
   :mail/convert-to-task "Converter em tarefa"
   :mail/merge-with-below "Mesclar com mensagem abaixo"
+  :mail/delete-all-archived "Eliminar todas as arquivadas"
+  :mail/delete-all-archived-confirm "Tem a certeza de que pretende eliminar permanentemente todas as mensagens arquivadas?"
 
   :nav/resources "Recursos"
   :resources/title-placeholder "Título"

@@ -287,6 +287,12 @@
 (defn convert-message-to-task [message-id]
   (mail/convert-message-to-task *app-state auth-headers message-id))
 
+(defn set-confirm-delete-all-archived [val]
+  (mail/set-confirm-delete-all-archived val))
+
+(defn delete-all-archived []
+  (mail/delete-all-archived *app-state auth-headers))
+
 (declare has-active-shared-filters?)
 (declare set-pending-new-item)
 

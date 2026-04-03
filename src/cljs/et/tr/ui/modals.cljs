@@ -112,6 +112,14 @@
     :clear-fn state/clear-confirm-delete-message
     :delete-fn state/delete-message}))
 
+(defn confirm-delete-all-archived-modal []
+  (when (:confirm-delete-all-archived @mail-state/*mail-page-state)
+    [generic-confirm-modal
+     {:header (t :mail/delete-all-archived)
+      :body-paragraphs [{:text (t :mail/delete-all-archived-confirm)}]
+      :on-cancel #(state/set-confirm-delete-all-archived false)
+      :on-confirm state/delete-all-archived}]))
+
 (def confirm-delete-resource-modal
   (make-confirm-delete-modal
    {:state-atom resources-state/*resources-page-state
