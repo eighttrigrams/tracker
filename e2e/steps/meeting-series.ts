@@ -44,6 +44,7 @@ Given(
 
 When("I click the {string} button", async ({ page }, name: string) => {
   await page.getByRole("button", { name }).click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I type {string} in the meets search field", async ({ page }, text: string) => {
@@ -56,14 +57,17 @@ When("I clear the meets search field", async ({ page }) => {
 
 When("I expand {string} in the series list", async ({ page }, title: string) => {
   await page.locator(".items li").filter({ hasText: title }).locator(".item-header").click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I click the edit button on the expanded series", async ({ page }) => {
   await page.locator(".edit-icon").click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I click the {string} tab in the modal", async ({ page }, tab: string) => {
   await page.locator(".edit-modal-tabs button").filter({ hasText: tab }).click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I toggle day {string} in the schedule", async ({ page }, day: string) => {
@@ -72,6 +76,8 @@ When("I toggle day {string} in the schedule", async ({ page }, day: string) => {
 
 When("I click {string} in the modal", async ({ page }, label: string) => {
   await page.locator(".modal-footer button").filter({ hasText: label }).click();
+  await page.locator(".modal-footer").waitFor({ state: "hidden" });
+  await page.waitForLoadState("networkidle");
 });
 
 When(
@@ -82,6 +88,7 @@ When(
       .filter({ hasText: seriesTitle })
       .getByRole("button", { name: buttonText })
       .click();
+    await page.waitForLoadState("networkidle");
   },
 );
 

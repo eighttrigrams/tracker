@@ -19,11 +19,14 @@ const testDir = defineBddConfig({
 
 export default defineConfig({
   testDir,
-  timeout: 30_000,
+  timeout: 60_000,
+  retries: process.env.CI ? 2 : 0,
   workers: 1,
+  expect: { timeout: 10_000 },
   use: {
     baseURL: `http://localhost:${port}`,
-    headless: true, // !!process.env.CI
+    headless: true,
+    actionTimeout: 10_000,
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   webServer: {

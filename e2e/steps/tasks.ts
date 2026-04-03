@@ -6,6 +6,7 @@ const { Given, When, Then } = createBdd();
 Given("I am on the app", async ({ page, request }) => {
   await request.post("/api/test/reset");
   await page.goto("/");
+  await page.waitForLoadState("networkidle");
 });
 
 Given("test data with categorized tasks exists", async ({ request }) => {
@@ -39,6 +40,7 @@ When("I reload the page", async ({ page }) => {
 
 When("I click the {string} tab", async ({ page }, name: string) => {
   await page.getByRole("button", { name }).click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I type {string} in the search field", async ({ page }, text: string) => {
@@ -47,16 +49,19 @@ When("I type {string} in the search field", async ({ page }, text: string) => {
 
 When("I click the add button", async ({ page }) => {
   await page.locator(".combined-search-add-form button").first().click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I add a place called {string}", async ({ page }, name: string) => {
   await page.locator(".add-entity-form input").last().fill(name);
   await page.locator(".add-entity-form button").last().click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I add a task called {string}", async ({ page }, title: string) => {
   await page.locator("#tasks-filter-search").fill(title);
   await page.locator(".combined-search-add-form button").first().click();
+  await page.waitForLoadState("networkidle");
   await page.locator("#tasks-filter-search").fill("");
 });
 
@@ -68,26 +73,31 @@ When(
     if (!(await placeBtn.isVisible())) await taskRow.click();
     await placeBtn.click();
     await page.locator(".category-selector-item").filter({ hasText: place }).first().click();
+    await page.waitForLoadState("networkidle");
   },
 );
 
 When("I filter by place {string}", async ({ page }, place: string) => {
   await page.locator(".filter-section.places .collapse-toggle").click();
   await page.locator(".filter-section.places .filter-item").filter({ hasText: place }).click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I filter by project {string}", async ({ page }, project: string) => {
   await page.locator(".filter-section.projects .collapse-toggle").click();
   await page.locator(".filter-section.projects .filter-item").filter({ hasText: project }).click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I switch to {string}", async ({ page }, tab: string) => {
   await page.getByRole("button", { name: tab }).click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I add a project called {string}", async ({ page }, name: string) => {
   await page.locator(".add-entity-form input").first().fill(name);
   await page.locator(".add-entity-form button").first().click();
+  await page.waitForLoadState("networkidle");
 });
 
 When(
@@ -101,6 +111,7 @@ When(
     }
     await projectBtn.click();
     await page.locator(".category-selector-item").filter({ hasText: project }).first().click();
+    await page.waitForLoadState("networkidle");
   },
 );
 
