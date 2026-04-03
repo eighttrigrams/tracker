@@ -513,6 +513,15 @@
 .task-urgency-selector .toggle-option.superurgent.active {
   background: #ff3b30;
 }
+.done-day-header {
+  margin: 20px 0 8px 0;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.done-day-group:first-child .done-day-header {
+  margin-top: 0;
+}
 /* Hide task attribute selectors by default, show on hover over the actions row */
 .item-actions .task-scope-selector,
 .item-actions .task-importance-selector,

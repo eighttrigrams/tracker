@@ -225,8 +225,9 @@
   (let [done-val (if done? 1 0)]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
-                   :set {:done done-val
-                         :modified_at [:raw "datetime('now')"]}
+                   :set (cond-> {:done done-val
+                                 :modified_at [:raw "datetime('now')"]}
+                          done? (assoc :today 0 :lined_up_for nil))
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
                    :returning [:id :done :modified_at]})
       db/jdbc-opts)))

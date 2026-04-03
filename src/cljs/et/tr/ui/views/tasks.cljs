@@ -237,6 +237,9 @@
          [task-item/time-picker task :show-clear? true])])]
    [:div.item-date
     (cond
+      (and (:due_date task) done-mode?)
+      [:span.due-date (date/format-date-localized (:due_date task))]
+
       (and (:due_date task) (not done-mode?))
       (let [today (date/today-str)
             overdue? (< (:due_date task) today)]
@@ -244,12 +247,12 @@
                          :data-tooltip (date/get-day-name (:due_date task))}
          (date/format-date-localized (:due_date task))])
 
-      (and (not is-expanded) (= 1 (:today task)))
+      (and (not done-mode?) (not is-expanded) (= 1 (:today task)))
       [:span.assigned-day (t :today/today)]
 
-      (and (not is-expanded) (:lined_up_for task))
+      (and (not done-mode?) (not is-expanded) (:lined_up_for task))
       [:span.assigned-day (date/get-day-name (:lined_up_for task))])
-    (when (and (not due-date-mode?) (not manual-mode?))
+    (when (and (not done-mode?) (not due-date-mode?) (not manual-mode?))
       [:span {:data-tooltip (some-> (:modified_at task) (.substring 0 10) date/get-day-name)}
        (date/format-datetime-localized (:modified_at task))])]])
 
@@ -260,6 +263,10 @@
      [task-expanded-details task people places projects goals]
      [task-item/task-categories-readonly task])])
 
+(defn- extract-date [modified-at]
+  (when modified-at
+    (.substring modified-at 0 10)))
+
 (defn tasks-list []
   (let [{:keys [people places projects goals tasks-page/expanded-task sort-mode drag-task drag-over-task]} @state/*app-state
         tasks (state/filtered-tasks)
@@ -267,24 +274,33 @@
         due-date-mode? (= sort-mode :due-date)
         done-mode? (= sort-mode :done)
         any-task-open? (some? expanded-task)
-        drag-enabled? (and manual-mode? (not any-task-open?))]
-    (into [:ul.items]
-      (for [task tasks]
-        (let [is-expanded (= expanded-task (:id task))
-              is-dragging (= drag-task (:id task))
-              is-drag-over (= drag-over-task (:id task))]
-          ^{:key (:id task)}
-          [:li {:class (str (when is-expanded "expanded")
-                            (when is-dragging " dragging")
-                            (when is-drag-over " drag-over")
-                            (when-not drag-enabled? " drag-disabled"))
-                :draggable drag-enabled?
-                :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task drag-enabled?)
-                :on-drag-end (fn [_] (state/clear-drag-state))
-                :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task drag-enabled?)
-                :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
-                :on-drop (drag-drop/make-drop-handler drag-task task state/reorder-task drag-enabled?)}
-           [task-item-content task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?]])))))
+        drag-enabled? (and manual-mode? (not any-task-open?))
+        render-task (fn [task]
+                      (let [is-expanded (= expanded-task (:id task))
+                            is-dragging (= drag-task (:id task))
+                            is-drag-over (= drag-over-task (:id task))]
+                        ^{:key (:id task)}
+                        [:li {:class (str (when is-expanded "expanded")
+                                          (when is-dragging " dragging")
+                                          (when is-drag-over " drag-over")
+                                          (when-not drag-enabled? " drag-disabled"))
+                              :draggable drag-enabled?
+                              :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task drag-enabled?)
+                              :on-drag-end (fn [_] (state/clear-drag-state))
+                              :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task drag-enabled?)
+                              :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
+                              :on-drop (drag-drop/make-drop-handler drag-task task state/reorder-task drag-enabled?)}
+                         [task-item-content task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?]]))]
+    (if done-mode?
+      (let [grouped (group-by #(extract-date (:modified_at %)) tasks)
+            sorted-dates (->> (keys grouped) (sort #(compare %2 %1)))]
+        (into [:div.done-tasks]
+          (for [d sorted-dates]
+            ^{:key d}
+            [:div.done-day-group
+             [:h4.done-day-header (date/day-formatted d)]
+             (into [:ul.items] (map render-task (get grouped d)))])))
+      (into [:ul.items] (map render-task tasks)))))
 
 (defn- recurring-toggle []
   (let [recurring-mode (:tasks-page/recurring-mode @state/*app-state)]

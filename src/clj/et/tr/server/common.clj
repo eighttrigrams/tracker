@@ -112,6 +112,23 @@
       (tel/log! {:level :warn :data {:url url :error (.getMessage e)}} "Failed to fetch YouTube title")
       nil)))
 
+(defn substack-url? [url]
+  (some? (re-find #"\.substack\.com/" url)))
+
+(defn fetch-substack-title [url]
+  (try
+    (let [resp (http/get url
+                 {:as :string
+                  :socket-timeout 5000
+                  :connection-timeout 5000})
+          body (:body resp)
+          title (second (re-find #"<title[^>]*>([^<]+)</title>" body))]
+      (when title
+        (str/trim title)))
+    (catch Exception e
+      (tel/log! {:level :warn :data {:url url :error (.getMessage e)}} "Failed to fetch Substack title")
+      nil)))
+
 (defn make-categorize-handler [db-fn]
   (fn [req]
     (let [user-id (get-user-id req)
