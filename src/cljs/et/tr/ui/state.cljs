@@ -69,6 +69,7 @@
                             :pending-new-item nil
                             :editing-modal nil
                             :confirm-delete-task nil
+                            :confirm-undone-task nil
 
                             ;; Today meets
                             :today-meets []
@@ -972,6 +973,16 @@
 
 (defn set-task-done [task-id done?]
   (tasks/set-task-done *app-state auth-headers fetch-tasks task-id done?))
+
+(defn set-confirm-undone-task [task]
+  (swap! *app-state assoc :confirm-undone-task task))
+
+(defn clear-confirm-undone []
+  (swap! *app-state assoc :confirm-undone-task nil))
+
+(defn confirm-undone-task [task-id]
+  (clear-confirm-undone)
+  (set-task-done task-id false))
 
 (defn set-task-scope [task-id scope]
   (tasks/set-task-scope *app-state auth-headers task-id scope))

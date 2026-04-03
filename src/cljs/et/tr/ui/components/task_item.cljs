@@ -122,7 +122,9 @@
   [:div.combined-button-wrapper
    [:button.combined-main-btn
     {:class (if (state/task-done? task) "undone" "done")
-     :on-click #(state/set-task-done (:id task) (not (state/task-done? task)))}
+     :on-click #(if (state/task-done? task)
+                  (state/set-confirm-undone-task task)
+                  (state/set-task-done (:id task) true))}
     (if (state/task-done? task)
       (t :task/set-undone)
       (t :task/mark-done))]

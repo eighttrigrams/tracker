@@ -292,7 +292,7 @@
                               :on-drop (drag-drop/make-drop-handler drag-task task state/reorder-task drag-enabled?)}
                          [task-item-content task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?]]))]
     (if done-mode?
-      (let [grouped (group-by #(extract-date (:modified_at %)) tasks)
+      (let [grouped (group-by #(extract-date (or (:done_at %) (:modified_at %))) tasks)
             sorted-dates (->> (keys grouped) (sort #(compare %2 %1)))]
         (into [:div.done-tasks]
           (for [d sorted-dates]

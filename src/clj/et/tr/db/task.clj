@@ -68,7 +68,7 @@
                     :due-date [[:due_date :asc]
                                [[:case [:not= :due_time nil] 1 :else 0] :desc]
                                [:due_time :asc]]
-                    :done [[:modified_at :desc]]
+                    :done [[:done_at :desc]]
                     :today [[:due_date :asc]
                             [[:case [:not= :due_time nil] 1 :else 0] :desc]
                             [:due_time :asc]]
@@ -227,9 +227,11 @@
       (sql/format {:update :tasks
                    :set (cond-> {:done done-val
                                  :modified_at [:raw "datetime('now')"]}
-                          done? (assoc :today 0 :lined_up_for nil))
+                          done? (assoc :today 0 :lined_up_for nil
+                                       :done_at [:raw "datetime('now')"])
+                          (not done?) (assoc :done_at nil))
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :done :modified_at]})
+                   :returning [:id :done :modified_at :done_at]})
       db/jdbc-opts)))
 
 (defn set-task-today [ds user-id task-id today?]

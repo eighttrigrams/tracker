@@ -73,6 +73,7 @@
 (defn- any-modal-open? []
   (or (:pending-new-item @state/*app-state)
       (:editing-modal @state/*app-state)
+      (:confirm-undone-task @state/*app-state)
       (:confirm-delete-task @state/*app-state)
       (:confirm-delete-user @state/*app-state)
       (:confirm-delete-category @state/*app-state)
@@ -92,6 +93,7 @@
   (let [{:keys [auth-required? logged-in? active-tab]} @state/*app-state]
     [:div
      (body-scroll-lock)
+     [modals/confirm-undone-modal]
      [modals/confirm-delete-modal]
      [modals/confirm-delete-user-modal]
      [modals/confirm-delete-category-modal]

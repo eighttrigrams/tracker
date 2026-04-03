@@ -13,7 +13,7 @@
             ["marked" :refer [marked]]))
 
 (defn- generic-confirm-modal
-  [{:keys [header body-paragraphs on-cancel on-confirm]}]
+  [{:keys [header body-paragraphs on-cancel on-confirm confirm-label]}]
   [:div.modal-overlay
    [:div.modal {:on-click #(.stopPropagation %)}
     [:div.modal-header header]
@@ -25,7 +25,7 @@
          [:p (:text p)]))]
     [:div.modal-footer
      [:button.cancel {:on-click on-cancel} (t :modal/cancel)]
-     [:button.confirm-delete {:on-click on-confirm} (t :modal/delete)]]]])
+     [:button.confirm-delete {:on-click on-confirm} (or confirm-label (t :modal/delete))]]]])
 
 (defn- make-confirm-delete-modal [{:keys [state-atom state-key header-i18n confirm-i18n title-key clear-fn delete-fn]}]
   (fn []
@@ -46,6 +46,16 @@
     :title-key :title
     :clear-fn state/clear-confirm-delete
     :delete-fn state/delete-task}))
+
+(defn confirm-undone-modal []
+  (when-let [task (:confirm-undone-task @state/*app-state)]
+    [generic-confirm-modal
+     {:header (t :modal/undone-task)
+      :body-paragraphs [{:text (t :modal/undone-task-confirm)}
+                        {:text (:title task) :class "task-title"}]
+      :on-cancel state/clear-confirm-undone
+      :on-confirm #(state/confirm-undone-task (:id task))
+      :confirm-label (t :modal/reopen)}]))
 
 (defn confirm-delete-user-modal []
   (let [confirmation-input (r/atom "")]
