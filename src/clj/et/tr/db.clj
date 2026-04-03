@@ -179,6 +179,12 @@
     "critical" [:= :importance "critical"]
     nil))
 
+(defn build-urgency-clause [urgency]
+  (case urgency
+    "urgent" [:in :urgency ["urgent" "superurgent"]]
+    "superurgent" [:= :urgency "superurgent"]
+    nil))
+
 (defn build-scope-clause [context strict]
   (when context
     (if strict

@@ -273,3 +273,44 @@
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
                    :returning [:id field :modified_at]})
       db/jdbc-opts)))
+
+(defn convert-message-to-task [ds user-id message-id]
+  (let [conn (db/get-conn ds)]
+    (jdbc/with-transaction [tx conn]
+      (when-let [message (jdbc/execute-one! tx
+                           (sql/format {:select [:id :title :description :annotation :scope :importance :urgency]
+                                        :from [:messages]
+                                        :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
+                           db/jdbc-opts)]
+        (let [description (str (or (:description message) "")
+                              (when (and (seq (:description message)) (seq (:annotation message))) "\n")
+                              (or (:annotation message) ""))
+              min-order (or (:min_order (jdbc/execute-one! tx
+                                          (sql/format {:select [[[:min :sort_order] :min_order]]
+                                                       :from [:tasks]
+                                                       :where (db/user-id-where-clause user-id)})
+                                          db/jdbc-opts))
+                            1.0)
+              new-order (- min-order 1.0)
+              task (jdbc/execute-one! tx
+                     (sql/format {:insert-into :tasks
+                                  :values [{:title (:title message)
+                                            :sort_order new-order
+                                            :user_id user-id
+                                            :modified_at [:raw "datetime('now')"]
+                                            :scope (or (:scope message) "both")
+                                            :importance (or (:importance message) "normal")
+                                            :urgency (or (:urgency message) "default")}]
+                                  :returning (conj db/task-select-columns :user_id)})
+                     db/jdbc-opts)]
+          (when (seq description)
+            (jdbc/execute-one! tx
+              (sql/format {:update :tasks
+                           :set {:description description :modified_at [:raw "datetime('now')"]}
+                           :where [:and [:= :id (:id task)] (db/user-id-where-clause user-id)]})
+              db/jdbc-opts))
+          (jdbc/execute-one! tx
+            (sql/format {:delete-from :messages
+                         :where [:= :id message-id]}))
+          (tel/log! {:level :info :data {:message-id message-id :task-id (:id task) :user-id user-id}} "Message converted to task")
+          (assoc task :description description :people [] :places [] :projects [] :goals []))))))

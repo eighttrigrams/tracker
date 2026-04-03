@@ -78,7 +78,9 @@
 (defn- archive-button-with-dropdown [{:keys [id title description done] :as _message}]
   (let [url (first-url title description)
         dropdown-open? (= id (:message-dropdown-open @mail-state/*mail-page-state))]
-    (if (and url (not= done 1))
+    (if (= done 1)
+      [:button.undone-btn {:on-click #(state/set-message-done id false)}
+       (t :mail/set-unarchived)]
       [:div.combined-button-wrapper
        [:button.combined-main-btn.done
         {:on-click #(state/set-message-done id true)}
@@ -88,16 +90,17 @@
         "▼"]
        (when dropdown-open?
          [:div.task-dropdown-menu
-          [:button.dropdown-item.convert-to-resource
+          (when url
+            [:button.dropdown-item.convert-to-resource
+             {:on-click #(do
+                           (state/set-message-dropdown-open nil)
+                           (state/convert-message-to-resource id url))}
+             (t :mail/convert-to-resource)])
+          [:button.dropdown-item
            {:on-click #(do
                          (state/set-message-dropdown-open nil)
-                         (state/convert-message-to-resource id url))}
-           (t :mail/convert-to-resource)]])]
-      (if (= done 1)
-        [:button.undone-btn {:on-click #(state/set-message-done id false)}
-         (t :mail/set-unarchived)]
-        [:button.done-btn {:on-click #(state/set-message-done id true)}
-         (t :mail/archive)]))))
+                         (state/convert-message-to-task id))}
+           (t :mail/convert-to-task)]])])))
 
 (defn- message-scope-selector [message]
   (let [scope (or (:scope message) "both")]
@@ -123,12 +126,25 @@
                      (state/set-message-importance (:id message) level))}
         label])]))
 
+(defn- message-urgency-selector [message]
+  (let [urgency (or (:urgency message) "default")]
+    [:div.task-urgency-selector.toggle-group.compact
+     (for [[level label] [["default" "—"] ["urgent" "🚨"] ["superurgent" "🚨🚨"]]]
+       ^{:key level}
+       [:button.toggle-option
+        {:class (str level (when (= urgency level) " active"))
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-message-urgency (:id message) level))}
+        label])]))
+
 (defn- mail-message-actions [message next-message-id]
   (let [dropdown-open? (= (:id message) (:message-action-dropdown-open @mail-state/*mail-page-state))]
     [:div.item-actions
      [archive-button-with-dropdown message]
      [message-scope-selector message]
      [message-importance-selector message]
+     [message-urgency-selector message]
      [:div.combined-button-wrapper
       [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
        (t :task/delete)]
@@ -221,6 +237,22 @@
                :title (t :importance/filter-critical)}
       "★★"]]))
 
+(defn- urgency-filter-toggle []
+  (let [urgency-filter (:urgency-filter @mail-state/*mail-page-state)]
+    [:div.urgency-filter-toggle.toggle-group
+     [:button {:class (when (nil? urgency-filter) "active")
+               :on-click #(state/set-message-urgency-filter nil)
+               :title (t :urgency/filter-off)}
+      "—"]
+     [:button {:class (str "urgent" (when (= urgency-filter :urgent) " active"))
+               :on-click #(state/set-message-urgency-filter :urgent)
+               :title (t :urgency/filter-urgent)}
+      "🚨"]
+     [:button {:class (str "superurgent" (when (= urgency-filter :superurgent) " active"))
+               :on-click #(state/set-message-urgency-filter :superurgent)
+               :title (t :urgency/filter-superurgent)}
+      "🚨🚨"]]))
+
 (defn- mail-sort-toggle []
   (let [sort-mode (:sort-mode @mail-state/*mail-page-state)]
     [:div.sort-toggle.toggle-group
@@ -257,6 +289,7 @@
      [:div.tasks-header
       [:h2 (t :mail/heading)]
       [importance-filter-toggle]
+      [urgency-filter-toggle]
       [mail-sort-toggle]]
      (when (= sort-mode :recent)
        [mail-add-form])

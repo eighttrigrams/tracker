@@ -12,6 +12,7 @@
                                    :sender-filter nil
                                    :excluded-senders #{}
                                    :importance-filter nil
+                                   :urgency-filter nil
                                    :editing-message nil
                                    :confirm-delete-message nil
                                    :message-dropdown-open nil
@@ -23,12 +24,14 @@
         sender-filter (:sender-filter @*mail-page-state)
         excluded-senders (:excluded-senders @*mail-page-state)
         importance (:importance-filter @*mail-page-state)
+        urgency (:urgency-filter @*mail-page-state)
         context (name (:work-private-mode @app-state))
         strict (:strict-mode @app-state)
         url (cond-> (str "/api/messages?sort=" sort-mode)
               sender-filter (str "&sender=" (js/encodeURIComponent sender-filter))
               (seq excluded-senders) (str "&excludedSenders=" (js/encodeURIComponent (str/join "," excluded-senders)))
               importance (str "&importance=" (name importance))
+              urgency (str "&urgency=" (name urgency))
               context (str "&context=" (js/encodeURIComponent context))
               strict (str "&strict=true"))]
     (GET url
@@ -127,6 +130,24 @@
   (swap! *mail-page-state assoc :importance-filter level)
   (fetch-messages-fn))
 
+(defn set-message-urgency [app-state auth-headers message-id urgency]
+  (api/put-json (str "/api/messages/" message-id "/urgency")
+    {:urgency urgency}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :messages
+             (fn [messages]
+               (mapv #(if (= (:id %) message-id)
+                        (assoc % :urgency (:urgency result))
+                        %)
+                     messages))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update urgency")))))
+
+(defn set-urgency-filter [fetch-messages-fn level]
+  (swap! *mail-page-state assoc :urgency-filter level)
+  (fetch-messages-fn))
+
 (defn set-message-scope [app-state auth-headers message-id scope]
   (api/put-json (str "/api/messages/" message-id "/scope")
     {:scope scope}
@@ -193,3 +214,13 @@
       (fetch-messages app-state auth-headers))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to resource")))))
+
+(defn convert-message-to-task [app-state auth-headers message-id]
+  (api/post-json (str "/api/messages/" message-id "/convert-to-task")
+    {}
+    (auth-headers)
+    (fn [_]
+      (swap! *mail-page-state assoc :message-dropdown-open nil)
+      (fetch-messages app-state auth-headers))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to task")))))

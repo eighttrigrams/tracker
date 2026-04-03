@@ -1,0 +1,2 @@
+{:up ["ALTER TABLE messages ADD COLUMN urgency TEXT NOT NULL DEFAULT 'default' CHECK (urgency IN ('default', 'urgent', 'superurgent'))"]
+ :down ["ALTER TABLE messages DROP COLUMN urgency"]}

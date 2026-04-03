@@ -5,7 +5,7 @@
             [taoensso.telemere :as tel]
             [et.tr.db :as db]))
 
-(defn add-message [ds user-id sender title description type scope importance]
+(defn add-message [ds user-id sender title description type scope importance urgency]
   (let [result (jdbc/execute-one! (db/get-conn ds)
                  (sql/format {:insert-into :messages
                               :values [{:sender sender
@@ -14,8 +14,9 @@
                                         :type (when-not (str/blank? type) type)
                                         :scope (when (contains? #{"private" "work"} scope) scope)
                                         :importance (if (contains? db/valid-importances importance) importance "normal")
+                                        :urgency (if (contains? db/valid-urgencies urgency) urgency "default")
                                         :user_id user-id}]
-                              :returning [:id :sender :title :description :created_at :done :type :scope :importance :user_id]})
+                              :returning [:id :sender :title :description :created_at :done :type :scope :importance :urgency :user_id]})
                  db/jdbc-opts)]
     (tel/log! {:level :info :data {:message-id (:id result) :user-id user-id}} "Message added")
     result))
@@ -34,7 +35,7 @@
 (defn list-messages
   ([ds user-id] (list-messages ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [sort-mode sender-filter excluded-senders context strict importance]
+   (let [{:keys [sort-mode sender-filter excluded-senders context strict importance urgency]
           :or {sort-mode :recent}} opts
          user-where (db/user-id-where-clause user-id)
          done-filter (case sort-mode
@@ -43,13 +44,15 @@
          order-dir (if (= sort-mode :reverse) :asc :desc)
          scope-clause (build-message-scope-clause context strict)
          importance-clause (db/build-importance-clause importance)
+         urgency-clause (db/build-urgency-clause urgency)
          where-clause (cond-> [:and user-where done-filter]
                         sender-filter (conj [:= :sender sender-filter])
                         (seq excluded-senders) (conj [:not-in :sender excluded-senders])
                         scope-clause (conj scope-clause)
-                        importance-clause (conj importance-clause))]
+                        importance-clause (conj importance-clause)
+                        urgency-clause (conj urgency-clause))]
      (jdbc/execute! (db/get-conn ds)
-       (sql/format {:select [:id :sender :title :description :created_at :done :annotation :type :scope :importance]
+       (sql/format {:select [:id :sender :title :description :created_at :done :annotation :type :scope :importance :urgency]
                     :from [:messages]
                     :where where-clause
                     :order-by [[:created_at order-dir]]})
@@ -111,6 +114,15 @@
                    :set {:importance importance-val}
                    :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]
                    :returning [:id :importance]})
+      db/jdbc-opts)))
+
+(defn set-message-urgency [ds user-id message-id urgency]
+  (let [urgency-val (if (contains? db/valid-urgencies urgency) urgency "default")]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :messages
+                   :set {:urgency urgency-val}
+                   :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]
+                   :returning [:id :urgency]})
       db/jdbc-opts)))
 
 (defn merge-messages [ds user-id source-id target-id]

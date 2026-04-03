@@ -3,6 +3,7 @@
             [et.tr.db :as db]
             [et.tr.db.message :as db.message]
             [et.tr.db.resource :as db.resource]
+            [et.tr.db.task :as db.task]
             [clojure.string :as str]))
 
 (defmacro with-mail-message-context
@@ -28,13 +29,14 @@
                                                                                 :excluded-senders excluded-senders
                                                                                 :context context
                                                                                 :strict strict
-                                                                                :importance (get-in req [:params "importance"])})})
+                                                                                :importance (get-in req [:params "importance"])
+                                                                                :urgency (get-in req [:params "urgency"])})})
     {:status 403 :body {:error "Mail access required"}}))
 
 (defn add-message-handler [req]
   (if (common/has-mail? req)
     (let [user-id (common/get-user-id req)
-          {:keys [sender title description type scope importance]} (:body req)]
+          {:keys [sender title description type scope importance urgency]} (:body req)]
       (cond
         (str/blank? sender)
         {:status 400 :body {:success false :error "Sender is required"}}
@@ -54,8 +56,12 @@
              (not (db/valid-importances importance)))
         {:status 400 :body {:success false :error "Importance must be 'normal', 'important', or 'critical'"}}
 
+        (and (some? urgency)
+             (not (db/valid-urgencies urgency)))
+        {:status 400 :body {:success false :error "Urgency must be 'default', 'urgent', or 'superurgent'"}}
+
         :else
-        (let [message (db.message/add-message (common/ensure-ds) user-id sender title description type scope importance)]
+        (let [message (db.message/add-message (common/ensure-ds) user-id sender title description type scope importance urgency)]
           {:status 201 :body message})))
     {:status 403 :body {:error "Mail access required"}}))
 
@@ -105,6 +111,16 @@
             {:status 200 :body result}
             {:status 404 :body {:error "Message not found"}}))))))
 
+(defn set-message-urgency-handler [req]
+  (with-mail-message-context req user-id message-id
+    (let [urgency (get-in req [:body :urgency])]
+      (if-not (contains? db/valid-urgencies urgency)
+        {:status 400 :body {:error "Invalid urgency. Must be 'default', 'urgent', or 'superurgent'"}}
+        (let [result (db.message/set-message-urgency (common/ensure-ds) user-id message-id urgency)]
+          (if result
+            {:status 200 :body result}
+            {:status 404 :body {:error "Message not found"}}))))))
+
 (defn convert-message-to-resource-handler [req]
   (with-mail-message-context req user-id message-id
     (let [link (get-in req [:body :link])]
@@ -114,6 +130,12 @@
           (if-let [result (db.resource/convert-message-to-resource (common/ensure-ds) user-id message-id link :title title)]
             {:status 200 :body result}
             {:status 404 :body {:error "Message not found"}}))))))
+
+(defn convert-message-to-task-handler [req]
+  (with-mail-message-context req user-id message-id
+    (if-let [result (db.task/convert-message-to-task (common/ensure-ds) user-id message-id)]
+      {:status 200 :body result}
+      {:status 404 :body {:error "Message not found"}})))
 
 (defn merge-messages-handler [req]
   (with-mail-message-context req user-id message-id

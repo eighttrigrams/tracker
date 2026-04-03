@@ -256,6 +256,12 @@
 (defn set-message-importance-filter [level]
   (mail/set-importance-filter fetch-messages level))
 
+(defn set-message-urgency [message-id urgency]
+  (mail/set-message-urgency *app-state auth-headers message-id urgency))
+
+(defn set-message-urgency-filter [level]
+  (mail/set-urgency-filter fetch-messages level))
+
 (defn set-message-scope [message-id scope]
   (mail/set-message-scope *app-state auth-headers message-id scope))
 
@@ -276,6 +282,9 @@
 
 (defn convert-message-to-resource [message-id link]
   (mail/convert-message-to-resource *app-state auth-headers message-id link))
+
+(defn convert-message-to-task [message-id]
+  (mail/convert-message-to-task *app-state auth-headers message-id))
 
 (declare has-active-shared-filters?)
 (declare set-pending-new-item)
