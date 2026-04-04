@@ -142,3 +142,24 @@
           (scheduling/next-item-to-create today
             [today tomorrow]
             true true)))))
+
+(deftest next-item-beyond-window-returns-nil
+  (testing "next scheduled date is beyond Today+4 -> do not create"
+    (is (nil?
+          (scheduling/next-item-to-create today
+            [today+5 today+6]
+            false false)))))
+
+(deftest next-item-done-today-beyond-window-returns-nil
+  (testing "task done today, next after today is beyond window -> do not create"
+    (is (nil?
+          (scheduling/next-item-to-create today
+            [today today+5]
+            false true)))))
+
+(deftest next-item-at-window-boundary
+  (testing "next scheduled date is exactly Today+4 -> create it"
+    (is (= today+4
+           (scheduling/next-item-to-create today
+             [today+4 today+6]
+             false false)))))

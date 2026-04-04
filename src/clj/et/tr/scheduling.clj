@@ -44,10 +44,14 @@
 
 (defn next-item-to-create
   [today scheduled-dates has-active-item? done-today?]
-  (cond
-    has-active-item? nil
-    done-today? (first (filter #(pos? (compare % today)) scheduled-dates))
-    :else (first scheduled-dates)))
+  (let [today+4 (add-days today 4)
+        in-window? #(and (>= (compare % today) 0) (<= (compare % today+4) 0))
+        candidate (cond
+                    has-active-item? nil
+                    done-today? (first (filter #(pos? (compare % today)) scheduled-dates))
+                    :else (first scheduled-dates))]
+    (when (and candidate (in-window? candidate))
+      candidate)))
 
 (defn get-schedule-time-for-day [schedule-time day-num]
   (if (and (some? schedule-time) (str/includes? schedule-time "="))
