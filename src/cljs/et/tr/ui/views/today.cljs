@@ -105,7 +105,7 @@
                     (state/archive-meet (:id meet)))}
        (t :meets/archive)])))
 
-(defn- today-meet-expanded-details [meet]
+(defn- today-meet-expanded-details [meet is-today?]
   [:div.today-task-details
    (when (seq (:description meet))
      [:div.item-description [task-item/markdown (:description meet)]])
@@ -120,10 +120,10 @@
       (for [project (:projects meet)]
         ^{:key (str "project-" (:id project))}
         [:span.tag.project (filters/badge-label project)])])
-   [today-meet-create-next-button meet]
-   [today-meet-archive-button meet]])
+   (when is-today?
+     [today-meet-archive-button meet])])
 
-(defn- today-meet-item [meet & {:keys [show-day-prefix hide-date] :or {show-day-prefix false hide-date false}}]
+(defn- today-meet-item [meet & {:keys [show-day-prefix hide-date is-today] :or {show-day-prefix false hide-date false is-today false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:start_date meet) 6))
         expanded-meet (:today-page/expanded-meet @state/*app-state)
         is-expanded (= expanded-meet (:id meet))]
@@ -168,7 +168,7 @@
                                             (state/set-active-tab :meets))}
          "🔁"])]
      (when is-expanded
-       [today-meet-expanded-details meet])]))
+       [today-meet-expanded-details meet is-today])]))
 
 (defn- interleave-by-date [tasks meets]
   (sort-by (fn [item]
@@ -465,7 +465,7 @@
           (for [item items]
             (if (= (:item-type item) :meet)
               ^{:key (str "meet-" (:id item))}
-              [today-meet-item item :hide-date true]
+              [today-meet-item item :hide-date true :is-today is-today?]
               ^{:key (str "task-" (:id item))}
               [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳")])))]
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])]
