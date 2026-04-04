@@ -138,27 +138,42 @@
                      (state/set-message-urgency (:id message) level))}
         label])]))
 
-(defn- mail-message-actions [message next-message-id]
-  (let [dropdown-open? (= (:id message) (:message-action-dropdown-open @mail-state/*mail-page-state))]
+(defn- youtube-message-actions [{:keys [id title description] :as message}]
+  (let [url (first-url title description)]
     [:div.item-actions
-     [archive-button-with-dropdown message]
+     (when url
+       [:button.combined-main-btn.done
+        {:on-click #(state/convert-message-to-resource id url)}
+        (t :mail/convert-to-resource)])
      [message-scope-selector message]
      [message-importance-selector message]
      [message-urgency-selector message]
-     [:div.combined-button-wrapper
-      [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
-       (t :task/delete)]
-      [:button.combined-dropdown-btn.delete-btn
-       {:on-click #(state/set-message-action-dropdown-open (when-not dropdown-open? (:id message)))}
-       "▼"]
-      (when dropdown-open?
-        [:div.task-dropdown-menu
-         (when next-message-id
-           [:button.dropdown-item
-            {:on-click #(do
-                          (state/set-message-action-dropdown-open nil)
-                          (state/merge-message-with-below (:id message) next-message-id))}
-            (t :mail/merge-with-below)])])]]))
+     [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
+      (t :task/delete)]]))
+
+(defn- mail-message-actions [message next-message-id]
+  (if (= (:sender message) "YouTube")
+    [youtube-message-actions message]
+    (let [dropdown-open? (= (:id message) (:message-action-dropdown-open @mail-state/*mail-page-state))]
+      [:div.item-actions
+       [archive-button-with-dropdown message]
+       [message-scope-selector message]
+       [message-importance-selector message]
+       [message-urgency-selector message]
+       [:div.combined-button-wrapper
+        [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
+         (t :task/delete)]
+        [:button.combined-dropdown-btn.delete-btn
+         {:on-click #(state/set-message-action-dropdown-open (when-not dropdown-open? (:id message)))}
+         "▼"]
+        (when dropdown-open?
+          [:div.task-dropdown-menu
+           (when next-message-id
+             [:button.dropdown-item
+              {:on-click #(do
+                            (state/set-message-action-dropdown-open nil)
+                            (state/merge-message-with-below (:id message) next-message-id))}
+              (t :mail/merge-with-below)])])]])))
 
 (defn- mail-message-expanded-content [{:keys [title description annotation type] :as message} editing? next-message-id]
   [:div.item-details
@@ -193,7 +208,7 @@
       (let [{:keys [id]} message
             expanded? (= expanded-id id)
             editing? (= editing-id id)
-            show-checkbox? (and (not expanded?) (#{:recent :reverse} sort-mode))]
+            show-checkbox? (and (not expanded?) (#{:recent :reverse} sort-mode) (not= (:sender message) "YouTube"))]
         [:li {:class (str (when expanded? "expanded")
                           (when @archiving? " archiving-out"))}
          [:div.mail-item-row
