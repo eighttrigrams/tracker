@@ -65,7 +65,15 @@
          [task-item/task-category-badges task])]
       (when-not hide-date
         [:span.task-date {:data-tooltip (date/get-day-name (:due_date task))}
-         (date/format-date-localized (:due_date task))])]
+         (date/format-date-localized (:due_date task))])
+      (when (:recurring_task_id task)
+        [:span.recurrence-icon {:on-click (fn [e]
+                                            (.stopPropagation e)
+                                            (swap! state/*app-state assoc
+                                                   :tasks-page/filter-recurring {:id (:recurring_task_id task) :title (:title task)}
+                                                   :tasks-page/recurring-mode false)
+                                            (state/set-active-tab :tasks))}
+         "🔁"])]
      (when is-expanded
        [today-task-expanded-details task :show-unlink? show-unlink?])]))
 
@@ -150,7 +158,15 @@
               [:span.tag.project (filters/badge-label project)])]))]
       (when-not hide-date
         [:span.task-date {:data-tooltip (date/get-day-name (:start_date meet))}
-         (date/format-date-localized (:start_date meet))])]
+         (date/format-date-localized (:start_date meet))])
+      (when (:meeting_series_id meet)
+        [:span.recurrence-icon {:on-click (fn [e]
+                                            (.stopPropagation e)
+                                            (swap! state/*app-state assoc
+                                                   :meets-page/filter-series {:id (:meeting_series_id meet) :title (:title meet)}
+                                                   :meets-page/series-mode false)
+                                            (state/set-active-tab :meets))}
+         "🔁"])]
      (when is-expanded
        [today-meet-expanded-details meet])]))
 

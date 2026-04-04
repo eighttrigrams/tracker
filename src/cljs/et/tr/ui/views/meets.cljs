@@ -129,7 +129,12 @@
         [:span.due-date {:data-tooltip (date/get-day-name (:start_date meet))}
          (str (date/format-date-localized (:start_date meet))
               (when (seq (:start_time meet))
-                (str " - " (:start_time meet))))])]]))
+                (str " - " (:start_time meet))))])
+      (when (and (:meeting_series_id meet) (not= (:id (state/series-filter)) (:meeting_series_id meet)))
+        [:span.recurrence-icon {:on-click (fn [e]
+                                            (.stopPropagation e)
+                                            (state/set-series-filter {:id (:meeting_series_id meet) :title (:title meet)}))}
+         "🔁"])]]))
 
 (defn- meet-categories-readonly [meet]
   [:div.item-tags-readonly

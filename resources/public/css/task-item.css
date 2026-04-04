@@ -254,6 +254,8 @@
 .series-mode-toggle { margin-left: 12px; }
 .series-filter-btn { background: none; border: none; cursor: pointer; font-size: 1.1em; padding: 2px 6px; color: var(--primary-blue, #007bff); opacity: 0.7; margin-left: auto; }
 .series-filter-btn:hover { opacity: 1; }
+.recurrence-icon { background: none; border: none; cursor: pointer; font-size: 0.85em; padding: 0 4px; opacity: 0.6; }
+.recurrence-icon:hover { opacity: 1; }
 .send-to-day-wrapper { position: relative; }
 .link-today-btn { background: none; border: none; cursor: pointer; font-size: 1.1em; padding: 2px 6px; color: var(--primary-blue, #007bff); opacity: 0.7; }
 .link-today-btn:hover { opacity: 1; }

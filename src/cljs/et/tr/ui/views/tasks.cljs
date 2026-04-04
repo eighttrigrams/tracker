@@ -252,6 +252,11 @@
 
       (and (not done-mode?) (not is-expanded) (:lined_up_for task))
       [:span.assigned-day (date/get-day-label (:lined_up_for task))])
+    (when (and (:recurring_task_id task) (not= (:id (state/recurring-filter)) (:recurring_task_id task)))
+      [:span.recurrence-icon {:on-click (fn [e]
+                                          (.stopPropagation e)
+                                          (state/set-recurring-filter {:id (:recurring_task_id task) :title (:title task)}))}
+       "🔁"])
     (when (and (not done-mode?) (not due-date-mode?) (not manual-mode?))
       [:span {:data-tooltip (some-> (:modified_at task) (.substring 0 10) date/get-day-name)}
        (date/format-datetime-localized (:modified_at task))])]])

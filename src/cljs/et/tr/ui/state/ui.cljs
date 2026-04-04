@@ -12,14 +12,16 @@
   ([app-state]
    (tasks-fetch-opts app-state (:work-private-mode @app-state) (:strict-mode @app-state)))
   ([app-state context strict]
-   {:search-term (:tasks-page/filter-search @app-state)
-    :importance (:tasks-page/importance-filter @app-state)
-    :context context
-    :strict strict
-    :filter-people (:shared/filter-people @app-state)
-    :filter-places (:shared/filter-places @app-state)
-    :filter-projects (:shared/filter-projects @app-state)
-    :filter-goals (:tasks-page/filter-goals @app-state)}))
+   (cond-> {:search-term (:tasks-page/filter-search @app-state)
+            :importance (:tasks-page/importance-filter @app-state)
+            :context context
+            :strict strict
+            :filter-people (:shared/filter-people @app-state)
+            :filter-places (:shared/filter-places @app-state)
+            :filter-projects (:shared/filter-projects @app-state)
+            :filter-goals (:tasks-page/filter-goals @app-state)}
+     (:tasks-page/filter-recurring @app-state)
+     (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state))))))
 
 (defn- today-fetch-opts
   ([app-state]
