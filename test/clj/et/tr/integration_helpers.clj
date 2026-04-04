@@ -32,10 +32,11 @@
       (let [user (db.user/create-user conn "test-user" "testpass")]
         (jdbc/execute-one! (db/get-conn conn)
           (sql/format {:update :users :set {:has_mail 1} :where [:= :id (:id user)]}))
-        (binding [*app* (make-app)
-                  *ds* conn
-                  *user-id* (:id user)]
-          (f)))
+        (with-redefs [common/prod-mode? (constantly false)]
+          (binding [*app* (make-app)
+                    *ds* conn
+                    *user-id* (:id user)]
+            (f))))
       (finally
         (reset! common/ds nil)
         (reset! common/*config nil)

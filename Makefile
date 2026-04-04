@@ -15,7 +15,11 @@ build:
 	clj -T:build uber
 
 test:
+ifdef NS
+	DEV=true clojure -M:test -n $(NS)
+else
 	DEV=true clj -X:test
+endif
 
 e2e:
 	./scripts/stop.sh && npx shadow-cljs release app && npx bddgen && npx playwright test

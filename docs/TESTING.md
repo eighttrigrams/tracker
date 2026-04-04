@@ -8,6 +8,12 @@ make test
 
 Runs the Clojure test suite via `clj -X:test`.
 
+To run a single test namespace:
+
+```bash
+make test NS=et.tr.scheduling-test
+```
+
 ## E2E Tests
 
 E2E tests use [Playwright](https://playwright.dev/) with [playwright-bdd](https://github.com/vitalets/playwright-bdd) for BDD-style Gherkin syntax.
