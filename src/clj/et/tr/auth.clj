@@ -3,9 +3,7 @@
             [clojure.string :as str]))
 
 (defn jwt-secret []
-  (or (System/getenv "ADMIN_PASSWORD")
-      (when (= "true" (System/getenv "DEV")) "dev-secret")
-      (throw (ex-info "ADMIN_PASSWORD env var is required" {}))))
+  (or (System/getenv "ADMIN_PASSWORD") "dev-secret"))
 
 (defn create-token [user-id username is-admin has-mail]
   (jwt/sign {:user-id user-id :username username :is-admin is-admin :has-mail has-mail} (jwt-secret)))
