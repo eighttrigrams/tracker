@@ -16,7 +16,7 @@
             [et.tr.export :as export]
             [et.tr.worker :as worker]
             [et.tr.db.category :as db.category]
-            [et.tr.middleware.rate-limit :refer [wrap-rate-limit]]
+            [et.tr.middleware.rate-limit :as rate-limit :refer [wrap-rate-limit]]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.string :as str]
@@ -73,6 +73,7 @@
   (if (common/prod-mode?)
     {:status 403 :body {:error "Not available in production"}}
     (do (db/reset-all-data! (common/ensure-ds))
+        (rate-limit/reset-rate-limit!)
         {:status 200 :body {:success true}})))
 
 (defn- serve-index [_]
