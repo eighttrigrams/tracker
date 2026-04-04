@@ -324,86 +324,72 @@
         rows
         (mapv :due_date rows)))))
 
+(defn- query-existing-due-dates [conn rtask-id today-expr]
+  (set (map :due_date
+         (jdbc/execute! conn
+           (sql/format {:select-distinct [:due_date]
+                        :from [:tasks]
+                        :where [:and
+                                [:= :recurring_task_id rtask-id]
+                                [:!= :due_date nil]
+                                [:>= :due_date today-expr]]})
+           db/jdbc-opts))))
+
+(defn- query-today-type-state [conn rtask-id today-expr]
+  (let [has-active? (some? (jdbc/execute-one! conn
+                             (sql/format {:select [1]
+                                          :from [:tasks]
+                                          :where [:and
+                                                  [:= :recurring_task_id rtask-id]
+                                                  [:or [:= :today 1]
+                                                       [:and [:!= :lined_up_for nil]
+                                                             [:>= :lined_up_for today-expr]]]
+                                                  [:= :done 0]]
+                                          :limit 1})
+                             db/jdbc-opts))
+        done-today? (some? (jdbc/execute-one! conn
+                             (sql/format {:select [1]
+                                          :from [:tasks]
+                                          :where [:and
+                                                  [:= :recurring_task_id rtask-id]
+                                                  [:or [:= :today 1] [:!= :lined_up_for nil]]
+                                                  [:= :done 1]
+                                                  [:= [:raw "date(tasks.done_at,'localtime')"] today-expr]]
+                                          :limit 1})
+                             db/jdbc-opts))]
+    {:has-active? has-active? :done-today? done-today?}))
+
 (defn auto-create-tasks
   ([ds user-id] (auto-create-tasks ds user-id {}))
-  ([ds user-id {:keys [short-circuit?] :or {short-circuit? false}}]
+  ([ds user-id _opts]
    (let [conn (db/get-conn ds)
          today-expr [:raw "date('now','localtime')"]
-         has-today-task-due {:select [1]
-                             :from [:tasks]
-                             :where [:and
-                                     [:= :tasks.recurring_task_id :recurring_tasks.id]
-                                     [:= :tasks.due_date today-expr]
-                                     [:= :tasks.done 0]]
-                             :limit 1}
-         has-future-task-due {:select [1]
-                              :from [:tasks]
-                              :where [:and
-                                      [:= :tasks.recurring_task_id :recurring_tasks.id]
-                                      [:> :tasks.due_date today-expr]
-                                      [:= :tasks.done 0]]
-                              :limit 1}
-         has-active-today-task {:select [1]
-                                :from [:tasks]
-                                :where [:and
-                                        [:= :tasks.recurring_task_id :recurring_tasks.id]
-                                        [:= :tasks.today 1]
-                                        [:= :tasks.done 0]]
-                                :limit 1}
-         has-archived-today-task {:select [1]
-                                  :from [:tasks]
-                                  :where [:and
-                                          [:= :tasks.recurring_task_id :recurring_tasks.id]
-                                          [:= :tasks.today 1]
-                                          [:= :tasks.done 1]
-                                          [:= [:raw "date(tasks.modified_at,'localtime')"] today-expr]]
-                                  :limit 1}
-         has-today-task-expr [:case
-                              [:= :recurring_tasks.task_type "today"]
-                              [:or [:exists has-active-today-task] [:exists has-archived-today-task]]
-                              :else
-                              [:exists has-today-task-due]]
-         has-future-task-expr [:case
-                               [:= :recurring_tasks.task_type "today"]
-                               [:or [:exists has-active-today-task] [:exists has-archived-today-task]]
-                               :else
-                               [:exists has-future-task-due]]
          all-rtasks (jdbc/execute! conn
-                      (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type
-                                            [has-today-task-expr :has_today_task]
-                                            [has-future-task-expr :has_future_task]]
+                      (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type]
                                    :from [:recurring_tasks]
                                    :where [:and
                                            (db/user-id-where-clause user-id)
                                            [:!= :schedule_days ""]]})
                       db/jdbc-opts)
-         all-rtasks (mapv (fn [rt]
-                            (-> rt
-                                (update :has_today_task #(= 1 %))
-                                (update :has_future_task #(= 1 %))))
-                          all-rtasks)
          today (LocalDate/now)
+         today-str (str today)
          created (atom [])]
-     (doseq [{:keys [id schedule_days schedule_time schedule_mode biweekly_offset task_type has_today_task has_future_task]} all-rtasks]
+     (doseq [{:keys [id schedule_days schedule_time schedule_mode biweekly_offset task_type]} all-rtasks]
        (let [mode (or schedule_mode "weekly")
              schedule-days-set (set (str/split schedule_days #","))
              today-type? (= "today" task_type)
-             created-today? (atom false)]
-         (when (and (not has_today_task)
-                    (scheduling/is-today-scheduled? mode schedule-days-set biweekly_offset today))
-           (let [today-day (.getValue (.getDayOfWeek today))
+             scheduled-dates (scheduling/scheduled-dates-from mode schedule-days-set biweekly_offset today 10)
+             dates-to-create (if today-type?
+                               (let [{:keys [has-active? done-today?]} (query-today-type-state conn id today-expr)]
+                                 (when-let [d (scheduling/next-item-to-create today-str scheduled-dates has-active? done-today?)]
+                                   [d]))
+                               (let [existing (query-existing-due-dates conn id today-expr)]
+                                 (scheduling/items-to-create today-str scheduled-dates existing)))]
+         (doseq [date dates-to-create]
+           (let [d (LocalDate/parse date)
+                 day-num (.getValue (.getDayOfWeek d))
                  time (when-not today-type?
-                        (scheduling/get-schedule-time-for-day schedule_time today-day))]
-             (when-let [task (create-task-for-recurring ds user-id id (str today) time)]
-               (swap! created conj task)
-               (reset! created-today? true))))
-         (when (and (not today-type?)
-                    (not has_future_task)
-                    (not (and short-circuit? @created-today?)))
-           (when-let [{:keys [date day-num]} (scheduling/next-scheduled-date mode schedule-days-set schedule_time biweekly_offset (.plusDays today 1))]
-             (let [time (if day-num
-                          (scheduling/get-schedule-time-for-day schedule_time day-num)
-                          schedule_time)]
-               (when-let [task (create-task-for-recurring ds user-id id date time)]
-                 (swap! created conj task)))))))
+                        (scheduling/get-schedule-time-for-day schedule_time day-num))]
+             (when-let [task (create-task-for-recurring ds user-id id date time)]
+               (swap! created conj task))))))
      @created)))

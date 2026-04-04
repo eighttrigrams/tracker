@@ -293,7 +293,7 @@
                                                   [:>= :start_date today-expr]]})
                              db/jdbc-opts)
              existing-dates (set (map :start_date existing-rows))
-             dates-to-create (scheduling/meets-to-create today-str scheduled-dates existing-dates)]
+             dates-to-create (scheduling/items-to-create today-str scheduled-dates existing-dates)]
          (doseq [date dates-to-create]
            (let [d (LocalDate/parse date)
                  day-num (.getValue (.getDayOfWeek d))

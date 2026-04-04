@@ -5,9 +5,9 @@
 (defn add-days [date-str days]
   (str (.plusDays (LocalDate/parse date-str) days)))
 
-(defn meets-to-create
-  [today scheduled-dates existing-meet-dates]
-  (let [existing (set existing-meet-dates)
+(defn items-to-create
+  [today scheduled-dates existing-dates]
+  (let [existing (set existing-dates)
         today+4 (add-days today 4)
         tomorrow (add-days today 1)
         has-meet-beyond-window? (some #(pos? (compare % today+4)) existing)
@@ -41,6 +41,13 @@
             to-fill (filterv #(not (contains? existing %)) to-fill)]
         (vec (sort (cond-> to-fill
                      create-today? (conj today))))))))
+
+(defn next-item-to-create
+  [today scheduled-dates has-active-item? done-today?]
+  (cond
+    has-active-item? nil
+    done-today? (first (filter #(pos? (compare % today)) scheduled-dates))
+    :else (first scheduled-dates)))
 
 (defn get-schedule-time-for-day [schedule-time day-num]
   (if (and (some? schedule-time) (str/includes? schedule-time "="))

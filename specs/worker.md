@@ -30,3 +30,24 @@ one for Today+3 and one for Today+4.
 
 If there is only one Meet scheduled between Today - Today+4 (inclusive), make sure that is created, whatever it is.
 And then create one additional Meet after Today+4.
+
+## Recurring Tasks
+
+There are two types of Recurring Tasks
+1. Those with a Due Date
+2. Those without a Due Date
+
+### Recurring Tasks with Due Date
+
+Recurring Tasks with Due Dates function the according to the same rules as creation of Meets from Meeting Series.
+Importantly, to determine which dates are already "taken", we consider both Tasks not marked as done as well as those marked as done.
+
+### Recurring Tasks without Due Date
+
+These work differently. Only one next Task gets created. If Today is scheduled, but no Tasks exists yet, then create it, otherwise
+create the next one, whenever that is according to schedule. But only if no Task exists starting from Today, including Today. We don't care
+about Tasks marked as done here. Our general rule is that only one of that kind should be upcoming. 
+
+One important note here though, to prevent recreation of the same task over and over again today. Tasks have a date to mark *when* we have
+marked them as done. If an item exists of the series, which has been marked as done **today**, ignore that one Task 
+(or all such Tasks of the series marked as today done) and create another for after Today.
