@@ -35,7 +35,7 @@
 
 (deftest items-to-create-fill-after-last-existing
   (testing "spec example: every day scheduled, only Today+2 exists -> create Today+3 and Today+4"
-    (is (= [today today+3 today+4]
+    (is (= [today+3 today+4]
            (scheduling/items-to-create today
              [today tomorrow today+2 today+3 today+4 today+5]
              #{today+2})))))
@@ -93,6 +93,13 @@
            (scheduling/items-to-create today
              [today tomorrow today+2]
              #{today tomorrow})))))
+
+(deftest items-to-create-today-deleted-future-exists
+  (testing "today deleted by user, future meets exist -> don't recreate today"
+    (is (= [today+4]
+           (scheduling/items-to-create today
+             [today tomorrow today+2 today+3 today+4 today+5]
+             #{tomorrow today+2 today+3})))))
 
 ;; ── next-item-to-create (Recurring Tasks without Due Date) ──
 

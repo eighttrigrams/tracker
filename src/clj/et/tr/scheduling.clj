@@ -40,7 +40,7 @@
                       future-scheduled)
             to-fill (filterv #(not (contains? existing %)) to-fill)]
         (vec (sort (cond-> to-fill
-                     create-today? (conj today))))))))
+                     (and create-today? (empty? existing-in-future)) (conj today))))))))
 
 (defn next-item-to-create
   [today scheduled-dates has-active-item? done-today?]

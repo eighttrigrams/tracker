@@ -19,14 +19,13 @@ which are tracked by the :today and the :lined_up_for properties.
 
 If there already exists a Meet after Today+4 for the Meeting Series, do nothing.
 
-If there is a Meet scheduled for Today but no Meet exist, create that.
-
 And now two mutually exclusive cases where Meet creation can happen.
 
 If there is another Meet scheduled between Tomorrow and Today+4 (inclusive) but there are Meets missing,
 create them, but only for those days after the last day for which they do exist. That is, if our schedule
-says every day should be a meet, but only for Today+2 exists one, ignore everything before that and create 
-one for Today+3 and one for Today+4.
+says every day should be a meet, but only for Today+2 exists one, ignore everything before that and create
+one for Today+3 and one for Today+4. If Today is also scheduled but missing, only create it if there are
+no existing Meets between Tomorrow and Today+4.
 
 If there is only one Meet scheduled between Today - Today+4 (inclusive), make sure that is created, whatever it is.
 And then create one additional Meet after Today+4.
