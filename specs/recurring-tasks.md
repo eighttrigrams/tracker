@@ -37,5 +37,4 @@ to be created today.
 
 ## Automatic next meeting creation
 
-Every hour a process runs which checks whether a future (or today, in case one doesn't exist for today but should, according to schedule) Task exists
-with a due date according to schedule. If not, it creates **one**.
+See specs/worker.md

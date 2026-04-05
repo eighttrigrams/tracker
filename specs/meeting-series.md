@@ -29,24 +29,6 @@ There are two more modes. Both work exclusively with the setting that the time i
 - One mode lets you choose a day of the month (up to day 28)
 - One mode lets you choose a day of the week, and then runs that on a bi-weekly schedule
 
-## Creating new Meetings for Meeting series
-
-In the card for the Meeting Series item, in the buttom left, always visible (not on hover like usually), there is a blue box
-button which reads "Create next Meeting". Pressing it creates another Meeting for the series, based on the schedule. The button
-is unavailable by default, visible but grayed out; we show the rules for when it is available below.
-
-There are rules for this. First of all we start with the assumption that there can only be at most one Meeting per day for any
-given Meeting Series.
-
-When another Meeting for that series exists for today, and no other future Meeting exists, then the button is shown, and when pressing
-that button will create the next meeting - based on our schedule.
-
-When no Meeting for that series exists for today, and no other future Meeting exists, 
-- and the schedule happens to say that on the day of the week that is today a meeting should happen, then the button is visible and lets us create Today's meeting.
-- and today is not a scheduled day, then the button lets us create the next upcoming scheduled meeting.
-
-When the button is grayed out, on hoover it should give an explanation as to why it is grayed out.
-
 ## Meets page behaviour
 
 Once a time series has been created, and we are on the Meets page in "Series" mode, each Series card has a filter button, always visible, in its heading line, in the right corner.
@@ -69,6 +51,4 @@ marks the Meet as "done for the day" i.e. it will already be shown on the Meets 
 
 ## Automatic next meeting creation
 
-When visiting the Meets page, it should detect Meeting series with non-existing next Meetings and create these accordingly. 
-When for a Meeting Series no Meet exists for today, and per schedule one should exist, then create that (and show immediately).
-Whether or not for a Meeting series exists a Meeting for today, and there exists no Meeting yet for a future day, create one for the next scheduled date (and time).
+See specs/worker.md
