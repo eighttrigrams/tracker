@@ -43,9 +43,8 @@ Importantly, to determine which dates are already "taken", we consider both Task
 
 ### Recurring Tasks without Due Date
 
-These work differently. Only one next Task gets created. If Today is scheduled, but no Tasks exists yet, then create it, otherwise
-create the next one, whenever that is according to schedule, but only if it is between Today and Today+4 (inclusive).
+These work differently. At most one upcoming Task gets created per series, and only if its scheduled date falls within a **Today to Today+4** window (inclusive).
 
-One important note here though, to prevent recreation of the same task over and over again today. Tasks have a date to mark *when* we have
-marked them as done. If an item exists of the series, which has been marked as done **today**, ignore that one Task 
-(or all such Tasks of the series marked as today done) and create another for after Today (up to maximum Today+4, inclusive).
+- If no undone Task of the series exists from Today onward, create the next scheduled one (within the window).
+- If an undone Task already exists, do nothing.
+- **Done-today exception:** If all existing Tasks of the series were marked as done *today*, treat the series as having no active Task and create the next one after Today (still within the Today+4 window). This prevents the worker from re-creating the same task repeatedly on the same day.
