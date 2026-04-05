@@ -223,24 +223,30 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to merge messages")))))
 
 (defn convert-message-to-resource [app-state auth-headers message-id link]
-  (api/post-json (str "/api/messages/" message-id "/convert-to-resource")
-    {:link link}
-    (auth-headers)
-    (fn [_]
-      (swap! *mail-page-state assoc :message-dropdown-open nil)
-      (fetch-messages app-state auth-headers))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to resource")))))
+  (let [clear-filters? (and (has-positive-filter?)
+                            (<= (count (:messages @app-state)) 1))]
+    (api/post-json (str "/api/messages/" message-id "/convert-to-resource")
+      {:link link}
+      (auth-headers)
+      (fn [_]
+        (swap! *mail-page-state assoc :message-dropdown-open nil)
+        (when clear-filters? (clear-positive-filters!))
+        (fetch-messages app-state auth-headers))
+      (fn [resp]
+        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to resource"))))))
 
 (defn convert-message-to-task [app-state auth-headers message-id]
-  (api/post-json (str "/api/messages/" message-id "/convert-to-task")
-    {}
-    (auth-headers)
-    (fn [_]
-      (swap! *mail-page-state assoc :message-dropdown-open nil)
-      (fetch-messages app-state auth-headers))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to task")))))
+  (let [clear-filters? (and (has-positive-filter?)
+                            (<= (count (:messages @app-state)) 1))]
+    (api/post-json (str "/api/messages/" message-id "/convert-to-task")
+      {}
+      (auth-headers)
+      (fn [_]
+        (swap! *mail-page-state assoc :message-dropdown-open nil)
+        (when clear-filters? (clear-positive-filters!))
+        (fetch-messages app-state auth-headers))
+      (fn [resp]
+        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to task"))))))
 
 (defn set-confirm-delete-all-archived [val]
   (swap! *mail-page-state assoc :confirm-delete-all-archived val))
