@@ -45,9 +45,9 @@
     ]
   },
   "enabledPlugins": {
-    "writing-clojure@claude-stuff": true,
-    "architecture@claude-stuff": true,
-    "tools@claude-stuff": true
+    "writing-clojure@eighttrigrams": true,
+    "architecture@eighttrigrams": true,
+    "tools@eighttrigrams": true
   },
   "extraKnownMarketplaces": {
     "claude-stuff": {
