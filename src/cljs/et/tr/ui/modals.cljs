@@ -15,9 +15,40 @@
             [et.tr.ui.date :as date]
             ["marked" :refer [marked]]))
 
+(defn- modal-keyboard-shortcut [{:keys [on-confirm enabled?]}]
+  (let [state (atom {:on-confirm on-confirm :enabled? enabled?})]
+    (r/create-class
+     {:display-name "modal-keyboard-shortcut"
+      :component-did-mount
+      (fn [_]
+        (let [handler (fn [e]
+                        (let [{:keys [on-confirm enabled?]} @state]
+                          (when (and enabled?
+                                     (.-metaKey e)
+                                     (if (state/vim-keys?)
+                                       (= "Digit9" (.-code e))
+                                       (= "KeyS" (.-code e))))
+                            (.preventDefault e)
+                            (on-confirm))))]
+          (swap! state assoc :handler handler)
+          (.addEventListener js/document "keydown" handler)))
+      :component-did-update
+      (fn [this [_ prev-props]]
+        (let [[_ new-props] (r/argv this)]
+          (swap! state assoc
+                 :on-confirm (:on-confirm new-props)
+                 :enabled? (:enabled? new-props))))
+      :component-will-unmount
+      (fn [_]
+        (when-let [handler (:handler @state)]
+          (.removeEventListener js/document "keydown" handler)))
+      :reagent-render
+      (fn [_] nil)})))
+
 (defn- generic-confirm-modal
   [{:keys [header body-paragraphs on-cancel on-confirm confirm-label]}]
   [:div.modal-overlay
+   [modal-keyboard-shortcut {:on-confirm on-confirm :enabled? true}]
    [:div.modal {:on-click #(.stopPropagation %)}
     [:div.modal-header header]
     [:div.modal-body
@@ -67,6 +98,7 @@
         (let [username (:username user)
               matches? (= @confirmation-input username)]
           [:div.modal-overlay
+           [modal-keyboard-shortcut {:on-confirm #(do (reset! confirmation-input "") (state/delete-user (:id user))) :enabled? matches?}]
            [:div.modal {:on-click #(.stopPropagation %)}
             [:div.modal-header (t :modal/delete-user)]
             [:div.modal-body
@@ -213,6 +245,7 @@
           header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories :recurring-task :modal/add-recurring-task-categories (:meet :meeting-series) :modal/add-meet-categories)
           confirm-key (case type :task :modal/add-task :resource :modal/add-resource :recurring-task :modal/add-recurring-task (:meet :meeting-series) :modal/add-meet)]
       [:div.modal-overlay {:on-click #(state/clear-pending-new-item)}
+       [modal-keyboard-shortcut {:on-confirm #(state/confirm-pending-new-item) :enabled? true}]
        [:div.modal.pending-task-modal {:on-click #(.stopPropagation %)}
         [:div.modal-header (t header-key)]
         [:div.modal-body
@@ -559,6 +592,7 @@
                                     (:resource :journal :journal-entry) :modal/tab-resource
                                     :modal/tab-category)]
               [:div.modal-overlay
+               [modal-keyboard-shortcut {:on-confirm #(edit-modal-save @fields-state) :enabled? true}]
                [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
                 [:div.modal-body
                  [:div.edit-modal-tabs
@@ -636,6 +670,7 @@
               date-taken? (contains? taken @selected-date)
               valid? (and (some? @selected-date) (not date-taken?))]
           [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! error nil) (state/close-create-date-modal))}
+           [modal-keyboard-shortcut {:on-confirm #(do (state/confirm-create-date-modal @selected-date) (reset! selected-date nil) (reset! error nil)) :enabled? valid?}]
            [:div.modal.create-date-modal {:on-click #(.stopPropagation %)}
             [:div.modal-header (t :modal/create-item-header)]
             [:div.modal-body
@@ -682,6 +717,7 @@
               changed? (not= @selected-date (:reminder_date task))
               valid? (or (some? @selected-date) changed?)]
           [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal))}
+           [modal-keyboard-shortcut {:on-confirm #(do (state/set-task-reminder (:id task) @selected-date) (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal)) :enabled? valid?}]
            [:div.modal {:on-click #(.stopPropagation %)}
             [:div.modal-header (t :task/set-reminder)]
             [:div.modal-body
