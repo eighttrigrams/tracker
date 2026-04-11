@@ -413,12 +413,11 @@
      [sidebar-filters]
      [:div.main-content.meets-page
       [:div.tasks-header
-       [:h2 (if series-mode (t :meets/series-heading) (t :meets/heading))]
+       [series-toggle]
        (when-not series-mode
          [importance-filter-toggle])
        (when-not series-mode
-         [sort-mode-toggle])
-       [series-toggle]]
+         [sort-mode-toggle])]
       (cond
         series-mode [series-search-add-form]
         series-filter [series-filter-bar]

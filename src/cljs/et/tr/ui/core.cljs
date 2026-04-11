@@ -143,13 +143,11 @@
              [tasks/sidebar-filters]
              [:div.main-content
               [:div.tasks-header
-               [:h2 {:title (t :tasks/title-tooltip)}
-                (if recurring-mode (t :tasks/recurring-heading) (t :tasks/title))]
+               [tasks/recurring-toggle]
                (when-not recurring-mode
                  [tasks/importance-filter-toggle])
                (when-not recurring-mode
-                 [tasks/sort-mode-toggle])
-               [tasks/recurring-toggle]]
+                 [tasks/sort-mode-toggle])]
               (cond
                 recurring-mode
                 [:<>

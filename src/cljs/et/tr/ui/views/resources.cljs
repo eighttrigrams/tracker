@@ -297,7 +297,6 @@
      [sidebar-filters]
      [:div.main-content.resources-page
       [:div.tasks-header
-       [:h2 (t :nav/resources)]
        [importance-filter-toggle]
        [sort-mode-toggle]]
       [search-add-form]
