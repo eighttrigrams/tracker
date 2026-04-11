@@ -55,16 +55,6 @@
                                        "Invalid scope. Must be 'private', 'both', or 'work'"
                                        {:entity-type :journal :set-fn db.journal/set-journal-field}))
 
-(defn set-journal-schedule-type-handler [req]
-  (let [user-id (common/get-user-id req)
-        journal-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [schedule-type]} (:body req)]
-    (if-not (#{"daily" "weekly"} schedule-type)
-      {:status 400 :body {:error "Invalid schedule type. Must be 'daily' or 'weekly'"}}
-      (if-let [result (db.journal/set-journal-schedule-type (common/ensure-ds) user-id journal-id schedule-type)]
-        {:status 200 :body result}
-        {:status 404 :body {:error "Journal not found"}}))))
-
 (defn create-entry-handler [req]
   (let [user-id (common/get-user-id req)
         journal-id (Integer/parseInt (get-in req [:params :id]))

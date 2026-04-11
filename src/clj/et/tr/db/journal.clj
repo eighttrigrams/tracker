@@ -2,7 +2,6 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
-            [clojure.string :as str]
             [et.tr.db :as db])
   (:import [java.time LocalDate DayOfWeek]
            [java.time.temporal TemporalAdjusters]))
@@ -140,16 +139,6 @@
                          :modified_at [:raw "datetime('now')"]}
                    :where [:and [:= :id journal-id] (db/user-id-where-clause user-id)]
                    :returning [:id field :modified_at]})
-      db/jdbc-opts)))
-
-(defn set-journal-schedule-type [ds user-id journal-id schedule-type]
-  (let [valid-type (if (#{"daily" "weekly"} schedule-type) schedule-type "daily")]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :journals
-                   :set {:schedule_type valid-type
-                         :modified_at [:raw "datetime('now')"]}
-                   :where [:and [:= :id journal-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :schedule_type :modified_at]})
       db/jdbc-opts)))
 
 (defn categorize-journal [ds user-id journal-id category-type category-id]

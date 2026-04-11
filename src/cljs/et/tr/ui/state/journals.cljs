@@ -95,20 +95,6 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
-(defn set-journal-schedule-type [app-state auth-headers journal-id schedule-type]
-  (api/put-json (str "/api/journals/" journal-id "/schedule-type")
-    {:schedule-type schedule-type}
-    (auth-headers)
-    (fn [result]
-      (swap! app-state update :journals
-             (fn [journals]
-               (mapv #(if (= (:id %) journal-id)
-                        (merge % result)
-                        %)
-                     journals))))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update schedule type")))))
-
 (defn categorize-journal [app-state auth-headers fetch-fn journal-id category-type category-id]
   (api/post-json (str "/api/journals/" journal-id "/categorize")
     {:category-type category-type :category-id category-id}

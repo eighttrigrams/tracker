@@ -646,9 +646,6 @@
 (defn set-journal-scope [journal-id scope]
   (journals-state/set-journal-scope *app-state auth-headers journal-id scope))
 
-(defn set-journal-schedule-type [journal-id schedule-type]
-  (journals-state/set-journal-schedule-type *app-state auth-headers journal-id schedule-type))
-
 (defn set-expanded-journal [id]
   (journals-state/set-expanded-journal id))
 

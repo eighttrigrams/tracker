@@ -268,7 +268,7 @@
                           (state/set-recurring-task-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset @task-type nil))
       :journal (state/update-journal id @title @description @tags state/clear-editing-modal)
       :journal-entry (state/update-journal-entry id @title @description @tags state/clear-editing-modal)
-      :resource (state/update-resource id @title @link @description @tags state/clear-editing-modal)
+      :resource (state/update-resource id @title (when link @link) @description @tags state/clear-editing-modal)
       (let [category-type (subs (name type) 9)
             update-fn (case category-type
                         "person" state/update-person

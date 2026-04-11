@@ -326,18 +326,6 @@
                      (state/set-journal-scope (:id journal) s))}
         s])]))
 
-(defn- journal-schedule-type-selector [journal]
-  (let [schedule-type (or (:schedule_type journal) "daily")]
-    [:div.task-scope-selector.toggle-group.compact
-     (for [[st label] [["daily" (t :journals/daily)] ["weekly" (t :journals/weekly)]]]
-       ^{:key st}
-       [:button.toggle-option
-        {:class (when (= schedule-type st) "active")
-         :on-click (fn [e]
-                     (.stopPropagation e)
-                     (state/set-journal-schedule-type (:id journal) st))}
-        label])]))
-
 (defn- journal-category-selector [journal category-type entities label]
   (let [current-categories (case category-type
                              state/CATEGORY-TYPE-PERSON (:people journal)
@@ -372,7 +360,6 @@
     [journal-category-selector journal state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
    [:div.item-actions
     [journal-scope-selector journal]
-    [journal-schedule-type-selector journal]
     [:div.combined-button-wrapper
      [:button.delete-btn {:on-click #(state/set-confirm-delete-journal journal)}
       (t :task/delete)]]]])
