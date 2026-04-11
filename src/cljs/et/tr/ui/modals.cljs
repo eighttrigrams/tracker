@@ -247,10 +247,10 @@
                       :journal {:title (r/atom (:title entity))
                                 :description (r/atom (or (:description entity) ""))
                                 :tags (r/atom (or (:tags entity) ""))}
-                      :resource {:title (r/atom (:title entity))
-                                 :link (r/atom (:link entity))
-                                 :description (r/atom (or (:description entity) ""))
-                                 :tags (r/atom (or (:tags entity) ""))}
+                      :resource (cond-> {:title (r/atom (:title entity))
+                                        :description (r/atom (or (:description entity) ""))
+                                        :tags (r/atom (or (:tags entity) ""))}
+                                 (seq (:link entity)) (assoc :link (r/atom (:link entity))))
                       {:title (r/atom (:name entity))
                        :description (r/atom (or (:description entity) ""))
                        :tags (r/atom (or (:tags entity) ""))
