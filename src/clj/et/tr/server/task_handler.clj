@@ -133,6 +133,23 @@
       {:status 200 :body result}
       {:status 404 :body {:error "Task not found"}})))
 
+(defn set-reminder-handler [req]
+  (let [user-id (common/get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
+        reminder-date (get-in req [:body :reminder-date])
+        result (db.task/set-task-reminder (common/ensure-ds) user-id task-id reminder-date)]
+    (if result
+      {:status 200 :body result}
+      {:status 404 :body {:error "Task not found"}})))
+
+(defn acknowledge-reminder-handler [req]
+  (let [user-id (common/get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
+        result (db.task/acknowledge-task-reminder (common/ensure-ds) user-id task-id)]
+    (if result
+      {:status 200 :body result}
+      {:status 404 :body {:error "Task not found"}})))
+
 (defn delete-task-handler [req]
   (let [user-id (common/get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))

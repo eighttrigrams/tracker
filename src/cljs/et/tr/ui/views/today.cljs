@@ -73,7 +73,9 @@
                                                    :tasks-page/filter-recurring {:id (:recurring_task_id task) :title (:title task)}
                                                    :tasks-page/recurring-mode false)
                                             (state/set-active-tab :tasks))}
-         "🔁"])]
+         "🔁"])
+      (when (and (not is-expanded) (or (:reminder_date task) (= "active" (:reminder task))))
+        [:span.reminder-icon "🔔"])]
      (when is-expanded
        [today-task-expanded-details task :show-unlink? show-unlink?])]))
 
@@ -549,6 +551,19 @@
       [:h4 "🚨"]
       [urgency-task-list urgent "urgent" drag-enabled?]]]))
 
+(defn- today-reminders-section [reminder-tasks]
+  [:div.today-section.reminders
+   [:h3.reminders-heading (t :today/reminders)
+    (when (seq reminder-tasks)
+      [:span.reminder-indicator])]
+   (if (seq reminder-tasks)
+     [:div.task-list
+      (doall
+       (for [task reminder-tasks]
+         ^{:key (str "task-" (:id task))}
+         [today-task-item task]))]
+     [:p.empty-message (t :today/no-reminders)])])
+
 (defn- today-upcoming-section [upcoming-tasks upcoming-meets]
   (let [items (interleave-by-date upcoming-tasks upcoming-meets)]
     [:div.today-section.upcoming
@@ -567,14 +582,21 @@
        [:p.empty-message (t :today/no-upcoming)])]))
 
 (defn- today-view-switcher []
-  (let [selected-view (:today-page/selected-view @state/*app-state)]
+  (let [selected-view (:today-page/selected-view @state/*app-state)
+        reminder-count (count (state/reminder-tasks))]
     [:div.today-view-switcher.toggle-group
      [:button {:class (when (= selected-view :urgent) "active")
                :on-click #(state/set-today-selected-view :urgent)}
       (t :today/urgent-matters)]
      [:button {:class (when (= selected-view :upcoming) "active")
                :on-click #(state/set-today-selected-view :upcoming)}
-      (t :today/upcoming)]]))
+      (t :today/upcoming)]
+     [:button {:class (str (when (= selected-view :reminders) "active")
+                           (when (and (not= selected-view :reminders) (pos? reminder-count)) " has-reminders"))
+               :on-click #(state/set-today-selected-view :reminders)}
+      (t :today/reminders)
+      (when (and (not= selected-view :reminders) (pos? reminder-count))
+        [:span.reminder-indicator])]]))
 
 (defn- confirm-move-to-today-modal []
   (when-let [{:keys [task target-date]} (:today-page/confirm-move-to-today @state/*app-state)]
@@ -647,6 +669,7 @@
         urgent (state/urgent-tasks)
         upcoming (state/upcoming-tasks)
         upcoming-m (state/upcoming-meets)
+        reminders (state/reminder-tasks)
         selected-view (:today-page/selected-view @state/*app-state)
         journals-mode (state/today-journals-mode?)]
     [:div
@@ -667,4 +690,6 @@
           (when (= selected-view :urgent)
             [today-urgent-section superurgent urgent])
           (when (= selected-view :upcoming)
-            [today-upcoming-section upcoming upcoming-m])])]]]))
+            [today-upcoming-section upcoming upcoming-m])
+          (when (= selected-view :reminders)
+            [today-reminders-section reminders])])]]]))

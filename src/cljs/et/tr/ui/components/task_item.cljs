@@ -119,28 +119,38 @@
      [task-urgency-selector task])])
 
 (defn task-combined-action-button [task & {:keys [extra-dropdown-items]}]
-  [:div.combined-button-wrapper
-   [:button.combined-main-btn
-    {:class (if (state/task-done? task) "undone" "done")
-     :on-click #(if (state/task-done? task)
-                  (state/set-confirm-undone-task task)
-                  (state/set-task-done (:id task) true))}
-    (if (state/task-done? task)
-      (t :task/set-undone)
-      (t :task/mark-done))]
-   [:button.combined-dropdown-btn
-    {:class (if (state/task-done? task) "undone" "done")
-     :on-click #(state/set-task-dropdown-open (:id task))}
-    "▼"]
-   (when (= (:id task) (:task-dropdown-open @state/*app-state))
-     [:div.task-dropdown-menu
-      (when extra-dropdown-items
-        extra-dropdown-items)
-      [:button.dropdown-item
-       {:on-click #(do
-                     (state/set-task-dropdown-open nil)
-                     (state/set-confirm-delete-task task))}
-       (t :task/delete)]])])
+  (if (= "active" (:reminder task))
+    [:div.combined-button-wrapper
+     [:button.combined-main-btn.acknowledge-reminder
+      {:on-click #(state/acknowledge-task-reminder (:id task))}
+      (t :task/acknowledge-reminder)]]
+    [:div.combined-button-wrapper
+     [:button.combined-main-btn
+      {:class (if (state/task-done? task) "undone" "done")
+       :on-click #(if (state/task-done? task)
+                    (state/set-confirm-undone-task task)
+                    (state/set-task-done (:id task) true))}
+      (if (state/task-done? task)
+        (t :task/set-undone)
+        (t :task/mark-done))]
+     [:button.combined-dropdown-btn
+      {:class (if (state/task-done? task) "undone" "done")
+       :on-click #(state/set-task-dropdown-open (:id task))}
+      "▼"]
+     (when (= (:id task) (:task-dropdown-open @state/*app-state))
+       [:div.task-dropdown-menu
+        (when extra-dropdown-items
+          extra-dropdown-items)
+        [:button.dropdown-item.set-reminder
+         {:on-click #(do
+                       (state/set-task-dropdown-open nil)
+                       (state/open-reminder-modal task))}
+         (t :task/set-reminder)]
+        [:button.dropdown-item
+         {:on-click #(do
+                       (state/set-task-dropdown-open nil)
+                       (state/set-confirm-delete-task task))}
+         (t :task/delete)]])]))
 
 (defn- parse-time [time-str]
   (when (seq time-str)

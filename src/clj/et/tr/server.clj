@@ -18,6 +18,9 @@
             [et.tr.export :as export]
             [et.tr.worker :as worker]
             [et.tr.db.category :as db.category]
+            [et.tr.db.task :as db.task]
+            [next.jdbc :as jdbc]
+            [honey.sql :as sql]
             [et.tr.middleware.rate-limit :as rate-limit :refer [wrap-rate-limit]]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
@@ -118,7 +121,9 @@
       (PUT "/:id/importance" [] task-handler/set-task-importance-handler)
       (PUT "/:id/urgency" [] task-handler/set-task-urgency-handler)
       (PUT "/:id/today" [] task-handler/set-task-today-handler)
-      (PUT "/:id/lined-up-for" [] task-handler/set-task-lined-up-for-handler))
+      (PUT "/:id/lined-up-for" [] task-handler/set-task-lined-up-for-handler)
+      (PUT "/:id/reminder" [] task-handler/set-reminder-handler)
+      (PUT "/:id/acknowledge-reminder" [] task-handler/acknowledge-reminder-handler))
 
     (context "/people" []
       (GET "/" [] category-handler/list-people-handler)
@@ -243,7 +248,15 @@
     (DELETE "/:category/:id" [] category-handler/delete-category-handler)
 
     (context "/test" []
-      (POST "/reset" [] reset-test-db-handler))))
+      (POST "/reset" [] reset-test-db-handler)
+      (POST "/activate-reminders" [] (fn [_]
+                                       (if (common/prod-mode?)
+                                         {:status 403 :body {:error "Not available in production"}}
+                                         (do (doseq [user-id (mapv :id (jdbc/execute! (db/get-conn (common/ensure-ds))
+                                                                         (sql/format {:select [:id] :from [:users]})
+                                                                         db/jdbc-opts))]
+                                               (db.task/activate-reminders! (common/ensure-ds) user-id))
+                                             {:status 200 :body {:success true}})))))))
 
 (defroutes app-routes
   api-routes

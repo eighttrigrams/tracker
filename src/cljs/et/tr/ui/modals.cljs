@@ -669,3 +669,43 @@
                                               (reset! selected-date nil)
                                               (reset! error nil))}
               (t :modal/create)]]]])))))
+
+(defn reminder-date-modal []
+  (let [selected-date (r/atom nil)
+        prev-task-id (r/atom nil)]
+    (fn []
+      (when-let [task (:reminder-modal @state/*app-state)]
+        (when (not= (:id task) @prev-task-id)
+          (reset! prev-task-id (:id task))
+          (reset! selected-date (:reminder_date task)))
+        (let [today (today-date-str)
+              changed? (not= @selected-date (:reminder_date task))
+              valid? (or (some? @selected-date) changed?)]
+          [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal))}
+           [:div.modal {:on-click #(.stopPropagation %)}
+            [:div.modal-header (t :task/set-reminder)]
+            [:div.modal-body
+             [:div.create-date-picker
+              [:span.date-picker-wrapper
+               [:input.date-picker-input
+                {:type "date"
+                 :min today
+                 :value (or @selected-date "")
+                 :on-change (fn [e]
+                              (let [v (.. e -target -value)]
+                                (reset! selected-date (when (seq v) v))))}]
+               [:button.calendar-icon
+                {:on-click (fn [e]
+                             (.stopPropagation e)
+                             (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+                "📅"]]
+              (when @selected-date
+                [:p.date-selected-display (date/format-date-with-day @selected-date)])]]
+            [:div.modal-footer
+             [:button.cancel {:on-click #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal))} (t :modal/cancel)]
+             [:button.confirm {:disabled (not valid?)
+                               :on-click #(do (state/set-task-reminder (:id task) @selected-date)
+                                              (reset! selected-date nil)
+                                              (reset! prev-task-id nil)
+                                              (state/close-reminder-modal))}
+              (t :modal/confirm)]]]])))))

@@ -257,6 +257,8 @@
                                           (.stopPropagation e)
                                           (state/set-recurring-filter {:id (:recurring_task_id task) :title (:title task)}))}
        "🔁"])
+    (when (or (:reminder_date task) (= "active" (:reminder task)))
+      [:span.reminder-icon "🔔"])
     (when (and (not done-mode?) (not due-date-mode?) (not manual-mode?))
       [:span {:data-tooltip (some-> (:modified_at task) (.substring 0 10) date/get-day-name)}
        (date/format-datetime-localized (:modified_at task))])]])

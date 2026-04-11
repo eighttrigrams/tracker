@@ -114,6 +114,7 @@
      [modals/pending-item-modal]
      [modals/edit-item-modal]
      [modals/create-date-modal]
+     [modals/reminder-date-modal]
      (cond
        (nil? auth-required?)
        [:div (t :auth/loading)]

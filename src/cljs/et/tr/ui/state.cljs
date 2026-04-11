@@ -1181,6 +1181,18 @@
 (defn set-task-lined-up-for [task-id date]
   (tasks/set-task-lined-up-for *app-state auth-headers fetch-tasks task-id date))
 
+(defn set-task-reminder [task-id reminder-date]
+  (tasks/set-task-reminder *app-state auth-headers task-id reminder-date))
+
+(defn acknowledge-task-reminder [task-id]
+  (tasks/acknowledge-task-reminder *app-state auth-headers task-id))
+
+(defn open-reminder-modal [task]
+  (swap! *app-state assoc :reminder-modal task))
+
+(defn close-reminder-modal []
+  (swap! *app-state dissoc :reminder-modal))
+
 (defn add-task-to-today [title on-success]
   (tasks/add-task *app-state auth-headers current-scope (constantly false) nil title
                   (fn []
@@ -1354,6 +1366,9 @@
 
 (defn upcoming-tasks []
   (today-page/upcoming-tasks *app-state))
+
+(defn reminder-tasks []
+  (today-page/reminder-tasks *app-state))
 
 (defn superurgent-tasks []
   (today-page/superurgent-tasks *app-state))

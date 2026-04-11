@@ -56,6 +56,14 @@
     (catch Exception e
       (tel/log! {:level :error :data {:error (.getMessage e)}} "Lined-up promotion worker failed"))))
 
+(defn run-reminders-check [ds]
+  (tel/log! :info "Reminders worker: check started")
+  (try
+    (doseq [user-id (all-user-ids ds)]
+      (db.task/activate-reminders! ds user-id))
+    (catch Exception e
+      (tel/log! {:level :error :data {:error (.getMessage e)}} "Reminders worker failed"))))
+
 (defn- seconds-until-minute [target-minute]
   (let [now (LocalDateTime/now)
         current-minute (.getMinute now)
@@ -74,7 +82,8 @@
                   (run-meeting-series-check ds)
                   (run-recurring-tasks-check ds)
                   (run-journals-check ds)
-                  (run-lined-up-promotion ds))
+                  (run-lined-up-promotion ds)
+                  (run-reminders-check ds))
       initial-delay
       3600
       TimeUnit/SECONDS)

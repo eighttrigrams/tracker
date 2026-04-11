@@ -266,6 +266,34 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update lined-up-for")))))
 
+(defn set-task-reminder [app-state auth-headers task-id reminder-date]
+  (api/put-json (str "/api/tasks/" task-id "/reminder")
+    {:reminder-date reminder-date}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (merge % (select-keys result [:reminder :reminder_date :modified_at]))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set reminder")))))
+
+(defn acknowledge-task-reminder [app-state auth-headers task-id]
+  (api/put-json (str "/api/tasks/" task-id "/acknowledge-reminder")
+    {}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (merge % (select-keys result [:reminder :reminder_date :modified_at]))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to acknowledge reminder")))))
+
 (defn set-drag-task [app-state task-id]
   (swap! app-state assoc :drag-task task-id))
 

@@ -59,7 +59,7 @@
    :importance normalize-importance
    :urgency normalize-urgency})
 
-(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :done_at :scope :importance :urgency :today :lined_up_for :recurring_task_id])
+(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :done_at :scope :importance :urgency :today :lined_up_for :recurring_task_id :reminder :reminder_date])
 
 (def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance])
 

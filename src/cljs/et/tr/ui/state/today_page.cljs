@@ -109,7 +109,7 @@
   (swap! app-state assoc-in [:today-page/category-search category-key] search-term))
 
 (defn set-today-selected-view [app-state view]
-  (when (#{:urgent :upcoming} view)
+  (when (#{:urgent :upcoming :reminders} view)
     (swap! app-state assoc :today-page/selected-view view)))
 
 (defn set-selected-day [app-state day-offset]
@@ -175,6 +175,11 @@
         (->> (:tasks @app-state)
              (filter #(= (:lined_up_for %) target-date))
              (sort-by :sort_order))))))
+
+(defn reminder-tasks [app-state]
+  (->> (:tasks @app-state)
+       (filter #(= "active" (:reminder %)))
+       (sort-by :modified_at)))
 
 (defn superurgent-tasks [app-state]
   (tasks-by-urgency app-state "superurgent"))

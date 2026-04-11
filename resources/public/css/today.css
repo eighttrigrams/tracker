@@ -236,6 +236,28 @@
   margin: 16px 0;
   margin-left: auto;
 }
+.today-view-switcher button .reminder-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #ff3b30;
+  border-radius: 50%;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+h3.reminders-heading {
+  position: relative;
+  display: inline-block;
+}
+h3.reminders-heading .reminder-indicator {
+  position: absolute;
+  top: -2px;
+  right: -12px;
+  width: 8px;
+  height: 8px;
+  background: #ff3b30;
+  border-radius: 50%;
+}
 .today-section.urgent h3 {
   color: #ff9500;
 }

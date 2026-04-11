@@ -52,6 +52,8 @@
   :today/other-things "Other things"
   :today/no-upcoming "No upcoming items"
   :today/urgent-matters "Urgent Matters"
+  :today/reminders "Reminders"
+  :today/no-reminders "No active reminders"
   :today/no-tasks-in-section "—"
 
   :tasks/title "Tasks"
@@ -78,6 +80,8 @@
 
   :task/mark-done "Mark task done"
   :task/set-undone "Set task undone"
+  :task/set-reminder "Set Reminder"
+  :task/acknowledge-reminder "Acknowledge Reminder"
   :task/delete "Delete"
   :task/unlink-today "Unlink"
   :task/link-today "Show on today page"
@@ -328,6 +332,8 @@
   :today/other-things "Sonstiges"
   :today/no-upcoming "Keine anstehenden Einträge"
   :today/urgent-matters "Dringende Angelegenheiten"
+  :today/reminders "Erinnerungen"
+  :today/no-reminders "Keine aktiven Erinnerungen"
   :today/no-tasks-in-section "—"
 
   :tasks/title "Aufgaben"
@@ -354,6 +360,8 @@
 
   :task/mark-done "Aufgabe erledigen"
   :task/set-undone "Aufgabe wiederherstellen"
+  :task/set-reminder "Erinnerung setzen"
+  :task/acknowledge-reminder "Erinnerung bestätigen"
   :task/delete "Löschen"
   :task/unlink-today "Entfernen"
   :task/link-today "Auf der Heute-Seite anzeigen"
@@ -586,6 +594,8 @@
   :today/other-things "Outras coisas"
   :today/no-upcoming "Sem itens próximos"
   :today/urgent-matters "Assuntos Urgentes"
+  :today/reminders "Lembretes"
+  :today/no-reminders "Sem lembretes ativos"
   :today/no-tasks-in-section "—"
 
   :tasks/title "Tarefas"
@@ -612,6 +622,8 @@
 
   :task/mark-done "Marcar como concluída"
   :task/set-undone "Marcar como não concluída"
+  :task/set-reminder "Definir Lembrete"
+  :task/acknowledge-reminder "Confirmar Lembrete"
   :task/delete "Eliminar"
   :task/unlink-today "Desvincular"
   :task/link-today "Mostrar na página de hoje"

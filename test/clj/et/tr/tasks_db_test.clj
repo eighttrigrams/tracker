@@ -636,3 +636,64 @@
       (db.task/set-task-due-date *ds* *user-id* (:id task1) "2026-03-01")
       (let [tasks (db.task/list-tasks *ds* *user-id* :today {:excluded-places ["NonExistent"] :excluded-projects ["NonExistent"]})]
         (is (some #(= "Unassigned" (:title %)) tasks))))))
+
+(deftest set-task-reminder-test
+  (testing "sets reminder_date on task"
+    (let [task (db.task/add-task *ds* *user-id* "Remind me")
+          result (db.task/set-task-reminder *ds* *user-id* (:id task) "2026-05-01")]
+      (is (= (:id task) (:id result)))
+      (is (= "2026-05-01" (:reminder_date result)))
+      (is (nil? (:reminder result)))
+      (is (some? (:modified_at result)))))
+
+  (testing "retrieved task has reminder_date"
+    (let [task (db.task/add-task *ds* *user-id* "Fetch check")
+          _ (db.task/set-task-reminder *ds* *user-id* (:id task) "2026-06-01")
+          fetched (db.task/get-task *ds* *user-id* (:id task))]
+      (is (= "2026-06-01" (:reminder_date fetched))))))
+
+(deftest acknowledge-task-reminder-test
+  (testing "clears reminder and reminder_date"
+    (let [task (db.task/add-task *ds* *user-id* "Active reminder task")]
+      (db.task/set-task-reminder *ds* *user-id* (:id task) "2026-04-01")
+      (db.task/activate-reminders! *ds* *user-id*)
+      (let [result (db.task/acknowledge-task-reminder *ds* *user-id* (:id task))]
+        (is (= (:id task) (:id result)))
+        (is (nil? (:reminder result)))
+        (is (nil? (:reminder_date result)))
+        (is (some? (:modified_at result)))))))
+
+(deftest activate-reminders-test
+  (testing "activates reminders with past or current date"
+    (let [task (db.task/add-task *ds* *user-id* "Past reminder")]
+      (db.task/set-task-reminder *ds* *user-id* (:id task) "2020-01-01")
+      (db.task/activate-reminders! *ds* *user-id*)
+      (let [fetched (db.task/get-task *ds* *user-id* (:id task))]
+        (is (= "active" (:reminder fetched))))))
+
+  (testing "does not activate reminders with future date"
+    (let [task (db.task/add-task *ds* *user-id* "Future reminder")]
+      (db.task/set-task-reminder *ds* *user-id* (:id task) "2099-12-31")
+      (db.task/activate-reminders! *ds* *user-id*)
+      (let [fetched (db.task/get-task *ds* *user-id* (:id task))]
+        (is (nil? (:reminder fetched))))))
+
+  (testing "does not re-activate already active reminders"
+    (let [task (db.task/add-task *ds* *user-id* "Already active")]
+      (db.task/set-task-reminder *ds* *user-id* (:id task) "2020-01-01")
+      (db.task/activate-reminders! *ds* *user-id*)
+      (let [first-activation (db.task/get-task *ds* *user-id* (:id task))
+            first-modified (:modified_at first-activation)]
+        (Thread/sleep 10)
+        (db.task/activate-reminders! *ds* *user-id*)
+        (let [second-activation (db.task/get-task *ds* *user-id* (:id task))]
+          (is (= "active" (:reminder second-activation)))
+          (is (= first-modified (:modified_at second-activation))))))))
+
+(deftest list-tasks-today-mode-includes-active-reminders-test
+  (testing "today mode includes tasks with active reminders"
+    (let [task (db.task/add-task *ds* *user-id* "Reminder task")]
+      (db.task/set-task-reminder *ds* *user-id* (:id task) "2020-01-01")
+      (db.task/activate-reminders! *ds* *user-id*)
+      (let [tasks (db.task/list-tasks *ds* *user-id* :today)]
+        (is (some #(= "Reminder task" (:title %)) tasks))))))

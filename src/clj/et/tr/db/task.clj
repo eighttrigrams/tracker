@@ -51,7 +51,8 @@
                               [:or [:not= :due_date nil]
                                    [:in :urgency ["urgent" "superurgent"]]
                                    [:= :today 1]
-                                   [:not= :lined_up_for nil]]]
+                                   [:not= :lined_up_for nil]
+                                   [:= :reminder "active"]]]
                       [:and user-where [:= :done 0]])
          search-clause (db/build-search-clause search-term)
          importance-clause (db/build-importance-clause importance)
@@ -277,6 +278,37 @@
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
                    :returning [:id field :modified_at]})
       db/jdbc-opts)))
+
+(defn set-task-reminder [ds user-id task-id reminder-date]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:reminder_date reminder-date
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                 :returning [:id :reminder :reminder_date :modified_at]})
+    db/jdbc-opts))
+
+(defn acknowledge-task-reminder [ds user-id task-id]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:reminder nil
+                       :reminder_date nil
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                 :returning [:id :reminder :reminder_date :modified_at]})
+    db/jdbc-opts))
+
+(defn activate-reminders! [ds user-id]
+  (jdbc/execute! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:reminder "active"
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and
+                         [:not= :reminder_date nil]
+                         [:is :reminder nil]
+                         [:<= :reminder_date [:raw "date('now','localtime')"]]
+                         (db/user-id-where-clause user-id)]})
+    db/jdbc-opts))
 
 (defn convert-message-to-task [ds user-id message-id]
   (let [conn (db/get-conn ds)]
