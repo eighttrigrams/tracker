@@ -13,6 +13,8 @@
             [et.tr.ui.views.meets :as meets]
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
+            [et.tr.ui.state.journals :as journals-state]
+            [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.components.controls :as controls]
             [et.tr.i18n :as i18n :refer [t]]))
 
@@ -82,7 +84,9 @@
       (:confirm-delete-all-archived @mail-state/*mail-page-state)
       (:confirm-delete-resource @state/*app-state)
       (:confirm-delete-meet @state/*app-state)
-      (:confirm-delete-rtask @recurring-tasks-state/*recurring-tasks-page-state)))
+      (:confirm-delete-rtask @recurring-tasks-state/*recurring-tasks-page-state)
+      (:confirm-delete-journal @journals-state/*journals-page-state)
+      (:confirm-delete-entry @journal-entries-state/*journal-entries-page-state)))
 
 (defn- body-scroll-lock []
   (let [modal-open? (any-modal-open?)]
@@ -105,6 +109,8 @@
      [modals/confirm-delete-meet-modal]
      [modals/confirm-delete-meeting-series-modal]
      [modals/confirm-delete-recurring-task-modal]
+     [modals/confirm-delete-journal-modal]
+     [modals/confirm-delete-journal-entry-modal]
      [modals/pending-item-modal]
      [modals/edit-item-modal]
      [modals/create-date-modal]

@@ -600,6 +600,44 @@
                        (swap! state/*app-state assoc :today-page/confirm-move-to-today nil))}
           (t :modal/confirm)]]]])))
 
+(defn- today-journals-toggle []
+  (let [journals-mode (state/today-journals-mode?)]
+    [:div.series-mode-toggle.toggle-group
+     [:button {:class (when journals-mode "active")
+               :on-click #(state/toggle-today-journals-mode)}
+      (t :today/journals)]]))
+
+(defn- today-journal-entry-item [entry]
+  (let [is-expanded (= (:today-page/expanded-journal-entry @state/*app-state) (:id entry))]
+    [:li {:class (when is-expanded "expanded")}
+     [:div.item-header
+      {:on-click #(swap! state/*app-state assoc :today-page/expanded-journal-entry
+                         (when-not is-expanded (:id entry)))}
+      [:div.item-title
+       (:title entry)
+       (when is-expanded
+         [:button.edit-icon {:on-click (fn [e]
+                                         (.stopPropagation e)
+                                         (state/set-editing-modal :journal-entry entry))}
+          "✎"])]
+      [:div.item-date
+       (when (:entry_date entry)
+         [:span.due-date (date/format-date-localized (:entry_date entry))])]]
+     (when is-expanded
+       [:div.today-task-details
+        (when (seq (:description entry))
+          [:div.item-description [task-item/markdown (:description entry)]])])]))
+
+(defn- today-journals-section []
+  (let [entries (:today-journal-entries @state/*app-state)]
+    [:div.today-section
+     (if (empty? entries)
+       [:p.empty-message (t :journals/no-entries)]
+       [:ul.items
+        (for [entry entries]
+          ^{:key (:id entry)}
+          [today-journal-entry-item entry])])]))
+
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
         day-tasks (state/selected-day-tasks)
@@ -609,17 +647,24 @@
         urgent (state/urgent-tasks)
         upcoming (state/upcoming-tasks)
         upcoming-m (state/upcoming-meets)
-        selected-view (:today-page/selected-view @state/*app-state)]
+        selected-view (:today-page/selected-view @state/*app-state)
+        journals-mode (state/today-journals-mode?)]
     [:div
      [confirm-move-to-today-modal]
      [:div.main-layout
       [today-sidebar-filters]
       [:div.main-content.today-content
        [today-overdue-section overdue]
-       [day-selector]
-       [today-today-section day-tasks day-meets today-flagged]
-       [today-view-switcher]
-       (when (= selected-view :urgent)
-         [today-urgent-section superurgent urgent])
-       (when (= selected-view :upcoming)
-         [today-upcoming-section upcoming upcoming-m])]]]))
+       [:div.tasks-header
+        [today-journals-toggle]
+        (when-not journals-mode
+          [day-selector])]
+       (if journals-mode
+         [today-journals-section]
+         [:<>
+          [today-today-section day-tasks day-meets today-flagged]
+          [today-view-switcher]
+          (when (= selected-view :urgent)
+            [today-urgent-section superurgent urgent])
+          (when (= selected-view :upcoming)
+            [today-upcoming-section upcoming upcoming-m])])]]]))

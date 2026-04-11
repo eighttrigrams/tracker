@@ -39,7 +39,7 @@
   (focus-tasks-search)
   (fetch-tasks-fn (tasks-fetch-opts app-state)))
 
-(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-messages fetch-resources fetch-meets is-admin has-mail]}]
+(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-meets is-admin has-mail]}]
   {:tasks (fn []
             (initialize-tasks-page app-state fetch-tasks))
    :today (fn []
@@ -47,7 +47,8 @@
                    :today-page/collapsed-filters #{:places :projects}
                    :sort-mode :today)
             (fetch-tasks (today-fetch-opts app-state))
-            (fetch-today-meets (today-fetch-opts app-state)))
+            (fetch-today-meets (today-fetch-opts app-state))
+            (fetch-today-journal-entries (today-fetch-opts app-state)))
    :mail (fn []
            (when (has-mail)
              (fetch-messages)))
@@ -98,7 +99,7 @@
     :today (today-fetch-opts app-state context strict)
     {:context context :strict strict}))
 
-(defn set-work-private-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn fetch-messages-fn mode]
+(defn set-work-private-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn fetch-messages-fn fetch-today-journal-entries-fn mode]
   (swap! app-state assoc :work-private-mode mode)
   (case (:active-tab @app-state)
     :resources (fetch-resources-fn)
@@ -106,10 +107,11 @@
     :mail (fetch-messages-fn)
     :today (let [opts (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state))]
              (fetch-tasks-fn opts)
-             (fetch-today-meets-fn opts))
+             (fetch-today-meets-fn opts)
+             (fetch-today-journal-entries-fn opts))
     (fetch-tasks-fn (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state)))))
 
-(defn toggle-strict-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn fetch-messages-fn]
+(defn toggle-strict-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn fetch-messages-fn fetch-today-journal-entries-fn]
   (let [new-strict (not (:strict-mode @app-state))]
     (swap! app-state assoc :strict-mode new-strict)
     (case (:active-tab @app-state)
@@ -118,7 +120,8 @@
       :mail (fetch-messages-fn)
       :today (let [opts (fetch-opts-for-current-tab app-state (:work-private-mode @app-state) new-strict)]
                (fetch-tasks-fn opts)
-               (fetch-today-meets-fn opts))
+               (fetch-today-meets-fn opts)
+               (fetch-today-journal-entries-fn opts))
       (fetch-tasks-fn (fetch-opts-for-current-tab app-state (:work-private-mode @app-state) new-strict)))))
 
 (defn toggle-dark-mode [app-state]

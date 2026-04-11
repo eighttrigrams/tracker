@@ -17,6 +17,8 @@
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
+            [et.tr.ui.state.journals :as journals-state]
+            [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.state.relations :as relations-state]
             [et.tr.ui.state.ui :as ui]))
 
@@ -36,7 +38,10 @@
    :meets []
    :meeting-series []
    :recurring-tasks []
+   :journals []
+   :journal-entries []
    :today-meets []
+   :today-journal-entries []
    :upcoming-horizon nil})
 
 (defonce *app-state (r/atom {;; Data collections
@@ -50,6 +55,9 @@
                             :meets []
                             :meeting-series []
                             :recurring-tasks []
+                            :journals []
+                            :journal-entries []
+                            :today-journal-entries []
                             :users []
                             :available-users []
 
@@ -94,6 +102,13 @@
                             ;; Tasks page recurring mode
                             :tasks-page/recurring-mode false
                             :tasks-page/filter-recurring nil
+
+                            ;; Resources page journals mode
+                            :resources-page/journals-mode false
+                            :resources-page/filter-journal nil
+
+                            ;; Today page journals mode
+                            :today-page/journals-mode false
 
                             ;; Meets page state
                             :meets-page/series-mode false
@@ -156,6 +171,7 @@
 (declare fetch-today-meets)
 (declare fetch-messages)
 (declare fetch-resources)
+(declare fetch-resources-or-journals)
 (declare fetch-meets)
 (declare fetch-users)
 (declare fetch-people)
@@ -600,6 +616,148 @@
 (defn add-recurring-task-with-categories [title categories on-success]
   (recurring-tasks-state/add-recurring-task-with-categories *app-state auth-headers fetch-recurring-tasks current-scope title categories on-success))
 
+(declare fetch-journals)
+(declare fetch-journal-entries)
+(declare fetch-today-journal-entries)
+
+(defn- journals-fetch-opts []
+  {:search-term (:filter-search @journals-state/*journals-page-state)
+   :context (:work-private-mode @*app-state)
+   :strict (:strict-mode @*app-state)
+   :filter-people (:shared/filter-people @*app-state)
+   :filter-places (:shared/filter-places @*app-state)
+   :filter-projects (:shared/filter-projects @*app-state)
+   :filter-goals (:resources-page/filter-goals @*app-state)})
+
+(defn fetch-journals
+  ([] (fetch-journals (journals-fetch-opts)))
+  ([opts]
+   (journals-state/fetch-journals *app-state auth-headers opts)))
+
+(defn add-journal [title schedule-type on-success]
+  (journals-state/add-journal *app-state auth-headers current-scope title schedule-type on-success fetch-journals))
+
+(defn update-journal [journal-id title description tags on-success]
+  (journals-state/update-journal *app-state auth-headers journal-id title description tags on-success))
+
+(defn delete-journal [journal-id]
+  (journals-state/delete-journal *app-state auth-headers journal-id))
+
+(defn set-journal-scope [journal-id scope]
+  (journals-state/set-journal-scope *app-state auth-headers journal-id scope))
+
+(defn set-journal-schedule-type [journal-id schedule-type]
+  (journals-state/set-journal-schedule-type *app-state auth-headers journal-id schedule-type))
+
+(defn set-expanded-journal [id]
+  (journals-state/set-expanded-journal id))
+
+(defn set-confirm-delete-journal [journal]
+  (journals-state/set-confirm-delete-journal journal))
+
+(defn clear-confirm-delete-journal []
+  (journals-state/clear-confirm-delete-journal))
+
+(defn set-journal-filter-search [search-term]
+  (journals-state/set-filter-search fetch-journals search-term))
+
+(defn categorize-journal [journal-id category-type category-id]
+  (journals-state/categorize-journal *app-state auth-headers fetch-journals journal-id category-type category-id))
+
+(defn uncategorize-journal [journal-id category-type category-id]
+  (journals-state/uncategorize-journal *app-state auth-headers fetch-journals journal-id category-type category-id))
+
+(defn- journal-entries-fetch-opts []
+  (let [journal-filter (:resources-page/filter-journal @*app-state)]
+    {:sort-mode :added
+     :context (:work-private-mode @*app-state)
+     :strict (:strict-mode @*app-state)
+     :filter-people (:shared/filter-people @*app-state)
+     :filter-places (:shared/filter-places @*app-state)
+     :filter-projects (:shared/filter-projects @*app-state)
+     :filter-goals (:resources-page/filter-goals @*app-state)
+     :journal-id (when journal-filter (:id journal-filter))}))
+
+(defn fetch-journal-entries
+  ([] (fetch-journal-entries (journal-entries-fetch-opts)))
+  ([opts]
+   (journal-entries-state/fetch-journal-entries *app-state auth-headers opts)))
+
+(defn fetch-today-journal-entries
+  ([] (fetch-today-journal-entries {:context (:work-private-mode @*app-state)
+                                    :strict (:strict-mode @*app-state)}))
+  ([opts]
+   (journal-entries-state/fetch-today-journal-entries *app-state auth-headers opts)))
+
+(defn add-journal-entry [title on-success]
+  (journal-entries-state/add-journal-entry *app-state auth-headers current-scope title on-success fetch-journal-entries))
+
+(defn update-journal-entry [entry-id title description tags on-success]
+  (journal-entries-state/update-journal-entry *app-state auth-headers entry-id title description tags on-success))
+
+(defn delete-journal-entry [entry-id]
+  (journal-entries-state/delete-journal-entry *app-state auth-headers entry-id))
+
+(defn set-journal-entry-scope [entry-id scope]
+  (journal-entries-state/set-journal-entry-scope *app-state auth-headers entry-id scope))
+
+(defn set-journal-entry-importance [entry-id importance]
+  (journal-entries-state/set-journal-entry-importance *app-state auth-headers entry-id importance))
+
+(defn set-expanded-journal-entry [id]
+  (journal-entries-state/set-expanded-entry id))
+
+(defn set-confirm-delete-journal-entry [entry]
+  (journal-entries-state/set-confirm-delete-entry entry))
+
+(defn clear-confirm-delete-journal-entry []
+  (journal-entries-state/clear-confirm-delete-entry))
+
+(defn set-journal-entry-filter-search [search-term]
+  (journal-entries-state/set-filter-search fetch-journal-entries search-term))
+
+(defn set-journal-entry-importance-filter [level]
+  (journal-entries-state/set-importance-filter fetch-journal-entries level))
+
+(defn categorize-journal-entry [entry-id category-type category-id]
+  (journal-entries-state/categorize-journal-entry *app-state auth-headers fetch-journal-entries entry-id category-type category-id))
+
+(defn uncategorize-journal-entry [entry-id category-type category-id]
+  (journal-entries-state/uncategorize-journal-entry *app-state auth-headers fetch-journal-entries entry-id category-type category-id))
+
+(defn toggle-journals-mode []
+  (swap! *app-state (fn [s] (-> s
+                                (update :resources-page/journals-mode not)
+                                (assoc :resources-page/filter-journal nil))))
+  (if (:resources-page/journals-mode @*app-state)
+    (fetch-journals)
+    (fetch-resources)))
+
+(defn journals-mode? []
+  (:resources-page/journals-mode @*app-state))
+
+(defn set-journal-filter [journal]
+  (swap! *app-state assoc
+         :resources-page/filter-journal {:id (:id journal) :title (:title journal)}
+         :resources-page/journals-mode false)
+  (fetch-journal-entries))
+
+(defn clear-journal-filter []
+  (swap! *app-state assoc :resources-page/filter-journal nil)
+  (fetch-journal-entries))
+
+(defn journal-filter []
+  (:resources-page/filter-journal @*app-state))
+
+(defn toggle-today-journals-mode []
+  (let [new-mode (not (:today-page/journals-mode @*app-state))]
+    (swap! *app-state assoc :today-page/journals-mode new-mode)
+    (when new-mode
+      (fetch-today-journal-entries))))
+
+(defn today-journals-mode? []
+  (:today-page/journals-mode @*app-state))
+
 (defn toggle-recurring-mode []
   (swap! *app-state (fn [s] (-> s
                                 (update :tasks-page/recurring-mode not)
@@ -738,11 +896,11 @@
 (defn toggle-resources-goal-filter [id]
   (swap! *app-state update :resources-page/filter-goals
          #(if (contains? % id) (disj % id) (conj % id)))
-  (fetch-resources))
+  (fetch-resources-or-journals))
 
 (defn clear-resources-goal-filter []
   (swap! *app-state assoc :resources-page/filter-goals #{})
-  (fetch-resources))
+  (fetch-resources-or-journals))
 
 (defn has-resources-goal-filter? []
   (seq (:resources-page/filter-goals @*app-state)))
@@ -768,7 +926,7 @@
         :tasks (if (:tasks-page/recurring-mode @*app-state)
                  (fetch-recurring-tasks)
                  (fetch-tasks))
-        :resources (fetch-resources)
+        :resources (fetch-resources-or-journals)
         :meets (if (:meets-page/series-mode @*app-state)
                  (fetch-meeting-series)
                  (fetch-meets))
@@ -784,7 +942,7 @@
       :tasks (if (:tasks-page/recurring-mode @*app-state)
                (fetch-recurring-tasks)
                (fetch-tasks))
-      :resources (fetch-resources)
+      :resources (fetch-resources-or-journals)
       :meets (if (:meets-page/series-mode @*app-state)
                (fetch-meeting-series)
                (fetch-meets))
@@ -1214,11 +1372,19 @@
     (fetch-meeting-series)
     (fetch-meets)))
 
+(defn- fetch-resources-or-journals []
+  (if (:resources-page/journals-mode @*app-state)
+    (fetch-journals)
+    (if (:resources-page/filter-journal @*app-state)
+      (fetch-journal-entries)
+      (fetch-resources))))
+
 (def tab-initializers
   (ui/make-tab-initializers *app-state {:fetch-tasks fetch-tasks
                                         :fetch-today-meets fetch-today-meets
+                                        :fetch-today-journal-entries fetch-today-journal-entries
                                         :fetch-messages fetch-messages
-                                        :fetch-resources fetch-resources
+                                        :fetch-resources fetch-resources-or-journals
                                         :fetch-meets fetch-meets-or-series
                                         :is-admin is-admin?
                                         :has-mail has-mail?}))
@@ -1259,10 +1425,10 @@
   (url/push-state! "/"))
 
 (defn set-work-private-mode [mode]
-  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets-or-series fetch-messages mode))
+  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-meets-or-series fetch-messages fetch-today-journal-entries mode))
 
 (defn toggle-strict-mode []
-  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources fetch-meets-or-series fetch-messages))
+  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-meets-or-series fetch-messages fetch-today-journal-entries))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))

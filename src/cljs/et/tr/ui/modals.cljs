@@ -8,6 +8,8 @@
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
+            [et.tr.ui.state.journals :as journals-state]
+            [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.components.cm-textarea :refer [cm-textarea]]
             [et.tr.i18n :refer [t tf]]
             [et.tr.ui.date :as date]
@@ -161,6 +163,26 @@
     :clear-fn state/clear-confirm-delete-rtask
     :delete-fn state/delete-recurring-task}))
 
+(def confirm-delete-journal-modal
+  (make-confirm-delete-modal
+   {:state-atom journals-state/*journals-page-state
+    :state-key :confirm-delete-journal
+    :header-i18n :modal/delete-journal
+    :confirm-i18n :modal/delete-journal-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-journal
+    :delete-fn state/delete-journal}))
+
+(def confirm-delete-journal-entry-modal
+  (make-confirm-delete-modal
+   {:state-atom journal-entries-state/*journal-entries-page-state
+    :state-key :confirm-delete-entry
+    :header-i18n :modal/delete-journal-entry
+    :confirm-i18n :modal/delete-journal-entry-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-journal-entry
+    :delete-fn state/delete-journal-entry}))
+
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable
    {:class (str category-type (when selected? " selected"))
@@ -211,7 +233,7 @@
 
 (defn- edit-modal-fields [{:keys [type entity]}]
   (let [field-atoms (case type
-                      (:task :meet) {:title (r/atom (:title entity))
+                      (:task :meet :journal-entry) {:title (r/atom (:title entity))
                                      :description (r/atom (or (:description entity) ""))
                                      :tags (r/atom (or (:tags entity) ""))}
                       (:meeting-series :recurring-task) {:title (r/atom (:title entity))
@@ -222,6 +244,9 @@
                                        :schedule-mode (r/atom (or (:schedule_mode entity) "weekly"))
                                        :biweekly-offset (r/atom (= 1 (:biweekly_offset entity)))
                                        :task-type (r/atom (or (:task_type entity) "due_date"))}
+                      :journal {:title (r/atom (:title entity))
+                                :description (r/atom (or (:description entity) ""))
+                                :tags (r/atom (or (:tags entity) ""))}
                       :resource {:title (r/atom (:title entity))
                                  :link (r/atom (:link entity))
                                  :description (r/atom (or (:description entity) ""))
@@ -241,6 +266,8 @@
                           (state/set-meeting-series-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset nil))
       :recurring-task (do (state/update-recurring-task id @title @description @tags state/clear-editing-modal)
                           (state/set-recurring-task-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset @task-type nil))
+      :journal (state/update-journal id @title @description @tags state/clear-editing-modal)
+      :journal-entry (state/update-journal-entry id @title @description @tags state/clear-editing-modal)
       :resource (state/update-resource id @title @link @description @tags state/clear-editing-modal)
       (let [category-type (subs (name type) 9)
             update-fn (case category-type
@@ -525,11 +552,11 @@
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
             (reset! active-tab (or tab :edit)))
           (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type]} @fields-state]
-            (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource} type))
+            (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry} type))
                   preview-tab-key (case type
                                     (:task :recurring-task) :modal/tab-task
                                     (:meet :meeting-series) :modal/tab-meet
-                                    :resource :modal/tab-resource
+                                    (:resource :journal :journal-entry) :modal/tab-resource
                                     :modal/tab-category)]
               [:div.modal-overlay
                [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}

@@ -2,6 +2,7 @@
   (:require [et.tr.db :as db]
             [et.tr.db.meeting-series :as db.meeting-series]
             [et.tr.db.recurring-task :as db.recurring-task]
+            [et.tr.db.journal :as db.journal]
             [et.tr.db.task :as db.task]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
@@ -36,6 +37,17 @@
     (catch Exception e
       (tel/log! {:level :error :data {:error (.getMessage e)}} "Recurring tasks worker failed"))))
 
+(defn run-journals-check [ds]
+  (tel/log! :info "Journals worker: check started")
+  (try
+    (doseq [user-id (all-user-ids ds)]
+      (let [created (db.journal/auto-create-journal-entries ds user-id)]
+        (doseq [entry created]
+          (tel/log! {:level :info :data {:entry-id (:id entry) :title (:title entry) :date (:entry_date entry) :user-id user-id}}
+                    "Journals worker: created entry"))))
+    (catch Exception e
+      (tel/log! {:level :error :data {:error (.getMessage e)}} "Journals worker failed"))))
+
 (defn run-lined-up-promotion [ds]
   (tel/log! :info "Lined-up promotion worker: check started")
   (try
@@ -61,6 +73,7 @@
       ^Runnable (fn []
                   (run-meeting-series-check ds)
                   (run-recurring-tasks-check ds)
+                  (run-journals-check ds)
                   (run-lined-up-promotion ds))
       initial-delay
       3600

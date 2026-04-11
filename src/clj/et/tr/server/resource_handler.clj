@@ -34,17 +34,15 @@
       (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
 
-      (str/blank? link)
-      {:status 400 :body {:success false :error "Link is required"}}
-
-      (not (common/valid-url? link))
+      (and (seq link) (not (common/valid-url? link)))
       {:status 400 :body {:success false :error "Invalid URL. Must start with http:// or https://"}}
 
       :else
-      (let [title (if (common/youtube-url? link)
-                    (or (common/fetch-youtube-title link) title)
+      (let [effective-link (when (seq link) link)
+            title (if (and effective-link (common/youtube-url? effective-link))
+                    (or (common/fetch-youtube-title effective-link) title)
                     title)
-            resource (db.resource/add-resource (common/ensure-ds) user-id title link (or scope "both"))]
+            resource (db.resource/add-resource (common/ensure-ds) user-id title effective-link (or scope "both"))]
         {:status 201 :body resource}))))
 
 (defn update-resource-handler [req]
@@ -55,14 +53,12 @@
       (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
 
-      (str/blank? link)
-      {:status 400 :body {:success false :error "Link is required"}}
-
-      (not (common/valid-url? link))
+      (and (seq link) (not (common/valid-url? link)))
       {:status 400 :body {:success false :error "Invalid URL. Must start with http:// or https://"}}
 
       :else
-      (let [resource (db.resource/update-resource (common/ensure-ds) user-id resource-id {:title title :link link :description (or description "") :tags (or tags "")})]
+      (let [effective-link (when (seq link) link)
+            resource (db.resource/update-resource (common/ensure-ds) user-id resource-id {:title title :link effective-link :description (or description "") :tags (or tags "")})]
         {:status 200 :body resource}))))
 
 (defn delete-resource-handler [req]

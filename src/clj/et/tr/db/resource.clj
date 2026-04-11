@@ -55,9 +55,11 @@
          importance-clause (db/build-importance-clause importance)
          scope-clause (db/build-scope-clause context strict)
          domain-clause (when (and domain (seq domain))
-                         [:or
-                          [:like :link (str "%://" domain "/%")]
-                          [:like :link (str "%://www." domain "/%")]])
+                         (if (= domain "Ledger")
+                           [:or [:is :link nil] [:= :link ""]]
+                           [:or
+                            [:like :link (str "%://" domain "/%")]
+                            [:like :link (str "%://www." domain "/%")]]))
          category-clauses (build-resource-category-clauses categories)
          where-clause (into [:and user-where]
                             (concat (filter some? [search-clause importance-clause scope-clause domain-clause])

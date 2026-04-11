@@ -7,6 +7,8 @@
             [et.tr.server.meet-handler :as meet-handler]
             [et.tr.server.meeting-series-handler :as meeting-series-handler]
             [et.tr.server.recurring-task-handler :as recurring-task-handler]
+            [et.tr.server.journal-handler :as journal-handler]
+            [et.tr.server.journal-entry-handler :as journal-entry-handler]
             [et.tr.server.message-handler :as message-handler]
             [et.tr.server.relation-handler :as relation-handler]
             [et.tr.server.user-handler :as user-handler]
@@ -207,6 +209,31 @@
       (PUT "/:id/schedule" [] recurring-task-handler/set-recurring-task-schedule-handler)
       (POST "/:id/create-task" [] recurring-task-handler/create-next-task-handler)
       (GET "/:id/taken-dates" [] recurring-task-handler/get-taken-dates-handler))
+
+    (context "/journals" []
+      (GET "/" [] journal-handler/list-journals-handler)
+      (GET "/:id" [] journal-handler/get-journal-handler)
+      (POST "/" [] journal-handler/add-journal-handler)
+      (PUT "/:id" [] journal-handler/update-journal-handler)
+      (DELETE "/:id" [] journal-handler/delete-journal-handler)
+      (POST "/:id/categorize" [] journal-handler/categorize-journal-handler)
+      (DELETE "/:id/categorize" [] journal-handler/uncategorize-journal-handler)
+      (PUT "/:id/scope" [] journal-handler/set-journal-scope-handler)
+      (PUT "/:id/schedule-type" [] journal-handler/set-journal-schedule-type-handler)
+      (POST "/:id/create-entry" [] journal-handler/create-entry-handler))
+
+    (context "/journal-entries" []
+      (GET "/" [] journal-entry-handler/list-journal-entries-handler)
+      (GET "/today" [] journal-entry-handler/list-today-journal-entries-handler)
+      (GET "/:id" [] journal-entry-handler/get-journal-entry-handler)
+      (POST "/" [] journal-entry-handler/add-journal-entry-handler)
+      (PUT "/:id" [] journal-entry-handler/update-journal-entry-handler)
+      (DELETE "/:id" [] journal-entry-handler/delete-journal-entry-handler)
+      (POST "/:id/categorize" [] journal-entry-handler/categorize-journal-entry-handler)
+      (DELETE "/:id/categorize" [] journal-entry-handler/uncategorize-journal-entry-handler)
+      (POST "/:id/reorder" [] journal-entry-handler/reorder-journal-entry-handler)
+      (PUT "/:id/scope" [] journal-entry-handler/set-journal-entry-scope-handler)
+      (PUT "/:id/importance" [] journal-entry-handler/set-journal-entry-importance-handler))
 
     (context "/relations" []
       (POST "/" [] relation-handler/add-relation-handler)
