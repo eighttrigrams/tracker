@@ -1,5 +1,6 @@
 (ns et.tr.ui.views.meets
-  (:require [et.tr.ui.state :as state]
+  (:require [reagent.core :as r]
+            [et.tr.ui.state :as state]
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.ui.date :as date]
@@ -91,35 +92,36 @@
     :show-clear? true]])
 
 (defn- meet-expanded-view [meet people places projects goals]
-  [:div.item-details
-   (when (seq (:description meet))
-     (let [expanded? (get-in @state/*app-state [:meets-page/description-expanded (:id meet)])]
-       [:<>
-        [:div.item-description
-         {:class (when-not expanded? "clamped")
-          :on-click (fn [e]
-                      (when (.. js/window getSelection -isCollapsed)
-                        (.stopPropagation e)
-                        (state/set-editing-modal :meet meet)))}
-         [task-item/markdown (:description meet)]]
-        (when-not expanded?
-          [:span.see-more
-           {:on-click (fn [e]
-                        (.stopPropagation e)
-                        (swap! state/*app-state assoc-in [:meets-page/description-expanded (:id meet)] true))}
-           "See more"])]))
-   [:div.item-tags
-    [meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
-    [meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
-    [meet-category-selector meet state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-    [meet-category-selector meet state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
-    [relation-badges/relation-badges-expanded (:relations meet) "met" (:id meet)]]
-   [:div.item-actions
-    [meet-scope-selector meet]
-    [meet-importance-selector meet]
-    [:div.combined-button-wrapper
-     [:button.delete-btn {:on-click #(state/set-confirm-delete-meet meet)}
-      (t :task/delete)]]]])
+  (let [desc-expanded? (r/atom false)]
+    (fn [meet people places projects goals]
+      [:div.item-details
+       (when (seq (:description meet))
+         [:<>
+          [:div.item-description
+           {:class (when-not @desc-expanded? "clamped")
+            :on-click (fn [e]
+                        (when (.. js/window getSelection -isCollapsed)
+                          (.stopPropagation e)
+                          (state/set-editing-modal :meet meet)))}
+           [task-item/markdown (:description meet)]]
+          (when-not @desc-expanded?
+            [:span.see-more
+             {:on-click (fn [e]
+                          (.stopPropagation e)
+                          (reset! desc-expanded? true))}
+             "See more"])])
+       [:div.item-tags
+        [meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
+        [meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
+        [meet-category-selector meet state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+        [meet-category-selector meet state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
+        [relation-badges/relation-badges-expanded (:relations meet) "met" (:id meet)]]
+       [:div.item-actions
+        [meet-scope-selector meet]
+        [meet-importance-selector meet]
+        [:div.combined-button-wrapper
+         [:button.delete-btn {:on-click #(state/set-confirm-delete-meet meet)}
+          (t :task/delete)]]]])))
 
 (defn- meet-inline-title-edit [meet]
   (let [value (or (:meets-page/inline-edit-title @state/*app-state) "")]
@@ -348,33 +350,34 @@
       :set-search-fn state/set-category-selector-search}]))
 
 (defn- series-expanded-view [series people places projects goals]
-  [:div.item-details
-   (when (seq (:description series))
-     (let [expanded? (get-in @state/*app-state [:series-page/description-expanded (:id series)])]
-       [:<>
-        [:div.item-description
-         {:class (when-not expanded? "clamped")
-          :on-click (fn [e]
-                      (when (.. js/window getSelection -isCollapsed)
-                        (.stopPropagation e)
-                        (state/set-editing-modal :meeting-series series)))}
-         [task-item/markdown (:description series)]]
-        (when-not expanded?
-          [:span.see-more
-           {:on-click (fn [e]
-                        (.stopPropagation e)
-                        (swap! state/*app-state assoc-in [:series-page/description-expanded (:id series)] true))}
-           "See more"])]))
-   [:div.item-tags
-    [series-category-selector series state/CATEGORY-TYPE-PERSON people (t :category/person)]
-    [series-category-selector series state/CATEGORY-TYPE-PLACE places (t :category/place)]
-    [series-category-selector series state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-    [series-category-selector series state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
-   [:div.item-actions
-    [series-scope-selector series]
-    [:div.combined-button-wrapper
-     [:button.delete-btn {:on-click #(state/set-confirm-delete-series series)}
-      (t :task/delete)]]]])
+  (let [desc-expanded? (r/atom false)]
+    (fn [series people places projects goals]
+      [:div.item-details
+       (when (seq (:description series))
+         [:<>
+          [:div.item-description
+           {:class (when-not @desc-expanded? "clamped")
+            :on-click (fn [e]
+                        (when (.. js/window getSelection -isCollapsed)
+                          (.stopPropagation e)
+                          (state/set-editing-modal :meeting-series series)))}
+           [task-item/markdown (:description series)]]
+          (when-not @desc-expanded?
+            [:span.see-more
+             {:on-click (fn [e]
+                          (.stopPropagation e)
+                          (reset! desc-expanded? true))}
+             "See more"])])
+       [:div.item-tags
+        [series-category-selector series state/CATEGORY-TYPE-PERSON people (t :category/person)]
+        [series-category-selector series state/CATEGORY-TYPE-PLACE places (t :category/place)]
+        [series-category-selector series state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+        [series-category-selector series state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+       [:div.item-actions
+        [series-scope-selector series]
+        [:div.combined-button-wrapper
+         [:button.delete-btn {:on-click #(state/set-confirm-delete-series series)}
+          (t :task/delete)]]]])))
 
 (defn- series-inline-title-edit [series]
   (let [value (or (:series-page/inline-edit-title @state/*app-state) "")]

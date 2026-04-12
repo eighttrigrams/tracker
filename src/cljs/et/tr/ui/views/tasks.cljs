@@ -1,5 +1,6 @@
 (ns et.tr.ui.views.tasks
-  (:require [et.tr.ui.state :as state]
+  (:require [reagent.core :as r]
+            [et.tr.ui.state :as state]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
@@ -193,23 +194,24 @@
          [send-to-day-dropdown task assigned?])])))
 
 (defn- task-expanded-details [task people places projects goals]
-  [:div.item-details
-   (when (seq (:description task))
-     (let [expanded? (get-in @state/*app-state [:tasks-page/description-expanded (:id task)])]
-       [:<>
-        [:div.item-description
-         {:class (when-not expanded? "clamped")
-          :on-click (fn [e]
-                      (when (.. js/window getSelection -isCollapsed)
-                        (.stopPropagation e)
-                        (state/set-editing-modal :task task)))}
-         [task-item/markdown (:description task)]]
-        (when-not expanded?
-          [:span.see-more
-           {:on-click (fn [e]
-                        (.stopPropagation e)
-                        (swap! state/*app-state assoc-in [:tasks-page/description-expanded (:id task)] true))}
-           "See more"])]))
+  (let [desc-expanded? (r/atom false)]
+    (fn [task people places projects goals]
+      [:div.item-details
+       (when (seq (:description task))
+         [:<>
+          [:div.item-description
+           {:class (when-not @desc-expanded? "clamped")
+            :on-click (fn [e]
+                        (when (.. js/window getSelection -isCollapsed)
+                          (.stopPropagation e)
+                          (state/set-editing-modal :task task)))}
+           [task-item/markdown (:description task)]]
+          (when-not @desc-expanded?
+            [:span.see-more
+             {:on-click (fn [e]
+                          (.stopPropagation e)
+                          (reset! desc-expanded? true))}
+             "See more"])])
    [:div.item-tags
     [task-item/category-selector task state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [task-item/category-selector task state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -219,7 +221,7 @@
    [:div.item-actions
     [send-to-day-selector task]
     [task-item/task-attribute-selectors task]
-    [task-item/task-combined-action-button task]]])
+    [task-item/task-combined-action-button task]]])))
 
 (defn- task-inline-title-edit [task]
   (let [value (or (:tasks-page/inline-edit-title @state/*app-state) "")]
@@ -398,33 +400,34 @@
       :set-search-fn state/set-category-selector-search}]))
 
 (defn- rtask-expanded-view [rtask people places projects goals]
-  [:div.item-details
-   (when (seq (:description rtask))
-     (let [expanded? (get-in @state/*app-state [:rtasks-page/description-expanded (:id rtask)])]
-       [:<>
-        [:div.item-description
-         {:class (when-not expanded? "clamped")
-          :on-click (fn [e]
-                      (when (.. js/window getSelection -isCollapsed)
-                        (.stopPropagation e)
-                        (state/set-editing-modal :recurring-task rtask)))}
-         [task-item/markdown (:description rtask)]]
-        (when-not expanded?
-          [:span.see-more
-           {:on-click (fn [e]
-                        (.stopPropagation e)
-                        (swap! state/*app-state assoc-in [:rtasks-page/description-expanded (:id rtask)] true))}
-           "See more"])]))
-   [:div.item-tags
-    [rtask-category-selector rtask state/CATEGORY-TYPE-PERSON people (t :category/person)]
-    [rtask-category-selector rtask state/CATEGORY-TYPE-PLACE places (t :category/place)]
-    [rtask-category-selector rtask state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-    [rtask-category-selector rtask state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
-   [:div.item-actions
-    [rtask-scope-selector rtask]
-    [:div.combined-button-wrapper
-     [:button.delete-btn {:on-click #(state/set-confirm-delete-rtask rtask)}
-      (t :task/delete)]]]])
+  (let [desc-expanded? (r/atom false)]
+    (fn [rtask people places projects goals]
+      [:div.item-details
+       (when (seq (:description rtask))
+         [:<>
+          [:div.item-description
+           {:class (when-not @desc-expanded? "clamped")
+            :on-click (fn [e]
+                        (when (.. js/window getSelection -isCollapsed)
+                          (.stopPropagation e)
+                          (state/set-editing-modal :recurring-task rtask)))}
+           [task-item/markdown (:description rtask)]]
+          (when-not @desc-expanded?
+            [:span.see-more
+             {:on-click (fn [e]
+                          (.stopPropagation e)
+                          (reset! desc-expanded? true))}
+             "See more"])])
+       [:div.item-tags
+        [rtask-category-selector rtask state/CATEGORY-TYPE-PERSON people (t :category/person)]
+        [rtask-category-selector rtask state/CATEGORY-TYPE-PLACE places (t :category/place)]
+        [rtask-category-selector rtask state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+        [rtask-category-selector rtask state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+       [:div.item-actions
+        [rtask-scope-selector rtask]
+        [:div.combined-button-wrapper
+         [:button.delete-btn {:on-click #(state/set-confirm-delete-rtask rtask)}
+          (t :task/delete)]]]])))
 
 (defn- rtask-inline-title-edit [rtask]
   (let [value (or (:rtasks-page/inline-edit-title @state/*app-state) "")]
