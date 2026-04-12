@@ -284,7 +284,7 @@
        :on-change #(state/set-resource-filter-search (-> % .-target .-value))
        :on-key-down (fn [e]
                       (cond
-                        (and (.-altKey e) (= (.-key e) "Enter") (seq input-value))
+                        (and (= (.-key e) "Enter") (seq input-value))
                         (do
                           (.preventDefault e)
                           (add-resource-from-input input-value
@@ -511,7 +511,7 @@
            :on-change #(state/set-journal-filter-search (-> % .-target .-value))
            :on-key-down (fn [e]
                           (cond
-                            (and (.-altKey e) (= (.-key e) "Enter") (seq input-value))
+                            (and (= (.-key e) "Enter") (seq input-value))
                             (do
                               (.preventDefault e)
                               (reset! adding-mode input-value))
@@ -677,7 +677,7 @@
        :on-change #(state/set-journal-entry-filter-search (-> % .-target .-value))
        :on-key-down (fn [e]
                       (cond
-                        (and (.-altKey e) (= (.-key e) "Enter") (seq input-value))
+                        (and (= (.-key e) "Enter") (seq input-value))
                         (do
                           (.preventDefault e)
                           (state/add-journal-entry input-value

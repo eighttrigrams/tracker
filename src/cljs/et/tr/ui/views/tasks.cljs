@@ -33,7 +33,7 @@
 (defn- handle-combined-keys [input-value done-mode?]
   (fn [e]
     (cond
-      (and (.-altKey e) (= (.-key e) "Enter") (not done-mode?))
+      (and (= (.-key e) "Enter") (not done-mode?))
       (handle-add-task-shortcut e input-value)
 
       (= (.-key e) "Escape")

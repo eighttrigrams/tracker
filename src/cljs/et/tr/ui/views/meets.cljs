@@ -241,7 +241,7 @@
        :on-change #(state/set-meet-filter-search (-> % .-target .-value))
        :on-key-down (fn [e]
                       (cond
-                        (and (.-altKey e) (= (.-key e) "Enter") (seq input-value))
+                        (and (= (.-key e) "Enter") (seq input-value))
                         (do
                           (.preventDefault e)
                           (state/add-meet input-value
@@ -470,7 +470,7 @@
        :on-change #(state/set-meeting-series-filter-search (-> % .-target .-value))
        :on-key-down (fn [e]
                       (cond
-                        (and (.-altKey e) (= (.-key e) "Enter") (seq input-value))
+                        (and (= (.-key e) "Enter") (seq input-value))
                         (do
                           (.preventDefault e)
                           (state/add-meeting-series input-value
