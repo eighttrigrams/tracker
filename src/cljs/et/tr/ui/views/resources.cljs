@@ -101,7 +101,21 @@
         [:a {:href (:link resource) :target "_blank" :rel "noopener noreferrer"}
          (:link resource)]])
      (when (seq (:description resource))
-       [:div.item-description [task-item/markdown (:description resource)]])
+       (let [expanded? (get-in @state/*app-state [:resources-page/description-expanded (:id resource)])]
+         [:<>
+          [:div.item-description
+           {:class (when-not expanded? "clamped")
+            :on-click (fn [e]
+                        (when (.. js/window getSelection -isCollapsed)
+                          (.stopPropagation e)
+                          (state/set-editing-modal :resource resource)))}
+           [task-item/markdown (:description resource)]]
+          (when-not expanded?
+            [:span.see-more
+             {:on-click (fn [e]
+                          (.stopPropagation e)
+                          (swap! state/*app-state assoc-in [:resources-page/description-expanded (:id resource)] true))}
+             "See more"])]))
      [:div.item-tags
       [resource-category-selector resource state/CATEGORY-TYPE-PERSON people (t :category/person)]
       [resource-category-selector resource state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -115,12 +129,36 @@
        [:button.delete-btn {:on-click #(state/set-confirm-delete-resource resource)}
         (t :task/delete)]]]]))
 
+(defn- resource-inline-title-edit [resource]
+  (let [value (or (:resources-page/inline-edit-title @state/*app-state) "")]
+    [:input.inline-title-edit
+     {:type "text"
+      :auto-focus true
+      :value value
+      :on-click #(.stopPropagation %)
+      :on-change #(swap! state/*app-state assoc :resources-page/inline-edit-title (.. % -target -value))
+      :on-key-down (fn [e]
+                     (case (.-key e)
+                       "Enter" (do (.stopPropagation e)
+                                   (state/update-resource (:id resource) value (:link resource) (:description resource) (:tags resource)
+                                     #(swap! state/*app-state dissoc :resources-page/inline-edit-resource :resources-page/inline-edit-title)))
+                       "Escape" (do (.stopPropagation e)
+                                    (swap! state/*app-state dissoc :resources-page/inline-edit-resource :resources-page/inline-edit-title))
+                       nil))
+      :on-blur (fn [_]
+                 (state/update-resource (:id resource) value (:link resource) (:description resource) (:tags resource)
+                   #(swap! state/*app-state dissoc :resources-page/inline-edit-resource :resources-page/inline-edit-title)))}]))
+
 (defn- resource-header [resource is-expanded]
   (let [importance (:importance resource)
         has-link? (seq (:link resource))
-        domain (when has-link? (extract-domain (:link resource)))]
+        domain (when has-link? (extract-domain (:link resource)))
+        inline-editing? (= (:resources-page/inline-edit-resource @state/*app-state) (:id resource))]
     [:div.item-header
-     {:on-click #(state/set-expanded-resource (when-not is-expanded (:id resource)))}
+     {:on-click (fn [_]
+                  (when-not (or inline-editing?
+                                (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                    (state/set-expanded-resource (when-not is-expanded (:id resource)))))}
      [:div.item-title
       [relation-link/relation-link-button :resource (:id resource)]
       (when (and importance (not= importance "normal"))
@@ -136,12 +174,22 @@
                                           (.stopPropagation e)
                                           (state/set-resource-domain-filter "Ledger"))}
            "Ledger"]))
-      (:title resource)
-      (when is-expanded
+      (if inline-editing?
+        [resource-inline-title-edit resource]
+        [:span.item-title-text
+         {:on-click (fn [e]
+                      (when (and is-expanded (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc
+                          :resources-page/inline-edit-resource (:id resource)
+                          :resources-page/inline-edit-title (:title resource))))}
+         (:title resource)])]
+     (when is-expanded
+       [:div.item-toolbar
         [:button.edit-icon {:on-click (fn [e]
                                         (.stopPropagation e)
                                         (state/set-editing-modal :resource resource))}
-         "✎"])]
+         "✎"]])
      (when has-link?
        [:div.item-date
         [:a.resource-link-icon
@@ -352,7 +400,21 @@
 (defn- journal-expanded-view [journal people places projects goals]
   [:div.item-details
    (when (seq (:description journal))
-     [:div.item-description [task-item/markdown (:description journal)]])
+     (let [expanded? (get-in @state/*app-state [:journals-page/description-expanded (:id journal)])]
+       [:<>
+        [:div.item-description
+         {:class (when-not expanded? "clamped")
+          :on-click (fn [e]
+                      (when (.. js/window getSelection -isCollapsed)
+                        (.stopPropagation e)
+                        (state/set-editing-modal :journal journal)))}
+         [task-item/markdown (:description journal)]]
+        (when-not expanded?
+          [:span.see-more
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc-in [:journals-page/description-expanded (:id journal)] true))}
+           "See more"])]))
    [:div.item-tags
     [journal-category-selector journal state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [journal-category-selector journal state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -364,23 +426,57 @@
      [:button.delete-btn {:on-click #(state/set-confirm-delete-journal journal)}
       (t :task/delete)]]]])
 
+(defn- journal-inline-title-edit [journal]
+  (let [value (or (:journals-page/inline-edit-title @state/*app-state) "")]
+    [:input.inline-title-edit
+     {:type "text"
+      :auto-focus true
+      :value value
+      :on-click #(.stopPropagation %)
+      :on-change #(swap! state/*app-state assoc :journals-page/inline-edit-title (.. % -target -value))
+      :on-key-down (fn [e]
+                     (case (.-key e)
+                       "Enter" (do (.stopPropagation e)
+                                   (state/update-journal (:id journal) value (:description journal) (:tags journal)
+                                     #(swap! state/*app-state dissoc :journals-page/inline-edit-journal :journals-page/inline-edit-title)))
+                       "Escape" (do (.stopPropagation e)
+                                    (swap! state/*app-state dissoc :journals-page/inline-edit-journal :journals-page/inline-edit-title))
+                       nil))
+      :on-blur (fn [_]
+                 (state/update-journal (:id journal) value (:description journal) (:tags journal)
+                   #(swap! state/*app-state dissoc :journals-page/inline-edit-journal :journals-page/inline-edit-title)))}]))
+
 (defn- journal-header [journal is-expanded]
-  [:div.item-header
-   {:on-click #(state/set-expanded-journal (when-not is-expanded (:id journal)))}
-   [:div.item-title
-    (:title journal)
-    (when is-expanded
-      [:button.edit-icon {:on-click (fn [e]
-                                      (.stopPropagation e)
-                                      (state/set-editing-modal :journal journal))}
-       "✎"])]
-   [:div.item-date
+  (let [inline-editing? (= (:journals-page/inline-edit-journal @state/*app-state) (:id journal))]
+    [:div.item-header
+     {:on-click (fn [_]
+                  (when-not (or inline-editing?
+                                (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                    (state/set-expanded-journal (when-not is-expanded (:id journal)))))}
+     [:div.item-title
+      (if inline-editing?
+        [journal-inline-title-edit journal]
+        [:span.item-title-text
+         {:on-click (fn [e]
+                      (when (and is-expanded (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc
+                          :journals-page/inline-edit-journal (:id journal)
+                          :journals-page/inline-edit-title (:title journal))))}
+         (:title journal)])]
+     (when is-expanded
+       [:div.item-toolbar
+        [:button.edit-icon {:on-click (fn [e]
+                                        (.stopPropagation e)
+                                        (state/set-editing-modal :journal journal))}
+         "✎"]])
+     [:div.item-date
     [:span.schedule-type-badge (if (= (:schedule_type journal) "weekly") (t :journals/weekly) (t :journals/daily))]
     [:button.series-filter-btn {:on-click (fn [e]
                                             (.stopPropagation e)
                                             (state/set-journal-filter journal))
                                  :title (t :journals/filter-by-journal)}
-     "⏚"]]])
+     "⏚"]]]))
 
 (defn- journal-categories-readonly [journal]
   [:div.item-tags-readonly
@@ -467,7 +563,21 @@
 (defn- journal-entry-expanded-view [entry people places projects goals]
   [:div.item-details
    (when (seq (:description entry))
-     [:div.item-description [task-item/markdown (:description entry)]])
+     (let [expanded? (get-in @state/*app-state [:journal-entries-page/description-expanded (:id entry)])]
+       [:<>
+        [:div.item-description
+         {:class (when-not expanded? "clamped")
+          :on-click (fn [e]
+                      (when (.. js/window getSelection -isCollapsed)
+                        (.stopPropagation e)
+                        (state/set-editing-modal :journal-entry entry)))}
+         [task-item/markdown (:description entry)]]
+        (when-not expanded?
+          [:span.see-more
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc-in [:journal-entries-page/description-expanded (:id entry)] true))}
+           "See more"])]))
    [:div.item-tags
     [resource-category-selector entry state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [resource-category-selector entry state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -480,20 +590,54 @@
      [:button.delete-btn {:on-click #(state/set-confirm-delete-journal-entry entry)}
       (t :task/delete)]]]])
 
+(defn- journal-entry-inline-title-edit [entry]
+  (let [value (or (:journal-entries-page/inline-edit-title @state/*app-state) "")]
+    [:input.inline-title-edit
+     {:type "text"
+      :auto-focus true
+      :value value
+      :on-click #(.stopPropagation %)
+      :on-change #(swap! state/*app-state assoc :journal-entries-page/inline-edit-title (.. % -target -value))
+      :on-key-down (fn [e]
+                     (case (.-key e)
+                       "Enter" (do (.stopPropagation e)
+                                   (state/update-journal-entry (:id entry) value (:description entry) (:tags entry)
+                                     #(swap! state/*app-state dissoc :journal-entries-page/inline-edit-entry :journal-entries-page/inline-edit-title)))
+                       "Escape" (do (.stopPropagation e)
+                                    (swap! state/*app-state dissoc :journal-entries-page/inline-edit-entry :journal-entries-page/inline-edit-title))
+                       nil))
+      :on-blur (fn [_]
+                 (state/update-journal-entry (:id entry) value (:description entry) (:tags entry)
+                   #(swap! state/*app-state dissoc :journal-entries-page/inline-edit-entry :journal-entries-page/inline-edit-title)))}]))
+
 (defn- journal-entry-header [entry is-expanded]
-  (let [importance (:importance entry)]
+  (let [importance (:importance entry)
+        inline-editing? (= (:journal-entries-page/inline-edit-entry @state/*app-state) (:id entry))]
     [:div.item-header
-     {:on-click #(state/set-expanded-journal-entry (when-not is-expanded (:id entry)))}
+     {:on-click (fn [_]
+                  (when-not (or inline-editing?
+                                (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                    (state/set-expanded-journal-entry (when-not is-expanded (:id entry)))))}
      [:div.item-title
       (when (and importance (not= importance "normal"))
         [:span.importance-badge {:class importance}
          (case importance "important" "★" "critical" "★★" nil)])
-      (:title entry)
-      (when is-expanded
+      (if inline-editing?
+        [journal-entry-inline-title-edit entry]
+        [:span.item-title-text
+         {:on-click (fn [e]
+                      (when (and is-expanded (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc
+                          :journal-entries-page/inline-edit-entry (:id entry)
+                          :journal-entries-page/inline-edit-title (:title entry))))}
+         (:title entry)])]
+     (when is-expanded
+       [:div.item-toolbar
         [:button.edit-icon {:on-click (fn [e]
                                         (.stopPropagation e)
                                         (state/set-editing-modal :journal-entry entry))}
-         "✎"])]
+         "✎"]])
      [:div.item-date
       (when (:entry_date entry)
         [:span.due-date (date/format-date-localized (:entry_date entry))])

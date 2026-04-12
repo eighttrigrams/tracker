@@ -195,7 +195,21 @@
 (defn- task-expanded-details [task people places projects goals]
   [:div.item-details
    (when (seq (:description task))
-     [:div.item-description [task-item/markdown (:description task)]])
+     (let [expanded? (get-in @state/*app-state [:tasks-page/description-expanded (:id task)])]
+       [:<>
+        [:div.item-description
+         {:class (when-not expanded? "clamped")
+          :on-click (fn [e]
+                      (when (.. js/window getSelection -isCollapsed)
+                        (.stopPropagation e)
+                        (state/set-editing-modal :task task)))}
+         [task-item/markdown (:description task)]]
+        (when-not expanded?
+          [:span.see-more
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc-in [:tasks-page/description-expanded (:id task)] true))}
+           "See more"])]))
    [:div.item-tags
     [task-item/category-selector task state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [task-item/category-selector task state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -236,8 +250,6 @@
                     (state/toggle-expanded :tasks-page/expanded-task (:id task))))}
      [:div.item-title
       [relation-link/relation-link-button :task (:id task)]
-      (when (seq (:due_time task))
-        [:span.task-time (:due_time task)])
       (if inline-editing?
         [task-inline-title-edit task]
         [:span.item-title-text
@@ -271,14 +283,18 @@
    [:div.item-date
     (cond
       (and (:due_date task) done-mode?)
-      [:span.due-date (date/format-date-localized (:due_date task))]
+      [:span.due-date (str (date/format-date-localized (:due_date task))
+                           (when (seq (:due_time task))
+                             (str " - " (:due_time task))))]
 
       (and (:due_date task) (not done-mode?))
       (let [today (date/today-str)
             overdue? (< (:due_date task) today)]
         [:span.due-date {:class (when overdue? "overdue")
                          :data-tooltip (date/get-day-name (:due_date task))}
-         (date/format-date-localized (:due_date task))])
+         (str (date/format-date-localized (:due_date task))
+              (when (seq (:due_time task))
+                (str " - " (:due_time task))))])
 
       (and (not done-mode?) (not is-expanded) (= 1 (:today task)))
       [:span.assigned-day (t :today/today)]
@@ -384,7 +400,21 @@
 (defn- rtask-expanded-view [rtask people places projects goals]
   [:div.item-details
    (when (seq (:description rtask))
-     [:div.item-description [task-item/markdown (:description rtask)]])
+     (let [expanded? (get-in @state/*app-state [:rtasks-page/description-expanded (:id rtask)])]
+       [:<>
+        [:div.item-description
+         {:class (when-not expanded? "clamped")
+          :on-click (fn [e]
+                      (when (.. js/window getSelection -isCollapsed)
+                        (.stopPropagation e)
+                        (state/set-editing-modal :recurring-task rtask)))}
+         [task-item/markdown (:description rtask)]]
+        (when-not expanded?
+          [:span.see-more
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc-in [:rtasks-page/description-expanded (:id rtask)] true))}
+           "See more"])]))
    [:div.item-tags
     [rtask-category-selector rtask state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [rtask-category-selector rtask state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -396,21 +426,55 @@
      [:button.delete-btn {:on-click #(state/set-confirm-delete-rtask rtask)}
       (t :task/delete)]]]])
 
+(defn- rtask-inline-title-edit [rtask]
+  (let [value (or (:rtasks-page/inline-edit-title @state/*app-state) "")]
+    [:input.inline-title-edit
+     {:type "text"
+      :auto-focus true
+      :value value
+      :on-click #(.stopPropagation %)
+      :on-change #(swap! state/*app-state assoc :rtasks-page/inline-edit-title (.. % -target -value))
+      :on-key-down (fn [e]
+                     (case (.-key e)
+                       "Enter" (do (.stopPropagation e)
+                                   (state/update-recurring-task (:id rtask) value (:description rtask) (:tags rtask)
+                                     #(swap! state/*app-state dissoc :rtasks-page/inline-edit-rtask :rtasks-page/inline-edit-title)))
+                       "Escape" (do (.stopPropagation e)
+                                    (swap! state/*app-state dissoc :rtasks-page/inline-edit-rtask :rtasks-page/inline-edit-title))
+                       nil))
+      :on-blur (fn [_]
+                 (state/update-recurring-task (:id rtask) value (:description rtask) (:tags rtask)
+                   #(swap! state/*app-state dissoc :rtasks-page/inline-edit-rtask :rtasks-page/inline-edit-title)))}]))
+
 (defn- rtask-header [rtask is-expanded]
-  [:div.item-header
-   {:on-click #(state/set-expanded-rtask (when-not is-expanded (:id rtask)))}
-   [:div.item-title
-    (:title rtask)
-    (when is-expanded
-      [:button.edit-icon {:on-click (fn [e]
-                                      (.stopPropagation e)
-                                      (state/set-editing-modal :recurring-task rtask))}
-       "✎"])]
-   [:button.series-filter-btn {:on-click (fn [e]
-                                           (.stopPropagation e)
-                                           (state/set-recurring-filter rtask))
-                                :title (t :tasks/filter-by-recurring)}
-    "⏚"]])
+  (let [inline-editing? (= (:rtasks-page/inline-edit-rtask @state/*app-state) (:id rtask))]
+    [:div.item-header
+     {:on-click (fn [_]
+                  (when-not (or inline-editing?
+                                (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                    (state/set-expanded-rtask (when-not is-expanded (:id rtask)))))}
+     [:div.item-title
+      (if inline-editing?
+        [rtask-inline-title-edit rtask]
+        [:span.item-title-text
+         {:on-click (fn [e]
+                      (when (and is-expanded (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc
+                          :rtasks-page/inline-edit-rtask (:id rtask)
+                          :rtasks-page/inline-edit-title (:title rtask))))}
+         (:title rtask)])]
+     (when is-expanded
+       [:div.item-toolbar
+        [:button.edit-icon {:on-click (fn [e]
+                                        (.stopPropagation e)
+                                        (state/set-editing-modal :recurring-task rtask))}
+         "✎"]])
+     [:button.series-filter-btn {:on-click (fn [e]
+                                             (.stopPropagation e)
+                                             (state/set-recurring-filter rtask))
+                                  :title (t :tasks/filter-by-recurring)}
+      "⏚"]]))
 
 (defn- rtask-categories-readonly [rtask]
   [:div.item-tags-readonly

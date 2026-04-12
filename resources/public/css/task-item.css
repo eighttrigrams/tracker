@@ -14,10 +14,12 @@
   box-shadow: 0 6px 32px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
 }
-.item-header { display: flex; align-items: flex-start; cursor: pointer; position: relative; z-index: 10; gap: 8px; }
+.item-header { display: flex; align-items: baseline; cursor: pointer; position: relative; z-index: 10; gap: 8px; }
 .item-header:hover { opacity: 0.85; }
 .item-title { font-weight: 500; color: var(--text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 0; flex: 1; }
 .item-toolbar { display: flex; align-items: center; flex-shrink: 0; }
+.item-description.clamped { display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical; overflow: hidden; }
+.see-more { color: var(--accent, #007aff); cursor: pointer; font-size: 0.85em; text-decoration: underline; }
 .inline-title-edit { width: 100%; font-size: inherit; font-weight: 500; font-family: inherit; padding: 2px 4px; border: 1px solid var(--accent, #007aff); border-radius: 4px; outline: none; background: var(--glass-bg, white); color: var(--text-primary); }
 .item-date { font-size: 0.8em; color: var(--text-secondary); flex-shrink: 0; white-space: nowrap; }
 .edit-icon, .copy-icon, .calendar-icon {

@@ -93,7 +93,21 @@
 (defn- meet-expanded-view [meet people places projects goals]
   [:div.item-details
    (when (seq (:description meet))
-     [:div.item-description [task-item/markdown (:description meet)]])
+     (let [expanded? (get-in @state/*app-state [:meets-page/description-expanded (:id meet)])]
+       [:<>
+        [:div.item-description
+         {:class (when-not expanded? "clamped")
+          :on-click (fn [e]
+                      (when (.. js/window getSelection -isCollapsed)
+                        (.stopPropagation e)
+                        (state/set-editing-modal :meet meet)))}
+         [task-item/markdown (:description meet)]]
+        (when-not expanded?
+          [:span.see-more
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc-in [:meets-page/description-expanded (:id meet)] true))}
+           "See more"])]))
    [:div.item-tags
     [meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -107,23 +121,56 @@
      [:button.delete-btn {:on-click #(state/set-confirm-delete-meet meet)}
       (t :task/delete)]]]])
 
+(defn- meet-inline-title-edit [meet]
+  (let [value (or (:meets-page/inline-edit-title @state/*app-state) "")]
+    [:input.inline-title-edit
+     {:type "text"
+      :auto-focus true
+      :value value
+      :on-click #(.stopPropagation %)
+      :on-change #(swap! state/*app-state assoc :meets-page/inline-edit-title (.. % -target -value))
+      :on-key-down (fn [e]
+                     (case (.-key e)
+                       "Enter" (do (.stopPropagation e)
+                                   (state/update-meet (:id meet) value (:description meet) (:tags meet)
+                                     #(swap! state/*app-state dissoc :meets-page/inline-edit-meet :meets-page/inline-edit-title)))
+                       "Escape" (do (.stopPropagation e)
+                                    (swap! state/*app-state dissoc :meets-page/inline-edit-meet :meets-page/inline-edit-title))
+                       nil))
+      :on-blur (fn [_]
+                 (state/update-meet (:id meet) value (:description meet) (:tags meet)
+                   #(swap! state/*app-state dissoc :meets-page/inline-edit-meet :meets-page/inline-edit-title)))}]))
+
 (defn- meet-header [meet is-expanded]
-  (let [importance (:importance meet)]
+  (let [importance (:importance meet)
+        inline-editing? (= (:meets-page/inline-edit-meet @state/*app-state) (:id meet))]
     [:div.item-header
-     {:on-click #(state/set-expanded-meet (when-not is-expanded (:id meet)))}
+     {:on-click (fn [_]
+                  (when-not (or inline-editing?
+                                (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                    (state/set-expanded-meet (when-not is-expanded (:id meet)))))}
      [:div.item-title
       [relation-link/relation-link-button :meet (:id meet)]
       (when (and importance (not= importance "normal"))
         [:span.importance-badge {:class importance}
          (case importance "important" "★" "critical" "★★" nil)])
-      (:title meet)
-      (when is-expanded
-        [:<>
-         [:button.edit-icon {:on-click (fn [e]
-                                         (.stopPropagation e)
-                                         (state/set-editing-modal :meet meet))}
-          "✎"]
-         [meet-date-time-pickers meet]])]
+      (if inline-editing?
+        [meet-inline-title-edit meet]
+        [:span.item-title-text
+         {:on-click (fn [e]
+                      (when (and is-expanded (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc
+                          :meets-page/inline-edit-meet (:id meet)
+                          :meets-page/inline-edit-title (:title meet))))}
+         (:title meet)])]
+     (when is-expanded
+       [:div.item-toolbar
+        [:button.edit-icon {:on-click (fn [e]
+                                        (.stopPropagation e)
+                                        (state/set-editing-modal :meet meet))}
+         "✎"]
+        [meet-date-time-pickers meet]])
      [:div.item-date
       (when (:start_date meet)
         [:span.due-date {:data-tooltip (date/get-day-name (:start_date meet))}
@@ -303,7 +350,21 @@
 (defn- series-expanded-view [series people places projects goals]
   [:div.item-details
    (when (seq (:description series))
-     [:div.item-description [task-item/markdown (:description series)]])
+     (let [expanded? (get-in @state/*app-state [:series-page/description-expanded (:id series)])]
+       [:<>
+        [:div.item-description
+         {:class (when-not expanded? "clamped")
+          :on-click (fn [e]
+                      (when (.. js/window getSelection -isCollapsed)
+                        (.stopPropagation e)
+                        (state/set-editing-modal :meeting-series series)))}
+         [task-item/markdown (:description series)]]
+        (when-not expanded?
+          [:span.see-more
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc-in [:series-page/description-expanded (:id series)] true))}
+           "See more"])]))
    [:div.item-tags
     [series-category-selector series state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [series-category-selector series state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -315,21 +376,55 @@
      [:button.delete-btn {:on-click #(state/set-confirm-delete-series series)}
       (t :task/delete)]]]])
 
+(defn- series-inline-title-edit [series]
+  (let [value (or (:series-page/inline-edit-title @state/*app-state) "")]
+    [:input.inline-title-edit
+     {:type "text"
+      :auto-focus true
+      :value value
+      :on-click #(.stopPropagation %)
+      :on-change #(swap! state/*app-state assoc :series-page/inline-edit-title (.. % -target -value))
+      :on-key-down (fn [e]
+                     (case (.-key e)
+                       "Enter" (do (.stopPropagation e)
+                                   (state/update-meeting-series (:id series) value (:description series) (:tags series)
+                                     #(swap! state/*app-state dissoc :series-page/inline-edit-series :series-page/inline-edit-title)))
+                       "Escape" (do (.stopPropagation e)
+                                    (swap! state/*app-state dissoc :series-page/inline-edit-series :series-page/inline-edit-title))
+                       nil))
+      :on-blur (fn [_]
+                 (state/update-meeting-series (:id series) value (:description series) (:tags series)
+                   #(swap! state/*app-state dissoc :series-page/inline-edit-series :series-page/inline-edit-title)))}]))
+
 (defn- series-header [series is-expanded]
-  [:div.item-header
-   {:on-click #(state/set-expanded-series (when-not is-expanded (:id series)))}
-   [:div.item-title
-    (:title series)
-    (when is-expanded
-      [:button.edit-icon {:on-click (fn [e]
-                                      (.stopPropagation e)
-                                      (state/set-editing-modal :meeting-series series))}
-       "✎"])]
-   [:button.series-filter-btn {:on-click (fn [e]
-                                           (.stopPropagation e)
-                                           (state/set-series-filter series))
-                                :title (t :meets/filter-by-series)}
-    "⏚"]])
+  (let [inline-editing? (= (:series-page/inline-edit-series @state/*app-state) (:id series))]
+    [:div.item-header
+     {:on-click (fn [_]
+                  (when-not (or inline-editing?
+                                (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                    (state/set-expanded-series (when-not is-expanded (:id series)))))}
+     [:div.item-title
+      (if inline-editing?
+        [series-inline-title-edit series]
+        [:span.item-title-text
+         {:on-click (fn [e]
+                      (when (and is-expanded (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc
+                          :series-page/inline-edit-series (:id series)
+                          :series-page/inline-edit-title (:title series))))}
+         (:title series)])]
+     (when is-expanded
+       [:div.item-toolbar
+        [:button.edit-icon {:on-click (fn [e]
+                                        (.stopPropagation e)
+                                        (state/set-editing-modal :meeting-series series))}
+         "✎"]])
+     [:button.series-filter-btn {:on-click (fn [e]
+                                             (.stopPropagation e)
+                                             (state/set-series-filter series))
+                                  :title (t :meets/filter-by-series)}
+      "⏚"]]))
 
 (defn- series-categories-readonly [series]
   [:div.item-tags-readonly

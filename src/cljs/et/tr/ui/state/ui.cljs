@@ -79,13 +79,15 @@
 
 (defn toggle-expanded [app-state page-key task-id]
   (swap! app-state (fn [state]
-                     (cond-> (assoc state
-                                    page-key (if (= (get state page-key) task-id) nil task-id)
-                                    :category-selector/open nil
-                                    :category-selector/search ""
-                                    :task-dropdown-open nil)
-                       (= page-key :today-page/expanded-task) (assoc :today-page/expanded-meet nil)
-                       (= page-key :today-page/expanded-meet) (assoc :today-page/expanded-task nil)))))
+                     (let [collapsing? (= (get state page-key) task-id)]
+                       (cond-> (assoc state
+                                      page-key (if collapsing? nil task-id)
+                                      :category-selector/open nil
+                                      :category-selector/search ""
+                                      :task-dropdown-open nil)
+                         collapsing? (update :tasks-page/description-expanded dissoc task-id)
+                         (= page-key :today-page/expanded-task) (assoc :today-page/expanded-meet nil)
+                         (= page-key :today-page/expanded-meet) (assoc :today-page/expanded-task nil))))))
 
 (defn set-editing [app-state task-id]
   (swap! app-state assoc :editing-task task-id))

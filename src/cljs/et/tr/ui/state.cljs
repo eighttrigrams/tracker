@@ -127,7 +127,7 @@
                             ;; Global UI state
                             :active-tab :today
                             :sort-mode :today
-                            :tasks-page/last-sort-mode :manual
+                            :tasks-page/last-sort-mode :recent
                             :drag-task nil
                             :drag-over-task nil
                             :drag-over-urgency-section nil
