@@ -11,6 +11,28 @@
   [:div.markdown-content
    {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
 
+(defn- markdown-line-count [text]
+  (count (re-seq #"(?:\r?\n){2,}" (or text ""))))
+
+(defn clampable-description [{:keys [text on-click]}]
+  (let [expanded? (r/atom false)]
+    (fn [{:keys [text on-click]}]
+      (let [needs-clamp? (> (markdown-line-count text) 9)]
+        [:<>
+         [:div.item-description
+          {:class (when (and needs-clamp? (not @expanded?)) "clamped")
+           :on-click (fn [e]
+                       (when (.. js/window getSelection -isCollapsed)
+                         (.stopPropagation e)
+                         (on-click)))}
+          [markdown text]]
+         (when (and needs-clamp? (not @expanded?))
+           [:span.see-more
+            {:on-click (fn [e]
+                         (.stopPropagation e)
+                         (reset! expanded? true))}
+            "See more"])]))))
+
 (defn category-badges [{:keys [item category-types toggle-fn has-filter-fn]}]
   (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]
     (when (seq all-categories)

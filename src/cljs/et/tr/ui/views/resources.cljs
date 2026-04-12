@@ -92,43 +92,30 @@
       :set-search-fn state/set-category-selector-search}]))
 
 (defn- resource-expanded-view [resource people places projects goals]
-  (let [desc-expanded? (reagent.core/atom false)]
-    (fn [resource people places projects goals]
-      (let [video-id (when (seq (:link resource)) (youtube-video-id (:link resource)))]
-        [:div.item-details
-         (when video-id
-           [youtube-embed video-id])
-         (when (seq (:link resource))
-           [:div.resource-link
-            [:a {:href (:link resource) :target "_blank" :rel "noopener noreferrer"}
-             (:link resource)]])
-         (when (seq (:description resource))
-           [:<>
-            [:div.item-description
-             {:class (when-not @desc-expanded? "clamped")
-              :on-click (fn [e]
-                          (when (.. js/window getSelection -isCollapsed)
-                            (.stopPropagation e)
-                            (state/set-editing-modal :resource resource)))}
-             [task-item/markdown (:description resource)]]
-            (when-not @desc-expanded?
-              [:span.see-more
-               {:on-click (fn [e]
-                            (.stopPropagation e)
-                            (reset! desc-expanded? true))}
-               "See more"])])
-         [:div.item-tags
-          [resource-category-selector resource state/CATEGORY-TYPE-PERSON people (t :category/person)]
-          [resource-category-selector resource state/CATEGORY-TYPE-PLACE places (t :category/place)]
-          [resource-category-selector resource state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-          [resource-category-selector resource state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
-          [relation-badges/relation-badges-expanded (:relations resource) "res" (:id resource)]]
-         [:div.item-actions
-          [resource-scope-selector resource]
-          [resource-importance-selector resource]
-          [:div.combined-button-wrapper
-           [:button.delete-btn {:on-click #(state/set-confirm-delete-resource resource)}
-            (t :task/delete)]]]]))))
+  (let [video-id (when (seq (:link resource)) (youtube-video-id (:link resource)))]
+    [:div.item-details
+     (when video-id
+       [youtube-embed video-id])
+     (when (seq (:link resource))
+       [:div.resource-link
+        [:a {:href (:link resource) :target "_blank" :rel "noopener noreferrer"}
+         (:link resource)]])
+     (when (seq (:description resource))
+       [task-item/clampable-description
+        {:text (:description resource)
+         :on-click #(state/set-editing-modal :resource resource)}])
+     [:div.item-tags
+      [resource-category-selector resource state/CATEGORY-TYPE-PERSON people (t :category/person)]
+      [resource-category-selector resource state/CATEGORY-TYPE-PLACE places (t :category/place)]
+      [resource-category-selector resource state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+      [resource-category-selector resource state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
+      [relation-badges/relation-badges-expanded (:relations resource) "res" (:id resource)]]
+     [:div.item-actions
+      [resource-scope-selector resource]
+      [resource-importance-selector resource]
+      [:div.combined-button-wrapper
+       [:button.delete-btn {:on-click #(state/set-confirm-delete-resource resource)}
+        (t :task/delete)]]]]))
 
 (defn- resource-inline-title-edit [resource]
   (let [value (or (:resources-page/inline-edit-title @state/*app-state) "")]
@@ -399,34 +386,21 @@
       :set-search-fn state/set-category-selector-search}]))
 
 (defn- journal-expanded-view [journal people places projects goals]
-  (let [desc-expanded? (reagent.core/atom false)]
-    (fn [journal people places projects goals]
-      [:div.item-details
-       (when (seq (:description journal))
-         [:<>
-          [:div.item-description
-           {:class (when-not @desc-expanded? "clamped")
-            :on-click (fn [e]
-                        (when (.. js/window getSelection -isCollapsed)
-                          (.stopPropagation e)
-                          (state/set-editing-modal :journal journal)))}
-           [task-item/markdown (:description journal)]]
-          (when-not @desc-expanded?
-            [:span.see-more
-             {:on-click (fn [e]
-                          (.stopPropagation e)
-                          (reset! desc-expanded? true))}
-             "See more"])])
-       [:div.item-tags
-        [journal-category-selector journal state/CATEGORY-TYPE-PERSON people (t :category/person)]
-        [journal-category-selector journal state/CATEGORY-TYPE-PLACE places (t :category/place)]
-        [journal-category-selector journal state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-        [journal-category-selector journal state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
-       [:div.item-actions
-        [journal-scope-selector journal]
-        [:div.combined-button-wrapper
-         [:button.delete-btn {:on-click #(state/set-confirm-delete-journal journal)}
-          (t :task/delete)]]]])))
+  [:div.item-details
+   (when (seq (:description journal))
+     [task-item/clampable-description
+      {:text (:description journal)
+       :on-click #(state/set-editing-modal :journal journal)}])
+   [:div.item-tags
+    [journal-category-selector journal state/CATEGORY-TYPE-PERSON people (t :category/person)]
+    [journal-category-selector journal state/CATEGORY-TYPE-PLACE places (t :category/place)]
+    [journal-category-selector journal state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+    [journal-category-selector journal state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+   [:div.item-actions
+    [journal-scope-selector journal]
+    [:div.combined-button-wrapper
+     [:button.delete-btn {:on-click #(state/set-confirm-delete-journal journal)}
+      (t :task/delete)]]]])
 
 (defn- journal-inline-title-edit [journal]
   (let [value (or (:journals-page/inline-edit-title @state/*app-state) "")]
@@ -563,35 +537,22 @@
      [:button.clear-search {:on-click #(state/clear-journal-filter)} "x"]]))
 
 (defn- journal-entry-expanded-view [entry people places projects goals]
-  (let [desc-expanded? (reagent.core/atom false)]
-    (fn [entry people places projects goals]
-      [:div.item-details
-       (when (seq (:description entry))
-         [:<>
-          [:div.item-description
-           {:class (when-not @desc-expanded? "clamped")
-            :on-click (fn [e]
-                        (when (.. js/window getSelection -isCollapsed)
-                          (.stopPropagation e)
-                          (state/set-editing-modal :journal-entry entry)))}
-           [task-item/markdown (:description entry)]]
-          (when-not @desc-expanded?
-            [:span.see-more
-             {:on-click (fn [e]
-                          (.stopPropagation e)
-                          (reset! desc-expanded? true))}
-             "See more"])])
-       [:div.item-tags
-        [resource-category-selector entry state/CATEGORY-TYPE-PERSON people (t :category/person)]
-        [resource-category-selector entry state/CATEGORY-TYPE-PLACE places (t :category/place)]
-        [resource-category-selector entry state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-        [resource-category-selector entry state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
-       [:div.item-actions
-        [resource-scope-selector entry]
-        [resource-importance-selector entry]
-        [:div.combined-button-wrapper
-         [:button.delete-btn {:on-click #(state/set-confirm-delete-journal-entry entry)}
-          (t :task/delete)]]]])))
+  [:div.item-details
+   (when (seq (:description entry))
+     [task-item/clampable-description
+      {:text (:description entry)
+       :on-click #(state/set-editing-modal :journal-entry entry)}])
+   [:div.item-tags
+    [resource-category-selector entry state/CATEGORY-TYPE-PERSON people (t :category/person)]
+    [resource-category-selector entry state/CATEGORY-TYPE-PLACE places (t :category/place)]
+    [resource-category-selector entry state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+    [resource-category-selector entry state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+   [:div.item-actions
+    [resource-scope-selector entry]
+    [resource-importance-selector entry]
+    [:div.combined-button-wrapper
+     [:button.delete-btn {:on-click #(state/set-confirm-delete-journal-entry entry)}
+      (t :task/delete)]]]])
 
 (defn- journal-entry-inline-title-edit [entry]
   (let [value (or (:journal-entries-page/inline-edit-title @state/*app-state) "")]
