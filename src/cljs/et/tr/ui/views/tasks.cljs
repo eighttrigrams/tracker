@@ -68,8 +68,8 @@
 (defn sort-mode-toggle []
   (let [sort-mode (:sort-mode @state/*app-state)]
     [:div.sort-toggle.toggle-group
-     [sort-mode-button sort-mode :manual :tasks/sort-manual]
      [sort-mode-button sort-mode :recent :tasks/sort-recent]
+     [sort-mode-button sort-mode :manual :tasks/sort-manual]
      [sort-mode-button sort-mode :due-date :tasks/sort-due-date]
      [sort-mode-button sort-mode :done :tasks/sort-done]]))
 
@@ -207,34 +207,67 @@
     [task-item/task-attribute-selectors task]
     [task-item/task-combined-action-button task]]])
 
+(defn- task-inline-title-edit [task]
+  (let [value (or (:tasks-page/inline-edit-title @state/*app-state) "")]
+    [:input.inline-title-edit
+     {:type "text"
+      :auto-focus true
+      :value value
+      :on-click #(.stopPropagation %)
+      :on-change #(swap! state/*app-state assoc :tasks-page/inline-edit-title (.. % -target -value))
+      :on-key-down (fn [e]
+                     (case (.-key e)
+                       "Enter" (do (.stopPropagation e)
+                                   (state/update-task (:id task) value (:description task) (:tags task)
+                                     #(swap! state/*app-state dissoc :tasks-page/inline-edit-task :tasks-page/inline-edit-title)))
+                       "Escape" (do (.stopPropagation e)
+                                    (swap! state/*app-state dissoc :tasks-page/inline-edit-task :tasks-page/inline-edit-title))
+                       nil))
+      :on-blur (fn [_]
+                 (state/update-task (:id task) value (:description task) (:tags task)
+                   #(swap! state/*app-state dissoc :tasks-page/inline-edit-task :tasks-page/inline-edit-title)))}]))
+
 (defn- task-header [task is-expanded done-mode? due-date-mode? manual-mode?]
-  [:div.item-header
-   {:on-click #(state/toggle-expanded :tasks-page/expanded-task (:id task))}
-   [:div.item-title
-    [relation-link/relation-link-button :task (:id task)]
-    (when (seq (:due_time task))
-      [:span.task-time (:due_time task)])
-    (:title task)
-    (when is-expanded
-      [:<>
-       [:button.edit-icon {:on-click (fn [e]
-                                       (.stopPropagation e)
-                                       (state/set-editing-modal :task task))}
-        "✎"]
-       [:span.date-picker-wrapper
-        {:on-click #(.stopPropagation %)}
-        [:input.date-picker-input
-         {:type "date"
-          :value (or (:due_date task) "")
-          :on-change (fn [e]
-                       (let [v (.. e -target -value)]
-                         (state/set-task-due-date (:id task) (when (seq v) v))))}]
-        [:button.calendar-icon {:on-click (fn [e]
-                                            (.stopPropagation e)
-                                            (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-         "📅"]]
-       (when (:due_date task)
-         [task-item/time-picker task :show-clear? true])])]
+  (let [inline-editing? (= (:tasks-page/inline-edit-task @state/*app-state) (:id task))]
+    [:div.item-header
+     {:on-click (fn [e]
+                  (when-not (or inline-editing?
+                                (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                    (state/toggle-expanded :tasks-page/expanded-task (:id task))))}
+     [:div.item-title
+      [relation-link/relation-link-button :task (:id task)]
+      (when (seq (:due_time task))
+        [:span.task-time (:due_time task)])
+      (if inline-editing?
+        [task-inline-title-edit task]
+        [:span.item-title-text
+         {:on-click (fn [e]
+                      (when (and is-expanded (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc
+                          :tasks-page/inline-edit-task (:id task)
+                          :tasks-page/inline-edit-title (:title task))))}
+         (:title task)])]
+   (when is-expanded
+     [:div.item-toolbar
+      [:button.edit-icon {:on-click (fn [e]
+                                      (.stopPropagation e)
+                                      (state/set-editing-modal :task task))}
+       "✎"]
+      [:span.date-picker-wrapper
+       {:on-click #(.stopPropagation %)}
+       [:input.date-picker-input
+        {:type "date"
+         :value (or (:due_date task) "")
+         :on-change (fn [e]
+                      (let [v (.. e -target -value)]
+                        (state/set-task-due-date (:id task) (when (seq v) v))))}]
+       [:button.calendar-icon {:on-click (fn [e]
+                                           (.stopPropagation e)
+                                           (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+        "📅"]]
+      (when (:due_date task)
+        [task-item/time-picker task :show-clear? true])])
    [:div.item-date
     (cond
       (and (:due_date task) done-mode?)
@@ -258,10 +291,7 @@
                                           (state/set-recurring-filter {:id (:recurring_task_id task) :title (:title task)}))}
        "🔁"])
     (when (or (:reminder_date task) (= "active" (:reminder task)))
-      [:span.reminder-icon "🔔"])
-    (when (and (not done-mode?) (not due-date-mode?) (not manual-mode?))
-      [:span {:data-tooltip (some-> (:modified_at task) (.substring 0 10) date/get-day-name)}
-       (date/format-datetime-localized (:modified_at task))])]])
+      [:span.reminder-icon "🔔"])]]))
 
 (defn- task-item-content [task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?]
   [:div
