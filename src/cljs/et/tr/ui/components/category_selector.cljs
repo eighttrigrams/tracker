@@ -15,7 +15,7 @@
             is-open (= open-selector-state selector-id)
             available-entities (remove #(contains? category-ids (:id %)) entities)
             filtered-entities (if (and is-open (seq search-state))
-                                (filter #(tasks-page/prefix-matches? (str (:name %) " " (:badge_title %)) search-state) available-entities)
+                                (filter #(tasks-page/prefix-matches? (str (:name %) " " (:tags %) " " (:badge_title %)) search-state) available-entities)
                                 available-entities)
             do-close (fn []
                        (close-selector-fn)
