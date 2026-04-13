@@ -33,6 +33,20 @@
                          (reset! expanded? true))}
             "See more"])]))))
 
+(defn inline-title-edit [{:keys [title on-change on-commit on-cancel]}]
+  [:input.inline-title-edit
+   {:type "text"
+    :auto-focus true
+    :value title
+    :on-click #(.stopPropagation %)
+    :on-change #(on-change (.. % -target -value))
+    :on-key-down (fn [e]
+                   (case (.-key e)
+                     "Enter" (do (.stopPropagation e) (on-commit))
+                     "Escape" (do (.stopPropagation e) (on-cancel))
+                     nil))
+    :on-blur (fn [_] (on-commit))}])
+
 (defn category-badges [{:keys [item category-types toggle-fn has-filter-fn]}]
   (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]
     (when (seq all-categories)
@@ -316,6 +330,30 @@
         :on-categorize #(state/categorize-task (:id task*) category-type* %)
         :on-uncategorize #(state/uncategorize-task (:id task*) category-type* %)
         :on-close-focus-fn state/focus-tasks-search
+        :open-selector-state (:category-selector/open @state/*app-state)
+        :search-state (:category-selector/search @state/*app-state)
+        :open-selector-fn state/open-category-selector
+        :close-selector-fn state/close-category-selector
+        :set-search-fn state/set-category-selector-search}])))
+
+(defn meet-category-selector [_meet _category-type _entities _label]
+  (fn [meet* category-type* entities* label*]
+    (let [current (case category-type*
+                    state/CATEGORY-TYPE-PERSON (:people meet*)
+                    state/CATEGORY-TYPE-PLACE (:places meet*)
+                    state/CATEGORY-TYPE-PROJECT (:projects meet*)
+                    state/CATEGORY-TYPE-GOAL (:goals meet*)
+                    [])]
+      [category-selector/category-selector
+       {:entity meet*
+        :entity-id-key :id
+        :category-type category-type*
+        :entities entities*
+        :label label*
+        :current-categories current
+        :on-categorize #(state/categorize-meet (:id meet*) category-type* %)
+        :on-uncategorize #(state/uncategorize-meet (:id meet*) category-type* %)
+        :on-close-focus-fn nil
         :open-selector-state (:category-selector/open @state/*app-state)
         :search-state (:category-selector/search @state/*app-state)
         :open-selector-fn state/open-category-selector

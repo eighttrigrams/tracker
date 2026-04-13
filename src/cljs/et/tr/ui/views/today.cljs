@@ -20,30 +20,61 @@
   today-category-shortcut-keys)
 
 (defn- today-task-expanded-details [task & {:keys [show-unlink?]}]
-  [:div.today-task-details
-   (when (seq (:description task))
-     [:div.item-description [task-item/markdown (:description task)]])
-   [task-item/task-category-badges task]
-   [:div.item-actions
-    [task-item/task-attribute-selectors task]
-    [task-item/task-combined-action-button task
-     :extra-dropdown-items
-     (when show-unlink?
-       [:button.dropdown-item.unlink-today
-        {:on-click #(let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
-                      (state/set-task-dropdown-open nil)
-                      (if (zero? selected-day)
-                        (state/set-task-today (:id task) false)
-                        (state/set-task-lined-up-for (:id task) nil)))}
-        (t :task/unlink-today)])]]])
+  (let [{:keys [people places projects goals]} @state/*app-state]
+    [:div.today-task-details
+     (when (seq (:description task))
+       [task-item/clampable-description
+        {:text (:description task)
+         :on-click #(state/set-editing-modal :task task)}])
+     [:div.item-tags
+      [task-item/category-selector task state/CATEGORY-TYPE-PERSON people (t :category/person)]
+      [task-item/category-selector task state/CATEGORY-TYPE-PLACE places (t :category/place)]
+      [task-item/category-selector task state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+      [task-item/category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+     [:div.item-actions
+      [task-item/task-attribute-selectors task]
+      [task-item/task-combined-action-button task
+       :extra-dropdown-items
+       (when show-unlink?
+         [:button.dropdown-item.unlink-today
+          {:on-click #(let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
+                        (state/set-task-dropdown-open nil)
+                        (if (zero? selected-day)
+                          (state/set-task-today (:id task) false)
+                          (state/set-task-lined-up-for (:id task) nil)))}
+          (t :task/unlink-today)])]]]))
+
+(defn- today-task-title-content [task is-expanded]
+  (let [inline-editing? (= (:today-page/inline-edit-task @state/*app-state) (:id task))]
+    (if inline-editing?
+      [task-item/inline-title-edit
+       {:title (or (:today-page/inline-edit-title @state/*app-state) "")
+        :on-change #(swap! state/*app-state assoc :today-page/inline-edit-title %)
+        :on-commit (fn []
+                     (let [v (or (:today-page/inline-edit-title @state/*app-state) "")]
+                       (state/update-task (:id task) v (:description task) (:tags task)
+                         #(swap! state/*app-state dissoc :today-page/inline-edit-task :today-page/inline-edit-title))))
+        :on-cancel #(swap! state/*app-state dissoc :today-page/inline-edit-task :today-page/inline-edit-title)}]
+      [:span.item-title-text
+       {:on-click (fn [e]
+                    (when (and is-expanded (.-altKey e))
+                      (.stopPropagation e)
+                      (swap! state/*app-state assoc
+                        :today-page/inline-edit-task (:id task)
+                        :today-page/inline-edit-title (:title task))))}
+       (:title task)])))
 
 (defn today-task-item [task & {:keys [show-day-prefix overdue? hide-date emoji-prefix show-unlink?] :or {show-day-prefix false overdue? false hide-date false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/*app-state)
-        is-expanded (= expanded-task (:id task))]
+        is-expanded (= expanded-task (:id task))
+        inline-editing? (= (:today-page/inline-edit-task @state/*app-state) (:id task))]
     [:div.today-task-item {:class (when is-expanded "expanded")}
      [:div.today-task-header
-      {:on-click #(state/toggle-expanded :today-page/expanded-task (:id task))}
+      {:on-click (fn [_]
+                   (when-not (or inline-editing?
+                                 (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                     (state/toggle-expanded :today-page/expanded-task (:id task))))}
       [:div.today-task-content
        [:span.task-title
         (when emoji-prefix
@@ -53,16 +84,17 @@
                                       (when (seq (:due_time task)) ","))])
         (when (seq (:due_time task))
           [:span.task-time {:class (when overdue? "overdue-time")} (:due_time task)])
-        (:title task)
-        (when is-expanded
-          [:button.edit-icon {:on-click (fn [e]
-                                          (.stopPropagation e)
-                                          (state/set-editing-modal :task task))}
-           "✎"])
-        (when (and is-expanded (seq (:due_time task)))
-          [task-item/time-picker task])]
+        [today-task-title-content task is-expanded]]
        (when-not is-expanded
          [task-item/task-category-badges task])]
+      (when is-expanded
+        [:div.item-toolbar
+         [:button.edit-icon {:on-click (fn [e]
+                                         (.stopPropagation e)
+                                         (state/set-editing-modal :task task))}
+          "✎"]
+         (when (seq (:due_time task))
+           [task-item/time-picker task])])
       (when-not hide-date
         [:span.task-date {:data-tooltip (date/get-day-name (:due_date task))}
          (date/format-date-localized (:due_date task))])
@@ -108,30 +140,51 @@
        (t :meets/archive)])))
 
 (defn- today-meet-expanded-details [meet is-today?]
-  [:div.today-task-details
-   (when (seq (:description meet))
-     [:div.item-description [task-item/markdown (:description meet)]])
-   (when (or (seq (:people meet)) (seq (:places meet)) (seq (:projects meet)))
-     [:div.task-badges
-      (for [person (:people meet)]
-        ^{:key (str "person-" (:id person))}
-        [:span.tag.person (filters/badge-label person)])
-      (for [place (:places meet)]
-        ^{:key (str "place-" (:id place))}
-        [:span.tag.place (filters/badge-label place)])
-      (for [project (:projects meet)]
-        ^{:key (str "project-" (:id project))}
-        [:span.tag.project (filters/badge-label project)])])
-   (when is-today?
-     [today-meet-archive-button meet])])
+  (let [{:keys [people places projects goals]} @state/*app-state]
+    [:div.today-task-details
+     (when (seq (:description meet))
+       [task-item/clampable-description
+        {:text (:description meet)
+         :on-click #(state/set-editing-modal :meet meet)}])
+     [:div.item-tags
+      [task-item/meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
+      [task-item/meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
+      [task-item/meet-category-selector meet state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+      [task-item/meet-category-selector meet state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+     (when is-today?
+       [today-meet-archive-button meet])]))
+
+(defn- today-meet-title-content [meet is-expanded]
+  (let [inline-editing? (= (:today-page/inline-edit-meet @state/*app-state) (:id meet))]
+    (if inline-editing?
+      [task-item/inline-title-edit
+       {:title (or (:today-page/inline-edit-meet-title @state/*app-state) "")
+        :on-change #(swap! state/*app-state assoc :today-page/inline-edit-meet-title %)
+        :on-commit (fn []
+                     (let [v (or (:today-page/inline-edit-meet-title @state/*app-state) "")]
+                       (state/update-meet (:id meet) v (:description meet) (:tags meet)
+                         #(swap! state/*app-state dissoc :today-page/inline-edit-meet :today-page/inline-edit-meet-title))))
+        :on-cancel #(swap! state/*app-state dissoc :today-page/inline-edit-meet :today-page/inline-edit-meet-title)}]
+      [:span.item-title-text
+       {:on-click (fn [e]
+                    (when (and is-expanded (.-altKey e))
+                      (.stopPropagation e)
+                      (swap! state/*app-state assoc
+                        :today-page/inline-edit-meet (:id meet)
+                        :today-page/inline-edit-meet-title (:title meet))))}
+       (:title meet)])))
 
 (defn- today-meet-item [meet & {:keys [show-day-prefix hide-date is-today] :or {show-day-prefix false hide-date false is-today false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:start_date meet) 6))
         expanded-meet (:today-page/expanded-meet @state/*app-state)
-        is-expanded (= expanded-meet (:id meet))]
+        is-expanded (= expanded-meet (:id meet))
+        inline-editing? (= (:today-page/inline-edit-meet @state/*app-state) (:id meet))]
     [:div.today-task-item.meet-item {:class (when is-expanded "expanded")}
      [:div.today-task-header
-      {:on-click #(state/toggle-expanded :today-page/expanded-meet (:id meet))}
+      {:on-click (fn [_]
+                   (when-not (or inline-editing?
+                                 (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                     (state/toggle-expanded :today-page/expanded-meet (:id meet))))}
       [:div.today-task-content
        [:span.task-title
         "🗓️ "
@@ -140,12 +193,7 @@
                                       (when (seq (:start_time meet)) ","))])
         (when (seq (:start_time meet))
           [:span.task-time (:start_time meet)])
-        (:title meet)
-        (when is-expanded
-          [:button.edit-icon {:on-click (fn [e]
-                                          (.stopPropagation e)
-                                          (state/set-editing-modal :meet meet))}
-           "✎"])]
+        [today-meet-title-content meet is-expanded]]
        (when-not is-expanded
          (when (or (seq (:people meet)) (seq (:places meet)) (seq (:projects meet)))
            [:div.task-badges
@@ -158,6 +206,12 @@
             (for [project (:projects meet)]
               ^{:key (str "project-" (:id project))}
               [:span.tag.project (filters/badge-label project)])]))]
+      (when is-expanded
+        [:div.item-toolbar
+         [:button.edit-icon {:on-click (fn [e]
+                                         (.stopPropagation e)
+                                         (state/set-editing-modal :meet meet))}
+          "✎"]])
       (when-not hide-date
         [:span.task-date {:data-tooltip (date/get-day-name (:start_date meet))}
          (date/format-date-localized (:start_date meet))])

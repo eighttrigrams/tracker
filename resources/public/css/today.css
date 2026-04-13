@@ -142,7 +142,8 @@
 .today-task-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: baseline;
+  gap: 8px;
   cursor: pointer;
 }
 .today-task-header:hover { opacity: 0.85; }
@@ -169,6 +170,11 @@
 .today-task-item .task-title {
   font-weight: 500;
   color: var(--text-primary);
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .task-time {
   color: var(--accent);
