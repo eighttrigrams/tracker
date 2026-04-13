@@ -335,6 +335,9 @@
     (let [task (find-task-by-id drag-task-id)]
       (and task (or (= 1 (:today task)) (:lined_up_for task))))))
 
+(defn- drag-task-reminder? []
+  (= :reminder (:drag-task-source @state/*app-state)))
+
 (defn- add-task-for-selected-day [title on-success]
   (let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
     (if (zero? selected-day)
@@ -383,10 +386,13 @@
             nil))))))
 
 (defn- handle-other-things-drop [drag-task-id]
-  (let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
+  (let [selected-day (or (:today-page/selected-day @state/*app-state) 0)
+        from-reminder? (drag-task-reminder?)]
     (if (zero? selected-day)
       (state/set-task-today drag-task-id true)
       (state/set-task-lined-up-for drag-task-id (state/selected-day-date)))
+    (when from-reminder?
+      (state/acknowledge-task-reminder drag-task-id))
     (state/clear-drag-state)))
 
 (defn- handle-day-section-drop [drag-task-id target-date]
@@ -410,19 +416,22 @@
 (defn- handle-today-flagged-drop [e drag-task-id target-task]
   (.preventDefault e)
   (.stopPropagation e)
-  (when (and drag-task-id (not= drag-task-id (:id target-task)))
-    (let [rect (.getBoundingClientRect (.-currentTarget e))
-          y (.-clientY e)
-          mid-y (+ (.-top rect) (/ (.-height rect) 2))
-          position (if (< y mid-y) "before" "after")]
-      (when (ensure-other-things drag-task-id)
-        (state/reorder-task drag-task-id (:id target-task) position))))
+  (let [from-reminder? (drag-task-reminder?)]
+    (when (and drag-task-id (not= drag-task-id (:id target-task)))
+      (let [rect (.getBoundingClientRect (.-currentTarget e))
+            y (.-clientY e)
+            mid-y (+ (.-top rect) (/ (.-height rect) 2))
+            position (if (< y mid-y) "before" "after")]
+        (when (ensure-other-things drag-task-id)
+          (state/reorder-task drag-task-id (:id target-task) position))))
+    (when (and drag-task-id from-reminder?)
+      (state/acknowledge-task-reminder drag-task-id)))
   (state/clear-drag-state))
 
 (defn- draggable-today-flagged-task-item [task drag-task-id drag-enabled?]
   (let [drag-over-task (:drag-over-task @state/*app-state)
         is-dragging (= drag-task-id (:id task))
-        accept-drop? (and drag-enabled? (not (drag-task-overdue?)))
+        accept-drop? (and drag-enabled? (or (drag-task-reminder?) (not (drag-task-overdue?))))
         is-drag-over (and accept-drop? (= drag-over-task (:id task)))]
     [:div.draggable-today-task
      {:class (str (when is-dragging "dragging")
@@ -437,8 +446,16 @@
 
 (defn- handle-day-button-drop [drag-task-id target-date]
   (let [task (find-task-by-id* drag-task-id)
-        today (date/today-str)]
+        today (date/today-str)
+        from-reminder? (drag-task-reminder?)]
     (cond
+      from-reminder?
+      (do (if (= target-date today)
+            (state/set-task-today drag-task-id true)
+            (state/set-task-lined-up-for drag-task-id target-date))
+          (state/acknowledge-task-reminder drag-task-id)
+          (state/clear-drag-state))
+
       (and task (:due_date task) (< (:due_date task) today))
       (handle-day-section-drop drag-task-id target-date)
 
@@ -456,7 +473,8 @@
         drag-enabled? (and drag-task (not expanded-task))
         from-overdue? (drag-task-overdue?)
         from-other-things? (drag-task-other-things?)
-        drop-enabled? (and drag-enabled? (or from-overdue? from-other-things?))]
+        from-reminder? (drag-task-reminder?)
+        drop-enabled? (and drag-enabled? (or from-overdue? from-other-things? from-reminder?))]
     [:div.day-selector.toggle-group {:class (when drop-enabled? "dragging")}
      (doall
       (for [offset (range 5)]
@@ -495,7 +513,8 @@
         from-overdue? (drag-task-overdue?)
         from-urgent? (drag-task-urgent?)
         from-other-things? (drag-task-other-things?)
-        due-drop-enabled? (and drag-enabled? (not from-urgent?) (not from-other-things?))]
+        from-reminder? (drag-task-reminder?)
+        due-drop-enabled? (and drag-enabled? (not from-urgent?) (not from-other-things?) (not from-reminder?))]
     [:div.today-section.today
      [:div.today-section-header
       [:h3 (date/day-formatted target-date)]]
@@ -525,7 +544,7 @@
               ^{:key (str "task-" (:id item))}
               [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳")])))]
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])]
-     (let [other-drop-enabled? (and drag-enabled? (not from-overdue?))]
+     (let [other-drop-enabled? (and drag-enabled? (or from-reminder? (not from-overdue?)))]
        [:div.today-subsection.other-things
         {:class (when (and other-drop-enabled? (= (:drag-over-urgency-section @state/*app-state) :other-things)) "drop-target")
          :on-drag-over (fn [e]
@@ -557,7 +576,7 @@
         drag-over-task (:drag-over-task @state/*app-state)
         is-dragging (= drag-task (:id task))
         is-drag-over (= drag-over-task (:id task))
-        accept-drop? (and drag-enabled? (not (drag-task-overdue?)))]
+        accept-drop? (and drag-enabled? (not (drag-task-overdue?)) (not (drag-task-reminder?)))]
     [:div.draggable-urgent-task
      {:class (str (when is-dragging "dragging")
                   (when is-drag-over " drag-over")
@@ -574,7 +593,7 @@
   (let [drag-task (:drag-task @state/*app-state)
         drag-over-section (:drag-over-urgency-section @state/*app-state)
         is-section-drag-over (= drag-over-section target-urgency)
-        accept-drop? (and drag-enabled? (not (drag-task-overdue?)))]
+        accept-drop? (and drag-enabled? (not (drag-task-overdue?)) (not (drag-task-reminder?)))]
     [:div.urgency-task-list
      {:class (str (when is-section-drag-over "section-drag-over")
                   (when-not drag-enabled? " drag-disabled"))
@@ -605,18 +624,35 @@
       [:h4 "🚨"]
       [urgency-task-list urgent "urgent" drag-enabled?]]]))
 
+(defn- draggable-reminder-task-item [task drag-enabled?]
+  (let [drag-task-id (:drag-task @state/*app-state)
+        is-dragging (= drag-task-id (:id task))]
+    [:div.draggable-reminder-task
+     {:class (str (when is-dragging "dragging")
+                  (when-not drag-enabled? " drag-disabled"))
+      :draggable drag-enabled?
+      :on-drag-start (fn [e]
+                       (when drag-enabled?
+                         (.setData (.-dataTransfer e) "text/plain" (str (:id task)))
+                         (state/set-drag-task (:id task))
+                         (swap! state/*app-state assoc :drag-task-source :reminder)))
+      :on-drag-end (fn [_] (state/clear-drag-state))}
+     [today-task-item task]]))
+
 (defn- today-reminders-section [reminder-tasks]
-  [:div.today-section.reminders
-   [:h3.reminders-heading (t :today/reminders)
-    (when (seq reminder-tasks)
-      [:span.reminder-indicator])]
-   (if (seq reminder-tasks)
-     [:div.task-list
-      (doall
-       (for [task reminder-tasks]
-         ^{:key (str "task-" (:id task))}
-         [today-task-item task]))]
-     [:p.empty-message (t :today/no-reminders)])])
+  (let [expanded-task (:today-page/expanded-task @state/*app-state)
+        drag-enabled? (not expanded-task)]
+    [:div.today-section.reminders
+     [:h3.reminders-heading (t :today/reminders)
+      (when (seq reminder-tasks)
+        [:span.reminder-indicator])]
+     (if (seq reminder-tasks)
+       [:div.task-list
+        (doall
+         (for [task reminder-tasks]
+           ^{:key (str "task-" (:id task))}
+           [draggable-reminder-task-item task drag-enabled?]))]
+       [:p.empty-message (t :today/no-reminders)])]))
 
 (defn- today-upcoming-section [upcoming-tasks upcoming-meets]
   (let [items (interleave-by-date upcoming-tasks upcoming-meets)]

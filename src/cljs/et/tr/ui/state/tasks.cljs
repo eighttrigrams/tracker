@@ -295,7 +295,7 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to acknowledge reminder")))))
 
 (defn set-drag-task [app-state task-id]
-  (swap! app-state assoc :drag-task task-id))
+  (swap! app-state assoc :drag-task task-id :drag-task-source nil))
 
 (defn set-drag-over-task [app-state task-id]
   (swap! app-state assoc :drag-over-task task-id))
@@ -304,7 +304,7 @@
   (swap! app-state assoc :drag-over-urgency-section section))
 
 (defn clear-drag-state [app-state]
-  (swap! app-state assoc :drag-task nil :drag-over-task nil :drag-over-urgency-section nil))
+  (swap! app-state assoc :drag-task nil :drag-over-task nil :drag-over-urgency-section nil :drag-task-source nil))
 
 (defn reorder-task [app-state auth-headers fetch-tasks-fn task-id target-task-id position]
   (api/post-json (str "/api/tasks/" task-id "/reorder")

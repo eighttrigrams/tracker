@@ -339,17 +339,23 @@ h3.reminders-heading .reminder-indicator {
   border-top: 1px dashed rgba(0, 0, 0, 0.1);
 }
 .draggable-today-task,
-.draggable-overdue-task {
+.draggable-overdue-task,
+.draggable-reminder-task {
   cursor: grab;
   margin-bottom: 6px;
 }
 .draggable-today-task:last-child,
-.draggable-overdue-task:last-child {
+.draggable-overdue-task:last-child,
+.draggable-reminder-task:last-child {
   margin-bottom: 0;
 }
 .draggable-today-task:active,
-.draggable-overdue-task:active {
+.draggable-overdue-task:active,
+.draggable-reminder-task:active {
   cursor: grabbing;
+}
+.draggable-reminder-task.dragging {
+  opacity: 0.5;
 }
 .draggable-today-task {
   border: 2px solid transparent;
