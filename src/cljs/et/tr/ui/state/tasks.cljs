@@ -323,5 +323,12 @@
          :tasks-page/last-sort-mode mode)
   (fetch-tasks-fn))
 
+(defn toggle-reminder-mode [app-state fetch-tasks-fn]
+  (if (= :reminder (:sort-mode @app-state))
+    (let [last-mode (or (:tasks-page/last-sort-mode @app-state) :recent)]
+      (swap! app-state assoc :sort-mode last-mode))
+    (swap! app-state assoc :sort-mode :reminder))
+  (fetch-tasks-fn))
+
 (defn task-done? [task]
   (= 1 (:done task)))

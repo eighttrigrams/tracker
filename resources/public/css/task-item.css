@@ -503,6 +503,9 @@
 .task-scope-selector .toggle-option {
   cursor: pointer;
 }
+.reminder-filter-toggle {
+  margin-left: 8px;
+}
 .importance-filter-toggle {
   margin-left: auto;
   margin-right: 8px;

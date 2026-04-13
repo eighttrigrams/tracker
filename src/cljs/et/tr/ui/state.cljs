@@ -1224,6 +1224,9 @@
 (defn set-sort-mode [mode]
   (tasks/set-sort-mode *app-state fetch-tasks mode))
 
+(defn toggle-reminder-mode []
+  (tasks/toggle-reminder-mode *app-state fetch-tasks))
+
 (defn task-done? [task]
   (tasks/task-done? task))
 

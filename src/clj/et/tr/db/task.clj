@@ -53,6 +53,7 @@
                                    [:= :today 1]
                                    [:not= :lined_up_for nil]
                                    [:= :reminder "active"]]]
+                      :reminder [:and user-where [:= :done 0] [:not= :reminder_date nil]]
                       [:and user-where [:= :done 0]])
          search-clause (db/build-search-clause search-term)
          importance-clause (db/build-importance-clause importance)
@@ -74,6 +75,7 @@
                     :today [[:due_date :asc]
                             [[:case [:not= :due_time nil] 1 :else 0] :desc]
                             [:due_time :asc]]
+                    :reminder [[:reminder_date :asc]]
                     [[:modified_at :desc]])
          tasks (jdbc/execute! conn
                  (sql/format {:select db/task-select-columns

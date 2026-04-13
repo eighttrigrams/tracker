@@ -73,6 +73,14 @@
      [sort-mode-button sort-mode :due-date :tasks/sort-due-date]
      [sort-mode-button sort-mode :done :tasks/sort-done]]))
 
+(defn reminder-filter-toggle []
+  (let [active? (= :reminder (:sort-mode @state/*app-state))]
+    [:div.reminder-filter-toggle.toggle-group
+     [:button {:class (when active? "active")
+               :on-click #(state/toggle-reminder-mode)
+               :title (t :tasks/reminder-filter)}
+      "🔔"]]))
+
 (defn importance-filter-toggle []
   (let [importance-filter (:tasks-page/importance-filter @state/*app-state)]
     [:div.importance-filter-toggle.toggle-group
