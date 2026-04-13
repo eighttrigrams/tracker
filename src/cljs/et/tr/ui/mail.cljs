@@ -4,7 +4,7 @@
             [et.tr.i18n :refer [t]]
             [reagent.core :as r]
             [clojure.string :as str]
-            [et.tr.ui.components.task-item :refer [markdown]]
+            [et.tr.ui.components.task-item :refer [markdown clampable-description]]
             [et.tr.ui.date :as date]))
 
 (defn- first-url [& texts]
@@ -184,9 +184,9 @@
      [youtube-embed video-id])
    (when (seq description)
      [:div.description-wrapper
-      (if (= type "markdown")
-        [markdown description]
-        [:div.item-description description])
+      [clampable-description
+       {:text description
+        :markdown? (= type "markdown")}]
       [:button.copy-icon {:on-click #(.writeText js/navigator.clipboard description)} "⧉"]])
    (if editing?
      [message-annotation-edit-form message]

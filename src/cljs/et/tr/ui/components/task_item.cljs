@@ -14,18 +14,25 @@
 (defn- markdown-line-count [text]
   (count (re-seq #"(?:\r?\n){2,}" (or text ""))))
 
-(defn clampable-description [{:keys [text on-click]}]
+(defn- plain-line-count [text]
+  (count (re-seq #"\r?\n" (or text ""))))
+
+(defn clampable-description [{:keys [text on-click markdown?] :or {markdown? true}}]
   (let [expanded? (r/atom false)]
-    (fn [{:keys [text on-click]}]
-      (let [needs-clamp? (> (markdown-line-count text) 9)]
+    (fn [{:keys [text on-click markdown?] :or {markdown? true}}]
+      (let [needs-clamp? (if markdown?
+                           (> (markdown-line-count text) 9)
+                           (> (plain-line-count text) 9))]
         [:<>
          [:div.item-description
           {:class (when (and needs-clamp? (not @expanded?)) "clamped")
            :on-click (fn [e]
                        (when (.. js/window getSelection -isCollapsed)
                          (.stopPropagation e)
-                         (on-click)))}
-          [markdown text]]
+                         (when on-click (on-click))))}
+          (if markdown?
+            [markdown text]
+            text)]
          (when (and needs-clamp? (not @expanded?))
            [:span.see-more
             {:on-click (fn [e]
