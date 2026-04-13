@@ -61,7 +61,7 @@
         user-where (db/user-id-where-clause user-id)
         scope-clause (db/build-scope-clause context strict)
         today-expr [:raw "date('now','localtime')"]
-        monday-expr [:raw "date('now','localtime','weekday 1','-7 days')"]
+        monday-expr [:raw "date('now','localtime','-6 days','weekday 1')"]
         where-clause (into [:and user-where]
                            (filter some?
                                    [scope-clause
@@ -74,12 +74,22 @@
                                                 :where [:and
                                                         [:= :j.id :journal_entries.journal_id]
                                                         [:= :j.schedule_type "weekly"]]}]]]]))
-        entries (jdbc/execute! conn
-                  (sql/format {:select db/journal-entry-select-columns
-                               :from [:journal_entries]
-                               :where where-clause
-                               :order-by [[:sort_order :asc]]})
-                  db/jdbc-opts)
+        raw-entries (jdbc/execute! conn
+                      (sql/format {:select db/journal-entry-select-columns
+                                   :from [:journal_entries]
+                                   :where where-clause
+                                   :order-by [[:entry_date :desc] [:sort_order :asc]]})
+                      db/jdbc-opts)
+        entries (->> raw-entries
+                     (reduce (fn [{:keys [seen acc]} e]
+                               (if (and (:journal_id e) (contains? seen (:journal_id e)))
+                                 {:seen seen :acc acc}
+                                 {:seen (cond-> seen (:journal_id e) (conj (:journal_id e)))
+                                  :acc (conj acc e)}))
+                             {:seen #{} :acc []})
+                     :acc
+                     (sort-by :sort_order)
+                     vec)
         entry-ids (mapv :id entries)
         categories-data (when (seq entry-ids)
                           (jdbc/execute! conn
