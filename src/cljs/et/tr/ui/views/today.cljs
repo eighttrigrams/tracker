@@ -683,14 +683,38 @@
                :on-click #(state/toggle-today-journals-mode)}
       (t :today/journals)]]))
 
+(defn- today-journal-entry-title-content [entry is-expanded]
+  (let [inline-editing? (= (:today-page/inline-edit-journal-entry @state/*app-state) (:id entry))]
+    (if inline-editing?
+      [task-item/inline-title-edit
+       {:title (or (:today-page/inline-edit-journal-entry-title @state/*app-state) "")
+        :on-change #(swap! state/*app-state assoc :today-page/inline-edit-journal-entry-title %)
+        :on-commit (fn []
+                     (let [v (or (:today-page/inline-edit-journal-entry-title @state/*app-state) "")]
+                       (state/update-journal-entry (:id entry) v (:description entry) (:tags entry)
+                         #(swap! state/*app-state dissoc :today-page/inline-edit-journal-entry :today-page/inline-edit-journal-entry-title))))
+        :on-cancel #(swap! state/*app-state dissoc :today-page/inline-edit-journal-entry :today-page/inline-edit-journal-entry-title)}]
+      [:span.item-title-text
+       {:on-click (fn [e]
+                    (when (and is-expanded (.-altKey e))
+                      (.stopPropagation e)
+                      (swap! state/*app-state assoc
+                        :today-page/inline-edit-journal-entry (:id entry)
+                        :today-page/inline-edit-journal-entry-title (:title entry))))}
+       (:title entry)])))
+
 (defn- today-journal-entry-item [entry]
-  (let [is-expanded (= (:today-page/expanded-journal-entry @state/*app-state) (:id entry))]
+  (let [is-expanded (= (:today-page/expanded-journal-entry @state/*app-state) (:id entry))
+        inline-editing? (= (:today-page/inline-edit-journal-entry @state/*app-state) (:id entry))]
     [:li {:class (when is-expanded "expanded")}
      [:div.item-header
-      {:on-click #(swap! state/*app-state assoc :today-page/expanded-journal-entry
-                         (when-not is-expanded (:id entry)))}
+      {:on-click (fn [_]
+                   (when-not (or inline-editing?
+                                 (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                     (swap! state/*app-state assoc :today-page/expanded-journal-entry
+                            (when-not is-expanded (:id entry)))))}
       [:div.item-title
-       (:title entry)
+       [today-journal-entry-title-content entry is-expanded]
        (when is-expanded
          [:button.edit-icon {:on-click (fn [e]
                                          (.stopPropagation e)
@@ -702,7 +726,9 @@
      (when is-expanded
        [:div.today-task-details
         (when (seq (:description entry))
-          [:div.item-description [task-item/markdown (:description entry)]])])]))
+          [task-item/clampable-description
+           {:text (:description entry)
+            :on-click #(state/set-editing-modal :journal-entry entry)}])])]))
 
 (defn- today-journals-section []
   (let [entries (:today-journal-entries @state/*app-state)]
