@@ -1,5 +1,6 @@
 (ns et.tr.ui.components.task-item
   (:require [reagent.core :as r]
+            [clojure.string :as str]
             [et.tr.ui.state :as state]
             [et.tr.ui.components.category-selector :as category-selector]
             [et.tr.ui.components.relation-badges :as relation-badges]
@@ -11,28 +12,24 @@
   [:div.markdown-content
    {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
 
-(defn- markdown-line-count [text]
-  (count (re-seq #"(?:\r?\n){2,}" (or text ""))))
+(defn- markdown-blocks [text]
+  (str/split (or text "") #"\r?\n\r?\n+"))
 
-(defn- plain-line-count [text]
-  (count (re-seq #"\r?\n" (or text ""))))
-
-(defn clampable-description [{:keys [text on-click markdown?] :or {markdown? true}}]
+(defn clampable-description [_]
   (let [expanded? (r/atom false)]
-    (fn [{:keys [text on-click markdown?] :or {markdown? true}}]
-      (let [needs-clamp? (if markdown?
-                           (> (markdown-line-count text) 9)
-                           (> (plain-line-count text) 9))]
+    (fn [{:keys [text on-click]}]
+      (let [blocks (markdown-blocks text)
+            needs-clamp? (> (count blocks) 10)
+            visible (if (and needs-clamp? (not @expanded?))
+                      (str/join "\n\n" (take 10 blocks))
+                      text)]
         [:<>
          [:div.item-description
-          {:class (when (and needs-clamp? (not @expanded?)) "clamped")
-           :on-click (fn [e]
+          {:on-click (fn [e]
                        (when (.. js/window getSelection -isCollapsed)
                          (.stopPropagation e)
                          (when on-click (on-click))))}
-          (if markdown?
-            [markdown text]
-            text)]
+          [markdown visible]]
          (when (and needs-clamp? (not @expanded?))
            [:span.see-more
             {:on-click (fn [e]
