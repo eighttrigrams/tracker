@@ -714,12 +714,13 @@
                      (swap! state/*app-state assoc :today-page/expanded-journal-entry
                             (when-not is-expanded (:id entry)))))}
       [:div.item-title
-       [today-journal-entry-title-content entry is-expanded]
-       (when is-expanded
+       [today-journal-entry-title-content entry is-expanded]]
+      (when is-expanded
+        [:div.item-toolbar
          [:button.edit-icon {:on-click (fn [e]
                                          (.stopPropagation e)
                                          (state/set-editing-modal :journal-entry entry))}
-          "✎"])]
+          "✎"]])
       [:div.item-date
        (when (:entry_date entry)
          [:span.due-date (date/format-date-localized (:entry_date entry))])]]
