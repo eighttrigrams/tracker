@@ -2,7 +2,7 @@
   (:require [et.tr.server.common :as common]
             [et.tr.db.relation :as db.relation]))
 
-(def ^:private valid-relation-types #{"tsk" "res" "met"})
+(def ^:private valid-relation-types #{"tsk" "res" "met" "jen"})
 
 (defn add-relation-handler [req]
   (let [user-id (common/get-user-id req)

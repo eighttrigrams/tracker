@@ -7,6 +7,8 @@
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.filters :as filters]
+            [et.tr.ui.components.relation-link :as relation-link]
+            [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private today-category-shortcut-keys
@@ -30,7 +32,8 @@
       [task-item/category-selector task state/CATEGORY-TYPE-PERSON people (t :category/person)]
       [task-item/category-selector task state/CATEGORY-TYPE-PLACE places (t :category/place)]
       [task-item/category-selector task state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-      [task-item/category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+      [task-item/category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
+      [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]]
      [:div.item-actions
       [task-item/task-attribute-selectors task]
       [task-item/task-combined-action-button task
@@ -76,6 +79,7 @@
                                  (and is-expanded (not (.. js/window getSelection -isCollapsed))))
                      (state/toggle-expanded :today-page/expanded-task (:id task))))}
       [:div.today-task-content
+       [relation-link/relation-link-button :task (:id task)]
        [:span.task-title
         (when emoji-prefix
           [:span.task-emoji-prefix emoji-prefix])
@@ -86,7 +90,10 @@
           [:span.task-time {:class (when overdue? "overdue-time")} (:due_time task)])
         [today-task-title-content task is-expanded]]
        (when-not is-expanded
-         [task-item/task-category-badges task])]
+         [:<>
+          [task-item/task-category-badges task]
+          (when (seq (:relations task))
+            [relation-badges/relation-badges-collapsed (:relations task) "tsk" (:id task)])])]
       (when is-expanded
         [:div.item-toolbar
          [:button.edit-icon {:on-click (fn [e]
@@ -174,7 +181,8 @@
       [task-item/meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
       [task-item/meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
       [task-item/meet-category-selector meet state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-      [task-item/meet-category-selector meet state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+      [task-item/meet-category-selector meet state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
+      [relation-badges/relation-badges-expanded (:relations meet) "met" (:id meet)]]
      [:div.item-actions
       [meet-scope-selector meet]
       [meet-importance-selector meet]
@@ -216,6 +224,7 @@
                                  (and is-expanded (not (.. js/window getSelection -isCollapsed))))
                      (state/toggle-expanded :today-page/expanded-meet (:id meet))))}
       [:div.today-task-content
+       [relation-link/relation-link-button :meet (:id meet)]
        [:span.task-title
         "🗓️ "
         (when show-prefix?
@@ -225,17 +234,20 @@
           [:span.task-time (:start_time meet)])
         [today-meet-title-content meet is-expanded]]
        (when-not is-expanded
-         (when (or (seq (:people meet)) (seq (:places meet)) (seq (:projects meet)))
-           [:div.task-badges
-            (for [person (:people meet)]
-              ^{:key (str "person-" (:id person))}
-              [:span.tag.person (filters/badge-label person)])
-            (for [place (:places meet)]
-              ^{:key (str "place-" (:id place))}
-              [:span.tag.place (filters/badge-label place)])
-            (for [project (:projects meet)]
-              ^{:key (str "project-" (:id project))}
-              [:span.tag.project (filters/badge-label project)])]))]
+         [:<>
+          (when (or (seq (:people meet)) (seq (:places meet)) (seq (:projects meet)))
+            [:div.task-badges
+             (for [person (:people meet)]
+               ^{:key (str "person-" (:id person))}
+               [:span.tag.person (filters/badge-label person)])
+             (for [place (:places meet)]
+               ^{:key (str "place-" (:id place))}
+               [:span.tag.place (filters/badge-label place)])
+             (for [project (:projects meet)]
+               ^{:key (str "project-" (:id project))}
+               [:span.tag.project (filters/badge-label project)])])
+          (when (seq (:relations meet))
+            [relation-badges/relation-badges-collapsed (:relations meet) "met" (:id meet)])])]
       (when is-expanded
         [:div.item-toolbar
          [:button.edit-icon {:on-click (fn [e]
@@ -780,7 +792,11 @@
                      (swap! state/*app-state assoc :today-page/expanded-journal-entry
                             (when-not is-expanded (:id entry)))))}
       [:div.item-title
+       [relation-link/relation-link-button :journal-entry (:id entry)]
        [today-journal-entry-title-content entry is-expanded]]
+      (when-not is-expanded
+        (when (seq (:relations entry))
+          [relation-badges/relation-badges-collapsed (:relations entry) "jen" (:id entry)]))
       (when is-expanded
         [:div.item-toolbar
          [:button.edit-icon {:on-click (fn [e]
@@ -795,7 +811,8 @@
         (when (seq (:description entry))
           [task-item/clampable-description
            {:text (:description entry)
-            :on-click #(state/set-editing-modal :journal-entry entry)}])])]))
+            :on-click #(state/set-editing-modal :journal-entry entry)}])
+        [relation-badges/relation-badges-expanded (:relations entry) "jen" (:id entry)]])]))
 
 (defn- today-journals-section []
   (let [entries (:today-journal-entries @state/*app-state)]

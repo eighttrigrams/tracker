@@ -3,17 +3,20 @@
 (def type->prefix
   {:task "tsk"
    :resource "res"
-   :meet "met"})
+   :meet "met"
+   :journal-entry "jen"})
 
 (def prefix->type
   {"tsk" :task
    "res" :resource
-   "met" :meet})
+   "met" :meet
+   "jen" :journal-entry})
 
 (def prefix->api-path
   {"tsk" "/api/tasks/"
    "res" "/api/resources/"
-   "met" "/api/meets/"})
+   "met" "/api/meets/"
+   "jen" "/api/journal-entries/"})
 
 (defn parse-item-path [pathname]
   (when-let [[_ slug] (re-matches #"/item/(\w+)" pathname)]

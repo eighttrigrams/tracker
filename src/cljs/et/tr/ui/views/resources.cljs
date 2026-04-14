@@ -570,7 +570,8 @@
     [resource-category-selector entry state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [resource-category-selector entry state/CATEGORY-TYPE-PLACE places (t :category/place)]
     [resource-category-selector entry state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-    [resource-category-selector entry state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+    [resource-category-selector entry state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
+    [relation-badges/relation-badges-expanded (:relations entry) "jen" (:id entry)]]
    [:div.item-actions
     [journal-entry-scope-selector entry]
     [journal-entry-importance-selector entry]
@@ -607,6 +608,7 @@
                                 (and is-expanded (not (.. js/window getSelection -isCollapsed))))
                     (state/set-expanded-journal-entry (when-not is-expanded (:id entry)))))}
      [:div.item-title
+      [relation-link/relation-link-button :journal-entry (:id entry)]
       (when (and importance (not= importance "normal"))
         [:span.importance-badge {:class importance}
          (case importance "important" "★" "critical" "★★" nil)])
@@ -644,7 +646,9 @@
                       [state/CATEGORY-TYPE-PROJECT :projects]
                       [state/CATEGORY-TYPE-GOAL :goals]]
      :toggle-fn state/toggle-shared-filter
-     :has-filter-fn state/has-filter-for-type?}]])
+     :has-filter-fn state/has-filter-for-type?}]
+   (when (seq (:relations entry))
+     [relation-badges/relation-badges-collapsed (:relations entry) "jen" (:id entry)])])
 
 (defn- journal-entry-item [entry expanded-id people places projects goals]
   (let [is-expanded (= expanded-id (:id entry))]

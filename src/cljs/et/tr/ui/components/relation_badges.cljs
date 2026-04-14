@@ -6,6 +6,7 @@
     "tsk" "T"
     "res" "R"
     "met" "M"
+    "jen" "J"
     "?"))
 
 (defn- relation-key [relation]

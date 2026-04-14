@@ -4,7 +4,7 @@
             [taoensso.telemere :as tel]
             [et.tr.db :as db]))
 
-(def ^:private valid-relation-types #{"tsk" "res" "met"})
+(def ^:private valid-relation-types #{"tsk" "res" "met" "jen"})
 
 (defn- validate-relation-type! [type]
   (when-not (contains? valid-relation-types type)
@@ -12,7 +12,7 @@
 
 (defn- item-exists? [ds user-id type id]
   (let [conn (db/get-conn ds)
-        table (case type "tsk" :tasks "res" :resources "met" :meets)
+        table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)
         user-where (db/user-id-where-clause user-id)]
     (some? (jdbc/execute-one! conn
              (sql/format {:select [:id]
@@ -86,7 +86,7 @@
       db/jdbc-opts)))
 
 (defn- fetch-title-for-relation [conn type id]
-  (let [table (case type "tsk" :tasks "res" :resources "met" :meets)]
+  (let [table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)]
     (:title (jdbc/execute-one! conn
               (sql/format {:select [:title]
                            :from [table]
@@ -117,7 +117,7 @@
         title-maps (into {}
                          (for [[type rels] grouped
                                :let [ids (mapv :target_id rels)
-                                     table (case type "tsk" :tasks "res" :resources "met" :meets)
+                                     table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)
                                      items (jdbc/execute! conn
                                              (sql/format {:select [:id :title]
                                                           :from [table]

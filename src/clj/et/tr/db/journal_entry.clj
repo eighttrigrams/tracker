@@ -2,7 +2,8 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
-            [et.tr.db :as db]))
+            [et.tr.db :as db]
+            [et.tr.db.relation :as relation]))
 
 (defn- build-journal-entry-category-clauses [categories]
   (let [people-clause (db/build-category-subquery :journal_entry_categories :journal_entry_id :journal_entries "person" (:people categories))
@@ -52,7 +53,8 @@
                              db/jdbc-opts))
          {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
          categories-by-entry (group-by :journal_entry_id categories-data)]
-     (associate-categories-with-journal-entries entries categories-by-entry people-by-id places-by-id projects-by-id goals-by-id))))
+     (-> (associate-categories-with-journal-entries entries categories-by-entry people-by-id places-by-id projects-by-id goals-by-id)
+         (relation/associate-relations-with-items "jen" conn)))))
 
 (defn list-today-journal-entries
   [ds user-id opts]
@@ -99,7 +101,8 @@
                             db/jdbc-opts))
         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
         categories-by-entry (group-by :journal_entry_id categories-data)]
-    (associate-categories-with-journal-entries entries categories-by-entry people-by-id places-by-id projects-by-id goals-by-id)))
+    (-> (associate-categories-with-journal-entries entries categories-by-entry people-by-id places-by-id projects-by-id goals-by-id)
+        (relation/associate-relations-with-items "jen" conn))))
 
 (defn journal-entry-owned-by-user? [ds entry-id user-id]
   (some? (jdbc/execute-one! (db/get-conn ds)
@@ -124,7 +127,9 @@
                               db/jdbc-opts)
             {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
             categories-by-entry (group-by :journal_entry_id categories-data)]
-        (first (associate-categories-with-journal-entries [entry] categories-by-entry people-by-id places-by-id projects-by-id goals-by-id))))))
+        (first (relation/associate-relations-with-items
+                 (associate-categories-with-journal-entries [entry] categories-by-entry people-by-id places-by-id projects-by-id goals-by-id)
+                 "jen" conn))))))
 
 (defn update-journal-entry [ds user-id entry-id fields]
   (let [field-names (keys fields)
@@ -144,6 +149,7 @@
         (jdbc/execute-one! tx
           (sql/format {:delete-from :journal_entry_categories
                        :where [:= :journal_entry_id entry-id]}))
+        (relation/delete-relations-for-item tx "jen" entry-id)
         (let [result (jdbc/execute-one! tx
                        (sql/format {:delete-from :journal_entries
                                     :where [:= :id entry-id]}))]

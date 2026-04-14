@@ -4,7 +4,8 @@
 (def ^:private item-type->collection-key
   {:task :tasks
    :resource :resources
-   :meet :meets})
+   :meet :meets
+   :journal-entry :journal-entries})
 
 (defn- already-linked? [source item-type item-id]
   (when source

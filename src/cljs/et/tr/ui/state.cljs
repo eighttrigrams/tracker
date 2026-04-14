@@ -1468,11 +1468,11 @@
 (defn- refetch-for-active-tab []
   (case (:active-tab @*app-state)
     :tasks (fetch-tasks)
-    :resources (fetch-resources)
+    :resources (fetch-resources-or-journals)
     :meets (if (:meets-page/series-mode @*app-state)
              (fetch-meeting-series)
              (fetch-meets))
-    :today (do (fetch-tasks) (fetch-today-meets))
+    :today (do (fetch-tasks) (fetch-today-meets) (fetch-today-journal-entries))
     nil))
 
 (defn item-type->prefix [item-type]
