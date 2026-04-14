@@ -139,6 +139,30 @@
                     (state/archive-meet (:id meet)))}
        (t :meets/archive)])))
 
+(defn- meet-scope-selector [meet]
+  (let [scope (or (:scope meet) "both")]
+    [:div.task-scope-selector.toggle-group.compact
+     (for [s ["private" "both" "work"]]
+       ^{:key s}
+       [:button.toggle-option
+        {:class (when (= scope s) "active")
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-meet-scope (:id meet) s))}
+        s])]))
+
+(defn- meet-importance-selector [meet]
+  (let [importance (or (:importance meet) "normal")]
+    [:div.task-importance-selector.toggle-group.compact
+     (for [[level label] [["normal" "○"] ["important" "★"] ["critical" "★★"]]]
+       ^{:key level}
+       [:button.toggle-option
+        {:class (str level (when (= importance level) " active"))
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-meet-importance (:id meet) level))}
+        label])]))
+
 (defn- today-meet-expanded-details [meet is-today?]
   (let [{:keys [people places projects goals]} @state/*app-state]
     [:div.today-task-details
@@ -151,8 +175,14 @@
       [task-item/meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
       [task-item/meet-category-selector meet state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
       [task-item/meet-category-selector meet state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
-     (when is-today?
-       [today-meet-archive-button meet])]))
+     [:div.item-actions
+      [meet-scope-selector meet]
+      [meet-importance-selector meet]
+      [:div.combined-button-wrapper
+       (when is-today?
+         [today-meet-archive-button meet])
+       [:button.delete-btn {:on-click #(state/set-confirm-delete-meet meet)}
+        (t :task/delete)]]]]))
 
 (defn- today-meet-title-content [meet is-expanded]
   (let [inline-editing? (= (:today-page/inline-edit-meet @state/*app-state) (:id meet))]
