@@ -86,7 +86,10 @@
       (:confirm-delete-meet @state/*app-state)
       (:confirm-delete-rtask @recurring-tasks-state/*recurring-tasks-page-state)
       (:confirm-delete-journal @journals-state/*journals-page-state)
-      (:confirm-delete-entry @journal-entries-state/*journal-entries-page-state)))
+      (:confirm-delete-entry @journal-entries-state/*journal-entries-page-state)
+      (:today-page/confirm-move-to-today @state/*app-state)
+      (:create-date-modal @state/*app-state)
+      (:reminder-modal @state/*app-state)))
 
 (defn- body-scroll-lock []
   (let [modal-open? (any-modal-open?)]

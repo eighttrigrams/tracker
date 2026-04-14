@@ -5,6 +5,7 @@
             [et.tr.ui.state.journals :as journals-state]
             [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.date :as date]
+            [et.tr.ui.modals :as modals]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.filter-section :as filter-section]
@@ -501,6 +502,7 @@
            [:button.clear-search {:on-click #(state/set-journal-filter-search "")} "x"])
          (when @adding-mode
            [:div.modal-overlay {:on-click #(reset! adding-mode nil)}
+            [modals/modal-keyboard-shortcut {:on-confirm identity :on-escape #(reset! adding-mode nil) :enabled? false}]
             [:div.modal {:on-click #(.stopPropagation %)}
              [:div.modal-header (t :modal/journal-type-select)]
              [:div.modal-body

@@ -15,21 +15,27 @@
             [et.tr.ui.date :as date]
             ["marked" :refer [marked]]))
 
-(defn- modal-keyboard-shortcut [{:keys [on-confirm enabled?]}]
-  (let [state (atom {:on-confirm on-confirm :enabled? enabled?})]
+(defn modal-keyboard-shortcut [{:keys [on-confirm on-escape enabled?]}]
+  (let [state (atom {:on-confirm on-confirm :on-escape on-escape :enabled? enabled?})]
     (r/create-class
      {:display-name "modal-keyboard-shortcut"
       :component-did-mount
       (fn [_]
         (let [handler (fn [e]
-                        (let [{:keys [on-confirm enabled?]} @state]
-                          (when (and enabled?
-                                     (.-metaKey e)
-                                     (if (state/vim-keys?)
-                                       (= "Digit9" (.-code e))
-                                       (= "KeyS" (.-code e))))
-                            (.preventDefault e)
-                            (on-confirm))))]
+                        (let [{:keys [on-confirm on-escape enabled?]} @state]
+                          (cond
+                            (and enabled?
+                                 (.-metaKey e)
+                                 (if (state/vim-keys?)
+                                   (= "Digit9" (.-code e))
+                                   (= "KeyS" (.-code e))))
+                            (do (.preventDefault e)
+                                (on-confirm))
+
+                            (and on-escape
+                                 (= "Escape" (.-code e)))
+                            (do (.preventDefault e)
+                                (on-escape)))))]
           (swap! state assoc :handler handler)
           (.addEventListener js/document "keydown" handler)))
       :component-did-update
@@ -37,6 +43,7 @@
         (let [[_ new-props] (r/argv this)]
           (swap! state assoc
                  :on-confirm (:on-confirm new-props)
+                 :on-escape (:on-escape new-props)
                  :enabled? (:enabled? new-props))))
       :component-will-unmount
       (fn [_]
@@ -48,7 +55,7 @@
 (defn- generic-confirm-modal
   [{:keys [header body-paragraphs on-cancel on-confirm confirm-label]}]
   [:div.modal-overlay
-   [modal-keyboard-shortcut {:on-confirm on-confirm :enabled? true}]
+   [modal-keyboard-shortcut {:on-confirm on-confirm :on-escape on-cancel :enabled? true}]
    [:div.modal {:on-click #(.stopPropagation %)}
     [:div.modal-header header]
     [:div.modal-body
@@ -98,7 +105,9 @@
         (let [username (:username user)
               matches? (= @confirmation-input username)]
           [:div.modal-overlay
-           [modal-keyboard-shortcut {:on-confirm #(do (reset! confirmation-input "") (state/delete-user (:id user))) :enabled? matches?}]
+           [modal-keyboard-shortcut {:on-confirm #(do (reset! confirmation-input "") (state/delete-user (:id user)))
+                                     :on-escape #(do (reset! confirmation-input "") (state/clear-confirm-delete-user))
+                                     :enabled? matches?}]
            [:div.modal {:on-click #(.stopPropagation %)}
             [:div.modal-header (t :modal/delete-user)]
             [:div.modal-body
@@ -245,7 +254,7 @@
           header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories :recurring-task :modal/add-recurring-task-categories (:meet :meeting-series) :modal/add-meet-categories)
           confirm-key (case type :task :modal/add-task :resource :modal/add-resource :recurring-task :modal/add-recurring-task (:meet :meeting-series) :modal/add-meet)]
       [:div.modal-overlay {:on-click #(state/clear-pending-new-item)}
-       [modal-keyboard-shortcut {:on-confirm #(state/confirm-pending-new-item) :enabled? true}]
+       [modal-keyboard-shortcut {:on-confirm #(state/confirm-pending-new-item) :on-escape #(state/clear-pending-new-item) :enabled? true}]
        [:div.modal.pending-task-modal {:on-click #(.stopPropagation %)}
         [:div.modal-header (t header-key)]
         [:div.modal-body
@@ -289,6 +298,23 @@
                        :tags (r/atom (or (:tags entity) ""))
                        :badge-title (r/atom (or (:badge_title entity) ""))})]
     (assoc field-atoms :type type :entity entity)))
+
+(defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type]}]
+  (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry} type))
+        title-orig (if is-category (:name entity) (:title entity))
+        base-dirty (or (not= @title title-orig)
+                       (not= @description (or (:description entity) ""))
+                       (not= @tags (or (:tags entity) "")))]
+    (cond
+      base-dirty true
+      (and link (not= @link (:link entity))) true
+      (and badge-title (not= @badge-title (or (:badge_title entity) ""))) true
+      (and schedule-days (not= @schedule-days (or (:schedule_days entity) ""))) true
+      (and schedule-time (not= @schedule-time (or (:schedule_time entity) ""))) true
+      (and schedule-mode (not= @schedule-mode (or (:schedule_mode entity) "weekly"))) true
+      (and biweekly-offset (not= @biweekly-offset (= 1 (:biweekly_offset entity)))) true
+      (and task-type (not= @task-type (or (:task_type entity) "due_date"))) true
+      :else false)))
 
 (defn- edit-modal-save [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type]}]
   (let [id (:id entity)]
@@ -573,92 +599,114 @@
                      (reset! shared-time-val v)
                      (sync-schedule-time!))]])])])]))))
 
+(defn- unsaved-changes-modal [{:keys [on-go-back on-save-and-exit]}]
+  [:div.modal-overlay
+   [modal-keyboard-shortcut {:on-confirm on-save-and-exit :on-escape on-go-back :enabled? true}]
+   [:div.modal {:on-click #(.stopPropagation %)}
+    [:div.modal-header (t :modal/unsaved-changes)]
+    [:div.modal-body
+     [:p (t :modal/unsaved-changes-body)]]
+    [:div.modal-footer
+     [:button.cancel {:on-click on-go-back} (t :modal/go-back)]
+     [:button.confirm {:on-click on-save-and-exit} (t :task/save)]]]])
+
 (defn edit-item-modal []
   (let [fields-state (r/atom nil)
         prev-entity (r/atom nil)
-        active-tab (r/atom :edit)]
+        active-tab (r/atom :edit)
+        confirm-discard? (r/atom false)]
     (fn []
       (if-let [{:keys [type entity tab]} (:editing-modal @state/*app-state)]
         (do
           (when (not= entity @prev-entity)
             (reset! prev-entity entity)
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
-            (reset! active-tab (or tab :edit)))
+            (reset! active-tab (or tab :edit))
+            (reset! confirm-discard? false))
           (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type]} @fields-state]
             (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry} type))
                   preview-tab-key (case type
                                     (:task :recurring-task) :modal/tab-task
                                     (:meet :meeting-series) :modal/tab-meet
                                     (:resource :journal :journal-entry) :modal/tab-resource
-                                    :modal/tab-category)]
-              [:div.modal-overlay
-               [modal-keyboard-shortcut {:on-confirm #(edit-modal-save @fields-state) :enabled? true}]
-               [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
-                [:div.modal-body
-                 [:div.edit-modal-tabs
-                  [:button {:class (when (= @active-tab :preview) "active")
-                            :on-click #(do (reset! active-tab :preview)
-                                           (when-let [path (url/entity->path {:type type :entity entity})]
-                                             (url/replace-state! path)))}
-                   (t preview-tab-key)]
-                  [:button {:class (when (= @active-tab :edit) "active")
-                            :on-click #(do (reset! active-tab :edit)
-                                           (when-let [path (url/entity->path {:type type :entity entity})]
-                                             (url/replace-state! (str path "?section=edit"))))}
-                   (t :modal/edit)]
-                  (when (#{:meeting-series :recurring-task} type)
-                    [:button {:class (when (= @active-tab :scheduling) "active")
-                              :on-click #(reset! active-tab :scheduling)}
-                     (t :modal/tab-scheduling)])]
-                 (case @active-tab
-                   :scheduling
-                   [scheduling-tab-content entity schedule-days schedule-time schedule-mode biweekly-offset
-                    (when (= type :recurring-task) task-type)]
+                                    :modal/tab-category)
+                  try-escape (fn []
+                               (if (edit-modal-dirty? @fields-state)
+                                 (reset! confirm-discard? true)
+                                 (state/clear-editing-modal)))]
+              (if @confirm-discard?
+                [unsaved-changes-modal
+                 {:on-go-back #(reset! confirm-discard? false)
+                  :on-save-and-exit #(edit-modal-save @fields-state)}]
+                [:div.modal-overlay
+                 [modal-keyboard-shortcut {:on-confirm #(edit-modal-save @fields-state) :on-escape try-escape :enabled? true}]
+                 [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
+                  [:div.modal-body
+                   [:div.edit-modal-tabs
+                    [:button {:class (when (= @active-tab :preview) "active")
+                              :on-click #(do (reset! active-tab :preview)
+                                             (when-let [path (url/entity->path {:type type :entity entity})]
+                                               (url/replace-state! path)))}
+                     (t preview-tab-key)]
+                    [:button {:class (when (= @active-tab :edit) "active")
+                              :on-click #(do (reset! active-tab :edit)
+                                             (when-let [path (url/entity->path {:type type :entity entity})]
+                                               (url/replace-state! (str path "?section=edit"))))}
+                     (t :modal/edit)]
+                    (when (#{:meeting-series :recurring-task} type)
+                      [:button {:class (when (= @active-tab :scheduling) "active")
+                                :on-click #(reset! active-tab :scheduling)}
+                       (t :modal/tab-scheduling)])]
+                   (case @active-tab
+                     :scheduling
+                     [scheduling-tab-content entity schedule-days schedule-time schedule-mode biweekly-offset
+                      (when (= type :recurring-task) task-type)]
 
-                   :preview
-                   [:div.edit-modal-preview
-                    [:h2.preview-title @title]
-                    (when (and link (seq @link))
-                      [:a.preview-link {:href @link :target "_blank" :rel "noopener noreferrer"} @link])
-                    [markdown-preview @description]]
-                   [:div.item-edit-form
-                    [:input {:type "text"
-                             :value @title
-                             :on-change #(reset! title (-> % .-target .-value))
-                             :placeholder (if is-category (t :category/name-placeholder) (t :task/title-placeholder))}]
-                    (when link
+                     :preview
+                     [:div.edit-modal-preview
+                      [:h2.preview-title @title]
+                      (when (and link (seq @link))
+                        [:a.preview-link {:href @link :target "_blank" :rel "noopener noreferrer"} @link])
+                      [markdown-preview @description]]
+                     [:div.item-edit-form
                       [:input {:type "text"
-                               :value @link
-                               :on-change #(reset! link (-> % .-target .-value))
-                               :placeholder (t :resources/link-placeholder)}])
-                    (when badge-title
+                               :value @title
+                               :on-change #(reset! title (-> % .-target .-value))
+                               :placeholder (if is-category (t :category/name-placeholder) (t :task/title-placeholder))}]
+                      (when link
+                        [:input {:type "text"
+                                 :value @link
+                                 :on-change #(reset! link (-> % .-target .-value))
+                                 :placeholder (t :resources/link-placeholder)}])
+                      (when badge-title
+                        [:input {:type "text"
+                                 :value @badge-title
+                                 :on-change #(reset! badge-title (-> % .-target .-value))
+                                 :placeholder (t :category/badge-title-placeholder)}])
                       [:input {:type "text"
-                               :value @badge-title
-                               :on-change #(reset! badge-title (-> % .-target .-value))
-                               :placeholder (t :category/badge-title-placeholder)}])
-                    [:input {:type "text"
-                             :value @tags
-                             :on-change #(reset! tags (-> % .-target .-value))
-                             :placeholder (t :task/tags-placeholder)}]
-                    (if (state/vim-keys?)
-                      [cm-textarea {:value description
-                                    :on-change #(reset! description %)
+                               :value @tags
+                               :on-change #(reset! tags (-> % .-target .-value))
+                               :placeholder (t :task/tags-placeholder)}]
+                      (if (state/vim-keys?)
+                        [cm-textarea {:value description
+                                      :on-change #(reset! description %)
+                                      :placeholder (t :task/description-placeholder)
+                                      :rows (if (#{:meet :meeting-series :recurring-task} type) 20 3)}]
+                        [:textarea {:value @description
+                                    :on-change #(reset! description (-> % .-target .-value))
                                     :placeholder (t :task/description-placeholder)
-                                    :rows (if (#{:meet :meeting-series :recurring-task} type) 20 3)}]
-                      [:textarea {:value @description
-                                  :on-change #(reset! description (-> % .-target .-value))
-                                  :placeholder (t :task/description-placeholder)
-                                  :rows (if (#{:meet :meeting-series :recurring-task} type) 20 3)}])])]
-                [:div.modal-footer
-                 (when is-category
-                   (let [category-type (subs (name type) 9)]
-                     [:button.confirm-delete
-                      {:on-click #(do (state/clear-editing-modal)
-                                      (state/set-confirm-delete-category category-type entity))}
-                      (t :category/delete)]))
-                 [:button.cancel {:on-click #(state/clear-editing-modal)} (t :modal/cancel)]
-                 [:button.confirm {:on-click #(edit-modal-save @fields-state)} (t :task/save)]]]])))
-        (reset! prev-entity nil)))))
+                                    :rows (if (#{:meet :meeting-series :recurring-task} type) 20 3)}])])]
+                  [:div.modal-footer
+                   (when is-category
+                     (let [category-type (subs (name type) 9)]
+                       [:button.confirm-delete
+                        {:on-click #(do (state/clear-editing-modal)
+                                        (state/set-confirm-delete-category category-type entity))}
+                        (t :category/delete)]))
+                   [:button.cancel {:on-click #(state/clear-editing-modal)} (t :modal/cancel)]
+                   [:button.confirm {:on-click #(edit-modal-save @fields-state)} (t :task/save)]]]]))))
+        (do (reset! prev-entity nil)
+            (reset! confirm-discard? false))))))
 
 (defn create-date-modal []
   (let [selected-date (r/atom nil)
@@ -670,7 +718,9 @@
               date-taken? (contains? taken @selected-date)
               valid? (and (some? @selected-date) (not date-taken?))]
           [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! error nil) (state/close-create-date-modal))}
-           [modal-keyboard-shortcut {:on-confirm #(do (state/confirm-create-date-modal @selected-date) (reset! selected-date nil) (reset! error nil)) :enabled? valid?}]
+           [modal-keyboard-shortcut {:on-confirm #(do (state/confirm-create-date-modal @selected-date) (reset! selected-date nil) (reset! error nil))
+                                     :on-escape #(do (reset! selected-date nil) (reset! error nil) (state/close-create-date-modal))
+                                     :enabled? valid?}]
            [:div.modal.create-date-modal {:on-click #(.stopPropagation %)}
             [:div.modal-header (t :modal/create-item-header)]
             [:div.modal-body
@@ -717,7 +767,9 @@
               changed? (not= @selected-date (:reminder_date task))
               valid? (or (some? @selected-date) changed?)]
           [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal))}
-           [modal-keyboard-shortcut {:on-confirm #(do (state/set-task-reminder (:id task) @selected-date) (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal)) :enabled? valid?}]
+           [modal-keyboard-shortcut {:on-confirm #(do (state/set-task-reminder (:id task) @selected-date) (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal))
+                                     :on-escape #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal))
+                                     :enabled? valid?}]
            [:div.modal {:on-click #(.stopPropagation %)}
             [:div.modal-header (t :task/set-reminder)]
             [:div.modal-body

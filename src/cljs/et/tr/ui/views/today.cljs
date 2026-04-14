@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.date :as date]
+            [et.tr.ui.modals :as modals]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
@@ -733,8 +734,13 @@
 (defn- confirm-move-to-today-modal []
   (when-let [{:keys [task target-date]} (:today-page/confirm-move-to-today @state/*app-state)]
     (let [today (date/today-str)
-          is-today? (= target-date today)]
+          is-today? (= target-date today)
+          cancel #(swap! state/*app-state assoc :today-page/confirm-move-to-today nil)
+          confirm (fn []
+                    (state/set-task-due-date (:id task) target-date)
+                    (swap! state/*app-state assoc :today-page/confirm-move-to-today nil))]
       [:div.modal-overlay
+       [modals/modal-keyboard-shortcut {:on-confirm confirm :on-escape cancel :enabled? true}]
        [:div.modal {:on-click #(.stopPropagation %)}
         [:div.modal-header (if is-today?
                              (t :modal/move-to-today)
@@ -745,14 +751,8 @@
                (t :modal/adjust-due-date-confirm {:date (date/day-formatted target-date)}))]
          [:p.task-title (:title task)]]
         [:div.modal-footer
-         [:button.cancel
-          {:on-click #(swap! state/*app-state assoc :today-page/confirm-move-to-today nil)}
-          (t :modal/cancel)]
-         [:button.confirm-delete
-          {:on-click (fn []
-                       (state/set-task-due-date (:id task) target-date)
-                       (swap! state/*app-state assoc :today-page/confirm-move-to-today nil))}
-          (t :modal/confirm)]]]])))
+         [:button.cancel {:on-click cancel} (t :modal/cancel)]
+         [:button.confirm-delete {:on-click confirm} (t :modal/confirm)]]]])))
 
 (defn- today-journals-toggle []
   (let [journals-mode (state/today-journals-mode?)]
