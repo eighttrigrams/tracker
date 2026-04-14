@@ -79,7 +79,8 @@
          {:logged-in? false
           :token nil
           :current-user nil
-          :users []}))
+          :users []
+          :active-tab :today}))
 
 (defn update-user-language [app-state auth-headers language]
   (api/put-json "/api/user/language" {:language language} (auth-headers)

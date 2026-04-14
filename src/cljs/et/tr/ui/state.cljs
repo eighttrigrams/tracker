@@ -185,6 +185,7 @@
       (fetch-users)
       (swap! *app-state assoc :active-tab :users))
     (do
+      (swap! *app-state assoc :active-tab :today)
       (fetch-tasks)
       (fetch-people)
       (fetch-places)
