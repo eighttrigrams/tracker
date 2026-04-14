@@ -536,6 +536,30 @@
      [:span.series-filter-label (:title jf)]
      [:button.clear-search {:on-click #(state/clear-journal-filter)} "x"]]))
 
+(defn- journal-entry-scope-selector [entry]
+  (let [scope (or (:scope entry) "both")]
+    [:div.task-scope-selector.toggle-group.compact
+     (for [s ["private" "both" "work"]]
+       ^{:key s}
+       [:button.toggle-option
+        {:class (when (= scope s) "active")
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-journal-entry-scope (:id entry) s))}
+        s])]))
+
+(defn- journal-entry-importance-selector [entry]
+  (let [importance (or (:importance entry) "normal")]
+    [:div.task-importance-selector.toggle-group.compact
+     (for [[level label] [["normal" "○"] ["important" "★"] ["critical" "★★"]]]
+       ^{:key level}
+       [:button.toggle-option
+        {:class (str level (when (= importance level) " active"))
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-journal-entry-importance (:id entry) level))}
+        label])]))
+
 (defn- journal-entry-expanded-view [entry people places projects goals]
   [:div.item-details
    (when (seq (:description entry))
@@ -548,8 +572,8 @@
     [resource-category-selector entry state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
     [resource-category-selector entry state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
    [:div.item-actions
-    [resource-scope-selector entry]
-    [resource-importance-selector entry]
+    [journal-entry-scope-selector entry]
+    [journal-entry-importance-selector entry]
     [:div.combined-button-wrapper
      [:button.delete-btn {:on-click #(state/set-confirm-delete-journal-entry entry)}
       (t :task/delete)]]]])
