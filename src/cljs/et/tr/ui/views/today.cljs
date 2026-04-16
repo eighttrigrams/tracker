@@ -805,7 +805,13 @@
           "✎"]])
       [:div.item-date
        (when (:entry_date entry)
-         [:span.due-date (date/format-date-localized (:entry_date entry))])]]
+         [:span.due-date (date/format-date-localized (:entry_date entry))])
+       (when (:journal_id entry)
+         [:span.recurrence-icon {:on-click (fn [e]
+                                             (.stopPropagation e)
+                                             (state/set-journal-filter {:id (:journal_id entry) :title (:title entry)})
+                                             (state/set-active-tab :resources))}
+          "🔁"])]]
      (when is-expanded
        [:div.today-task-details
         (when (seq (:description entry))
