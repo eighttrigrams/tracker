@@ -20,6 +20,7 @@
             [et.tr.ui.state.journals :as journals-state]
             [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.state.relations :as relations-state]
+            [et.tr.ui.state.reports :as reports-state]
             [et.tr.ui.state.ui :as ui]))
 
 (def ^:const CATEGORY-TYPE-PERSON constants/CATEGORY-TYPE-PERSON)
@@ -109,6 +110,12 @@
 
                             ;; Today page journals mode
                             :today-page/journals-mode false
+
+                            ;; Reports page state
+                            :reports-page/filter-goals #{}
+                            :reports-page/collapsed-filters #{:people :places :projects :goals}
+                            :reports-page/category-search {:people "" :places "" :projects "" :goals ""}
+                            :reports-data {:tasks [] :meets [] :journal_entries []}
 
                             ;; Meets page state
                             :meets-page/series-mode false
@@ -313,6 +320,9 @@
 
 (declare has-active-shared-filters?)
 (declare set-pending-new-item)
+(declare fetch-reports)
+(declare toggle-reports-goal-filter)
+(declare clear-reports-goal-filter)
 
 (defn- resources-fetch-opts []
   {:search-term (:filter-search @resources-state/*resources-page-state)
@@ -914,6 +924,7 @@
     (case (:active-tab @*app-state)
       :resources (toggle-resources-goal-filter id)
       :meets (toggle-meets-goal-filter id)
+      :reports (toggle-reports-goal-filter id)
       nil)
     (let [filter-key (case filter-type
                        constants/CATEGORY-TYPE-PERSON :shared/filter-people
@@ -931,6 +942,7 @@
         :meets (if (:meets-page/series-mode @*app-state)
                  (fetch-meeting-series)
                  (fetch-meets))
+        :reports (fetch-reports)
         nil))))
 
 (defn clear-shared-filter [filter-type]
@@ -947,6 +959,7 @@
       :meets (if (:meets-page/series-mode @*app-state)
                (fetch-meeting-series)
                (fetch-meets))
+      :reports (fetch-reports)
       nil)))
 
 (defn clear-uncollapsed-resource-filters []
@@ -1246,6 +1259,7 @@
       :tasks (seq (:tasks-page/filter-goals @*app-state))
       :resources (seq (:resources-page/filter-goals @*app-state))
       :meets (seq (:meets-page/filter-goals @*app-state))
+      :reports (seq (:reports-page/filter-goals @*app-state))
       nil)
     (tasks-page/has-filter-for-type? *app-state filter-type)))
 
@@ -1386,6 +1400,76 @@
 (defn upcoming-meets []
   (today-page/upcoming-meets *app-state))
 
+
+(defn- reports-fetch-opts []
+  {:context (:work-private-mode @*app-state)
+   :strict (:strict-mode @*app-state)
+   :filter-people (:shared/filter-people @*app-state)
+   :filter-places (:shared/filter-places @*app-state)
+   :filter-projects (:shared/filter-projects @*app-state)
+   :filter-goals (:reports-page/filter-goals @*app-state)})
+
+(defn fetch-reports
+  ([] (fetch-reports (reports-fetch-opts)))
+  ([opts]
+   (reports-state/fetch-reports *app-state auth-headers opts)))
+
+(defn toggle-reports-filter-collapsed [filter-key]
+  (let [was-collapsed (contains? (:reports-page/collapsed-filters @*app-state) filter-key)
+        all-filters #{:people :places :projects :goals}]
+    (swap! *app-state update :reports-page/collapsed-filters
+           (fn [collapsed]
+             (if (contains? collapsed filter-key)
+               (disj all-filters filter-key)
+               (conj collapsed filter-key))))
+    (when was-collapsed
+      (swap! *app-state update :reports-page/category-search
+             (fn [searches]
+               (reduce #(assoc %1 %2 "") searches all-filters))))
+    (js/setTimeout
+     (fn []
+       (when-let [el (.getElementById js/document
+                                      (if was-collapsed
+                                        (str "reports-filter-" (name filter-key))
+                                        "reports-filter-search"))]
+         (.focus el)))
+     0)))
+
+(defn toggle-reports-goal-filter [id]
+  (swap! *app-state update :reports-page/filter-goals
+         #(if (contains? % id) (disj % id) (conj % id)))
+  (fetch-reports))
+
+(defn clear-reports-goal-filter []
+  (swap! *app-state assoc :reports-page/filter-goals #{})
+  (fetch-reports))
+
+(defn set-reports-category-search [category-key search-term]
+  (swap! *app-state assoc-in [:reports-page/category-search category-key] search-term))
+
+(defn clear-uncollapsed-report-filters []
+  (let [collapsed (:reports-page/collapsed-filters @*app-state)
+        all-filters #{:people :places :projects :goals}
+        uncollapsed (clojure.set/difference all-filters collapsed)]
+    (if (empty? uncollapsed)
+      (swap! *app-state assoc
+             :shared/filter-people #{}
+             :shared/filter-places #{}
+             :shared/filter-projects #{}
+             :reports-page/filter-goals #{}
+             :reports-page/category-search {:people "" :places "" :projects "" :goals ""})
+      (do
+        (doseq [filter-key uncollapsed]
+          (case filter-key
+            :people (swap! *app-state assoc :shared/filter-people #{})
+            :places (swap! *app-state assoc :shared/filter-places #{})
+            :projects (swap! *app-state assoc :shared/filter-projects #{})
+            :goals (swap! *app-state assoc :reports-page/filter-goals #{})))
+        (swap! *app-state assoc
+               :reports-page/collapsed-filters all-filters
+               :reports-page/category-search {:people "" :places "" :projects "" :goals ""})))
+    (fetch-reports)))
+
 (defn- fetch-meets-or-series []
   (if (:meets-page/series-mode @*app-state)
     (fetch-meeting-series)
@@ -1405,6 +1489,7 @@
                                         :fetch-messages fetch-messages
                                         :fetch-resources fetch-resources-or-journals
                                         :fetch-meets fetch-meets-or-series
+                                        :fetch-reports fetch-reports
                                         :is-admin is-admin?
                                         :has-mail has-mail?}))
 
@@ -1444,10 +1529,10 @@
   (url/push-state! "/"))
 
 (defn set-work-private-mode [mode]
-  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-meets-or-series fetch-messages fetch-today-journal-entries mode))
+  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports mode))
 
 (defn toggle-strict-mode []
-  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-meets-or-series fetch-messages fetch-today-journal-entries))
+  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))
@@ -1477,6 +1562,7 @@
              (fetch-meeting-series)
              (fetch-meets))
     :today (do (fetch-tasks) (fetch-today-meets) (fetch-today-journal-entries))
+    :reports (fetch-reports)
     nil))
 
 (defn item-type->prefix [item-type]

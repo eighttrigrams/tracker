@@ -65,14 +65,13 @@
     {:title title :description description :tags tags}
     (auth-headers)
     (fn [result]
-      (swap! app-state (fn [s]
-                         (-> s
-                             (update :meets
-                                     (fn [meets]
-                                       (mapv #(if (= (:id %) meet-id) (merge % result) %) meets)))
-                             (update :today-meets
-                                     (fn [meets]
-                                       (mapv #(if (= (:id %) meet-id) (merge % result) %) meets))))))
+      (let [merge-fn (fn [meets]
+                       (mapv #(if (= (:id %) meet-id) (merge % result) %) meets))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :meets merge-fn)
+                               (update :today-meets merge-fn)
+                               (update-in [:reports-data :meets] merge-fn)))))
       (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update meet")))))

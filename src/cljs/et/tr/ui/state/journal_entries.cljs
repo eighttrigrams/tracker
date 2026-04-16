@@ -75,13 +75,16 @@
     {:title title :description description :tags tags}
     (auth-headers)
     (fn [result]
-      (let [update-fn (fn [entries]
-                        (mapv #(if (= (:id %) entry-id)
-                                 (merge % result)
-                                 %)
-                              entries))]
-        (swap! app-state update :journal-entries update-fn)
-        (swap! app-state update :today-journal-entries update-fn))
+      (let [merge-fn (fn [entries]
+                       (mapv #(if (= (:id %) entry-id)
+                                (merge % result)
+                                %)
+                             entries))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :journal-entries merge-fn)
+                               (update :today-journal-entries merge-fn)
+                               (update-in [:reports-data :journal_entries] merge-fn)))))
       (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update journal entry")))))

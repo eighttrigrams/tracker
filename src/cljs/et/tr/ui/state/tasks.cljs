@@ -103,9 +103,12 @@
     {:title title :description description :tags tags}
     (auth-headers)
     (fn [updated-task]
-      (swap! app-state update :tasks
-             (fn [tasks]
-               (mapv #(if (= (:id %) task-id) (merge % updated-task) %) tasks)))
+      (let [merge-fn (fn [tasks]
+                       (mapv #(if (= (:id %) task-id) (merge % updated-task) %) tasks))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :tasks merge-fn)
+                               (update-in [:reports-data :tasks] merge-fn)))))
       (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))))

@@ -94,6 +94,29 @@
       (str (i18n/t :today/today) ", " (i18n/t day-key) ", " (format-date-localized date-str))
       (str (i18n/t day-key) ", " (format-date-localized date-str)))))
 
+(defn iso-week-key [date-str]
+  (when date-str
+    (let [d (js/Date. (str date-str "T12:00:00"))
+          day-of-week (let [dow (.getDay d)] (if (zero? dow) 7 dow))
+          thu (js/Date. (.getTime d))]
+      (.setDate thu (+ (.getDate thu) (- 4 day-of-week)))
+      (let [year (.getFullYear thu)
+            jan4 (js/Date. year 0 4)
+            jan4-dow (let [dow (.getDay jan4)] (if (zero? dow) 7 dow))
+            mon-wk1 (js/Date. (.getTime jan4))]
+        (.setDate mon-wk1 (- (.getDate jan4) (dec jan4-dow)))
+        (let [diff-ms (- (.getTime thu) (.getTime mon-wk1))
+              week-num (inc (js/Math.floor (/ diff-ms 604800000)))]
+          [year week-num])))))
+
+(defn week-monday [date-str]
+  (when date-str
+    (let [d (js/Date. (str date-str "T12:00:00"))
+          dow (.getDay d)
+          diff (if (zero? dow) 6 (dec dow))]
+      (.setDate d (- (.getDate d) diff))
+      (.substring (.toISOString d) 0 10))))
+
 (def horizon-order [:three-days :week :month :three-months :year :eighteen-months])
 
 (defn horizon-end-date [horizon]

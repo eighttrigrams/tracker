@@ -11,6 +11,7 @@
             [et.tr.ui.views.categories :as categories]
             [et.tr.ui.views.resources :as resources]
             [et.tr.ui.views.meets :as meets]
+            [et.tr.ui.views.reports :as reports]
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.state.journals :as journals-state]
@@ -70,6 +71,7 @@
        [tab-button active-tab :tasks :nav/tasks]
        [tab-button active-tab :meets :nav/meets]
        [tab-button active-tab :resources :nav/resources]
+       [tab-button active-tab :reports :nav/reports]
        (when (state/has-mail?)
          [tab-button active-tab :mail :nav/mail])])))
 
@@ -132,9 +134,9 @@
         [:div.top-bar
          [tabs]
          [:div.top-bar-right
-          (when (contains? #{:tasks :resources :meets} active-tab)
+          (when (contains? #{:tasks :resources :meets :reports} active-tab)
             [controls/relation-mode-toggle])
-          (when (contains? #{:today :tasks :resources :meets :mail} active-tab)
+          (when (contains? #{:today :tasks :resources :meets :mail :reports} active-tab)
             [controls/work-private-toggle])
           [controls/user-info]]]
         (case active-tab
@@ -144,6 +146,7 @@
           :categories [categories/categories-tab]
           :people-places [categories/categories-tab]
           :projects-goals [categories/categories-tab]
+          :reports [reports/reports-tab]
           :mail [mail/mail-page]
           :users [users/users-tab]
           :settings [settings/settings-tab]
@@ -183,7 +186,8 @@
           tasks-shortcut-keys (tasks/get-tasks-category-shortcut-keys)
           today-shortcut-keys (today/get-today-category-shortcut-keys)
           resources-shortcut-keys (resources/get-resources-category-shortcut-keys)
-          meets-shortcut-keys (meets/get-meets-category-shortcut-keys)]
+          meets-shortcut-keys (meets/get-meets-category-shortcut-keys)
+          reports-shortcut-keys (reports/get-reports-category-shortcut-keys)]
       (when (.-altKey e)
       (cond
         (= "KeyT" code)
@@ -211,7 +215,8 @@
             (= :today active-tab) (state/clear-uncollapsed-today-filters)
             (= :mail active-tab) (state/clear-all-mail-filters)
             (= :resources active-tab) (state/clear-uncollapsed-resource-filters)
-            (= :meets active-tab) (state/clear-uncollapsed-meet-filters)))
+            (= :meets active-tab) (state/clear-uncollapsed-meet-filters)
+            (= :reports active-tab) (state/clear-uncollapsed-report-filters)))
 
         (= :tasks active-tab)
         (when-let [filter-key (tasks-shortcut-keys code)]
@@ -231,7 +236,12 @@
         (= :meets active-tab)
         (when-let [filter-key (meets-shortcut-keys code)]
           (.preventDefault e)
-          (state/toggle-meets-filter-collapsed filter-key)))))))
+          (state/toggle-meets-filter-collapsed filter-key))
+
+        (= :reports active-tab)
+        (when-let [filter-key (reports-shortcut-keys code)]
+          (.preventDefault e)
+          (state/toggle-reports-filter-collapsed filter-key)))))))
 
 (defn init []
   (i18n/load-translations!

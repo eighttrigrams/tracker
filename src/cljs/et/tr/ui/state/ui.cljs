@@ -2,6 +2,7 @@
   (:require [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.meets :as meets-state]
+            [et.tr.ui.state.reports :as reports-state]
             [et.tr.ui.state.relations :as relations-state]))
 
 (defn focus-tasks-search []
@@ -39,7 +40,7 @@
   (focus-tasks-search)
   (fetch-tasks-fn (tasks-fetch-opts app-state)))
 
-(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-meets is-admin has-mail]}]
+(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-meets fetch-reports is-admin has-mail]}]
   {:tasks (fn []
             (initialize-tasks-page app-state fetch-tasks))
    :today (fn []
@@ -55,7 +56,9 @@
    :resources (fn []
                 (fetch-resources))
    :meets (fn []
-            (fetch-meets))})
+            (fetch-meets))
+   :reports (fn []
+              (fetch-reports))})
 
 (defn set-active-tab [app-state tab-initializers tab]
   (swap! app-state assoc
@@ -72,7 +75,8 @@
   (mail-state/reset-mail-page-view-state!)
   (resources-state/reset-resources-page-view-state!)
   (meets-state/reset-meets-page-view-state!)
-  (when-not (contains? #{:tasks :resources :meets} tab)
+  (reports-state/reset-reports-page-view-state!)
+  (when-not (contains? #{:tasks :resources :meets :reports} tab)
     (relations-state/abort-relation-mode))
   (when-let [init-fn (get tab-initializers tab)]
     (init-fn)))
@@ -99,25 +103,27 @@
     :today (today-fetch-opts app-state context strict)
     {:context context :strict strict}))
 
-(defn set-work-private-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn fetch-messages-fn fetch-today-journal-entries-fn mode]
+(defn set-work-private-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn fetch-messages-fn fetch-today-journal-entries-fn fetch-reports-fn mode]
   (swap! app-state assoc :work-private-mode mode)
   (case (:active-tab @app-state)
     :resources (fetch-resources-fn)
     :meets (fetch-meets-fn)
     :mail (fetch-messages-fn)
+    :reports (fetch-reports-fn)
     :today (let [opts (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state))]
              (fetch-tasks-fn opts)
              (fetch-today-meets-fn opts)
              (fetch-today-journal-entries-fn opts))
     (fetch-tasks-fn (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state)))))
 
-(defn toggle-strict-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn fetch-messages-fn fetch-today-journal-entries-fn]
+(defn toggle-strict-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn fetch-messages-fn fetch-today-journal-entries-fn fetch-reports-fn]
   (let [new-strict (not (:strict-mode @app-state))]
     (swap! app-state assoc :strict-mode new-strict)
     (case (:active-tab @app-state)
       :resources (fetch-resources-fn)
       :meets (fetch-meets-fn)
       :mail (fetch-messages-fn)
+      :reports (fetch-reports-fn)
       :today (let [opts (fetch-opts-for-current-tab app-state (:work-private-mode @app-state) new-strict)]
                (fetch-tasks-fn opts)
                (fetch-today-meets-fn opts)

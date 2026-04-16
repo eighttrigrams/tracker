@@ -11,6 +11,7 @@
             [et.tr.server.journal-entry-handler :as journal-entry-handler]
             [et.tr.server.message-handler :as message-handler]
             [et.tr.server.relation-handler :as relation-handler]
+            [et.tr.server.report-handler :as report-handler]
             [et.tr.server.user-handler :as user-handler]
             [et.tr.server.category-handler :as category-handler]
             [et.tr.auth :as auth]
@@ -90,6 +91,7 @@
   (context "/api" []
     (GET "/translations" [] translations-handler)
     (GET "/export" [] export-data-handler)
+    (GET "/reports" [] report-handler/reports-handler)
 
     (context "/auth" []
       (GET "/required" [] user-handler/password-required-handler)
