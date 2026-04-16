@@ -741,8 +741,11 @@
   (fetch-journal-entries))
 
 (defn clear-journal-filter []
-  (swap! *app-state assoc :resources-page/filter-journal nil)
-  (fetch-journal-entries))
+  (swap! *app-state assoc
+         :resources-page/filter-journal nil
+         :resources-page/journals-mode true
+         :resources-page/journal-summary-mode false)
+  (fetch-journals))
 
 (defn journal-filter []
   (:resources-page/filter-journal @*app-state))

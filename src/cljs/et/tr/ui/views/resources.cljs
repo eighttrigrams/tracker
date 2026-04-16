@@ -532,10 +532,28 @@
          ^{:key (:id journal)}
          [journal-item journal expanded-journal people places projects goals])])))
 
+(defn- journal-entries-summary []
+  (let [entries (:journal-entries @state/*app-state)]
+    [:div.journal-entries-summary
+     (for [entry entries]
+       ^{:key (:id entry)}
+       [:div.journal-entry-summary-item
+        [:div.journal-entry-summary-header
+         [:span.journal-entry-summary-title (:title entry)]
+         (when (:entry_date entry)
+           [:span.journal-entry-summary-date (date/format-date-localized (:entry_date entry))])]
+        (when (seq (:description entry))
+          [:div.journal-entry-summary-description (:description entry)])])]))
+
 (defn- journal-filter-bar []
-  (let [jf (state/journal-filter)]
+  (let [jf (state/journal-filter)
+        summary-mode? (:resources-page/journal-summary-mode @state/*app-state)]
     [:div.series-filter-bar
      [:span.series-filter-label (:title jf)]
+     [:button.journal-summary-btn
+      {:class (when summary-mode? "active")
+       :on-click #(swap! state/*app-state update :resources-page/journal-summary-mode not)}
+      "📋"]
      [:button.clear-search {:on-click #(state/clear-journal-filter)} "x"]]))
 
 (defn- journal-entry-scope-selector [entry]
@@ -722,7 +740,9 @@
         journal-filter
         [:<>
          [journal-filter-bar]
-         [journal-entries-list]]
+         (if (:resources-page/journal-summary-mode @state/*app-state)
+           [journal-entries-summary]
+           [journal-entries-list])]
 
         :else
         [:<>

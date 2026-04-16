@@ -296,6 +296,18 @@
 .series-filter-bar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-secondary, #f0f0f0); border-radius: 6px; margin-bottom: 12px; }
 .series-filter-label { font-weight: 500; flex: 1; }
 .series-filter-bar .clear-search { position: static; transform: none; font-size: 1em; padding: 2px 8px; }
+.journal-summary-btn { background: transparent; border: none; cursor: pointer; font-size: 0.85em; padding: 4px 8px; line-height: 1; border-radius: 6px; opacity: 0.6; }
+.journal-summary-btn:hover { opacity: 1; background: var(--surface-subtle); }
+.journal-summary-btn.active { background: var(--accent); opacity: 1; border-radius: 6px; }
+.journal-entries-summary { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.journal-entry-summary-item { padding: 12px 0; }
+.journal-entry-summary-item:first-child { padding-top: 0; }
+.journal-entry-summary-item:last-child { padding-bottom: 0; }
+.journal-entry-summary-item + .journal-entry-summary-item { border-top: 1px solid var(--bg-secondary, #f0f0f0); }
+.journal-entry-summary-header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+.journal-entry-summary-title { font-weight: 700; font-size: 0.95em; }
+.journal-entry-summary-date { color: var(--accent-color, #007aff); font-size: 0.8em; white-space: nowrap; }
+.journal-entry-summary-description { white-space: pre-wrap; font-size: 0.85em; color: var(--text-secondary, #666); line-height: 1.5; }
 .scheduling-form { padding: 16px 0; }
 .schedule-mode-selector { margin-bottom: 16px; }
 .schedule-days { display: flex; gap: 4px; margin-bottom: 16px; }
