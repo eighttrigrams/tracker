@@ -55,7 +55,7 @@
          importance-clause (db/build-importance-clause importance)
          scope-clause (db/build-scope-clause context strict)
          domain-clause (when (and domain (seq domain))
-                         (if (= domain "Ledger")
+                         (if (= domain "Sheet")
                            [:or [:is :link nil] [:= :link ""]]
                            [:or
                             [:like :link (str "%://" domain "/%")]

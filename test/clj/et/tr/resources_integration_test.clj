@@ -4,7 +4,7 @@
 
 (use-fixtures :each with-integration-db)
 
-(defn- add-ledger! [title]
+(defn- add-sheet! [title]
   (:body (POST-json "/api/resources" {:title title})))
 
 (defn- update-resource! [id fields]
@@ -13,11 +13,11 @@
 (defn- get-resource [id]
   (:body (GET-json (str "/api/resources/" id))))
 
-(deftest update-ledger-description
-  (let [ledger (add-ledger! "My Ledger")
-        resp (update-resource! (:id ledger) {:title "My Ledger" :description "Some notes"})]
+(deftest update-sheet-description
+  (let [sheet (add-sheet! "My Sheet")
+        resp (update-resource! (:id sheet) {:title "My Sheet" :description "Some notes"})]
     (is (= 200 (:status resp)))
-    (let [fetched (get-resource (:id ledger))]
+    (let [fetched (get-resource (:id sheet))]
       (is (= "Some notes" (:description fetched))))))
 
 (deftest update-resource-with-link-description

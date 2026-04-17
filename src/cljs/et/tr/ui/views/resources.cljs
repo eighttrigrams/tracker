@@ -161,8 +161,8 @@
         (when-not has-link?
           [:span.mail-sender {:on-click (fn [e]
                                           (.stopPropagation e)
-                                          (state/set-resource-domain-filter "Ledger"))}
-           "Ledger"]))
+                                          (state/set-resource-domain-filter "Sheet"))}
+           "Sheet"]))
       (if inline-editing?
         [resource-inline-title-edit resource]
         [:span.item-title-text
