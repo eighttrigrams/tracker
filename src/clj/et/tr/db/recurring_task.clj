@@ -352,7 +352,6 @@
                                           :from [:tasks]
                                           :where [:and
                                                   [:= :recurring_task_id rtask-id]
-                                                  [:or [:= :today 1] [:!= :lined_up_for nil]]
                                                   [:= :done 1]
                                                   [:= [:raw "date(tasks.done_at,'localtime')"] today-expr]]
                                           :limit 1})
