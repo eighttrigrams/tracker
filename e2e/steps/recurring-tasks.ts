@@ -15,6 +15,6 @@ When("I expand {string} in the recurring list", async ({ page }, title: string) 
 });
 
 When("I click the edit button on the expanded item", async ({ page }) => {
-  await page.locator(".edit-icon").click();
+  await page.locator(".item-header .edit-icon").click();
   await page.waitForLoadState("networkidle");
 });
