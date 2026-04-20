@@ -97,10 +97,6 @@
     [:div.item-details
      (when video-id
        [youtube-embed video-id])
-     (when (seq (:link resource))
-       [:div.resource-link
-        [:a {:href (:link resource) :target "_blank" :rel "noopener noreferrer"}
-         (:link resource)]])
      (when (seq (:description resource))
        [task-item/clampable-description
         {:text (:description resource)
