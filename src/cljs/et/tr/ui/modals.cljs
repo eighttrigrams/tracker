@@ -15,20 +15,26 @@
             [et.tr.ui.date :as date]
             ["marked" :refer [marked]]))
 
-(defn modal-keyboard-shortcut [{:keys [on-confirm on-escape enabled?]}]
-  (let [state (atom {:on-confirm on-confirm :on-escape on-escape :enabled? enabled?})]
+(defn modal-keyboard-shortcut [{:keys [on-confirm on-escape enabled? enter-confirms?]}]
+  (let [state (atom {:on-confirm on-confirm :on-escape on-escape :enabled? enabled? :enter-confirms? enter-confirms?})]
     (r/create-class
      {:display-name "modal-keyboard-shortcut"
       :component-did-mount
       (fn [_]
         (let [handler (fn [e]
-                        (let [{:keys [on-confirm on-escape enabled?]} @state]
+                        (let [{:keys [on-confirm on-escape enabled? enter-confirms?]} @state]
                           (cond
                             (and enabled?
                                  (.-metaKey e)
                                  (if (state/vim-keys?)
                                    (= "Digit9" (.-code e))
                                    (= "KeyS" (.-code e))))
+                            (do (.preventDefault e)
+                                (on-confirm))
+
+                            (and enabled?
+                                 enter-confirms?
+                                 (= "Enter" (.-code e)))
                             (do (.preventDefault e)
                                 (on-confirm))
 
@@ -44,7 +50,8 @@
           (swap! state assoc
                  :on-confirm (:on-confirm new-props)
                  :on-escape (:on-escape new-props)
-                 :enabled? (:enabled? new-props))))
+                 :enabled? (:enabled? new-props)
+                 :enter-confirms? (:enter-confirms? new-props))))
       :component-will-unmount
       (fn [_]
         (when-let [handler (:handler @state)]
@@ -254,7 +261,7 @@
           header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories :recurring-task :modal/add-recurring-task-categories (:meet :meeting-series) :modal/add-meet-categories)
           confirm-key (case type :task :modal/add-task :resource :modal/add-resource :recurring-task :modal/add-recurring-task (:meet :meeting-series) :modal/add-meet)]
       [:div.modal-overlay {:on-click #(state/clear-pending-new-item)}
-       [modal-keyboard-shortcut {:on-confirm #(state/confirm-pending-new-item) :on-escape #(state/clear-pending-new-item) :enabled? true}]
+       [modal-keyboard-shortcut {:on-confirm #(state/confirm-pending-new-item) :on-escape #(state/clear-pending-new-item) :enabled? true :enter-confirms? true}]
        [:div.modal.pending-task-modal {:on-click #(.stopPropagation %)}
         [:div.modal-header (t header-key)]
         [:div.modal-body
@@ -599,16 +606,16 @@
                      (reset! shared-time-val v)
                      (sync-schedule-time!))]])])])]))))
 
-(defn- unsaved-changes-modal [{:keys [on-go-back on-save-and-exit]}]
+(defn- unsaved-changes-modal [{:keys [on-go-back on-discard]}]
   [:div.modal-overlay
-   [modal-keyboard-shortcut {:on-confirm on-save-and-exit :on-escape on-go-back :enabled? true}]
+   [modal-keyboard-shortcut {:on-confirm on-discard :on-escape on-go-back :enabled? true :enter-confirms? true}]
    [:div.modal {:on-click #(.stopPropagation %)}
     [:div.modal-header (t :modal/unsaved-changes)]
     [:div.modal-body
      [:p (t :modal/unsaved-changes-body)]]
     [:div.modal-footer
      [:button.cancel {:on-click on-go-back} (t :modal/go-back)]
-     [:button.confirm {:on-click on-save-and-exit} (t :task/save)]]]])
+     [:button.confirm-delete {:on-click on-discard} (t :modal/discard)]]]])
 
 (defn edit-item-modal []
   (let [fields-state (r/atom nil)
@@ -637,7 +644,8 @@
               (if @confirm-discard?
                 [unsaved-changes-modal
                  {:on-go-back #(reset! confirm-discard? false)
-                  :on-save-and-exit #(edit-modal-save @fields-state)}]
+                  :on-discard #(do (reset! confirm-discard? false)
+                                   (state/clear-editing-modal))}]
                 [:div.modal-overlay
                  [modal-keyboard-shortcut {:on-confirm #(edit-modal-save @fields-state) :on-escape try-escape :enabled? true}]
                  [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
