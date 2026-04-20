@@ -1518,11 +1518,13 @@
       (fn [entity]
         (open-preview-modal entity-type entity)))))
 
-(defn set-editing-modal [entity-type entity]
-  (let [modal {:type entity-type :entity entity}]
-    (swap! *app-state assoc :editing-modal modal)
-    (when-let [path (url/entity->path modal)]
-      (url/push-state! (str path "?section=edit")))))
+(defn set-editing-modal
+  ([entity-type entity] (set-editing-modal entity-type entity :edit))
+  ([entity-type entity tab]
+   (let [modal {:type entity-type :entity entity :tab tab}]
+     (swap! *app-state assoc :editing-modal modal)
+     (when-let [path (url/entity->path modal)]
+       (url/push-state! (str path (when (= tab :edit) "?section=edit")))))))
 
 (defn clear-editing-modal []
   (swap! *app-state assoc :editing-modal nil)

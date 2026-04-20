@@ -202,10 +202,15 @@
 
 (defn- task-expanded-details [task people places projects goals]
   [:div.item-details
-   (when (seq (:description task))
+   (if (seq (:description task))
      [task-item/clampable-description
       {:text (:description task)
-       :on-click #(state/set-editing-modal :task task)}])
+       :on-click #(state/set-editing-modal :task task)}]
+     [:button.edit-icon.description-placeholder
+      {:on-click (fn [e]
+                   (.stopPropagation e)
+                   (state/set-editing-modal :task task))}
+      "✎"])
    [:div.item-tags
     [task-item/category-selector task state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [task-item/category-selector task state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -258,10 +263,6 @@
          (:title task)])]
    (when is-expanded
      [:div.item-toolbar
-      [:button.edit-icon {:on-click (fn [e]
-                                      (.stopPropagation e)
-                                      (state/set-editing-modal :task task))}
-       "✎"]
       [:span.date-picker-wrapper
        {:on-click #(.stopPropagation %)}
        [:input.date-picker-input
@@ -395,10 +396,15 @@
 
 (defn- rtask-expanded-view [rtask people places projects goals]
   [:div.item-details
-   (when (seq (:description rtask))
+   (if (seq (:description rtask))
      [task-item/clampable-description
       {:text (:description rtask)
-       :on-click #(state/set-editing-modal :recurring-task rtask)}])
+       :on-click #(state/set-editing-modal :recurring-task rtask)}]
+     [:button.edit-icon.description-placeholder
+      {:on-click (fn [e]
+                   (.stopPropagation e)
+                   (state/set-editing-modal :recurring-task rtask))}
+      "✎"])
    [:div.item-tags
     [rtask-category-selector rtask state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [rtask-category-selector rtask state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -452,7 +458,7 @@
        [:div.item-toolbar
         [:button.edit-icon {:on-click (fn [e]
                                         (.stopPropagation e)
-                                        (state/set-editing-modal :recurring-task rtask))}
+                                        (state/set-editing-modal :recurring-task rtask :scheduling))}
          "✎"]])
      [:button.series-filter-btn {:on-click (fn [e]
                                              (.stopPropagation e)

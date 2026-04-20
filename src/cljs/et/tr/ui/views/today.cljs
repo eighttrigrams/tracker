@@ -25,10 +25,15 @@
 (defn- today-task-expanded-details [task & {:keys [show-unlink?]}]
   (let [{:keys [people places projects goals]} @state/*app-state]
     [:div.today-task-details
-     (when (seq (:description task))
+     (if (seq (:description task))
        [task-item/clampable-description
         {:text (:description task)
-         :on-click #(state/set-editing-modal :task task)}])
+         :on-click #(state/set-editing-modal :task task)}]
+       [:button.edit-icon.description-placeholder
+        {:on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-editing-modal :task task))}
+        "✎"])
      [:div.item-tags
       [task-item/category-selector task state/CATEGORY-TYPE-PERSON people (t :category/person)]
       [task-item/category-selector task state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -95,14 +100,9 @@
           [task-item/task-category-badges task]
           (when (seq (:relations task))
             [relation-badges/relation-badges-collapsed (:relations task) "tsk" (:id task)])])]
-      (when is-expanded
+      (when (and is-expanded (seq (:due_time task)))
         [:div.item-toolbar
-         [:button.edit-icon {:on-click (fn [e]
-                                         (.stopPropagation e)
-                                         (state/set-editing-modal :task task))}
-          "✎"]
-         (when (seq (:due_time task))
-           [task-item/time-picker task])])
+         [task-item/time-picker task]])
       (when-not hide-date
         [:span.task-date {:data-tooltip (date/get-day-name (:due_date task))}
          (date/format-date-localized (:due_date task))])
@@ -174,10 +174,15 @@
 (defn- today-meet-expanded-details [meet is-today?]
   (let [{:keys [people places projects goals]} @state/*app-state]
     [:div.today-task-details
-     (when (seq (:description meet))
+     (if (seq (:description meet))
        [task-item/clampable-description
         {:text (:description meet)
-         :on-click #(state/set-editing-modal :meet meet)}])
+         :on-click #(state/set-editing-modal :meet meet)}]
+       [:button.edit-icon.description-placeholder
+        {:on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-editing-modal :meet meet))}
+        "✎"])
      [:div.item-tags
       [task-item/meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
       [task-item/meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -249,12 +254,6 @@
                [:span.tag.project (filters/badge-label project)])])
           (when (seq (:relations meet))
             [relation-badges/relation-badges-collapsed (:relations meet) "met" (:id meet)])])]
-      (when is-expanded
-        [:div.item-toolbar
-         [:button.edit-icon {:on-click (fn [e]
-                                         (.stopPropagation e)
-                                         (state/set-editing-modal :meet meet))}
-          "✎"]])
       (when-not hide-date
         [:span.task-date {:data-tooltip (date/get-day-name (:start_date meet))}
          (date/format-date-localized (:start_date meet))])
@@ -797,12 +796,6 @@
       (when-not is-expanded
         (when (seq (:relations entry))
           [relation-badges/relation-badges-collapsed (:relations entry) "jen" (:id entry)]))
-      (when is-expanded
-        [:div.item-toolbar
-         [:button.edit-icon {:on-click (fn [e]
-                                         (.stopPropagation e)
-                                         (state/set-editing-modal :journal-entry entry))}
-          "✎"]])
       [:div.item-date
        (when (:entry_date entry)
          [:span.due-date (date/format-date-localized (:entry_date entry))])
@@ -814,10 +807,15 @@
           "🔁"])]]
      (when is-expanded
        [:div.today-task-details
-        (when (seq (:description entry))
+        (if (seq (:description entry))
           [task-item/clampable-description
            {:text (:description entry)
-            :on-click #(state/set-editing-modal :journal-entry entry)}])
+            :on-click #(state/set-editing-modal :journal-entry entry)}]
+          [:button.edit-icon.description-placeholder
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (state/set-editing-modal :journal-entry entry))}
+           "✎"])
         [relation-badges/relation-badges-expanded (:relations entry) "jen" (:id entry)]])]))
 
 (defn- today-journals-section []

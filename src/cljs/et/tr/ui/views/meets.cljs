@@ -92,10 +92,15 @@
 
 (defn- meet-expanded-view [meet people places projects goals]
   [:div.item-details
-   (when (seq (:description meet))
+   (if (seq (:description meet))
      [task-item/clampable-description
       {:text (:description meet)
-       :on-click #(state/set-editing-modal :meet meet)}])
+       :on-click #(state/set-editing-modal :meet meet)}]
+     [:button.edit-icon.description-placeholder
+      {:on-click (fn [e]
+                   (.stopPropagation e)
+                   (state/set-editing-modal :meet meet))}
+      "✎"])
    [:div.item-tags
     [meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -154,10 +159,6 @@
          (:title meet)])]
      (when is-expanded
        [:div.item-toolbar
-        [:button.edit-icon {:on-click (fn [e]
-                                        (.stopPropagation e)
-                                        (state/set-editing-modal :meet meet))}
-         "✎"]
         [meet-date-time-pickers meet]])
      [:div.item-date
       (when (:start_date meet)
@@ -337,10 +338,15 @@
 
 (defn- series-expanded-view [series people places projects goals]
   [:div.item-details
-   (when (seq (:description series))
+   (if (seq (:description series))
      [task-item/clampable-description
       {:text (:description series)
-       :on-click #(state/set-editing-modal :meeting-series series)}])
+       :on-click #(state/set-editing-modal :meeting-series series)}]
+     [:button.edit-icon.description-placeholder
+      {:on-click (fn [e]
+                   (.stopPropagation e)
+                   (state/set-editing-modal :meeting-series series))}
+      "✎"])
    [:div.item-tags
     [series-category-selector series state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [series-category-selector series state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -394,7 +400,7 @@
        [:div.item-toolbar
         [:button.edit-icon {:on-click (fn [e]
                                         (.stopPropagation e)
-                                        (state/set-editing-modal :meeting-series series))}
+                                        (state/set-editing-modal :meeting-series series :scheduling))}
          "✎"]])
      [:button.series-filter-btn {:on-click (fn [e]
                                              (.stopPropagation e)

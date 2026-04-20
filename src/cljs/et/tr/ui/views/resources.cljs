@@ -97,10 +97,15 @@
     [:div.item-details
      (when video-id
        [youtube-embed video-id])
-     (when (seq (:description resource))
+     (if (seq (:description resource))
        [task-item/clampable-description
         {:text (:description resource)
-         :on-click #(state/set-editing-modal :resource resource)}])
+         :on-click #(state/set-editing-modal :resource resource)}]
+       [:button.edit-icon.description-placeholder
+        {:on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-editing-modal :resource resource))}
+        "✎"])
      [:div.item-tags
       [resource-category-selector resource state/CATEGORY-TYPE-PERSON people (t :category/person)]
       [resource-category-selector resource state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -169,12 +174,6 @@
                           :resources-page/inline-edit-resource (:id resource)
                           :resources-page/inline-edit-title (:title resource))))}
          (:title resource)])]
-     (when is-expanded
-       [:div.item-toolbar
-        [:button.edit-icon {:on-click (fn [e]
-                                        (.stopPropagation e)
-                                        (state/set-editing-modal :resource resource))}
-         "✎"]])
      (when has-link?
        [:div.item-date
         [:a.resource-link-icon
@@ -384,10 +383,15 @@
 
 (defn- journal-expanded-view [journal people places projects goals]
   [:div.item-details
-   (when (seq (:description journal))
+   (if (seq (:description journal))
      [task-item/clampable-description
       {:text (:description journal)
-       :on-click #(state/set-editing-modal :journal journal)}])
+       :on-click #(state/set-editing-modal :journal journal)}]
+     [:button.edit-icon.description-placeholder
+      {:on-click (fn [e]
+                   (.stopPropagation e)
+                   (state/set-editing-modal :journal journal))}
+      "✎"])
    [:div.item-tags
     [journal-category-selector journal state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [journal-category-selector journal state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -437,12 +441,6 @@
                           :journals-page/inline-edit-journal (:id journal)
                           :journals-page/inline-edit-title (:title journal))))}
          (:title journal)])]
-     (when is-expanded
-       [:div.item-toolbar
-        [:button.edit-icon {:on-click (fn [e]
-                                        (.stopPropagation e)
-                                        (state/set-editing-modal :journal journal))}
-         "✎"]])
      [:div.item-date
     [:span.schedule-type-badge (if (= (:schedule_type journal) "weekly") (t :journals/weekly) (t :journals/daily))]
     [:button.series-filter-btn {:on-click (fn [e]
@@ -578,10 +576,15 @@
 
 (defn- journal-entry-expanded-view [entry people places projects goals]
   [:div.item-details
-   (when (seq (:description entry))
+   (if (seq (:description entry))
      [task-item/clampable-description
       {:text (:description entry)
-       :on-click #(state/set-editing-modal :journal-entry entry)}])
+       :on-click #(state/set-editing-modal :journal-entry entry)}]
+     [:button.edit-icon.description-placeholder
+      {:on-click (fn [e]
+                   (.stopPropagation e)
+                   (state/set-editing-modal :journal-entry entry))}
+      "✎"])
    [:div.item-tags
     [resource-category-selector entry state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [resource-category-selector entry state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -638,12 +641,6 @@
                           :journal-entries-page/inline-edit-entry (:id entry)
                           :journal-entries-page/inline-edit-title (:title entry))))}
          (:title entry)])]
-     (when is-expanded
-       [:div.item-toolbar
-        [:button.edit-icon {:on-click (fn [e]
-                                        (.stopPropagation e)
-                                        (state/set-editing-modal :journal-entry entry))}
-         "✎"]])
      [:div.item-date
       (when (:entry_date entry)
         [:span.due-date (date/format-date-localized (:entry_date entry))])

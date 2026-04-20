@@ -88,19 +88,18 @@
                          (when-not is-expanded (:id task)))}
       [:div.item-title
        [relation-link/relation-link-button :task (:id task)]
-       [:span.item-title-text (:title task)]]
-      (when is-expanded
-        [:div.item-toolbar
-         [:button.edit-icon {:on-click (fn [e]
-                                         (.stopPropagation e)
-                                         (state/set-editing-modal :task task))}
-          "✎"]])]
+       [:span.item-title-text (:title task)]]]
      (if is-expanded
        [:div.item-details
-        (when (seq (:description task))
+        (if (seq (:description task))
           [task-item/clampable-description
            {:text (:description task)
-            :on-click #(state/set-editing-modal :task task)}])
+            :on-click #(state/set-editing-modal :task task)}]
+          [:button.edit-icon.description-placeholder
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (state/set-editing-modal :task task))}
+           "✎"])
         [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]]
        [task-item/task-categories-readonly task])]))
 
@@ -116,21 +115,20 @@
          [:span.importance-badge {:class (:importance meet)}
           (case (:importance meet) "important" "★" "critical" "★★" nil)])
        [:span.item-title-text (:title meet)]]
-      (when is-expanded
-        [:div.item-toolbar
-         [:button.edit-icon {:on-click (fn [e]
-                                         (.stopPropagation e)
-                                         (state/set-editing-modal :meet meet))}
-          "✎"]])
       [:div.item-date
        (when (seq (:start_time meet))
          [:span.due-date (:start_time meet)])]]
      (if is-expanded
        [:div.item-details
-        (when (seq (:description meet))
+        (if (seq (:description meet))
           [task-item/clampable-description
            {:text (:description meet)
-            :on-click #(state/set-editing-modal :meet meet)}])
+            :on-click #(state/set-editing-modal :meet meet)}]
+          [:button.edit-icon.description-placeholder
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (state/set-editing-modal :meet meet))}
+           "✎"])
         [relation-badges/relation-badges-expanded (:relations meet) "met" (:id meet)]]
        [:div.item-tags-readonly
         [task-item/category-badges
@@ -150,19 +148,18 @@
                          (when-not is-expanded (:id entry)))}
       [:div.item-title
        [relation-link/relation-link-button :journal-entry (:id entry)]
-       [:span.item-title-text (:title entry)]]
-      (when is-expanded
-        [:div.item-toolbar
-         [:button.edit-icon {:on-click (fn [e]
-                                         (.stopPropagation e)
-                                         (state/set-editing-modal :journal-entry entry))}
-          "✎"]])]
+       [:span.item-title-text (:title entry)]]]
      (when is-expanded
        [:div.item-details
-        (when (seq (:description entry))
+        (if (seq (:description entry))
           [task-item/clampable-description
            {:text (:description entry)
-            :on-click #(state/set-editing-modal :journal-entry entry)}])
+            :on-click #(state/set-editing-modal :journal-entry entry)}]
+          [:button.edit-icon.description-placeholder
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (state/set-editing-modal :journal-entry entry))}
+           "✎"])
         [relation-badges/relation-badges-expanded (:relations entry) "jen" (:id entry)]])]))
 
 (defn- day-section [day-date day-tasks day-meets day-entries]
