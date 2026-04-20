@@ -45,24 +45,39 @@
                    :goals (db/extract-category resource-categories "goal" goals-by-id))))
         resources))
 
+(defn- domain-match-clause [domain]
+  (if (= domain "Sheet")
+    [:or [:is :link nil] [:= :link ""]]
+    [:or
+     [:like :link (str "%://" domain "/%")]
+     [:like :link (str "%://www." domain "/%")]]))
+
+(defn- domain-exclude-clause [domain]
+  (if (= domain "Sheet")
+    [:not [:or [:is :link nil] [:= :link ""]]]
+    [:or
+     [:is :link nil]
+     [:= :link ""]
+     [:not [:or
+            [:like :link (str "%://" domain "/%")]
+            [:like :link (str "%://www." domain "/%")]]]]))
+
 (defn list-resources
   ([ds user-id] (list-resources ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories domain sort-mode]} opts
+   (let [{:keys [search-term importance context strict categories domain excluded-domains sort-mode]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags :link])
          importance-clause (db/build-importance-clause importance)
          scope-clause (db/build-scope-clause context strict)
          domain-clause (when (and domain (seq domain))
-                         (if (= domain "Sheet")
-                           [:or [:is :link nil] [:= :link ""]]
-                           [:or
-                            [:like :link (str "%://" domain "/%")]
-                            [:like :link (str "%://www." domain "/%")]]))
+                         (domain-match-clause domain))
+         excluded-domains-clause (when (seq excluded-domains)
+                                   (into [:and] (map domain-exclude-clause excluded-domains)))
          category-clauses (build-resource-category-clauses categories)
          where-clause (into [:and user-where]
-                            (concat (filter some? [search-clause importance-clause scope-clause domain-clause])
+                            (concat (filter some? [search-clause importance-clause scope-clause domain-clause excluded-domains-clause])
                                     category-clauses))
          resources (jdbc/execute! conn
                      (sql/format {:select db/resource-select-columns

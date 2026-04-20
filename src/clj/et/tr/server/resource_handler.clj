@@ -22,10 +22,13 @@
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
         domain (get-in req [:params "domain"])
+        excluded-domains-param (get-in req [:params "excludedDomains"])
+        excluded-domains (when (and excluded-domains-param (not (str/blank? excluded-domains-param)))
+                           (set (str/split excluded-domains-param #",")))
         sort-mode (get-in req [:params "sortMode"])
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.resource/list-resources (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :domain domain :sort-mode sort-mode})}))
+    {:status 200 :body (db.resource/list-resources (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :domain domain :excluded-domains excluded-domains :sort-mode sort-mode})}))
 
 (defn add-resource-handler [req]
   (let [user-id (common/get-user-id req)

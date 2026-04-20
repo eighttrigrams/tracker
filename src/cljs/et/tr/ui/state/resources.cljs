@@ -12,6 +12,7 @@
                                         :filter-search ""
                                         :importance-filter nil
                                         :domain-filter nil
+                                        :excluded-domains #{}
                                         :sort-mode :manual
                                         :fetch-request-id 0}))
 
@@ -28,12 +29,14 @@
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
         goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
         domain (:domain opts)
+        excluded-domains (:excluded-domains opts)
         url (cond-> "/api/resources?"
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
               importance (str "importance=" (name importance) "&")
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
               (seq domain) (str "domain=" (js/encodeURIComponent domain) "&")
+              (seq excluded-domains) (str "excludedDomains=" (js/encodeURIComponent (str/join "," excluded-domains)) "&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
@@ -208,15 +211,27 @@
   (fetch-resources-fn))
 
 (defn set-domain-filter [fetch-resources-fn domain]
-  (swap! *resources-page-state assoc :domain-filter domain)
+  (swap! *resources-page-state assoc :domain-filter domain :excluded-domains #{})
   (fetch-resources-fn))
 
 (defn clear-domain-filter [fetch-resources-fn]
   (swap! *resources-page-state assoc :domain-filter nil)
   (fetch-resources-fn))
 
+(defn toggle-excluded-domain [fetch-resources-fn domain]
+  (swap! *resources-page-state update :excluded-domains
+         (fn [excluded]
+           (if (contains? excluded domain)
+             (disj excluded domain)
+             (conj excluded domain))))
+  (fetch-resources-fn))
+
+(defn clear-excluded-domain [fetch-resources-fn domain]
+  (swap! *resources-page-state update :excluded-domains disj domain)
+  (fetch-resources-fn))
+
 (defn clear-all-resource-filters [fetch-resources-fn]
-  (swap! *resources-page-state assoc :filter-search "" :importance-filter nil :domain-filter nil)
+  (swap! *resources-page-state assoc :filter-search "" :importance-filter nil :domain-filter nil :excluded-domains #{})
   (fetch-resources-fn))
 
 (defn reset-resources-page-view-state! []

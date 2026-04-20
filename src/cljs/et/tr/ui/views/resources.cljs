@@ -157,12 +157,18 @@
       (if domain
         [:span.mail-sender {:on-click (fn [e]
                                         (.stopPropagation e)
-                                        (state/set-resource-domain-filter domain))}
+                                        (if (and (.-shiftKey e)
+                                                 (nil? (:domain-filter @resources-state/*resources-page-state)))
+                                          (state/toggle-resource-excluded-domain domain)
+                                          (state/set-resource-domain-filter domain)))}
          domain]
         (when-not has-link?
           [:span.mail-sender {:on-click (fn [e]
                                           (.stopPropagation e)
-                                          (state/set-resource-domain-filter "Sheet"))}
+                                          (if (and (.-shiftKey e)
+                                                   (nil? (:domain-filter @resources-state/*resources-page-state)))
+                                            (state/toggle-resource-excluded-domain "Sheet")
+                                            (state/set-resource-domain-filter "Sheet")))}
            "Sheet"]))
       (if inline-editing?
         [resource-inline-title-edit resource]
@@ -242,12 +248,21 @@
       "★★"]]))
 
 (defn- resource-domain-filter-badge []
-  (let [domain-filter (:domain-filter @resources-state/*resources-page-state)]
-    (when domain-filter
+  (let [domain-filter (:domain-filter @resources-state/*resources-page-state)
+        excluded-domains (:excluded-domains @resources-state/*resources-page-state)]
+    (when (or domain-filter (seq excluded-domains))
       [:div.mail-sender-filter
-       [:span.filter-item-label.included
-        domain-filter
-        [:button.remove-item {:on-click #(state/clear-resource-domain-filter)} "x"]]])))
+       (when domain-filter
+         [:span.filter-item-label.included
+          domain-filter
+          [:button.remove-item {:on-click #(state/clear-resource-domain-filter)} "x"]])
+       (for [domain excluded-domains]
+         ^{:key domain}
+         [:span.filter-item-label.excluded
+          domain
+          [:button.remove-item {:on-click #(state/clear-resource-excluded-domain domain)} "x"]])
+       (when (>= (count excluded-domains) 2)
+         [:button.remove-all-filters {:on-click #(state/clear-all-resource-filters)} "x"])])))
 
 (defn- url? [s]
   (and (string? s)

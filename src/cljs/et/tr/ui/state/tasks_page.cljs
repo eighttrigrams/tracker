@@ -67,29 +67,18 @@
 (defn clear-uncollapsed-task-filters [app-state fetch-tasks-fn]
   (let [collapsed (:tasks-page/collapsed-filters @app-state)
         all-filters #{:people :places :projects :goals}
-        uncollapsed (clojure.set/difference all-filters collapsed)]
-    (if (empty? uncollapsed)
+        any-visible? (seq (clojure.set/difference all-filters collapsed))]
+    (when-not any-visible?
       (swap! app-state assoc
              :shared/filter-people #{}
              :shared/filter-places #{}
              :shared/filter-projects #{}
              :tasks-page/filter-goals #{}
              :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
+             :tasks-page/filter-search ""
              :tasks-page/importance-filter nil
              :tasks-page/expanded-task nil)
-      (do
-        (doseq [filter-key uncollapsed]
-          (case filter-key
-            :people (swap! app-state assoc :shared/filter-people #{})
-            :places (swap! app-state assoc :shared/filter-places #{})
-            :projects (swap! app-state assoc :shared/filter-projects #{})
-            :goals (swap! app-state assoc :tasks-page/filter-goals #{})))
-        (swap! app-state assoc
-               :tasks-page/collapsed-filters all-filters
-               :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
-               :tasks-page/importance-filter nil
-               :tasks-page/expanded-task nil)))
-    (fetch-tasks-fn (current-fetch-opts app-state))))
+      (fetch-tasks-fn (current-fetch-opts app-state)))))
 
 (defn toggle-filter-collapsed [app-state filter-key]
   (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)

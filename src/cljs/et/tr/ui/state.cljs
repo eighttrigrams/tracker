@@ -328,6 +328,7 @@
   {:search-term (:filter-search @resources-state/*resources-page-state)
    :importance (:importance-filter @resources-state/*resources-page-state)
    :domain (:domain-filter @resources-state/*resources-page-state)
+   :excluded-domains (:excluded-domains @resources-state/*resources-page-state)
    :sort-mode (:sort-mode @resources-state/*resources-page-state)
    :context (:work-private-mode @*app-state)
    :strict (:strict-mode @*app-state)
@@ -399,6 +400,12 @@
 
 (defn clear-resource-domain-filter []
   (resources-state/clear-domain-filter fetch-resources))
+
+(defn toggle-resource-excluded-domain [domain]
+  (resources-state/toggle-excluded-domain fetch-resources domain))
+
+(defn clear-resource-excluded-domain [domain]
+  (resources-state/clear-excluded-domain fetch-resources domain))
 
 (defn clear-all-resource-filters []
   (resources-state/clear-all-resource-filters fetch-resources))
@@ -860,28 +867,17 @@
 (defn clear-uncollapsed-meet-filters []
   (let [collapsed (:meets-page/collapsed-filters @*app-state)
         all-filters #{:people :places :projects :goals}
-        uncollapsed (clojure.set/difference all-filters collapsed)]
-    (if (empty? uncollapsed)
+        any-visible? (seq (clojure.set/difference all-filters collapsed))]
+    (when-not any-visible?
       (swap! *app-state assoc
              :shared/filter-people #{}
              :shared/filter-places #{}
              :shared/filter-projects #{}
              :meets-page/filter-goals #{}
              :meets-page/category-search {:people "" :places "" :projects "" :goals ""})
-      (do
-        (doseq [filter-key uncollapsed]
-          (case filter-key
-            :people (swap! *app-state assoc :shared/filter-people #{})
-            :places (swap! *app-state assoc :shared/filter-places #{})
-            :projects (swap! *app-state assoc :shared/filter-projects #{})
-            :goals (swap! *app-state assoc :meets-page/filter-goals #{})))
-        (swap! *app-state assoc
-               :meets-page/collapsed-filters all-filters
-               :meets-page/category-search {:people "" :places "" :projects "" :goals ""})))
-    (if (:meets-page/series-mode @*app-state)
-      (fetch-meeting-series)
-      (do (meets-state/set-importance-filter fetch-meets nil)
-          (fetch-meets)))))
+      (if (:meets-page/series-mode @*app-state)
+        (meeting-series-state/clear-all-meeting-series-filters fetch-meeting-series)
+        (meets-state/clear-all-meet-filters fetch-meets)))))
 
 (defn toggle-resources-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:resources-page/collapsed-filters @*app-state) filter-key)
@@ -965,26 +961,15 @@
 (defn clear-uncollapsed-resource-filters []
   (let [collapsed (:resources-page/collapsed-filters @*app-state)
         all-filters #{:people :places :projects :goals}
-        uncollapsed (clojure.set/difference all-filters collapsed)]
-    (if (empty? uncollapsed)
+        any-visible? (seq (clojure.set/difference all-filters collapsed))]
+    (when-not any-visible?
       (swap! *app-state assoc
              :shared/filter-people #{}
              :shared/filter-places #{}
              :shared/filter-projects #{}
              :resources-page/filter-goals #{}
              :resources-page/category-search {:people "" :places "" :projects "" :goals ""})
-      (do
-        (doseq [filter-key uncollapsed]
-          (case filter-key
-            :people (swap! *app-state assoc :shared/filter-people #{})
-            :places (swap! *app-state assoc :shared/filter-places #{})
-            :projects (swap! *app-state assoc :shared/filter-projects #{})
-            :goals (swap! *app-state assoc :resources-page/filter-goals #{})))
-        (swap! *app-state assoc
-               :resources-page/collapsed-filters all-filters
-               :resources-page/category-search {:people "" :places "" :projects "" :goals ""})))
-    (resources-state/set-importance-filter fetch-resources nil)
-    (fetch-resources)))
+      (resources-state/clear-all-resource-filters fetch-resources))))
 
 (defn fetch-users []
   (users/fetch-users *app-state auth-headers))
