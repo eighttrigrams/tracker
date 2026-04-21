@@ -554,7 +554,9 @@
          (when (:entry_date entry)
            [:span.journal-entry-summary-date (date/format-date-localized (:entry_date entry))])]
         (when (seq (:description entry))
-          [:div.journal-entry-summary-description (:description entry)])])]))
+          [:div.journal-entry-summary-description
+           {:on-click #(state/set-editing-modal :journal-entry entry)}
+           (:description entry)])])]))
 
 (defn- journal-filter-bar []
   (let [jf (state/journal-filter)

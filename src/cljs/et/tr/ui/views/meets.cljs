@@ -494,7 +494,9 @@
                  (when (seq (:start_time meet))
                    (str " - " (:start_time meet))))])]
         (when (seq (:description meet))
-          [:div.journal-entry-summary-description (:description meet)])])]))
+          [:div.journal-entry-summary-description
+           {:on-click #(state/set-editing-modal :meet meet)}
+           (:description meet)])])]))
 
 (defn- series-toggle []
   (let [series-mode (:meets-page/series-mode @state/*app-state)]
