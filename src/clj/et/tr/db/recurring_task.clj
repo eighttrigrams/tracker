@@ -392,3 +392,26 @@
              (when-let [task (create-task-for-recurring ds user-id id date time)]
                (swap! created conj task))))))
      @created)))
+
+(defn create-next-after-today-delete [ds user-id rtask-id]
+  (let [conn (db/get-conn ds)
+        rtask (jdbc/execute-one! conn
+                (sql/format {:select [:schedule_days :schedule_mode :biweekly_offset :task_type]
+                             :from [:recurring_tasks]
+                             :where [:and
+                                     [:= :id rtask-id]
+                                     (db/user-id-where-clause user-id)]})
+                db/jdbc-opts)]
+    (when (and rtask
+               (= "today" (:task_type rtask))
+               (not (str/blank? (:schedule_days rtask))))
+      (let [today-expr [:raw "date('now','localtime')"]
+            {:keys [has-active?]} (query-today-type-state conn rtask-id today-expr)
+            today (LocalDate/now)
+            today-str (str today)
+            mode (or (:schedule_mode rtask) "weekly")
+            schedule-days-set (set (str/split (:schedule_days rtask) #","))
+            scheduled-dates (scheduling/scheduled-dates-from mode schedule-days-set (:biweekly_offset rtask) today 10)
+            next-date (scheduling/next-item-to-create today-str scheduled-dates has-active? true)]
+        (when next-date
+          (create-task-for-recurring ds user-id rtask-id next-date nil))))))

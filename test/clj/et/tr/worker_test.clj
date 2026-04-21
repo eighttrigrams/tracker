@@ -68,6 +68,42 @@
           (worker/run-recurring-tasks-check *ds*)
           (is (= count-before (count (db.task/list-tasks *ds* *user-id* {:recurring-task-id (:id rt)})))))))))
 
+(deftest recurring-task-today-type-delete-creates-next
+  (testing "deleting today's task immediately creates the next scheduled item"
+    (let [rt (setup-today-type-recurring-task)]
+      (worker/run-recurring-tasks-check *ds*)
+      (let [task-id (:id (first (db.task/list-tasks *ds* *user-id* {:recurring-task-id (:id rt)})))]
+        (db.task/delete-task *ds* *user-id* task-id)
+        (let [tasks (db.task/list-tasks *ds* *user-id* {:recurring-task-id (:id rt)})
+              new-task (first tasks)]
+          (is (= 1 (count tasks)))
+          (is (some? new-task))
+          (is (some? (:lined_up_for new-task)) "next task should be lined up for a future date, not today")
+          (is (zero? (:today new-task)) "next task should not be marked for today"))))))
+
+(deftest recurring-task-today-type-delete-no-create-outside-window
+  (testing "deleting today's task does not create when next scheduled date is beyond today+4"
+    (let [rt (db.recurring-task/add-recurring-task *ds* *user-id* "Weekly Only Today")]
+      (db.recurring-task/set-recurring-task-schedule
+        *ds* *user-id* (:id rt)
+        (today-dow) nil "weekly" false "today")
+      (worker/run-recurring-tasks-check *ds*)
+      (let [task-id (:id (first (db.task/list-tasks *ds* *user-id* {:recurring-task-id (:id rt)})))]
+        (db.task/delete-task *ds* *user-id* task-id)
+        (is (zero? (count (db.task/list-tasks *ds* *user-id* {:recurring-task-id (:id rt)}))))))))
+
+(deftest recurring-task-today-type-delete-no-create-when-active-exists
+  (testing "deleting today's task does not create when another active task exists in the series"
+    (let [rt (setup-today-type-recurring-task)]
+      (worker/run-recurring-tasks-check *ds*)
+      (let [task-id (:id (first (db.task/list-tasks *ds* *user-id* {:recurring-task-id (:id rt)})))
+            future-date (str (.plusDays (LocalDate/now) 2))]
+        (db.recurring-task/create-task-for-recurring *ds* *user-id* (:id rt) future-date nil)
+        (db.task/delete-task *ds* *user-id* task-id)
+        (let [tasks (db.task/list-tasks *ds* *user-id* {:recurring-task-id (:id rt)})]
+          (is (= 1 (count tasks)) "only the pre-existing future task should remain")
+          (is (= future-date (:lined_up_for (first tasks)))))))))
+
 ;; ── Meeting Series ──
 
 (defn- setup-meeting-series []

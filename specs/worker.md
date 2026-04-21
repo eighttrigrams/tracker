@@ -48,3 +48,6 @@ These work differently. At most one upcoming Task gets created per series, and o
 - If no undone Task of the series exists from Today onward, create the next scheduled one (within the window).
 - If an undone Task already exists, do nothing.
 - **Done-today exception:** If all existing Tasks of the series were marked as done *today*, treat the series as having no active Task and create the next one after Today (still within the Today+4 window). This prevents the worker from re-creating the same task repeatedly on the same day.
+
+A special situation occurs when I **delete** a Task of the Series marked for *today*. Then the next job run would recreate it. In that case, when I delete it,
+don't wait for the worker to kick in. Instead, create the next item of the series in that moment of deletion, but *only when it falls between tomorrow and today+4 (both inclusive).

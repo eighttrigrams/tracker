@@ -3,6 +3,7 @@
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
             [et.tr.db :as db]
+            [et.tr.db.recurring-task :as db.recurring-task]
             [et.tr.db.relation :as relation]))
 
 (defn add-task
@@ -209,21 +210,30 @@
 
 (defn delete-task [ds user-id task-id]
   (when (task-owned-by-user? ds task-id user-id)
-    (let [conn (db/get-conn ds)]
-      (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:delete-from :task_categories
-                       :where [:= :task_id task-id]}))
-        (jdbc/execute-one! tx
-          (sql/format {:delete-from :relations
-                       :where [:or
-                               [:and [:= :source_type "tsk"] [:= :source_id task-id]]
-                               [:and [:= :target_type "tsk"] [:= :target_id task-id]]]}))
-        (let [result (jdbc/execute-one! tx
-                       (sql/format {:delete-from :tasks
-                                    :where [:= :id task-id]}))]
-          (tel/log! {:level :info :data {:task-id task-id :user-id user-id}} "Task deleted")
-          {:success (pos? (:next.jdbc/update-count result))})))))
+    (let [conn (db/get-conn ds)
+          {:keys [recurring_task_id today]}
+          (jdbc/execute-one! conn
+            (sql/format {:select [:recurring_task_id :today]
+                         :from [:tasks]
+                         :where [:= :id task-id]})
+            db/jdbc-opts)
+          result (jdbc/with-transaction [tx conn]
+                   (jdbc/execute-one! tx
+                     (sql/format {:delete-from :task_categories
+                                  :where [:= :task_id task-id]}))
+                   (jdbc/execute-one! tx
+                     (sql/format {:delete-from :relations
+                                  :where [:or
+                                          [:and [:= :source_type "tsk"] [:= :source_id task-id]]
+                                          [:and [:= :target_type "tsk"] [:= :target_id task-id]]]}))
+                   (let [r (jdbc/execute-one! tx
+                             (sql/format {:delete-from :tasks
+                                          :where [:= :id task-id]}))]
+                     (tel/log! {:level :info :data {:task-id task-id :user-id user-id}} "Task deleted")
+                     {:success (pos? (:next.jdbc/update-count r))}))]
+      (when (and (:success result) recurring_task_id (= 1 today))
+        (db.recurring-task/create-next-after-today-delete ds user-id recurring_task_id))
+      result)))
 
 (defn set-task-done [ds user-id task-id done?]
   (let [done-val (if done? 1 0)]
