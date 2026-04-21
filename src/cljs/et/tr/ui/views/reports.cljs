@@ -80,6 +80,23 @@
   (when date-str
     (.substring date-str 0 10)))
 
+(defn- scope-selector [entity set-fn]
+  (let [scope (or (:scope entity) "both")]
+    [:div.task-scope-selector.toggle-group.compact
+     (for [s ["private" "both" "work"]]
+       ^{:key s}
+       [:button.toggle-option
+        {:class (when (= scope s) "active")
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (set-fn (:id entity) s))}
+        s])]))
+
+(defn- delete-button [on-click]
+  [:div.combined-button-wrapper
+   [:button.delete-btn {:on-click on-click}
+    (t :task/delete)]])
+
 (defn- report-task-item [task]
   (let [is-expanded (= (:expanded-task @reports-state/*reports-page-state) (:id task))]
     [:li {:class (str "report-item report-task" (when is-expanded " expanded"))}
@@ -100,7 +117,10 @@
                         (.stopPropagation e)
                         (state/set-editing-modal :task task))}
            "✎"])
-        [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]]
+        [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]
+        [:div.item-actions
+         [scope-selector task state/set-task-scope]
+         [delete-button #(state/set-confirm-delete-task task)]]]
        [task-item/task-categories-readonly task])]))
 
 (defn- report-meet-item [meet]
@@ -129,7 +149,10 @@
                         (.stopPropagation e)
                         (state/set-editing-modal :meet meet))}
            "✎"])
-        [relation-badges/relation-badges-expanded (:relations meet) "met" (:id meet)]]
+        [relation-badges/relation-badges-expanded (:relations meet) "met" (:id meet)]
+        [:div.item-actions
+         [scope-selector meet state/set-meet-scope]
+         [delete-button #(state/set-confirm-delete-meet meet)]]]
        [:div.item-tags-readonly
         [task-item/category-badges
          {:item meet
@@ -160,7 +183,10 @@
                         (.stopPropagation e)
                         (state/set-editing-modal :journal-entry entry))}
            "✎"])
-        [relation-badges/relation-badges-expanded (:relations entry) "jen" (:id entry)]])]))
+        [relation-badges/relation-badges-expanded (:relations entry) "jen" (:id entry)]
+        [:div.item-actions
+         [scope-selector entry state/set-journal-entry-scope]
+         [delete-button #(state/set-confirm-delete-journal-entry entry)]]])]))
 
 (defn- day-section [day-date day-tasks day-meets day-entries]
   [:div.report-day-group {:key day-date}
