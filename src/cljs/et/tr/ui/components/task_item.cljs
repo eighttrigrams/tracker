@@ -40,6 +40,7 @@
 (defn inline-title-edit [{:keys [title on-change on-commit on-cancel]}]
   [:input.inline-title-edit
    {:type "text"
+    :auto-complete "off"
     :auto-focus true
     :value title
     :on-click #(.stopPropagation %)
@@ -273,6 +274,7 @@
            on-save on-cancel on-delete]}]
   [:div.item-edit-form
    [:input {:type "text"
+            :auto-complete "off"
             :value @title-atom
             :on-change #(reset! title-atom (-> % .-target .-value))
             :placeholder title-placeholder}]
@@ -282,11 +284,13 @@
                :rows 3}]
    (when tags-atom
      [:input {:type "text"
+              :auto-complete "off"
               :value @tags-atom
               :on-change #(reset! tags-atom (-> % .-target .-value))
               :placeholder tags-placeholder}])
    (when badge-title-atom
      [:input {:type "text"
+              :auto-complete "off"
               :value @badge-title-atom
               :on-change #(reset! badge-title-atom (-> % .-target .-value))
               :placeholder badge-title-placeholder}])

@@ -118,6 +118,7 @@
   (let [value (or (:meets-page/inline-edit-title @state/*app-state) "")]
     [:input.inline-title-edit
      {:type "text"
+      :auto-complete "off"
       :auto-focus true
       :value value
       :on-click #(.stopPropagation %)
@@ -362,6 +363,7 @@
   (let [value (or (:series-page/inline-edit-title @state/*app-state) "")]
     [:input.inline-title-edit
      {:type "text"
+      :auto-complete "off"
       :auto-focus true
       :value value
       :on-click #(.stopPropagation %)

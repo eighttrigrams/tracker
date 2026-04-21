@@ -123,6 +123,7 @@
   (let [value (or (:resources-page/inline-edit-title @state/*app-state) "")]
     [:input.inline-title-edit
      {:type "text"
+      :auto-complete "off"
       :auto-focus true
       :value value
       :on-click #(.stopPropagation %)
@@ -422,6 +423,7 @@
   (let [value (or (:journals-page/inline-edit-title @state/*app-state) "")]
     [:input.inline-title-edit
      {:type "text"
+      :auto-complete "off"
       :auto-focus true
       :value value
       :on-click #(.stopPropagation %)
@@ -617,6 +619,7 @@
   (let [value (or (:journal-entries-page/inline-edit-title @state/*app-state) "")]
     [:input.inline-title-edit
      {:type "text"
+      :auto-complete "off"
       :auto-focus true
       :value value
       :on-click #(.stopPropagation %)

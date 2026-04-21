@@ -405,6 +405,7 @@
             [:div.today-add-form
              [:input.today-add-input
               {:type "text"
+               :auto-complete "off"
                :placeholder (t :tasks/add-placeholder)
                :value (or input-value "")
                :on-change #(swap! ui-state assoc :input-value (.. % -target -value))

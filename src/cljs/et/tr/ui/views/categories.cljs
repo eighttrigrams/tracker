@@ -9,6 +9,7 @@
   (fn []
     [:div.add-entity-form
      [:input {:type "text"
+              :auto-complete "off"
               :placeholder placeholder
               :value @name-atom
               :on-change #(reset! name-atom (-> % .-target .-value))

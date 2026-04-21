@@ -9,6 +9,7 @@
     (fn []
       [:div.add-user-form
        [:input {:type "text"
+                :auto-complete "off"
                 :placeholder (t :auth/username)
                 :value @username
                 :on-change #(reset! username (-> % .-target .-value))}]

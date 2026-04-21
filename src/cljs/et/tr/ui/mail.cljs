@@ -293,6 +293,7 @@
       (let [disabled? (or (str/blank? @input-val) (any-filter-active?))]
         [:div.mail-add-form
          [:input {:type "text"
+                  :auto-complete "off"
                   :value @input-val
                   :placeholder (t :mail/add-placeholder)
                   :on-change #(reset! input-val (-> % .-target .-value))

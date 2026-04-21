@@ -33,6 +33,7 @@
          (when-let [error (:error @state/*app-state)]
            [:div.error error [:button.error-dismiss {:on-click state/clear-error} "×"]])
          [:input {:type "text"
+                  :auto-complete "off"
                   :placeholder (t :auth/username)
                   :value @username
                   :on-change #(reset! username (-> % .-target .-value))

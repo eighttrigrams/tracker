@@ -123,6 +123,7 @@
              [:p.warning (t :modal/delete-user-warning)]
              [:p {:style {:margin-top "16px"}} (tf :modal/delete-user-type-confirm username)]
              [:input {:type "text"
+                      :auto-complete "off"
                       :value @confirmation-input
                       :on-change #(reset! confirmation-input (-> % .-target .-value))
                       :placeholder (t :modal/enter-username)
@@ -678,20 +679,24 @@
                       [markdown-preview @description]]
                      [:div.item-edit-form
                       [:input {:type "text"
+                               :auto-complete "off"
                                :value @title
                                :on-change #(reset! title (-> % .-target .-value))
                                :placeholder (if is-category (t :category/name-placeholder) (t :task/title-placeholder))}]
                       (when link
                         [:input {:type "text"
+                                 :auto-complete "off"
                                  :value @link
                                  :on-change #(reset! link (-> % .-target .-value))
                                  :placeholder (t :resources/link-placeholder)}])
                       (when badge-title
                         [:input {:type "text"
+                                 :auto-complete "off"
                                  :value @badge-title
                                  :on-change #(reset! badge-title (-> % .-target .-value))
                                  :placeholder (t :category/badge-title-placeholder)}])
                       [:input {:type "text"
+                               :auto-complete "off"
                                :value @tags
                                :on-change #(reset! tags (-> % .-target .-value))
                                :placeholder (t :task/tags-placeholder)}]

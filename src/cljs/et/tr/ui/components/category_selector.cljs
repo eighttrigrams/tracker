@@ -39,6 +39,7 @@
              [:input.category-selector-search
               {:id input-id
                :type "text"
+               :auto-complete "off"
                :placeholder (t :category/search)
                :value search-state
                :auto-focus true
