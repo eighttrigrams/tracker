@@ -417,10 +417,13 @@
   (resources-state/uncategorize-resource *app-state auth-headers fetch-resources resource-id category-type category-id))
 
 (defn- meets-fetch-opts []
-  (let [series-filter (:meets-page/filter-series @*app-state)]
+  (let [series-filter (:meets-page/filter-series @*app-state)
+        summary-mode? (:meets-page/meet-summary-mode @*app-state)]
     (cond-> {:search-term (:filter-search @meets-state/*meets-page-state)
              :importance (:importance-filter @meets-state/*meets-page-state)
-             :sort-mode (:sort-mode @meets-state/*meets-page-state)
+             :sort-mode (if (and series-filter summary-mode?)
+                          :summary
+                          (:sort-mode @meets-state/*meets-page-state))
              :context (:work-private-mode @*app-state)
              :strict (:strict-mode @*app-state)
              :filter-people (:shared/filter-people @*app-state)
@@ -818,7 +821,13 @@
   (fetch-meets))
 
 (defn clear-series-filter []
-  (swap! *app-state assoc :meets-page/filter-series nil)
+  (swap! *app-state assoc
+         :meets-page/filter-series nil
+         :meets-page/meet-summary-mode false)
+  (fetch-meets))
+
+(defn toggle-meet-summary-mode []
+  (swap! *app-state update :meets-page/meet-summary-mode not)
   (fetch-meets))
 
 (defn series-filter []

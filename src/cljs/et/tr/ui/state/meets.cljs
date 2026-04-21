@@ -34,6 +34,7 @@
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
               (= sort-mode :past) (str "sort=past&")
+              (= sort-mode :summary) (str "sort=summary&")
               series-id (str "series-id=" series-id "&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")

@@ -55,6 +55,7 @@
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          date-clause (case sort-mode
+                       :summary nil
                        :past [:or
                               [:< :start_date [:raw "date('now','localtime')"]]
                               [:= :archived 1]]
@@ -68,11 +69,12 @@
          series-clause (when series-id [:= :meeting_series_id series-id])
          exclusion-clauses (filterv some? [(db/build-exclusion-subquery :meet_categories :meet_id :meets "place" excluded-places)
                                            (db/build-exclusion-subquery :meet_categories :meet_id :meets "project" excluded-projects)])
-         where-clause (into [:and user-where date-clause]
-                            (concat (filter some? [search-clause importance-clause scope-clause series-clause])
+         where-clause (into [:and user-where]
+                            (concat (filter some? [date-clause search-clause importance-clause scope-clause series-clause])
                                     category-clauses
                                     exclusion-clauses))
          order-by (case sort-mode
+                    :summary [[:start_date :desc] [:start_time :desc]]
                     :past [[:start_date :desc] [:start_time :desc]]
                     [[:start_date :asc] [:start_time :asc]])
          meets (jdbc/execute! conn

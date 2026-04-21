@@ -470,10 +470,31 @@
        [:button.clear-search {:on-click #(state/set-meeting-series-filter-search "")} "x"])]))
 
 (defn- series-filter-bar []
-  (let [series-filter (state/series-filter)]
+  (let [series-filter (state/series-filter)
+        summary-mode? (:meets-page/meet-summary-mode @state/*app-state)]
     [:div.series-filter-bar
      [:span.series-filter-label (:title series-filter)]
+     [:button.journal-summary-btn
+      {:class (when summary-mode? "active")
+       :on-click #(state/toggle-meet-summary-mode)}
+      "📋"]
      [:button.clear-search {:on-click #(state/clear-series-filter)} "x"]]))
+
+(defn- meets-summary []
+  (let [meets (:meets @state/*app-state)]
+    [:div.journal-entries-summary
+     (for [meet meets]
+       ^{:key (:id meet)}
+       [:div.journal-entry-summary-item
+        [:div.journal-entry-summary-header
+         [:span.journal-entry-summary-title (:title meet)]
+         (when (:start_date meet)
+           [:span.journal-entry-summary-date
+            (str (date/format-date-localized (:start_date meet))
+                 (when (seq (:start_time meet))
+                   (str " - " (:start_time meet))))])]
+        (when (seq (:description meet))
+          [:div.journal-entry-summary-description (:description meet)])])]))
 
 (defn- series-toggle []
   (let [series-mode (:meets-page/series-mode @state/*app-state)]
@@ -486,6 +507,7 @@
   (let [{:keys [meets meeting-series people places projects goals]} @state/*app-state
         series-mode (state/series-mode?)
         series-filter (state/series-filter)
+        summary-mode? (:meets-page/meet-summary-mode @state/*app-state)
         {:keys [expanded-meet]} @meets-state/*meets-page-state
         {:keys [expanded-series]} @meeting-series-state/*meeting-series-page-state]
     [:div.main-layout
@@ -495,19 +517,25 @@
        [series-toggle]
        (when-not series-mode
          [importance-filter-toggle])
-       (when-not series-mode
+       (when-not (or series-mode (and series-filter summary-mode?))
          [sort-mode-toggle])]
       (cond
         series-mode [series-search-add-form]
         series-filter [series-filter-bar]
         :else [search-add-form])
-      (if series-mode
+      (cond
+        series-mode
         (if (empty? meeting-series)
           [:p.empty-message (t :meets/no-series)]
           [:ul.items
            (for [s meeting-series]
              ^{:key (:id s)}
              [series-item s expanded-series people places projects goals])])
+
+        (and series-filter summary-mode?)
+        [meets-summary]
+
+        :else
         (if (empty? meets)
           [:p.empty-message (t :meets/no-meets)]
           [:ul.items

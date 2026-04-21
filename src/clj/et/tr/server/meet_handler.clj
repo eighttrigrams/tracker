@@ -17,7 +17,10 @@
         importance (get-in req [:params "importance"])
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))
-        sort-mode (if (= "past" (get-in req [:params "sort"])) :past :upcoming)
+        sort-mode (case (get-in req [:params "sort"])
+                    "past" :past
+                    "summary" :summary
+                    :upcoming)
         people (common/parse-category-param (get-in req [:params "people"]))
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
