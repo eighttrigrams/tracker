@@ -1,5 +1,6 @@
 (ns et.tr.server.rest-api.middleware
-  (:require [taoensso.telemere :as tel]
+  (:require [clojure.string :as str]
+            [taoensso.telemere :as tel]
             [et.tr.auth :as auth]
             [et.tr.server.common :as common]
             [et.tr.server.rest-api.util :refer [json-response]]))
@@ -30,6 +31,7 @@
   (fn [req]
     (let [uri (or (:uri req) "")]
       (cond
+        (not (str/starts-with? uri "/rest/")) (handler req)
         (= uri "/rest/auth/login") (handler req)
         (common/prod-mode?)
           (if-let [token (auth/extract-token req)]

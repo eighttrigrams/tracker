@@ -9,7 +9,7 @@
   (swap! *state assoc :recording? (boolean (:recording resp))))
 
 (defn toggle! []
-  (api/post-json "/rest/recording-mode/toggle" {} (state/auth-headers) apply-response))
+  (api/post-json "/api/recording-mode/toggle" {} (state/auth-headers) apply-response))
 
 (defn indicator []
   (when (:recording? @*state)

@@ -16,6 +16,7 @@
             [et.tr.server.category-handler :as category-handler]
             [et.tr.auth :as auth]
             [et.tr.server.rest-api :as rest-api]
+            [et.tr.server.rest-api.middleware :as rest-api.mw]
             [et.tr.telegram :as telegram]
             [et.tr.export :as export]
             [et.tr.worker :as worker]
@@ -88,11 +89,17 @@
    :headers {"Content-Type" "text/html"}
    :body (slurp (io/resource "public/index.html"))})
 
+(defn- toggle-recording-mode-handler [_]
+  (let [now (rest-api.mw/toggle!)]
+    (tel/log! {:level :info :data {:recording now}} (str "RECORDING MODE " (if now "ON" "OFF")))
+    {:status 200 :body {:recording now}}))
+
 (defroutes api-routes
   (context "/api" []
     (GET "/translations" [] translations-handler)
     (GET "/export" [] export-data-handler)
     (GET "/reports" [] report-handler/reports-handler)
+    (POST "/recording-mode/toggle" [] toggle-recording-mode-handler)
 
     (context "/auth" []
       (GET "/required" [] user-handler/password-required-handler)

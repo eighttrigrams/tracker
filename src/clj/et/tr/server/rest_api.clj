@@ -9,7 +9,6 @@
     (context "/rest" []
       (POST "/auth/login" [] mutations/login)
       (GET "/describe" [] queries/describe)
-      (POST "/recording-mode/toggle" [] mutations/toggle-recording-mode)
       (GET "/tasks" [] queries/list-tasks)
       (GET "/tasks/today" [] queries/list-today)
       (GET "/tasks/:id" [] queries/get-task)

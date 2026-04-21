@@ -33,15 +33,6 @@
                :user {:id (:id user) :username (:username user) :is-admin false}}))
           (json-response 401 {:error "Invalid credentials"})))))
 
-(defn toggle-recording-mode
-  "POST /rest/recording-mode/toggle — toggle the write-gate. While ON, mutating
-  endpoints execute; while OFF they log intent and return a dropped stub.
-  Prefer the in-app shortcut Alt+Shift+W for day-to-day toggling."
-  [_req]
-  (let [now (mw/toggle!)]
-    (tel/log! {:level :info :data {:recording now}} (str "RECORDING MODE " (if now "ON" "OFF")))
-    (json-response {:recording now})))
-
 (defn create-task
   "POST /rest/tasks — create a new task for the authenticated user. JSON body:
   {\"title\" (required), \"scope\" (optional: private|both|work)}. Gated by

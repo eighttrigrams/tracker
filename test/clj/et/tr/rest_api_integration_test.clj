@@ -53,6 +53,17 @@
       (is (= 401 (:status (REST-json :get "/rest/tasks"
                                       {:user-id nil :token "garbage"})))))))
 
+(deftest rest-auth-does-not-gate-non-rest-routes-in-prod
+  (testing "GET / (health check) must not hit the REST auth middleware"
+    (with-redefs [common/prod-mode? (constantly true)]
+      (let [resp (*app* (mock/request :get "/"))]
+        (is (not= 401 (:status resp))
+            "GET / returned 401 — wrap-rest-auth is firing on non-/rest routes"))))
+  (testing "GET /api/auth/required must pass through"
+    (with-redefs [common/prod-mode? (constantly true)]
+      (let [resp (*app* (mock/request :get "/api/auth/required"))]
+        (is (not= 401 (:status resp)))))))
+
 (deftest login-issues-working-token-and-authorises-in-prod
   (let [user (db.user/create-user *ds* "alice" "secret123")
         login-resp (REST-json :post "/rest/auth/login"
@@ -113,9 +124,14 @@
         (is (contains? titles "Real task"))))
     (finally (ensure-recording-off!))))
 
-(deftest toggle-recording-mode-flips-state
+(deftest toggle-recording-mode-is-not-reachable-via-rest
+  (let [resp (REST-json :post "/rest/recording-mode/toggle" {})]
+    (is (= 404 (:status resp))
+        "recording-mode toggle must not be exposed on /rest/*")))
+
+(deftest toggle-recording-mode-flips-state-via-api
   (ensure-recording-off!)
-  (let [r1 (REST-json :post "/rest/recording-mode/toggle" {})
-        r2 (REST-json :post "/rest/recording-mode/toggle" {})]
+  (let [r1 (REST-json :post "/api/recording-mode/toggle" {})
+        r2 (REST-json :post "/api/recording-mode/toggle" {})]
     (is (true? (:recording (:body r1))))
     (is (false? (:recording (:body r2))))))
