@@ -15,6 +15,7 @@
             [et.tr.server.user-handler :as user-handler]
             [et.tr.server.category-handler :as category-handler]
             [et.tr.auth :as auth]
+            [et.tr.server.rest-api :as rest-api]
             [et.tr.telegram :as telegram]
             [et.tr.export :as export]
             [et.tr.worker :as worker]
@@ -261,6 +262,7 @@
 
 (defroutes app-routes
   api-routes
+  (rest-api/rest-routes)
   (POST "/webhook/telegram" [] (telegram/webhook-handler (common/ensure-ds)))
   (GET "/" [] serve-index)
   (GET "/item/*" [] serve-index)

@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.modals :as modals]
+            [et.tr.ui.recording-mode :as recording-mode]
             [et.tr.ui.mail :as mail]
             [et.tr.ui.views.settings :as settings]
             [et.tr.ui.views.users :as users]
@@ -105,6 +106,7 @@
   (let [{:keys [auth-required? logged-in? active-tab]} @state/*app-state]
     [:div
      (body-scroll-lock)
+     [recording-mode/indicator]
      [modals/confirm-undone-modal]
      [modals/confirm-delete-modal]
      [modals/confirm-delete-user-modal]
@@ -191,6 +193,11 @@
           reports-shortcut-keys (reports/get-reports-category-shortcut-keys)]
       (when (.-altKey e)
       (cond
+        (and (.-shiftKey e) (= "KeyW" code))
+        (do
+          (.preventDefault e)
+          (recording-mode/toggle!))
+
         (= "KeyT" code)
         (do
           (.preventDefault e)
