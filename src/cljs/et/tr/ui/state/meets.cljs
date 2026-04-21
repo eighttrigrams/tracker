@@ -80,8 +80,12 @@
   (api/delete-simple (str "/api/meets/" meet-id)
     (auth-headers)
     (fn [_]
-      (swap! app-state update :meets
-             (fn [meets] (filterv #(not= (:id %) meet-id) meets)))
+      (let [remove-fn (fn [meets] (filterv #(not= (:id %) meet-id) meets))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :meets remove-fn)
+                               (update :today-meets remove-fn)
+                               (update-in [:reports-data :meets] remove-fn)))))
       (swap! *meets-page-state assoc :confirm-delete-meet nil))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete meet"))

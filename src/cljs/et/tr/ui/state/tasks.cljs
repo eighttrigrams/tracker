@@ -167,13 +167,15 @@
   (api/delete-simple (str "/api/tasks/" task-id)
     (auth-headers)
     (fn [_]
-      (swap! app-state
-             (fn [state]
-               (-> state
-                   (update :tasks (fn [tasks] (filterv #(not= (:id %) task-id) tasks)))
-                   (assoc :tasks-page/expanded-task nil
-                          :today-page/expanded-task nil
-                          :confirm-delete-task nil)))))
+      (let [remove-fn (fn [tasks] (filterv #(not= (:id %) task-id) tasks))]
+        (swap! app-state
+               (fn [state]
+                 (-> state
+                     (update :tasks remove-fn)
+                     (update-in [:reports-data :tasks] remove-fn)
+                     (assoc :tasks-page/expanded-task nil
+                            :today-page/expanded-task nil
+                            :confirm-delete-task nil))))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete task"))
       (clear-confirm-delete app-state))))
