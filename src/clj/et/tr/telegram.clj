@@ -12,6 +12,8 @@
 (defn- telegram-token []
   (System/getenv "TELEGRAM_BOT_TOKEN"))
 
+(def ^:private allowed-user-ids #{"361811399"})
+
 (defn- delete-telegram-message [chat-id message-id]
   (when-let [token (telegram-token)]
     (try
@@ -39,7 +41,13 @@
         :else
         (let [update (:body req)
               message (or (:message update) (:edited_message update))
-              mail-user-id (db.user/get-mail-user-id ds)]
+              from-id (some-> (get-in message [:from :id]) str)]
+          (when from-id
+            (tel/log! :info (str "Telegram from user_id=" from-id
+                                 (if (contains? allowed-user-ids from-id) " (allowed)" " (denied)"))))
+          (if (or (nil? from-id) (not (contains? allowed-user-ids from-id)))
+            {:status 200 :body {:ok true :skipped "not allowlisted"}}
+            (let [mail-user-id (db.user/get-mail-user-id ds)]
           (if (nil? mail-user-id)
             (do
               (tel/log! :warn "No mail user configured")
@@ -62,4 +70,4 @@
                       (db.message/add-message ds mail-user-id "Note" title text nil nil nil nil)
                       (delete-telegram-message chat-id message-id)
                       {:status 200 :body {:ok true}}))))
-              {:status 200 :body {:ok true :skipped "no text"}})))))))
+              {:status 200 :body {:ok true :skipped "no text"}})))))))))
