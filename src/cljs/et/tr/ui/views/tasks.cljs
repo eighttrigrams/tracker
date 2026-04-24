@@ -264,20 +264,10 @@
          (:title task)])]
    (when is-expanded
      [:div.item-toolbar
-      [:span.date-picker-wrapper
-       {:on-click #(.stopPropagation %)}
-       [:input.date-picker-input
-        {:type "date"
-         :value (or (:due_date task) "")
-         :on-change (fn [e]
-                      (let [v (.. e -target -value)]
-                        (state/set-task-due-date (:id task) (when (seq v) v))))}]
-       [:button.calendar-icon {:on-click (fn [e]
-                                           (.stopPropagation e)
-                                           (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-        "📅"]]
-      (when (:due_date task)
-        [task-item/time-picker task :show-clear? true])])
+      [:button.calendar-icon {:on-click (fn [e]
+                                          (.stopPropagation e)
+                                          (state/set-editing-modal :task task :time))}
+       "📅"]])
    [:div.item-date
     (cond
       (and (:due_date task) done-mode?)
@@ -458,10 +448,10 @@
          (:title rtask)])]
      (when is-expanded
        [:div.item-toolbar
-        [:button.edit-icon {:on-click (fn [e]
-                                        (.stopPropagation e)
-                                        (state/set-editing-modal :recurring-task rtask :scheduling))}
-         "✎"]])
+        [:button.calendar-icon {:on-click (fn [e]
+                                            (.stopPropagation e)
+                                            (state/set-editing-modal :recurring-task rtask :scheduling))}
+         "📅"]])
      [:button.series-filter-btn {:on-click (fn [e]
                                              (.stopPropagation e)
                                              (state/set-recurring-filter rtask))

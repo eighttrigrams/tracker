@@ -283,9 +283,19 @@
 
 (defn- edit-modal-fields [{:keys [type entity]}]
   (let [field-atoms (case type
-                      (:task :meet :journal-entry) {:title (r/atom (:title entity))
-                                     :description (r/atom (or (:description entity) ""))
-                                     :tags (r/atom (or (:tags entity) ""))}
+                      :task {:title (r/atom (:title entity))
+                             :description (r/atom (or (:description entity) ""))
+                             :tags (r/atom (or (:tags entity) ""))
+                             :due-date (r/atom (or (:due_date entity) ""))
+                             :due-time (r/atom (or (:due_time entity) ""))}
+                      :meet {:title (r/atom (:title entity))
+                             :description (r/atom (or (:description entity) ""))
+                             :tags (r/atom (or (:tags entity) ""))
+                             :start-date (r/atom (or (:start_date entity) ""))
+                             :start-time (r/atom (or (:start_time entity) ""))}
+                      :journal-entry {:title (r/atom (:title entity))
+                                      :description (r/atom (or (:description entity) ""))
+                                      :tags (r/atom (or (:tags entity) ""))}
                       (:meeting-series :recurring-task) {:title (r/atom (:title entity))
                                        :description (r/atom (or (:description entity) ""))
                                        :tags (r/atom (or (:tags entity) ""))
@@ -307,7 +317,7 @@
                        :badge-title (r/atom (or (:badge_title entity) ""))})]
     (assoc field-atoms :type type :entity entity)))
 
-(defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type]}]
+(defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
   (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry} type))
         title-orig (if is-category (:name entity) (:title entity))
         base-dirty (or (not= @title title-orig)
@@ -322,13 +332,27 @@
       (and schedule-mode (not= @schedule-mode (or (:schedule_mode entity) "weekly"))) true
       (and biweekly-offset (not= @biweekly-offset (= 1 (:biweekly_offset entity)))) true
       (and task-type (not= @task-type (or (:task_type entity) "due_date"))) true
+      (and due-date (not= @due-date (or (:due_date entity) ""))) true
+      (and due-time (not= @due-time (or (:due_time entity) ""))) true
+      (and start-date (not= @start-date (or (:start_date entity) ""))) true
+      (and start-time (not= @start-time (or (:start_time entity) ""))) true
       :else false)))
 
-(defn- edit-modal-save [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type]}]
+(defn- edit-modal-save [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
   (let [id (:id entity)]
     (case type
-      :task (state/update-task id @title @description @tags state/clear-editing-modal)
-      :meet (state/update-meet id @title @description @tags state/clear-editing-modal)
+      :task (do
+              (when (and due-date (not= @due-date (or (:due_date entity) "")))
+                (state/set-task-due-date id (when (seq @due-date) @due-date)))
+              (when (and due-time (not= @due-time (or (:due_time entity) "")))
+                (state/set-task-due-time id (when (seq @due-time) @due-time)))
+              (state/update-task id @title @description @tags state/clear-editing-modal))
+      :meet (do
+              (when (and start-date (not= @start-date (or (:start_date entity) "")))
+                (state/set-meet-start-date id (when (seq @start-date) @start-date)))
+              (when (and start-time (not= @start-time (or (:start_time entity) "")))
+                (state/set-meet-start-time id (when (seq @start-time) @start-time)))
+              (state/update-meet id @title @description @tags state/clear-editing-modal))
       :meeting-series (do (state/update-meeting-series id @title @description @tags state/clear-editing-modal)
                           (state/set-meeting-series-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset nil))
       :recurring-task (do (state/update-recurring-task id @title @description @tags state/clear-editing-modal)
@@ -618,6 +642,38 @@
      [:button.cancel {:on-click on-go-back} (t :modal/go-back)]
      [:button.confirm-delete {:on-click on-discard} (t :modal/discard)]]]])
 
+(defn- time-tab-content [date-atom time-atom]
+  [:div.time-tab
+   [:div.time-tab-row
+    [:label (t :modal/tab-time-date)]
+    [:div.create-date-picker
+     [:span.date-picker-wrapper
+      [:input.date-picker-input
+       {:type "date"
+        :value (or @date-atom "")
+        :on-change (fn [e]
+                     (let [v (.. e -target -value)]
+                       (reset! date-atom (or v ""))
+                       (when-not (seq v) (reset! time-atom ""))))}]
+      [:button.calendar-icon
+       {:on-click (fn [e]
+                    (.stopPropagation e)
+                    (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+       "📅"]]
+     (when (seq @date-atom)
+       [:p.date-selected-display (date/format-date-with-day @date-atom)])]]
+   (when (seq @date-atom)
+     [:div.time-tab-row
+      [:label (t :modal/tab-time-time)]
+      [:input.time-tab-input
+       {:type "time"
+        :value (or @time-atom "")
+        :on-change #(reset! time-atom (or (.. % -target -value) ""))}]
+      (when (seq @time-atom)
+        [:button.time-tab-clear
+         {:on-click #(reset! time-atom "")}
+         (t :modal/clear)])])])
+
 (defn edit-item-modal []
   (let [fields-state (r/atom nil)
         prev-entity (r/atom nil)
@@ -631,7 +687,7 @@
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
             (reset! active-tab (or tab :edit))
             (reset! confirm-discard? false))
-          (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type]} @fields-state]
+          (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]} @fields-state]
             (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry} type))
                   preview-tab-key (case type
                                     (:task :recurring-task) :modal/tab-task
@@ -665,11 +721,20 @@
                     (when (#{:meeting-series :recurring-task} type)
                       [:button {:class (when (= @active-tab :scheduling) "active")
                                 :on-click #(reset! active-tab :scheduling)}
-                       (t :modal/tab-scheduling)])]
+                       (t :modal/tab-scheduling)])
+                    (when (#{:task :meet} type)
+                      [:button {:class (when (= @active-tab :time) "active")
+                                :on-click #(reset! active-tab :time)}
+                       (t :modal/tab-time)])]
                    (case @active-tab
                      :scheduling
                      [scheduling-tab-content entity schedule-days schedule-time schedule-mode biweekly-offset
                       (when (= type :recurring-task) task-type)]
+
+                     :time
+                     (case type
+                       :task [time-tab-content due-date due-time]
+                       :meet [time-tab-content start-date start-time])
 
                      :preview
                      [:div.edit-modal-preview
@@ -726,8 +791,7 @@
         error (r/atom nil)]
     (fn []
       (when-let [{:keys [taken-dates loading?]} (state/create-date-modal-state)]
-        (let [today (today-date-str)
-              taken (or taken-dates #{})
+        (let [taken (or taken-dates #{})
               date-taken? (contains? taken @selected-date)
               valid? (and (some? @selected-date) (not date-taken?))]
           [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! error nil) (state/close-create-date-modal))}
@@ -743,7 +807,6 @@
                 [:span.date-picker-wrapper
                  [:input.date-picker-input
                   {:type "date"
-                   :min today
                    :value (or @selected-date "")
                    :on-change (fn [e]
                                 (let [v (.. e -target -value)]

@@ -72,23 +72,10 @@
       :set-search-fn state/set-category-selector-search}]))
 
 (defn- meet-date-time-pickers [meet]
-  [:<>
-   [:span.date-picker-wrapper
-    {:on-click #(.stopPropagation %)}
-    [:input.date-picker-input
-     {:type "date"
-      :value (or (:start_date meet) "")
-      :on-change (fn [e]
-                   (let [v (.. e -target -value)]
-                     (state/set-meet-start-date (:id meet) (when (seq v) v))))}]
-    [:button.calendar-icon {:on-click (fn [e]
-                                        (.stopPropagation e)
-                                        (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-     "📅"]]
-   [task-item/generic-time-picker meet
-    :time-key :start_time
-    :on-change #(state/set-meet-start-time (:id meet) %)
-    :show-clear? true]])
+  [:button.calendar-icon {:on-click (fn [e]
+                                      (.stopPropagation e)
+                                      (state/set-editing-modal :meet meet :time))}
+   "📅"])
 
 (defn- meet-expanded-view [meet people places projects goals]
   [:div.item-details
@@ -400,10 +387,10 @@
          (:title series)])]
      (when is-expanded
        [:div.item-toolbar
-        [:button.edit-icon {:on-click (fn [e]
-                                        (.stopPropagation e)
-                                        (state/set-editing-modal :meeting-series series :scheduling))}
-         "✎"]])
+        [:button.calendar-icon {:on-click (fn [e]
+                                            (.stopPropagation e)
+                                            (state/set-editing-modal :meeting-series series :scheduling))}
+         "📅"]])
      [:button.series-filter-btn {:on-click (fn [e]
                                              (.stopPropagation e)
                                              (state/set-series-filter series))
