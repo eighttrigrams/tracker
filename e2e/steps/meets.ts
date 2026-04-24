@@ -31,8 +31,9 @@ When(
   "I set the start date to 7 days from now on meet {string}",
   async ({ page }, title: string) => {
     const meetRow = page.locator(".items li").filter({ hasText: title });
-    await meetRow.locator(".date-picker-input").fill(futureDateStr());
-    await meetRow.locator(".date-picker-input").dispatchEvent("change");
+    await meetRow.locator(".item-toolbar .calendar-icon").click();
+    await page.locator(".edit-item-modal .time-tab .date-picker-input").fill(futureDateStr());
+    await page.locator(".edit-item-modal .modal-footer .confirm").click();
     await page.waitForLoadState("networkidle");
   },
 );

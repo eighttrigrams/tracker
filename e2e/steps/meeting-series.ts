@@ -61,7 +61,7 @@ When("I expand {string} in the series list", async ({ page }, title: string) => 
 });
 
 When("I click the edit button on the expanded series", async ({ page }) => {
-  await page.locator(".item-header .edit-icon").click();
+  await page.locator(".item-header .calendar-icon").click();
   await page.waitForLoadState("networkidle");
 });
 
