@@ -884,6 +884,7 @@
              :shared/filter-projects #{}
              :meets-page/filter-goals #{}
              :meets-page/category-search {:people "" :places "" :projects "" :goals ""})
+      (.scrollTo js/window 0 0)
       (if (:meets-page/series-mode @*app-state)
         (meeting-series-state/clear-all-meeting-series-filters fetch-meeting-series)
         (meets-state/clear-all-meet-filters fetch-meets)))))
@@ -978,6 +979,7 @@
              :shared/filter-projects #{}
              :resources-page/filter-goals #{}
              :resources-page/category-search {:people "" :places "" :projects "" :goals ""})
+      (.scrollTo js/window 0 0)
       (resources-state/clear-all-resource-filters fetch-resources))))
 
 (defn fetch-users []

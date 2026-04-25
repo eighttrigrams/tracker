@@ -292,7 +292,8 @@
     (fn []
       (let [disabled? (or (str/blank? @input-val) (any-filter-active?))]
         [:div.mail-add-form
-         [:input {:type "text"
+         [:input {:id "mail-add-input"
+                  :type "text"
                   :auto-complete "off"
                   :value @input-val
                   :placeholder (t :mail/add-placeholder)

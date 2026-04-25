@@ -164,7 +164,10 @@
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add recurring task")))}))
 
 (defn set-expanded-rtask [id]
-  (swap! *recurring-tasks-page-state assoc :expanded-rtask id :editing-rtask nil))
+  (swap! *recurring-tasks-page-state assoc :expanded-rtask id :editing-rtask nil)
+  (when (nil? id)
+    (js/setTimeout #(when-let [el (.getElementById js/document "tasks-filter-search")]
+                      (.focus el #js {:preventScroll true})) 0)))
 
 (defn set-editing-rtask [id]
   (swap! *recurring-tasks-page-state assoc :editing-rtask id))

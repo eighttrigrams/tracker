@@ -5,9 +5,12 @@
             [et.tr.ui.state.reports :as reports-state]
             [et.tr.ui.state.relations :as relations-state]))
 
+(defn focus-input! [id]
+  (js/setTimeout #(when-let [el (.getElementById js/document id)]
+                    (.focus el #js {:preventScroll true})) 0))
+
 (defn focus-tasks-search []
-  (js/setTimeout #(when-let [el (.getElementById js/document "tasks-filter-search")]
-                    (.focus el)) 0))
+  (focus-input! "tasks-filter-search"))
 
 (defn- tasks-fetch-opts
   ([app-state]
@@ -82,14 +85,17 @@
     (init-fn)))
 
 (defn toggle-expanded [app-state page-key task-id]
-  (swap! app-state (fn [state]
-                     (cond-> (assoc state
-                                    page-key (if (= (get state page-key) task-id) nil task-id)
-                                    :category-selector/open nil
-                                    :category-selector/search ""
-                                    :task-dropdown-open nil)
-                       (= page-key :today-page/expanded-task) (assoc :today-page/expanded-meet nil)
-                       (= page-key :today-page/expanded-meet) (assoc :today-page/expanded-task nil)))))
+  (let [collapsing? (= (get @app-state page-key) task-id)]
+    (swap! app-state (fn [state]
+                       (cond-> (assoc state
+                                      page-key (if (= (get state page-key) task-id) nil task-id)
+                                      :category-selector/open nil
+                                      :category-selector/search ""
+                                      :task-dropdown-open nil)
+                         (= page-key :today-page/expanded-task) (assoc :today-page/expanded-meet nil)
+                         (= page-key :today-page/expanded-meet) (assoc :today-page/expanded-task nil))))
+    (when (and collapsing? (= page-key :tasks-page/expanded-task))
+      (focus-input! "tasks-filter-search"))))
 
 (defn set-editing [app-state task-id]
   (swap! app-state assoc :editing-task task-id))

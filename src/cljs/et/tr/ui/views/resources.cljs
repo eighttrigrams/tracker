@@ -225,6 +225,9 @@
 (defn- sort-mode-toggle []
   (let [sort-mode (:sort-mode @resources-state/*resources-page-state)]
     [:div.sort-toggle.toggle-group
+     [:button {:class (when (= sort-mode :recent) "active")
+               :on-click #(when (not= sort-mode :recent) (state/set-resource-sort-mode :recent))}
+      (t :resources/sort-recent)]
      [:button {:class (when (= sort-mode :manual) "active")
                :on-click #(when (not= sort-mode :manual) (state/set-resource-sort-mode :manual))}
       (t :resources/sort-manual)]

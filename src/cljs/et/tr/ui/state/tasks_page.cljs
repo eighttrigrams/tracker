@@ -78,6 +78,7 @@
              :tasks-page/filter-search ""
              :tasks-page/importance-filter nil
              :tasks-page/expanded-task nil)
+      (.scrollTo js/window 0 0)
       (fetch-tasks-fn (current-fetch-opts app-state)))))
 
 (defn toggle-filter-collapsed [app-state filter-key]

@@ -112,7 +112,10 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize journal")))))
 
 (defn set-expanded-journal [id]
-  (swap! *journals-page-state assoc :expanded-journal id))
+  (swap! *journals-page-state assoc :expanded-journal id)
+  (when (nil? id)
+    (js/setTimeout #(when-let [el (.getElementById js/document "resources-filter-search")]
+                      (.focus el #js {:preventScroll true})) 0)))
 
 (defn set-confirm-delete-journal [journal]
   (swap! *journals-page-state assoc :confirm-delete-journal journal))

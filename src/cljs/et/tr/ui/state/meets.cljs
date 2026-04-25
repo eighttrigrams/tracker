@@ -184,7 +184,10 @@
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meet")))}))
 
 (defn set-expanded-meet [id]
-  (swap! *meets-page-state assoc :expanded-meet id :editing-meet nil))
+  (swap! *meets-page-state assoc :expanded-meet id :editing-meet nil)
+  (when (nil? id)
+    (js/setTimeout #(when-let [el (.getElementById js/document "meets-filter-search")]
+                      (.focus el #js {:preventScroll true})) 0)))
 
 (defn set-editing-meet [id]
   (swap! *meets-page-state assoc :editing-meet id))

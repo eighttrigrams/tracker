@@ -157,7 +157,10 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder journal entry")))))
 
 (defn set-expanded-entry [id]
-  (swap! *journal-entries-page-state assoc :expanded-entry id))
+  (swap! *journal-entries-page-state assoc :expanded-entry id)
+  (when (nil? id)
+    (js/setTimeout #(when-let [el (.getElementById js/document "resources-filter-search")]
+                      (.focus el #js {:preventScroll true})) 0)))
 
 (defn set-confirm-delete-entry [entry]
   (swap! *journal-entries-page-state assoc :confirm-delete-entry entry))

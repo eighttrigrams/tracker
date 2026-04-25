@@ -85,7 +85,9 @@
                                   :where where-clause
                                   :order-by (case sort-mode
                                               "added" [[:created_at :desc]]
-                                              [[:sort_order :asc]])})
+                                              "recent" [[:modified_at :desc]]
+                                              "manual" [[:sort_order :asc]]
+                                              [[:modified_at :desc]])})
                      db/jdbc-opts)
          resource-ids (mapv :id resources)
          categories-data (when (seq resource-ids)

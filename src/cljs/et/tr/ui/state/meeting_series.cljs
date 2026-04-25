@@ -168,7 +168,10 @@
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meeting series")))}))
 
 (defn set-expanded-series [id]
-  (swap! *meeting-series-page-state assoc :expanded-series id :editing-series nil))
+  (swap! *meeting-series-page-state assoc :expanded-series id :editing-series nil)
+  (when (nil? id)
+    (js/setTimeout #(when-let [el (.getElementById js/document "meets-filter-search")]
+                      (.focus el #js {:preventScroll true})) 0)))
 
 (defn set-editing-series [id]
   (swap! *meeting-series-page-state assoc :editing-series id))

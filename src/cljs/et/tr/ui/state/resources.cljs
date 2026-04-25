@@ -13,7 +13,7 @@
                                         :importance-filter nil
                                         :domain-filter nil
                                         :excluded-domains #{}
-                                        :sort-mode :manual
+                                        :sort-mode :recent
                                         :fetch-request-id 0}))
 
 (defn- ids->names [ids collection]
@@ -184,7 +184,10 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder resource")))))
 
 (defn set-expanded-resource [id]
-  (swap! *resources-page-state assoc :expanded-resource id :editing-resource nil))
+  (swap! *resources-page-state assoc :expanded-resource id :editing-resource nil)
+  (when (nil? id)
+    (js/setTimeout #(when-let [el (.getElementById js/document "resources-filter-search")]
+                      (.focus el #js {:preventScroll true})) 0)))
 
 (defn set-editing-resource [id]
   (swap! *resources-page-state assoc :editing-resource id))
