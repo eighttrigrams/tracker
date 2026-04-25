@@ -116,6 +116,7 @@
                             :reports-page/collapsed-filters #{:people :places :projects :goals}
                             :reports-page/category-search {:people "" :places "" :projects "" :goals ""}
                             :reports-page/items-filter :all
+                            :reports-page/journals-summary-mode false
                             :reports-data {:tasks [] :meets [] :journal_entries []}
 
                             ;; Meets page state
@@ -1445,6 +1446,9 @@
 (defn set-reports-items-filter [items-filter]
   (swap! *app-state assoc :reports-page/items-filter items-filter)
   (fetch-reports))
+
+(defn toggle-reports-journals-summary-mode []
+  (swap! *app-state update :reports-page/journals-summary-mode not))
 
 (defn set-reports-category-search [category-key search-term]
   (swap! *app-state assoc-in [:reports-page/category-search category-key] search-term))

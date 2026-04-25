@@ -72,6 +72,27 @@
                :on-click #(when (not= items-filter :journals) (state/set-reports-items-filter :journals))}
       (t :reports/filter-journals)]]))
 
+(defn- journals-summary-toggle []
+  (let [summary-mode? (:reports-page/journals-summary-mode @state/*app-state)]
+    [:button.journal-summary-btn
+     {:class (when summary-mode? "active")
+      :on-click #(state/toggle-reports-journals-summary-mode)}
+     "📋"]))
+
+(defn- journal-entries-summary [journal-entries]
+  [:div.journal-entries-summary
+   (for [entry (sort-by :entry_date #(compare %2 %1) journal-entries)]
+     ^{:key (:id entry)}
+     [:div.journal-entry-summary-item
+      [:div.journal-entry-summary-header
+       [:span.journal-entry-summary-title (:title entry)]
+       (when (:entry_date entry)
+         [:span.journal-entry-summary-date (date/format-date-localized (:entry_date entry))])]
+      (when (seq (:description entry))
+        [:div.journal-entry-summary-description
+         {:on-click #(state/set-editing-modal :journal-entry entry)}
+         (:description entry)])])])
+
 (defn- sidebar-filters []
   (let [app-state @state/*app-state
         collapsed-filters (:reports-page/collapsed-filters app-state)]
@@ -234,6 +255,9 @@
 
 (defn reports-tab []
   (let [{:keys [reports-data]} @state/*app-state
+        items-filter (:reports-page/items-filter @state/*app-state)
+        summary-mode? (and (= items-filter :journals)
+                           (:reports-page/journals-summary-mode @state/*app-state))
         tasks (:tasks reports-data)
         meets (:meets reports-data)
         journal-entries (:journal_entries reports-data)
@@ -257,9 +281,19 @@
      [sidebar-filters]
      [:div.main-content.reports-page
       [:div.tasks-header
-       [items-filter-toggle]]
-      (if (empty? all-week-keys)
+       [items-filter-toggle]
+       (when (= items-filter :journals)
+         [journals-summary-toggle])]
+      (cond
+        summary-mode?
+        (if (empty? journal-entries)
+          [:p.empty-message (t :reports/no-data)]
+          [journal-entries-summary journal-entries])
+
+        (empty? all-week-keys)
         [:p.empty-message (t :reports/no-data)]
+
+        :else
         (into [:div.report-weeks]
           (for [wk all-week-keys]
             ^{:key (str (first wk) "-" (second wk))}
