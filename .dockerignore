@@ -28,15 +28,12 @@ config.edn.*
 .server.port
 .shadow-cljs.pid
 
-# Tests & e2e
+# Tests & test outputs (e2e/ kept — needed by Dockerfile.e2e)
 test/
 test-resources/
 test-results/
 playwright-report/
 .playwright-mcp/
-e2e/
-playwright.config.ts
-Dockerfile.e2e
 
 # Generated / scratch
 build-next-feature/
@@ -57,7 +54,7 @@ scripts/
 .vscode/
 .idea/
 
-# Project tooling not needed for the image build
+# Project tooling not needed for image builds
 Makefile
 bb.edn
 fly.toml
