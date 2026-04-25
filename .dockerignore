@@ -1,0 +1,63 @@
+# Build artefacts (regenerated inside the image)
+target/
+node_modules/
+.shadow-cljs/
+.cpcache/
+resources/public/js/
+
+# Local data & state
+data/
+*.db
+logs/
+.backups/
+nohup.out
+hooks.log
+
+# Local & dev config (only config.prod.edn is COPYed)
+.env
+config.edn
+config.edn.*
+.credentials
+.editor-layouts.json
+.lsp/
+.clj-kondo/
+.claude/
+
+# REPL & process state
+.nrepl-port
+.server.port
+.shadow-cljs.pid
+
+# Tests & e2e
+test/
+test-resources/
+test-results/
+playwright-report/
+.playwright-mcp/
+e2e/
+playwright.config.ts
+Dockerfile.e2e
+
+# Generated / scratch
+build-next-feature/
+.features-gen/
+specs/
+
+# Docs, screenshots, ops scripts
+docs/
+scripts/
+*.md
+*.png
+
+# OS / VCS / tooling
+.git/
+.gitignore
+.dockerignore
+.DS_Store
+.vscode/
+.idea/
+
+# Project tooling not needed for the image build
+Makefile
+bb.edn
+fly.toml
