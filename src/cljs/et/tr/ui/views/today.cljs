@@ -127,9 +127,7 @@
     (js/setTimeout #(.remove el) 2000)))
 
 (defn- today-meet-create-next-button [meet]
-  (when (and (:meeting_series_id meet)
-             (:schedule_days meet)
-             (not= (:schedule_days meet) ""))
+  (when (:meeting_series_id meet)
     [:button.create-next-meeting-btn
      {:on-click (fn [e]
                   (.stopPropagation e)
