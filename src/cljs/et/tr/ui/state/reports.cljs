@@ -15,7 +15,7 @@
 
 (defn fetch-reports [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *reports-page-state update :fetch-request-id inc))
-        {:keys [context strict filter-people filter-places filter-projects filter-goals]} opts
+        {:keys [context strict items-filter filter-people filter-places filter-projects filter-goals]} opts
         people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
@@ -23,6 +23,7 @@
         url (cond-> "/api/reports?"
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
+              (and items-filter (not= items-filter :all)) (str "items=" (name items-filter) "&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")

@@ -286,6 +286,9 @@
   :reports/journals-section "Journals"
   :reports/no-data "No report data"
   :reports/week "CW %s"
+  :reports/filter-all "All"
+  :reports/filter-tasks-meets "Tasks & Meets"
+  :reports/filter-journals "Journals"
 
   :date/mon "Mon"
   :date/tue "Tue"
@@ -565,6 +568,9 @@
   :reports/journals-section "Journale"
   :reports/no-data "Keine Berichtsdaten"
   :reports/week "KW %s"
+  :reports/filter-all "Alle"
+  :reports/filter-tasks-meets "Aufgaben & Treffen"
+  :reports/filter-journals "Journale"
 
   :date/mon "Mo"
   :date/tue "Di"
@@ -844,6 +850,9 @@
   :reports/journals-section "Journais"
   :reports/no-data "Sem dados de relatório"
   :reports/week "Sem %s"
+  :reports/filter-all "Todos"
+  :reports/filter-tasks-meets "Tarefas & Encontros"
+  :reports/filter-journals "Journais"
 
   :date/mon "Seg"
   :date/tue "Ter"

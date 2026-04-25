@@ -27,6 +27,9 @@
         ds (common/ensure-ds)
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))
+        items (or (get-in req [:params "items"]) "all")
+        include-tasks-meets? (contains? #{"all" "tasks-meets"} items)
+        include-journals? (contains? #{"all" "journals"} items)
         people (common/parse-category-param (get-in req [:params "people"]))
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
@@ -34,10 +37,16 @@
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})
         shared-opts {:context context :strict strict :categories categories}
-        tasks (db.task/list-tasks ds user-id :done shared-opts)
-        meets (db.meet/list-meets ds user-id (assoc shared-opts :sort-mode :past))
-        journal-entries (->> (db.journal-entry/list-journal-entries ds user-id
-                               (assoc shared-opts :sort-mode "added"))
-                             (filter :entry_date)
-                             (annotate-schedule-types ds user-id))]
+        tasks (if include-tasks-meets?
+                (db.task/list-tasks ds user-id :done shared-opts)
+                [])
+        meets (if include-tasks-meets?
+                (db.meet/list-meets ds user-id (assoc shared-opts :sort-mode :past))
+                [])
+        journal-entries (if include-journals?
+                          (->> (db.journal-entry/list-journal-entries ds user-id
+                                 (assoc shared-opts :sort-mode "added"))
+                               (filter :entry_date)
+                               (annotate-schedule-types ds user-id))
+                          [])]
     {:status 200 :body {:tasks tasks :meets meets :journal_entries journal-entries}}))

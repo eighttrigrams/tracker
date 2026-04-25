@@ -115,6 +115,7 @@
                             :reports-page/filter-goals #{}
                             :reports-page/collapsed-filters #{:people :places :projects :goals}
                             :reports-page/category-search {:people "" :places "" :projects "" :goals ""}
+                            :reports-page/items-filter :all
                             :reports-data {:tasks [] :meets [] :journal_entries []}
 
                             ;; Meets page state
@@ -1400,6 +1401,7 @@
 (defn- reports-fetch-opts []
   {:context (:work-private-mode @*app-state)
    :strict (:strict-mode @*app-state)
+   :items-filter (:reports-page/items-filter @*app-state)
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
@@ -1438,6 +1440,10 @@
 
 (defn clear-reports-goal-filter []
   (swap! *app-state assoc :reports-page/filter-goals #{})
+  (fetch-reports))
+
+(defn set-reports-items-filter [items-filter]
+  (swap! *app-state assoc :reports-page/items-filter items-filter)
   (fetch-reports))
 
 (defn set-reports-category-search [category-key search-term]

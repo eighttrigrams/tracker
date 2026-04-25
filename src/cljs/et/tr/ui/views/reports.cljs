@@ -59,6 +59,19 @@
     :filter-state-key :reports-page/filter-goals
     :category-type state/CATEGORY-TYPE-GOAL}])
 
+(defn- items-filter-toggle []
+  (let [items-filter (:reports-page/items-filter @state/*app-state)]
+    [:div.items-filter-toggle.toggle-group
+     [:button {:class (when (= items-filter :all) "active")
+               :on-click #(when (not= items-filter :all) (state/set-reports-items-filter :all))}
+      (t :reports/filter-all)]
+     [:button {:class (when (= items-filter :tasks-meets) "active")
+               :on-click #(when (not= items-filter :tasks-meets) (state/set-reports-items-filter :tasks-meets))}
+      (t :reports/filter-tasks-meets)]
+     [:button {:class (when (= items-filter :journals) "active")
+               :on-click #(when (not= items-filter :journals) (state/set-reports-items-filter :journals))}
+      (t :reports/filter-journals)]]))
+
 (defn- sidebar-filters []
   (let [app-state @state/*app-state
         collapsed-filters (:reports-page/collapsed-filters app-state)]
@@ -243,6 +256,8 @@
     [:div.main-layout
      [sidebar-filters]
      [:div.main-content.reports-page
+      [:div.tasks-header
+       [items-filter-toggle]]
       (if (empty? all-week-keys)
         [:p.empty-message (t :reports/no-data)]
         (into [:div.report-weeks]
