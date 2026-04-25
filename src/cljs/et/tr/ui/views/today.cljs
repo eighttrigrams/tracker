@@ -100,9 +100,12 @@
           [task-item/task-category-badges task]
           (when (seq (:relations task))
             [relation-badges/relation-badges-collapsed (:relations task) "tsk" (:id task)])])]
-      (when (and is-expanded (seq (:due_time task)))
+      (when is-expanded
         [:div.item-toolbar
-         [task-item/time-picker task]])
+         [:button.calendar-icon {:on-click (fn [e]
+                                             (.stopPropagation e)
+                                             (state/set-editing-modal :task task :time))}
+          "📅"]])
       (when-not hide-date
         [:span.task-date {:data-tooltip (date/get-day-name (:due_date task))}
          (date/format-date-localized (:due_date task))])
@@ -252,6 +255,12 @@
                [:span.tag.project (filters/badge-label project)])])
           (when (seq (:relations meet))
             [relation-badges/relation-badges-collapsed (:relations meet) "met" (:id meet)])])]
+      (when is-expanded
+        [:div.item-toolbar
+         [:button.calendar-icon {:on-click (fn [e]
+                                             (.stopPropagation e)
+                                             (state/set-editing-modal :meet meet :time))}
+          "📅"]])
       (when-not hide-date
         [:span.task-date {:data-tooltip (date/get-day-name (:start_date meet))}
          (date/format-date-localized (:start_date meet))])

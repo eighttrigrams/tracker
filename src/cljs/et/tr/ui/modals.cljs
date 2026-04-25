@@ -642,7 +642,7 @@
      [:button.cancel {:on-click on-go-back} (t :modal/go-back)]
      [:button.confirm-delete {:on-click on-discard} (t :modal/discard)]]]])
 
-(defn- time-tab-content [date-atom time-atom]
+(defn- time-tab-content [date-atom time-atom & {:keys [show-time-clear?] :or {show-time-clear? true}}]
   [:div.time-tab
    [:div.time-tab-row
     [:label (t :modal/tab-time-date)]
@@ -669,7 +669,7 @@
        {:type "time"
         :value (or @time-atom "")
         :on-change #(reset! time-atom (or (.. % -target -value) ""))}]
-      (when (seq @time-atom)
+      (when (and show-time-clear? (seq @time-atom))
         [:button.time-tab-clear
          {:on-click #(reset! time-atom "")}
          (t :modal/clear)])])])
@@ -734,7 +734,7 @@
                      :time
                      (case type
                        :task [time-tab-content due-date due-time]
-                       :meet [time-tab-content start-date start-time])
+                       :meet [time-tab-content start-date start-time :show-time-clear? false])
 
                      :preview
                      [:div.edit-modal-preview
