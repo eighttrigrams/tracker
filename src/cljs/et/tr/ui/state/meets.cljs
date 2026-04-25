@@ -97,15 +97,16 @@
     {:scope scope}
     (auth-headers)
     (fn [result]
-      (swap! app-state update :meets
-             (fn [meets]
-               (let [mode (:work-private-mode @app-state)
-                     strict? (:strict-mode @app-state)]
-                 (->> meets
-                      (mapv #(if (= (:id %) meet-id)
-                               (assoc % :scope (:scope result))
-                               %))
-                      (filterv #(filters/matches-scope? % mode strict?)))))))
+      (let [mode (:work-private-mode @app-state)
+            strict? (:strict-mode @app-state)
+            update-and-filter (fn [coll]
+                                (->> coll
+                                     (mapv #(if (= (:id %) meet-id)
+                                              (assoc % :scope (:scope result))
+                                              %))
+                                     (filterv #(filters/matches-scope? % mode strict?))))]
+        (swap! app-state update :meets update-and-filter)
+        (swap! app-state update-in [:reports-data :meets] update-and-filter)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 

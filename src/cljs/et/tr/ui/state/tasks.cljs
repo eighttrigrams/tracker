@@ -197,15 +197,16 @@
     {:scope scope}
     (auth-headers)
     (fn [result]
-      (swap! app-state update :tasks
-             (fn [tasks]
-               (let [mode (:work-private-mode @app-state)
-                     strict? (:strict-mode @app-state)]
-                 (->> tasks
-                      (mapv #(if (= (:id %) task-id)
-                               (assoc % :scope (:scope result) :modified_at (:modified_at result))
-                               %))
-                      (filterv #(filters/matches-scope? % mode strict?)))))))
+      (let [mode (:work-private-mode @app-state)
+            strict? (:strict-mode @app-state)
+            update-and-filter (fn [coll]
+                                (->> coll
+                                     (mapv #(if (= (:id %) task-id)
+                                              (assoc % :scope (:scope result) :modified_at (:modified_at result))
+                                              %))
+                                     (filterv #(filters/matches-scope? % mode strict?))))]
+        (swap! app-state update :tasks update-and-filter)
+        (swap! app-state update-in [:reports-data :tasks] update-and-filter)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
