@@ -17,6 +17,7 @@
             [et.tr.server.category-handler :as category-handler]
             [et.tr.auth :as auth]
             [et.tr.server.recording-mode :as recording-mode]
+            [et.tr.server.audit :as audit]
             [et.tr.telegram :as telegram]
             [et.tr.export :as export]
             [et.tr.worker :as worker]
@@ -305,6 +306,7 @@
       (wrap-params)
       (wrap-json-body {:keywords? true})
       (recording-mode/wrap-machine-write-guard)
+      (audit/wrap-write-audit)
       (wrap-auth prod?)
       (wrap-json-response)
       (wrap-cors :access-control-allow-origin [#".*"]
