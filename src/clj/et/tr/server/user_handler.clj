@@ -19,10 +19,17 @@
                               :user {:id nil :username "admin" :is_admin true :has_mail false :language "en" :vim_keys 0}}}
           {:status 401 :body {:success false :error "Invalid credentials"}})
         (if-let [user (db.user/verify-user (common/ensure-ds) username password)]
-          (let [has-mail (= 1 (:has_mail user))]
+          (let [has-mail (= 1 (:has_mail user))
+                machine? (= 1 (:is_machine_user user))
+                claims (cond-> {:user-id (:id user) :username (:username user)
+                                :is-admin false :has-mail has-mail}
+                         machine? (assoc :is-machine-user true
+                                         :for-user-id (:for_user_id user)))]
             {:status 200 :body {:success true
-                                :token (auth/create-token (:id user) (:username user) false has-mail)
-                                :user (assoc user :has_mail has-mail)}})
+                                :token (auth/create-token claims)
+                                :user (-> user
+                                          (assoc :has_mail has-mail)
+                                          (update :is_machine_user #(= 1 %)))}})
           {:status 401 :body {:success false :error "Invalid credentials"}})))))
 
 (defn password-required-handler [_req]
@@ -31,28 +38,50 @@
 (defn available-users-handler [_req]
   (if (common/allow-skip-logins?)
     (let [users (->> (db.user/list-users (common/ensure-ds))
-                      (map #(update % :has_mail (fn [v] (= 1 v)))))
+                     (remove #(= 1 (:is_machine_user %)))
+                     (map #(update % :has_mail (fn [v] (= 1 v)))))
           admin {:id nil :username "admin" :is_admin true :has_mail false :language "en" :vim_keys 0}]
       {:status 200 :body (cons admin users)})
     {:status 403 :body {:error "Not available in production mode"}}))
 
 (defn list-users-handler [req]
   (if (common/is-admin? req)
-    {:status 200 :body (db.user/list-users (common/ensure-ds))}
+    {:status 200 :body (->> (db.user/list-users (common/ensure-ds))
+                            (mapv #(update % :is_machine_user (fn [v] (= 1 v)))))}
     {:status 403 :body {:error "Admin access required"}}))
 
 (defn add-user-handler [req]
   (if (common/is-admin? req)
-    (let [{:keys [username password]} (:body req)]
-      (if (or (str/blank? username) (str/blank? password))
+    (let [{:keys [username password is_machine_user for_user_id]} (:body req)
+          machine? (boolean is_machine_user)]
+      (cond
+        (or (str/blank? username) (str/blank? password))
         {:status 400 :body {:error "Username and password are required"}}
-        (if (= username "admin")
-          {:status 400 :body {:error "Cannot create user named 'admin'"}}
-          (try
-            (let [user (db.user/create-user (common/ensure-ds) username password)]
-              {:status 201 :body (dissoc user :password_hash)})
-            (catch Exception _
-              {:status 409 :body {:error "Username already exists"}})))))
+
+        (= username "admin")
+        {:status 400 :body {:error "Cannot create user named 'admin'"}}
+
+        (and machine? (nil? for_user_id))
+        {:status 400 :body {:error "Machine user requires a target user"}}
+
+        (and machine?
+             (let [target (db.user/get-user-by-id (common/ensure-ds) for_user_id)]
+               (or (nil? target) (= 1 (:is_machine_user target)))))
+        {:status 400 :body {:error "Target user is invalid"}}
+
+        (and machine? (db.user/machine-user-for (common/ensure-ds) for_user_id))
+        {:status 409 :body {:error "Target user already has a machine user"}}
+
+        :else
+        (try
+          (let [user (db.user/create-user (common/ensure-ds) username password
+                                          {:is-machine-user machine?
+                                           :for-user-id (when machine? for_user_id)})]
+            {:status 201 :body (-> user
+                                   (dissoc :password_hash)
+                                   (update :is_machine_user #(= 1 %)))})
+          (catch Exception _
+            {:status 409 :body {:error "Username already exists"}}))))
     {:status 403 :body {:error "Admin access required"}}))
 
 (defn delete-user-handler [req]

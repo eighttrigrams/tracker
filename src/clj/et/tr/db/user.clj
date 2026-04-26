@@ -5,21 +5,44 @@
             [taoensso.telemere :as tel]
             [et.tr.db :as db]))
 
-(defn create-user [ds username password]
-  (let [hash (hashers/derive password)
-        result (jdbc/execute-one! (db/get-conn ds)
-                 (sql/format {:insert-into :users
-                              :values [{:username username :password_hash hash}]
-                              :returning [:id :username :language :created_at]})
-                 db/jdbc-opts)]
-    (tel/log! {:level :info :data {:user-id (:id result) :username username}} "User created")
-    result))
+(defn create-user
+  ([ds username password]
+   (create-user ds username password {}))
+  ([ds username password {:keys [is-machine-user for-user-id]}]
+   (let [hash (hashers/derive password)
+         row (cond-> {:username username :password_hash hash}
+               is-machine-user (assoc :is_machine_user 1
+                                      :for_user_id for-user-id))
+         result (jdbc/execute-one! (db/get-conn ds)
+                  (sql/format {:insert-into :users
+                               :values [row]
+                               :returning [:id :username :language :created_at :is_machine_user :for_user_id]})
+                  db/jdbc-opts)]
+     (tel/log! {:level :info :data {:user-id (:id result) :username username
+                                    :is-machine-user (boolean is-machine-user)
+                                    :for-user-id for-user-id}} "User created")
+     result)))
 
 (defn get-user-by-username [ds username]
   (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:select [:id :username :password_hash :language :has_mail :vim_keys :created_at]
+    (sql/format {:select [:id :username :password_hash :language :has_mail :vim_keys :created_at
+                          :is_machine_user :for_user_id]
                  :from [:users]
                  :where [:= :username username]})
+    db/jdbc-opts))
+
+(defn get-user-by-id [ds user-id]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:select [:id :username :is_machine_user :for_user_id]
+                 :from [:users]
+                 :where [:= :id user-id]})
+    db/jdbc-opts))
+
+(defn machine-user-for [ds target-user-id]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:select [:id :username]
+                 :from [:users]
+                 :where [:and [:= :is_machine_user 1] [:= :for_user_id target-user-id]]})
     db/jdbc-opts))
 
 (defn verify-user [ds username password]
@@ -29,7 +52,8 @@
 
 (defn list-users [ds]
   (jdbc/execute! (db/get-conn ds)
-    (sql/format {:select [:id :username :language :has_mail :vim_keys :created_at]
+    (sql/format {:select [:id :username :language :has_mail :vim_keys :created_at
+                          :is_machine_user :for_user_id]
                  :from [:users]
                  :where [:not= :username "admin"]
                  :order-by [[:created_at :asc]]})
@@ -60,6 +84,8 @@
         (jdbc/execute-one! tx (sql/format {:delete-from :places :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :projects :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :goals :where [:= :user_id user-id]}))
+        (jdbc/execute-one! tx (sql/format {:delete-from :users
+                                           :where [:and [:= :is_machine_user 1] [:= :for_user_id user-id]]}))
         (let [result (jdbc/execute-one! tx (sql/format {:delete-from :users :where [:= :id user-id]}))]
           (tel/log! {:level :info :data {:user-id user-id}} "User deleted")
           {:success (pos? (:next.jdbc/update-count result))})))))

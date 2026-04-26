@@ -990,8 +990,8 @@
 (defn fetch-available-users []
   (users/fetch-available-users *app-state))
 
-(defn add-user [username password on-success]
-  (users/add-user *app-state auth-headers username password on-success))
+(defn add-user [username password machine-target-id on-success]
+  (users/add-user *app-state auth-headers username password machine-target-id on-success))
 
 (defn set-confirm-delete-user [user]
   (users/set-confirm-delete-user *app-state user))

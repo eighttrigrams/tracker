@@ -48,21 +48,29 @@
   (and (true? (:dangerously-skip-logins? @*config))
        (not (prod-mode?))))
 
+(defn- claims->identity [claims]
+  (when claims
+    (if (:is-machine-user claims)
+      (assoc claims
+             :machine? true
+             :machine-user-id (:user-id claims)
+             :user-id (:for-user-id claims))
+      claims)))
+
 (defn get-user-from-request [req]
-  (if (allow-skip-logins?)
-    (let [user-id-str (get-in req [:headers "x-user-id"])]
-      (if (or (nil? user-id-str) (= user-id-str "null"))
-        (let [first-user (jdbc/execute-one! (db/get-conn (ensure-ds))
-                           (sql/format {:select [:id :has_mail] :from [:users] :order-by [[:id :asc]] :limit 1})
-                           db/jdbc-opts)]
-          {:user-id (:id first-user) :is-admin true :has-mail (= 1 (:has_mail first-user))})
-        (let [user-id (Integer/parseInt user-id-str)
-              user (jdbc/execute-one! (db/get-conn (ensure-ds))
-                     (sql/format {:select [:has_mail] :from [:users] :where [:= :id user-id]})
-                     db/jdbc-opts)]
-          {:user-id user-id :is-admin false :has-mail (= 1 (:has_mail user))})))
-    (when-let [token (auth/extract-token req)]
-      (auth/verify-token token))))
+  (or (some-> (auth/extract-token req) auth/verify-token claims->identity)
+      (when (allow-skip-logins?)
+        (let [user-id-str (get-in req [:headers "x-user-id"])]
+          (if (or (nil? user-id-str) (= user-id-str "null"))
+            (let [first-user (jdbc/execute-one! (db/get-conn (ensure-ds))
+                               (sql/format {:select [:id :has_mail] :from [:users] :order-by [[:id :asc]] :limit 1})
+                               db/jdbc-opts)]
+              {:user-id (:id first-user) :is-admin true :has-mail (= 1 (:has_mail first-user))})
+            (let [user-id (Integer/parseInt user-id-str)
+                  user (jdbc/execute-one! (db/get-conn (ensure-ds))
+                         (sql/format {:select [:has_mail] :from [:users] :where [:= :id user-id]})
+                         db/jdbc-opts)]
+              {:user-id user-id :is-admin false :has-mail (= 1 (:has_mail user))}))))))
 
 (defn get-user-id [req]
   (:user-id (get-user-from-request req)))

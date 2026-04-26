@@ -13,10 +13,10 @@
             [et.tr.server.relation-handler :as relation-handler]
             [et.tr.server.report-handler :as report-handler]
             [et.tr.server.user-handler :as user-handler]
+            [et.tr.server.today-board-handler :as today-board-handler]
             [et.tr.server.category-handler :as category-handler]
             [et.tr.auth :as auth]
-            [et.tr.server.rest-api :as rest-api]
-            [et.tr.server.rest-api.middleware :as rest-api.mw]
+            [et.tr.server.recording-mode :as recording-mode]
             [et.tr.telegram :as telegram]
             [et.tr.export :as export]
             [et.tr.worker :as worker]
@@ -90,7 +90,7 @@
    :body (slurp (io/resource "public/index.html"))})
 
 (defn- toggle-recording-mode-handler [_]
-  (let [now (rest-api.mw/toggle!)]
+  (let [now (recording-mode/toggle!)]
     (tel/log! {:level :info :data {:recording now}} (str "RECORDING MODE " (if now "ON" "OFF")))
     {:status 200 :body {:recording now}}))
 
@@ -100,6 +100,7 @@
     (GET "/export" [] export-data-handler)
     (GET "/reports" [] report-handler/reports-handler)
     (POST "/recording-mode/toggle" [] toggle-recording-mode-handler)
+    (GET "/today-board" [] today-board-handler/today-board-handler)
 
     (context "/auth" []
       (GET "/required" [] user-handler/password-required-handler)
@@ -269,7 +270,6 @@
 
 (defroutes app-routes
   api-routes
-  (rest-api/rest-routes)
   (POST "/webhook/telegram" [] (telegram/webhook-handler (common/ensure-ds)))
   (GET "/" [] serve-index)
   (GET "/item/*" [] serve-index)
@@ -304,6 +304,7 @@
   (-> app-routes
       (wrap-params)
       (wrap-json-body {:keywords? true})
+      (recording-mode/wrap-machine-write-guard)
       (wrap-auth prod?)
       (wrap-json-response)
       (wrap-cors :access-control-allow-origin [#".*"]

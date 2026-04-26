@@ -5,6 +5,7 @@
             [et.tr.db.user :as db.user]
             [et.tr.server :as server]
             [et.tr.server.common :as common]
+            [et.tr.server.recording-mode :as recording-mode]
             [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
             [ring.middleware.params :refer [wrap-params]]
             [next.jdbc :as jdbc]
@@ -22,6 +23,7 @@
   (-> server/app-routes
       (wrap-params)
       (wrap-json-body {:keywords? true})
+      (recording-mode/wrap-machine-write-guard)
       (wrap-json-response)))
 
 (defn with-integration-db [f]

@@ -159,6 +159,9 @@
 
   :users/title "Users"
   :users/add-button "Add User"
+  :users/machine-user "Machine user"
+  :users/machine-target "For user"
+  :users/machine-badge "machine"
 
   :settings/profile "Profile"
   :settings/username "Username"
@@ -459,6 +462,9 @@
 
   :users/title "Benutzer"
   :users/add-button "Benutzer hinzufügen"
+  :users/machine-user "Maschinenbenutzer"
+  :users/machine-target "Für Benutzer"
+  :users/machine-badge "Maschine"
 
   :settings/profile "Profil"
   :settings/username "Benutzername"
@@ -741,6 +747,9 @@
 
   :users/title "Utilizadores"
   :users/add-button "Adicionar Utilizador"
+  :users/machine-user "Utilizador máquina"
+  :users/machine-target "Para utilizador"
+  :users/machine-badge "máquina"
 
   :settings/profile "Perfil"
   :settings/username "Nome de utilizador"
