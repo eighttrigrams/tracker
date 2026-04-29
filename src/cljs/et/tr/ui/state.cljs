@@ -242,6 +242,9 @@
 (defn set-mail-sort-mode [mode]
   (mail/set-mail-sort-mode *app-state auth-headers mode))
 
+(defn set-mail-view [view]
+  (mail/set-mail-view *app-state auth-headers view))
+
 (defn set-expanded-message [id]
   (mail/set-expanded-message id))
 
@@ -319,6 +322,15 @@
 
 (defn delete-all-archived []
   (mail/delete-all-archived *app-state auth-headers))
+
+(defn set-confirm-delete-archived-below [message]
+  (mail/set-confirm-delete-archived-below message))
+
+(defn clear-confirm-delete-archived-below []
+  (mail/clear-confirm-delete-archived-below))
+
+(defn delete-archived-below [message-id]
+  (mail/delete-archived-below *app-state auth-headers message-id))
 
 (declare has-active-shared-filters?)
 (declare set-pending-new-item)

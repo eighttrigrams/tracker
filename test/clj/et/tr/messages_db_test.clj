@@ -29,12 +29,12 @@
         (is (= 1 (count messages)))
         (is (= "Msg2" (:title (first messages))))))))
 
-(deftest list-messages-done-mode-test
-  (testing "done mode returns archived messages"
+(deftest list-messages-saved-view-test
+  (testing "saved view returns archived messages"
     (let [m1 (db.message/add-message *ds* *user-id* "A" "Msg1" "" nil nil nil nil)
           _m2 (db.message/add-message *ds* *user-id* "B" "Msg2" "" nil nil nil nil)]
       (db.message/set-message-done *ds* *user-id* (:id m1) true)
-      (let [messages (db.message/list-messages *ds* *user-id* {:sort-mode :done})]
+      (let [messages (db.message/list-messages *ds* *user-id* {:view :saved})]
         (is (= 1 (count messages)))
         (is (= "Msg1" (:title (first messages))))))))
 

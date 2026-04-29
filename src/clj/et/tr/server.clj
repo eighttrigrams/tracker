@@ -173,6 +173,7 @@
       (POST "/:id/convert-to-resource" [] message-handler/convert-message-to-resource-handler)
       (POST "/:id/convert-to-task" [] message-handler/convert-message-to-task-handler)
       (POST "/:id/merge" [] message-handler/merge-messages-handler)
+      (DELETE "/:id/archived-below" [] message-handler/delete-archived-below-handler)
       (DELETE "/:id" [] message-handler/delete-message-handler))
 
     (context "/resources" []

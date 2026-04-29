@@ -77,30 +77,52 @@
 
 (defn- archive-button-with-dropdown [{:keys [id title description done] :as _message}]
   (let [url (first-url title description)
-        dropdown-open? (= id (:message-dropdown-open @mail-state/*mail-page-state))]
-    (if (= done 1)
-      [:button.undone-btn {:on-click #(state/set-message-done id false)}
-       (t :mail/set-unarchived)]
+        dropdown-open? (= id (:message-dropdown-open @mail-state/*mail-page-state))
+        toggle-dropdown! #(state/set-message-dropdown-open (when-not dropdown-open? id))
+        convert-to-resource! #(do (state/set-message-dropdown-open nil)
+                                  (state/convert-message-to-resource id url))
+        convert-to-task! #(do (state/set-message-dropdown-open nil)
+                              (state/convert-message-to-task id))]
+    (cond
+      (not= done 1)
       [:div.combined-button-wrapper
        [:button.combined-main-btn.done
         {:on-click #(state/set-message-done id true)}
         (t :mail/archive)]
        [:button.combined-dropdown-btn.done
-        {:on-click #(state/set-message-dropdown-open (when-not dropdown-open? id))}
+        {:on-click toggle-dropdown!}
         "▼"]
        (when dropdown-open?
          [:div.task-dropdown-menu
           (when url
             [:button.dropdown-item.convert-to-resource
-             {:on-click #(do
-                           (state/set-message-dropdown-open nil)
-                           (state/convert-message-to-resource id url))}
+             {:on-click convert-to-resource!}
              (t :mail/convert-to-resource)])
           [:button.dropdown-item.convert-to-task
-           {:on-click #(do
-                         (state/set-message-dropdown-open nil)
-                         (state/convert-message-to-task id))}
-           (t :mail/convert-to-task)]])])))
+           {:on-click convert-to-task!}
+           (t :mail/convert-to-task)]])]
+
+      url
+      [:div.combined-button-wrapper
+       [:button.combined-main-btn.done
+        {:on-click toggle-dropdown!}
+        (t :mail/convert-to)]
+       [:button.combined-dropdown-btn.done
+        {:on-click toggle-dropdown!}
+        "▼"]
+       (when dropdown-open?
+         [:div.task-dropdown-menu
+          [:button.dropdown-item.convert-to-resource
+           {:on-click convert-to-resource!}
+           (t :mail/convert-target-resource)]
+          [:button.dropdown-item.convert-to-task
+           {:on-click convert-to-task!}
+           (t :mail/convert-target-task)]])]
+
+      :else
+      [:button.combined-main-btn.standalone.done
+       {:on-click convert-to-task!}
+       (t :mail/convert-to-task)])))
 
 (defn- message-scope-selector [message]
   (let [scope (or (:scope message) "both")]
@@ -154,13 +176,19 @@
 (defn- mail-message-actions [message next-message-id]
   (if (#{"YouTube" "Podcasts"} (:sender message))
     [resource-only-message-actions message]
-    (let [dropdown-open? (= (:id message) (:message-action-dropdown-open @mail-state/*mail-page-state))]
+    (let [page-state @mail-state/*mail-page-state
+          view (:view page-state)
+          sort-mode (mail-state/current-sort-mode page-state)
+          dropdown-open? (= (:id message) (:message-action-dropdown-open page-state))
+          show-merge? (and (= view :inbox) (= (:sender message) "Note") next-message-id)
+          show-delete-below? (and (= view :saved) (= sort-mode :recent))
+          show-dropdown? (or show-merge? show-delete-below?)]
       [:div.item-actions
        [archive-button-with-dropdown message]
        [message-scope-selector message]
        [message-importance-selector message]
        [message-urgency-selector message]
-       (if (= (:sender message) "Note")
+       (if show-dropdown?
          [:div.combined-button-wrapper
           [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
            (t :task/delete)]
@@ -169,12 +197,18 @@
            "▼"]
           (when dropdown-open?
             [:div.task-dropdown-menu
-             (when next-message-id
+             (when show-merge?
                [:button.dropdown-item
                 {:on-click #(do
                               (state/set-message-action-dropdown-open nil)
                               (state/merge-message-with-below (:id message) next-message-id))}
-                (t :mail/merge-with-below)])])]
+                (t :mail/merge-with-below)])
+             (when show-delete-below?
+               [:button.dropdown-item
+                {:on-click #(do
+                              (state/set-message-action-dropdown-open nil)
+                              (state/set-confirm-delete-archived-below message))}
+                (t :mail/delete-all-below)])])]
          [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
           (t :task/delete)])])))
 
@@ -204,13 +238,13 @@
                   (reset! archiving? true)
                   (js/setTimeout #(state/set-message-done (:id message) true) 1000))}]])
 
-(defn- mail-message-item [_message _expanded-id _editing-id _sort-mode _next-message-id]
+(defn- mail-message-item [_message _expanded-id _editing-id _view _next-message-id]
   (let [archiving? (r/atom false)]
-    (fn [message expanded-id editing-id sort-mode next-message-id]
+    (fn [message expanded-id editing-id view next-message-id]
       (let [{:keys [id]} message
             expanded? (= expanded-id id)
             editing? (= editing-id id)
-            show-checkbox? (and (not expanded?) (#{:recent :reverse} sort-mode) (not= (:sender message) "YouTube"))]
+            show-checkbox? (and (not expanded?) (= view :inbox) (not= (:sender message) "YouTube"))]
         [:li {:class (str (when expanded? "expanded")
                           (when @archiving? " archiving-out"))}
          [:div.mail-item-row
@@ -271,17 +305,21 @@
       "🚨🚨"]]))
 
 (defn- mail-sort-toggle []
-  (let [sort-mode (:sort-mode @mail-state/*mail-page-state)]
+  (let [sort-mode (mail-state/current-sort-mode @mail-state/*mail-page-state)]
     [:div.sort-toggle.toggle-group
      [:button {:class (when (= sort-mode :recent) "active")
                :on-click #(state/set-mail-sort-mode :recent)}
-      (t :mail/sort-recent)]
+      (t :mail/sort-added)]
      [:button {:class (when (= sort-mode :reverse) "active")
                :on-click #(state/set-mail-sort-mode :reverse)}
-      (t :mail/sort-reverse)]
-     [:button {:class (when (= sort-mode :done) "active")
-               :on-click #(state/set-mail-sort-mode :done)}
-      (t :mail/sort-archived)]]))
+      (t :mail/sort-reverse)]]))
+
+(defn- mail-view-toggle []
+  (let [view (:view @mail-state/*mail-page-state)]
+    [:div.view-toggle.toggle-group
+     [:button {:class (when (= view :saved) "active")
+               :on-click #(state/set-mail-view (if (= view :saved) :inbox :saved))}
+      (t :mail/view-saved)]]))
 
 (defn- any-filter-active? []
   (let [{:keys [sender-filter excluded-senders importance-filter urgency-filter]} @mail-state/*mail-page-state]
@@ -307,16 +345,20 @@
 
 (defn mail-page []
   (let [{:keys [messages]} @state/*app-state
-        {:keys [expanded-message editing-message sort-mode]} @mail-state/*mail-page-state]
+        page-state @mail-state/*mail-page-state
+        {:keys [expanded-message editing-message view]} page-state
+        sort-mode (mail-state/current-sort-mode page-state)]
     [:div.mail-page
      [:div.tasks-header
-      [:h2 (t :mail/heading)]
-      [importance-filter-toggle]
-      [urgency-filter-toggle]
-      [mail-sort-toggle]]
-     (when (= sort-mode :recent)
+      (when (= view :saved)
+        [:<>
+         [importance-filter-toggle]
+         [urgency-filter-toggle]])
+      [mail-sort-toggle]
+      [mail-view-toggle]]
+     (when (and (= view :inbox) (= sort-mode :recent))
        [mail-add-form])
-     (when (and (= sort-mode :done) (seq messages))
+     (when (and (= view :saved) (seq messages))
        [:div.mail-delete-all-archived
         [:button.delete-btn {:on-click #(state/set-confirm-delete-all-archived true)}
          (t :mail/delete-all-archived)]])
@@ -328,4 +370,4 @@
           (for [[idx message] indexed]
             (let [next-message-id (some-> (get messages (inc idx)) :id)]
               ^{:key (:id message)}
-              [mail-message-item message expanded-message editing-message sort-mode next-message-id]))]))]))
+              [mail-message-item message expanded-message editing-message view next-message-id]))]))]))

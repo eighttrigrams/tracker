@@ -172,6 +172,15 @@
       :on-cancel #(state/set-confirm-delete-all-archived false)
       :on-confirm state/delete-all-archived}]))
 
+(defn confirm-delete-archived-below-modal []
+  (when-let [message (:confirm-delete-archived-below @mail-state/*mail-page-state)]
+    [generic-confirm-modal
+     {:header (t :mail/delete-all-below)
+      :body-paragraphs [{:text (t :mail/delete-all-below-confirm)}
+                        {:text (:title message) :class "task-title"}]
+      :on-cancel state/clear-confirm-delete-archived-below
+      :on-confirm #(state/delete-archived-below (:id message))}]))
+
 (def confirm-delete-resource-modal
   (make-confirm-delete-modal
    {:state-atom resources-state/*resources-page-state

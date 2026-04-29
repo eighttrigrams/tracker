@@ -373,17 +373,6 @@
   background: #007aff;
   color: white;
 }
-.undone-btn {
-  background: transparent;
-  color: #34c759;
-  border: 1px solid #34c759;
-  padding: 6px 14px;
-  font-size: 0.85em;
-}
-.undone-btn:hover {
-  background: #34c759;
-  color: white;
-}
 .combined-button-wrapper {
   display: flex;
   align-items: center;
@@ -399,6 +388,10 @@
   border-radius: 4px 0 0 4px;
   border-right: none;
   transition: background-color 0.2s, color 0.2s;
+}
+.combined-main-btn.standalone {
+  border-radius: 4px;
+  border-right: 1px solid;
 }
 .combined-dropdown-btn {
   padding: 4px 8px;

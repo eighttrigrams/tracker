@@ -6,7 +6,9 @@
 
 (def ^:const DEFAULT-SENDER "Note")
 
-(defonce *mail-page-state (r/atom {:sort-mode :recent
+(defonce *mail-page-state (r/atom {:view :inbox
+                                   :sort-modes {:inbox :recent
+                                                :saved :recent}
                                    :expanded-message nil
                                    :fetch-request-id 0
                                    :sender-filter nil
@@ -16,19 +18,25 @@
                                    :editing-message nil
                                    :confirm-delete-message nil
                                    :confirm-delete-all-archived false
+                                   :confirm-delete-archived-below nil
                                    :message-dropdown-open nil
                                    :message-action-dropdown-open nil}))
 
+(defn current-sort-mode [state]
+  (get-in state [:sort-modes (:view state)]))
+
 (defn fetch-messages [app-state auth-headers]
-  (let [request-id (:fetch-request-id (swap! *mail-page-state update :fetch-request-id inc))
-        sort-mode (name (:sort-mode @*mail-page-state))
-        sender-filter (:sender-filter @*mail-page-state)
-        excluded-senders (:excluded-senders @*mail-page-state)
-        importance (:importance-filter @*mail-page-state)
-        urgency (:urgency-filter @*mail-page-state)
+  (let [state (swap! *mail-page-state update :fetch-request-id inc)
+        request-id (:fetch-request-id state)
+        view (name (:view state))
+        sort-mode (name (current-sort-mode state))
+        sender-filter (:sender-filter state)
+        excluded-senders (:excluded-senders state)
+        importance (:importance-filter state)
+        urgency (:urgency-filter state)
         context (name (:work-private-mode @app-state))
         strict (:strict-mode @app-state)
-        url (cond-> (str "/api/messages?sort=" sort-mode)
+        url (cond-> (str "/api/messages?view=" view "&sort=" sort-mode)
               sender-filter (str "&sender=" (js/encodeURIComponent sender-filter))
               (seq excluded-senders) (str "&excludedSenders=" (js/encodeURIComponent (str/join "," excluded-senders)))
               importance (str "&importance=" (name importance))
@@ -47,7 +55,14 @@
                           (swap! app-state assoc :messages [])))})))
 
 (defn set-mail-sort-mode [app-state auth-headers mode]
-  (swap! *mail-page-state assoc :sort-mode mode)
+  (swap! *mail-page-state assoc-in [:sort-modes (:view @*mail-page-state)] mode)
+  (fetch-messages app-state auth-headers))
+
+(defn set-mail-view [app-state auth-headers view]
+  (swap! *mail-page-state
+         (fn [s]
+           (cond-> (assoc s :view view)
+             (= view :inbox) (assoc :importance-filter nil :urgency-filter nil))))
   (fetch-messages app-state auth-headers))
 
 (defn- has-positive-filter? []
@@ -263,3 +278,19 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete archived messages"))
       (set-confirm-delete-all-archived false))))
+
+(defn set-confirm-delete-archived-below [message]
+  (swap! *mail-page-state assoc :confirm-delete-archived-below message))
+
+(defn clear-confirm-delete-archived-below []
+  (swap! *mail-page-state assoc :confirm-delete-archived-below nil))
+
+(defn delete-archived-below [app-state auth-headers message-id]
+  (api/delete-simple (str "/api/messages/" message-id "/archived-below")
+    (auth-headers)
+    (fn [_]
+      (clear-confirm-delete-archived-below)
+      (fetch-messages app-state auth-headers))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete archived messages below"))
+      (clear-confirm-delete-archived-below))))

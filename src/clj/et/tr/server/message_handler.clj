@@ -17,6 +17,7 @@
 (defn list-messages-handler [req]
   (if (common/has-mail? req)
     (let [user-id (common/get-user-id req)
+          view (keyword (get-in req [:params "view"] "inbox"))
           sort-mode (keyword (get-in req [:params "sort"] "recent"))
           sender (get-in req [:params "sender"])
           context (get-in req [:params "context"])
@@ -24,7 +25,8 @@
           excluded-senders-param (get-in req [:params "excludedSenders"])
           excluded-senders (when (and excluded-senders-param (not (str/blank? excluded-senders-param)))
                              (set (str/split excluded-senders-param #",")))]
-      {:status 200 :body (db.message/list-messages (common/ensure-ds) user-id {:sort-mode sort-mode
+      {:status 200 :body (db.message/list-messages (common/ensure-ds) user-id {:view view
+                                                                                :sort-mode sort-mode
                                                                                 :sender-filter sender
                                                                                 :excluded-senders excluded-senders
                                                                                 :context context
@@ -127,6 +129,12 @@
           result (db.message/delete-all-archived-messages (common/ensure-ds) user-id)]
       {:status 200 :body result})
     {:status 403 :body {:error "Mail access required"}}))
+
+(defn delete-archived-below-handler [req]
+  (with-mail-message-context req user-id message-id
+    (if-let [result (db.message/delete-archived-below (common/ensure-ds) user-id message-id)]
+      {:status 200 :body result}
+      {:status 404 :body {:error "Message not found"}})))
 
 (defn convert-message-to-resource-handler [req]
   (with-mail-message-context req user-id message-id

@@ -113,6 +113,7 @@
      [modals/confirm-delete-category-modal]
      [modals/confirm-delete-message-modal]
      [modals/confirm-delete-all-archived-modal]
+     [modals/confirm-delete-archived-below-modal]
      [modals/confirm-delete-resource-modal]
      [modals/confirm-delete-meet-modal]
      [modals/confirm-delete-meeting-series-modal]

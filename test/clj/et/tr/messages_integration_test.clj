@@ -14,8 +14,8 @@
 (defn- archive-message! [id]
   (PUT-json (str "/api/messages/" id "/done") {:done true}))
 
-(defn- list-messages [sort-mode]
-  (:body (GET-json (str "/api/messages?sort=" sort-mode))))
+(defn- list-messages [view]
+  (:body (GET-json (str "/api/messages?view=" view))))
 
 (deftest delete-all-archived-removes-only-archived-messages
   (let [m1 (add-message! "Active one")
@@ -24,16 +24,16 @@
     (archive-message! (:id m2))
     (archive-message! (:id m3))
 
-    (is (= 1 (count (list-messages "recent"))))
-    (is (= 2 (count (list-messages "done"))))
+    (is (= 1 (count (list-messages "inbox"))))
+    (is (= 2 (count (list-messages "saved"))))
 
     (let [resp (DELETE-json "/api/messages/archived")]
       (is (= 200 (:status resp)))
       (is (= 2 (:deleted-count (:body resp)))))
 
-    (is (= 1 (count (list-messages "recent"))))
-    (is (= 0 (count (list-messages "done"))))
-    (is (= "Active one" (:title (first (list-messages "recent")))))))
+    (is (= 1 (count (list-messages "inbox"))))
+    (is (= 0 (count (list-messages "saved"))))
+    (is (= "Active one" (:title (first (list-messages "inbox")))))))
 
 (deftest delete-all-archived-does-not-affect-other-users
   (let [m1 (add-message! "My archived")]
@@ -47,11 +47,11 @@
           (is (= 200 (:status resp)))
           (is (= 0 (:deleted-count (:body resp)))))))
 
-    (is (= 1 (count (list-messages "done"))))))
+    (is (= 1 (count (list-messages "saved"))))))
 
 (deftest delete-all-archived-with-no-archived-messages
   (add-message! "Active message")
   (let [resp (DELETE-json "/api/messages/archived")]
     (is (= 200 (:status resp)))
     (is (= 0 (:deleted-count (:body resp)))))
-  (is (= 1 (count (list-messages "recent")))))
+  (is (= 1 (count (list-messages "inbox")))))

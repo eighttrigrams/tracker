@@ -186,6 +186,7 @@
   100% { opacity: 0; transform: translateX(20px); }
 }
 .mail-page .item-actions > .combined-button-wrapper:first-child { margin-left: 0; margin-right: 0; }
+.mail-page .tasks-header { justify-content: flex-end; }
 
 .mail-delete-all-archived {
   display: flex;

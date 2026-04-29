@@ -35,11 +35,11 @@
 (defn list-messages
   ([ds user-id] (list-messages ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [sort-mode sender-filter excluded-senders context strict importance urgency]
-          :or {sort-mode :recent}} opts
+   (let [{:keys [view sort-mode sender-filter excluded-senders context strict importance urgency]
+          :or {view :inbox sort-mode :recent}} opts
          user-where (db/user-id-where-clause user-id)
-         done-filter (case sort-mode
-                       :done [:= :done 1]
+         done-filter (case view
+                       :saved [:= :done 1]
                        [:= :done 0])
          order-dir (if (= sort-mode :reverse) :asc :desc)
          scope-clause (build-message-scope-clause context strict)
@@ -124,6 +124,25 @@
                    :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]
                    :returning [:id :urgency]})
       db/jdbc-opts)))
+
+(defn delete-archived-below [ds user-id message-id]
+  (let [source (jdbc/execute-one! (db/get-conn ds)
+                 (sql/format {:select [:created_at]
+                              :from [:messages]
+                              :where [:and [:= :id message-id]
+                                      (db/user-id-where-clause user-id)
+                                      [:= :done 1]]})
+                 db/jdbc-opts)]
+    (when source
+      (let [result (jdbc/execute-one! (db/get-conn ds)
+                     (sql/format {:delete-from :messages
+                                  :where [:and (db/user-id-where-clause user-id)
+                                          [:= :done 1]
+                                          [:<= :created_at (:created_at source)]]}))]
+        (tel/log! {:level :info
+                   :data {:user-id user-id :message-id message-id :count (:next.jdbc/update-count result)}}
+          "Archived messages below deleted")
+        {:success true :deleted-count (:next.jdbc/update-count result)}))))
 
 (defn delete-all-archived-messages [ds user-id]
   (let [result (jdbc/execute-one! (db/get-conn ds)
