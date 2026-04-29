@@ -18,13 +18,15 @@
 (defmacro with-real-auth [& body]
   `(with-real-auth* (fn [] ~@body)))
 
-(defn- machine-token-for [machine-id target-id]
-  (auth/create-token {:user-id machine-id
-                      :username "machine"
-                      :is-admin false
-                      :has-mail false
-                      :is-machine-user true
-                      :for-user-id target-id}))
+(defn- machine-token-for
+  ([machine-id target-id] (machine-token-for machine-id target-id false))
+  ([machine-id target-id has-mail?]
+   (auth/create-token {:user-id machine-id
+                       :username "machine"
+                       :is-admin false
+                       :has-mail has-mail?
+                       :is-machine-user true
+                       :for-user-id target-id})))
 
 (defn- API
   [method path {:keys [body token as-admin]}]
@@ -93,6 +95,16 @@
         (let [titles (set (map :title (db.task/list-tasks *ds* *user-id* :recent nil)))]
           (is (contains? titles "Real machine task"))))
       (finally (ensure-recording-off!)))))
+
+(deftest machine-message-post-bypasses-recording-mode
+  (with-real-auth
+    (ensure-recording-off!)
+    (let [machine (create-machine-user! *user-id*)
+          token (machine-token-for (:id machine) *user-id* true)
+          resp (API :post "/api/messages"
+                    {:body {:sender "auto" :title "from-machine" :description "body"}
+                     :token token})]
+      (is (= 201 (:status resp)) "POST /api/messages must bypass the gate"))))
 
 (deftest non-machine-writes-ignore-recording-mode
   (ensure-recording-off!)

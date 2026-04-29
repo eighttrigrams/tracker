@@ -19,16 +19,20 @@
                               :user {:id nil :username "admin" :is_admin true :has_mail false :language "en" :vim_keys 0}}}
           {:status 401 :body {:success false :error "Invalid credentials"}})
         (if-let [user (db.user/verify-user (common/ensure-ds) username password)]
-          (let [has-mail (= 1 (:has_mail user))
-                machine? (= 1 (:is_machine_user user))
+          (let [machine? (= 1 (:is_machine_user user))
+                target (when machine?
+                         (db.user/get-user-by-id (common/ensure-ds) (:for_user_id user)))
+                effective-has-mail (if machine?
+                                     (= 1 (:has_mail target))
+                                     (= 1 (:has_mail user)))
                 claims (cond-> {:user-id (:id user) :username (:username user)
-                                :is-admin false :has-mail has-mail}
+                                :is-admin false :has-mail effective-has-mail}
                          machine? (assoc :is-machine-user true
                                          :for-user-id (:for_user_id user)))]
             {:status 200 :body {:success true
                                 :token (auth/create-token claims)
                                 :user (-> user
-                                          (assoc :has_mail has-mail)
+                                          (assoc :has_mail effective-has-mail)
                                           (update :is_machine_user #(= 1 %)))}})
           {:status 401 :body {:success false :error "Invalid credentials"}})))))
 

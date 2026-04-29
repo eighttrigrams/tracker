@@ -33,7 +33,7 @@
 
 (defn get-user-by-id [ds user-id]
   (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:select [:id :username :is_machine_user :for_user_id]
+    (sql/format {:select [:id :username :is_machine_user :for_user_id :has_mail]
                  :from [:users]
                  :where [:= :id user-id]})
     db/jdbc-opts))
