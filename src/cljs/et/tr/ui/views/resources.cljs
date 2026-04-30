@@ -563,9 +563,17 @@
 
 (defn- journal-filter-bar []
   (let [jf (state/journal-filter)
-        summary-mode? (:resources-page/journal-summary-mode @state/*app-state)]
+        summary-mode? (:resources-page/journal-summary-mode @state/*app-state)
+        with-desc-only? (:resources-page/journal-with-description-only @state/*app-state)]
     [:div.series-filter-bar
      [:span.series-filter-label (:title jf)]
+     [:button.journal-with-desc-btn
+      {:class (when-not with-desc-only? "active")
+       :title (if with-desc-only?
+                "Show all entries"
+                "Only show entries with a description")
+       :on-click #(state/toggle-journal-with-description-only)}
+      "👁"]
      [:button.journal-summary-btn
       {:class (when summary-mode? "active")
        :on-click #(swap! state/*app-state update :resources-page/journal-summary-mode not)}
@@ -658,11 +666,15 @@
         [journal-entry-inline-title-edit entry]
         [:span.item-title-text
          {:on-click (fn [e]
-                      (when (and is-expanded (.-altKey e))
-                        (.stopPropagation e)
-                        (swap! state/*app-state assoc
-                          :journal-entries-page/inline-edit-entry (:id entry)
-                          :journal-entries-page/inline-edit-title (:title entry))))}
+                      (cond
+                        (and is-expanded (.-altKey e))
+                        (do (.stopPropagation e)
+                            (swap! state/*app-state assoc
+                              :journal-entries-page/inline-edit-entry (:id entry)
+                              :journal-entries-page/inline-edit-title (:title entry)))
+                        is-expanded
+                        (do (.stopPropagation e)
+                            (state/set-editing-modal :journal-entry entry))))}
          (:title entry)])]
      [:div.item-date
       (when (:entry_date entry)

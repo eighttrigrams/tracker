@@ -299,6 +299,10 @@
 .journal-summary-btn { background: transparent; border: none; cursor: pointer; font-size: 0.85em; padding: 4px 8px; line-height: 1; border-radius: 6px; opacity: 0.6; }
 .journal-summary-btn:hover { opacity: 1; background: var(--surface-subtle); }
 .journal-summary-btn.active { background: var(--accent); opacity: 1; border-radius: 6px; }
+.journal-with-desc-btn { background: transparent; border: none; cursor: pointer; font-size: 0.85em; padding: 4px 8px; line-height: 1; border-radius: 6px; opacity: 0.6; }
+.journal-with-desc-btn:hover { opacity: 1; background: var(--surface-subtle); }
+.journal-with-desc-btn:not(.active) { text-decoration: line-through; }
+.journal-with-desc-btn.active { background: var(--accent); opacity: 1; border-radius: 6px; }
 .journal-entries-summary { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 .journal-entry-summary-item { padding: 12px 0; }
 .journal-entry-summary-item:first-child { padding-top: 0; }

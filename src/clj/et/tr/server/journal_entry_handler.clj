@@ -22,11 +22,12 @@
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
         sort-mode (get-in req [:params "sortMode"])
+        with-description (= "true" (get-in req [:params "withDescription"]))
         journal-id (when-let [jid (get-in req [:params "journalId"])]
                      (try (Integer/parseInt jid) (catch Exception _ nil)))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.journal-entry/list-journal-entries (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :journal-id journal-id})}))
+    {:status 200 :body (db.journal-entry/list-journal-entries (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :journal-id journal-id :with-description with-description})}))
 
 (defn list-today-journal-entries-handler [req]
   (let [user-id (common/get-user-id req)
