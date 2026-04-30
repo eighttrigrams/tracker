@@ -4,7 +4,7 @@
             [et.tr.i18n :refer [t]]
             [reagent.core :as r]
             [clojure.string :as str]
-            [et.tr.ui.components.task-item :refer [markdown clampable-description]]
+            [et.tr.ui.components.task-item :refer [clampable-description]]
             [et.tr.ui.date :as date]))
 
 (defn- first-url [& texts]
@@ -37,43 +37,57 @@
            ", "
            (.toLocaleTimeString date js/undefined #js {:hour "2-digit" :minute "2-digit"})))))
 
-(defn- message-annotation-edit-form [message]
-  (let [annotation-val (r/atom (or (:annotation message) ""))]
-    (fn []
-      [:div.item-edit-form
-       [:textarea {:value @annotation-val
-                   :on-change #(reset! annotation-val (-> % .-target .-value))
-                   :placeholder (t :mail/annotation-placeholder)
-                   :rows 3}]
-       [:div.edit-buttons
-        [:button {:on-click #(state/update-message-annotation (:id message) @annotation-val)}
-         (t :task/save)]
-        [:button.cancel {:on-click #(state/clear-editing-message)}
-         (t :task/cancel)]]])))
+(defn- mail-message-inline-title-edit [message]
+  (let [value (or (:inline-edit-title @mail-state/*mail-page-state) "")
+        commit! (fn []
+                  (state/update-message (:id message) value (or (:description message) "")
+                    #(swap! mail-state/*mail-page-state dissoc :inline-edit-message :inline-edit-title)))
+        cancel! #(swap! mail-state/*mail-page-state dissoc :inline-edit-message :inline-edit-title)]
+    [:input.inline-title-edit
+     {:type "text"
+      :auto-complete "off"
+      :auto-focus true
+      :value value
+      :on-click #(.stopPropagation %)
+      :on-change #(swap! mail-state/*mail-page-state assoc :inline-edit-title (.. % -target -value))
+      :on-key-down (fn [e]
+                     (case (.-key e)
+                       "Enter" (do (.stopPropagation e) (commit!))
+                       "Escape" (do (.stopPropagation e) (cancel!))
+                       nil))
+      :on-blur (fn [_] (commit!))}]))
 
-(defn- mail-message-header [{:keys [id sender title created_at]} expanded?]
-  [:div.item-header {:on-click #(state/set-expanded-message (when-not expanded? id))}
-   [:span.item-title
-    [:span.mail-sender {:on-click (fn [e]
-                                    (.stopPropagation e)
-                                    (if (and (.-shiftKey e)
-                                             (nil? (:sender-filter @mail-state/*mail-page-state)))
-                                      (state/toggle-excluded-sender sender)
-                                      (state/set-mail-sender-filter sender)))}
-     sender]
-    [:span.mail-title title]
-    (when expanded?
-      [:<>
-       [:button.edit-icon {:on-click (fn [e]
-                                       (.stopPropagation e)
-                                       (state/set-editing-message id))}
-        "✎"]
-       [:button.copy-icon {:on-click (fn [e]
-                                       (.stopPropagation e)
-                                       (.writeText js/navigator.clipboard title))}
-        "⧉"]])]
-   [:span.item-date {:data-tooltip (some-> created_at (.substring 0 10) date/get-day-name)}
-    (format-message-datetime created_at)]])
+(defn- mail-message-header [{:keys [id sender title created_at] :as message} expanded?]
+  (let [inline-editing? (= id (:inline-edit-message @mail-state/*mail-page-state))]
+    [:div.item-header
+     {:on-click (fn [_]
+                  (when-not inline-editing?
+                    (state/set-expanded-message (when-not expanded? id))))}
+     [:span.item-title
+      [:span.mail-sender {:on-click (fn [e]
+                                      (.stopPropagation e)
+                                      (if (and (.-shiftKey e)
+                                               (nil? (:sender-filter @mail-state/*mail-page-state)))
+                                        (state/toggle-excluded-sender sender)
+                                        (state/set-mail-sender-filter sender)))}
+       sender]
+      (if inline-editing?
+        [mail-message-inline-title-edit message]
+        [:span.mail-title
+         {:on-click (fn [e]
+                      (when (and expanded? (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! mail-state/*mail-page-state assoc
+                               :inline-edit-message id
+                               :inline-edit-title title)))}
+         title])
+      (when (and expanded? (not inline-editing?))
+        [:button.copy-icon {:on-click (fn [e]
+                                        (.stopPropagation e)
+                                        (.writeText js/navigator.clipboard title))}
+         "⧉"])]
+     [:span.item-date {:data-tooltip (some-> created_at (.substring 0 10) date/get-day-name)}
+      (format-message-datetime created_at)]]))
 
 (defn- archive-button-with-dropdown [{:keys [id title description done] :as _message}]
   (let [url (first-url title description)
@@ -212,21 +226,22 @@
          [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
           (t :task/delete)])])))
 
-(defn- mail-message-expanded-content [{:keys [title description annotation] :as message} editing? next-message-id]
+(defn- mail-message-expanded-content [{:keys [title description] :as message} next-message-id]
   [:div.item-details
    (when-let [video-id (first-youtube-video-id title description)]
      [youtube-embed video-id])
-   (when (seq description)
+   (if (seq description)
      [:div.description-wrapper
       [clampable-description
-       {:text description}]
-      [:button.copy-icon {:on-click #(.writeText js/navigator.clipboard description)} "⧉"]])
-   (if editing?
-     [message-annotation-edit-form message]
-     [:<>
-      (when (seq annotation)
-        [markdown annotation])
-      [mail-message-actions message next-message-id]])])
+       {:text description
+        :on-click #(state/set-editing-modal :message message)}]
+      [:button.copy-icon {:on-click #(.writeText js/navigator.clipboard description)} "⧉"]]
+     [:button.edit-icon.description-placeholder
+      {:on-click (fn [e]
+                   (.stopPropagation e)
+                   (state/set-editing-modal :message message))}
+      "✎"])
+   [mail-message-actions message next-message-id]])
 
 (defn- archive-checkbox [message archiving?]
   [:div.archive-checkbox-wrapper
@@ -238,12 +253,11 @@
                   (reset! archiving? true)
                   (js/setTimeout #(state/set-message-done (:id message) true) 1000))}]])
 
-(defn- mail-message-item [_message _expanded-id _editing-id _view _next-message-id]
+(defn- mail-message-item [_message _expanded-id _view _next-message-id]
   (let [archiving? (r/atom false)]
-    (fn [message expanded-id editing-id view next-message-id]
+    (fn [message expanded-id view next-message-id]
       (let [{:keys [id]} message
             expanded? (= expanded-id id)
-            editing? (= editing-id id)
             show-checkbox? (and (not expanded?) (= view :inbox))]
         [:li {:class (str (when expanded? "expanded")
                           (when @archiving? " archiving-out"))}
@@ -253,7 +267,7 @@
           [:div.mail-item-content
            [mail-message-header message expanded?]
            (when expanded?
-             [mail-message-expanded-content message editing? next-message-id])]]]))))
+             [mail-message-expanded-content message next-message-id])]]]))))
 
 (defn- mail-sender-filter-badge []
   (let [sender-filter (:sender-filter @mail-state/*mail-page-state)
@@ -325,6 +339,19 @@
   (let [{:keys [sender-filter excluded-senders importance-filter urgency-filter]} @mail-state/*mail-page-state]
     (or sender-filter (seq excluded-senders) importance-filter urgency-filter)))
 
+(defn- mail-search-bar []
+  (let [term (:search-term @mail-state/*mail-page-state)]
+    [:div.mail-search-bar
+     [:input {:type "text"
+              :auto-complete "off"
+              :value term
+              :placeholder (t :mail/search-placeholder)
+              :on-change #(state/set-mail-search-term (-> % .-target .-value))
+              :on-key-down #(when (= (.-key %) "Escape")
+                              (state/set-mail-search-term ""))}]
+     (when (seq term)
+       [:button.clear-search {:on-click #(state/set-mail-search-term "")} "x"])]))
+
 (defn- mail-add-form []
   (let [input-val (r/atom "")]
     (fn []
@@ -346,7 +373,7 @@
 (defn mail-page []
   (let [{:keys [messages]} @state/*app-state
         page-state @mail-state/*mail-page-state
-        {:keys [expanded-message editing-message view]} page-state
+        {:keys [expanded-message view]} page-state
         sort-mode (mail-state/current-sort-mode page-state)]
     [:div.mail-page
      [:div.tasks-header
@@ -358,6 +385,8 @@
       [mail-view-toggle]]
      (when (and (= view :inbox) (= sort-mode :recent))
        [mail-add-form])
+     (when (= view :saved)
+       [mail-search-bar])
      (when (and (= view :saved) (seq messages))
        [:div.mail-delete-all-archived
         [:button.delete-btn {:on-click #(state/set-confirm-delete-all-archived true)}
@@ -370,4 +399,4 @@
           (for [[idx message] indexed]
             (let [next-message-id (some-> (get messages (inc idx)) :id)]
               ^{:key (:id message)}
-              [mail-message-item message expanded-message editing-message view next-message-id]))]))]))
+              [mail-message-item message expanded-message view next-message-id]))]))]))

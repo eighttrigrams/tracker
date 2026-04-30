@@ -148,13 +148,11 @@
   (let [conn (db/get-conn ds)]
     (jdbc/with-transaction [tx conn]
       (when-let [message (jdbc/execute-one! tx
-                           (sql/format {:select [:id :sender :title :description :annotation :scope :importance]
+                           (sql/format {:select [:id :sender :title :description :scope :importance]
                                         :from [:messages]
                                         :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
                            db/jdbc-opts)]
-        (let [description (str (or (:description message) "")
-                              (when (and (seq (:description message)) (seq (:annotation message))) "\n")
-                              (or (:annotation message) ""))
+        (let [description (or (:description message) "")
               min-order (or (:min_order (jdbc/execute-one! tx
                                           (sql/format {:select [[[:min :sort_order] :min_order]]
                                                        :from [:resources]

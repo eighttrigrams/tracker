@@ -35,7 +35,7 @@
 (defn list-messages
   ([ds user-id] (list-messages ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [view sort-mode sender-filter excluded-senders context strict importance urgency]
+   (let [{:keys [view sort-mode sender-filter excluded-senders context strict importance urgency search-term]
           :or {view :inbox sort-mode :recent}} opts
          user-where (db/user-id-where-clause user-id)
          done-filter (case view
@@ -45,14 +45,16 @@
          scope-clause (build-message-scope-clause context strict)
          importance-clause (db/build-importance-clause importance)
          urgency-clause (db/build-urgency-clause urgency)
+         search-clause (db/build-search-clause search-term [:title :description])
          where-clause (cond-> [:and user-where done-filter]
                         sender-filter (conj [:= :sender sender-filter])
                         (seq excluded-senders) (conj [:not-in :sender excluded-senders])
                         scope-clause (conj scope-clause)
                         importance-clause (conj importance-clause)
-                        urgency-clause (conj urgency-clause))]
+                        urgency-clause (conj urgency-clause)
+                        search-clause (conj search-clause))]
      (jdbc/execute! (db/get-conn ds)
-       (sql/format {:select [:id :sender :title :description :created_at :done :annotation :type :scope :importance :urgency]
+       (sql/format {:select [:id :sender :title :description :created_at :done :type :scope :importance :urgency]
                     :from [:messages]
                     :where where-clause
                     :order-by [[:created_at order-dir]]})
@@ -67,7 +69,7 @@
 
 (defn get-message [ds user-id message-id]
   (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:select [:id :sender :title :description :annotation]
+    (sql/format {:select [:id :sender :title :description]
                  :from [:messages]
                  :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
     db/jdbc-opts))
@@ -89,13 +91,14 @@
       (tel/log! {:level :info :data {:message-id message-id :user-id user-id}} "Message deleted")
       {:success (pos? (:next.jdbc/update-count result))})))
 
-(defn update-message-annotation [ds user-id message-id annotation]
+(defn update-message [ds user-id message-id title description]
   (when (message-owned-by-user? ds message-id user-id)
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :messages
-                   :set {:annotation (or annotation "")}
+                   :set {:title title
+                         :description (or description "")}
                    :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :annotation]})
+                   :returning [:id :title :description]})
       db/jdbc-opts)))
 
 (defn set-message-scope [ds user-id message-id scope]

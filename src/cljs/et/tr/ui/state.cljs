@@ -245,6 +245,9 @@
 (defn set-mail-view [view]
   (mail/set-mail-view *app-state auth-headers view))
 
+(defn set-mail-search-term [term]
+  (mail/set-mail-search-term *app-state auth-headers term))
+
 (defn set-expanded-message [id]
   (mail/set-expanded-message id))
 
@@ -275,12 +278,6 @@
 (defn clear-all-mail-filters []
   (mail/clear-all-mail-filters *app-state auth-headers))
 
-(defn set-editing-message [id]
-  (mail/set-editing-message id))
-
-(defn clear-editing-message []
-  (mail/clear-editing-message))
-
 (defn set-message-importance [message-id importance]
   (mail/set-message-importance *app-state auth-headers message-id importance))
 
@@ -296,8 +293,8 @@
 (defn set-message-scope [message-id scope]
   (mail/set-message-scope *app-state auth-headers message-id scope))
 
-(defn update-message-annotation [message-id annotation]
-  (mail/update-message-annotation *app-state auth-headers message-id annotation))
+(defn update-message [message-id title description on-success]
+  (mail/update-message *app-state auth-headers message-id title description on-success))
 
 (defn add-message [title on-success]
   (mail/add-message *app-state auth-headers title on-success))

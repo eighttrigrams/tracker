@@ -103,6 +103,23 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+.mail-search-bar {
+  display: flex;
+  margin-bottom: 16px;
+}
+.mail-search-bar input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.95em;
+}
+.mail-search-bar input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 
 .mail-item-row {
   display: flex;

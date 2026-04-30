@@ -32,7 +32,8 @@
                                                                                 :context context
                                                                                 :strict strict
                                                                                 :importance (get-in req [:params "importance"])
-                                                                                :urgency (get-in req [:params "urgency"])})})
+                                                                                :urgency (get-in req [:params "urgency"])
+                                                                                :search-term (get-in req [:params "q"])})})
     {:status 403 :body {:error "Mail access required"}}))
 
 (defn add-message-handler [req]
@@ -84,13 +85,14 @@
         {:status 200 :body {:success true}}
         {:status 404 :body {:success false :error "Message not found"}}))))
 
-(defn update-message-annotation-handler [req]
+(defn update-message-handler [req]
   (with-mail-message-context req user-id message-id
-    (let [annotation (get-in req [:body :annotation])
-          result (db.message/update-message-annotation (common/ensure-ds) user-id message-id annotation)]
-      (if result
-        {:status 200 :body result}
-        {:status 404 :body {:error "Message not found"}}))))
+    (let [{:keys [title description]} (:body req)]
+      (if (str/blank? title)
+        {:status 400 :body {:error "Title is required"}}
+        (if-let [result (db.message/update-message (common/ensure-ds) user-id message-id title description)]
+          {:status 200 :body result}
+          {:status 404 :body {:error "Message not found"}})))))
 
 (defn set-message-scope-handler [req]
   (with-mail-message-context req user-id message-id

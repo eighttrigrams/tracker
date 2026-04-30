@@ -305,6 +305,8 @@
                       :journal-entry {:title (r/atom (:title entity))
                                       :description (r/atom (or (:description entity) ""))
                                       :tags (r/atom (or (:tags entity) ""))}
+                      :message {:title (r/atom (:title entity))
+                                :description (r/atom (or (:description entity) ""))}
                       (:meeting-series :recurring-task) {:title (r/atom (:title entity))
                                        :description (r/atom (or (:description entity) ""))
                                        :tags (r/atom (or (:tags entity) ""))
@@ -327,11 +329,11 @@
     (assoc field-atoms :type type :entity entity)))
 
 (defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
-  (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry} type))
+  (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry :message} type))
         title-orig (if is-category (:name entity) (:title entity))
         base-dirty (or (not= @title title-orig)
                        (not= @description (or (:description entity) ""))
-                       (not= @tags (or (:tags entity) "")))]
+                       (and tags (not= @tags (or (:tags entity) ""))))]
     (cond
       base-dirty true
       (and link (not= @link (:link entity))) true
@@ -369,6 +371,7 @@
       :journal (state/update-journal id @title @description @tags state/clear-editing-modal)
       :journal-entry (state/update-journal-entry id @title @description @tags state/clear-editing-modal)
       :resource (state/update-resource id @title (when link @link) @description @tags state/clear-editing-modal)
+      :message (state/update-message id @title @description state/clear-editing-modal)
       (let [category-type (subs (name type) 9)
             update-fn (case category-type
                         "person" state/update-person
@@ -697,11 +700,12 @@
             (reset! active-tab (or tab :edit))
             (reset! confirm-discard? false))
           (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]} @fields-state]
-            (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry} type))
+            (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry :message} type))
                   preview-tab-key (case type
                                     (:task :recurring-task) :modal/tab-task
                                     (:meet :meeting-series) :modal/tab-meet
                                     (:resource :journal :journal-entry) :modal/tab-resource
+                                    :message :modal/tab-message
                                     :modal/tab-category)
                   try-escape (fn []
                                (if (edit-modal-dirty? @fields-state)
@@ -769,11 +773,12 @@
                                  :value @badge-title
                                  :on-change #(reset! badge-title (-> % .-target .-value))
                                  :placeholder (t :category/badge-title-placeholder)}])
-                      [:input {:type "text"
-                               :auto-complete "off"
-                               :value @tags
-                               :on-change #(reset! tags (-> % .-target .-value))
-                               :placeholder (t :task/tags-placeholder)}]
+                      (when tags
+                        [:input {:type "text"
+                                 :auto-complete "off"
+                                 :value @tags
+                                 :on-change #(reset! tags (-> % .-target .-value))
+                                 :placeholder (t :task/tags-placeholder)}])
                       (if (state/vim-keys?)
                         [cm-textarea {:value description
                                       :on-change #(reset! description %)

@@ -15,7 +15,9 @@
                                    :excluded-senders #{}
                                    :importance-filter nil
                                    :urgency-filter nil
-                                   :editing-message nil
+                                   :search-term ""
+                                   :inline-edit-message nil
+                                   :inline-edit-title nil
                                    :confirm-delete-message nil
                                    :confirm-delete-all-archived false
                                    :confirm-delete-archived-below nil
@@ -34,6 +36,7 @@
         excluded-senders (:excluded-senders state)
         importance (:importance-filter state)
         urgency (:urgency-filter state)
+        search-term (:search-term state)
         context (name (:work-private-mode @app-state))
         strict (:strict-mode @app-state)
         url (cond-> (str "/api/messages?view=" view "&sort=" sort-mode)
@@ -41,6 +44,7 @@
               (seq excluded-senders) (str "&excludedSenders=" (js/encodeURIComponent (str/join "," excluded-senders)))
               importance (str "&importance=" (name importance))
               urgency (str "&urgency=" (name urgency))
+              (and (= view "saved") (seq search-term)) (str "&q=" (js/encodeURIComponent search-term))
               context (str "&context=" (js/encodeURIComponent context))
               strict (str "&strict=true"))]
     (GET url
@@ -62,8 +66,17 @@
   (swap! *mail-page-state
          (fn [s]
            (cond-> (assoc s :view view)
-             (= view :inbox) (assoc :importance-filter nil :urgency-filter nil))))
+             (= view :inbox) (assoc :importance-filter nil :urgency-filter nil :search-term ""))))
   (fetch-messages app-state auth-headers))
+
+(defonce ^:private search-debounce-timer (atom nil))
+
+(defn set-mail-search-term [app-state auth-headers term]
+  (swap! *mail-page-state assoc :search-term term)
+  (when-let [timer @search-debounce-timer]
+    (js/clearTimeout timer))
+  (reset! search-debounce-timer
+          (js/setTimeout #(fetch-messages app-state auth-headers) 300)))
 
 (defn- has-positive-filter? []
   (let [{:keys [sender-filter importance-filter urgency-filter]} @*mail-page-state]
@@ -136,16 +149,9 @@
   (swap! *mail-page-state assoc :sender-filter nil :excluded-senders #{})
   (fetch-messages app-state auth-headers))
 
-(defn set-editing-message [id]
-  (swap! *mail-page-state assoc :editing-message id))
-
-(defn clear-editing-message []
-  (swap! *mail-page-state assoc :editing-message nil))
-
 (defn reset-mail-page-view-state! []
   (swap! *mail-page-state assoc
-         :expanded-message nil
-         :editing-message nil))
+         :expanded-message nil))
 
 (defn set-message-importance [app-state auth-headers message-id importance]
   (api/put-json (str "/api/messages/" message-id "/importance")
@@ -197,20 +203,22 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
-(defn update-message-annotation [app-state auth-headers message-id annotation]
-  (api/put-json (str "/api/messages/" message-id "/annotation")
-    {:annotation annotation}
+(defn update-message [app-state auth-headers message-id title description on-success]
+  (api/put-json (str "/api/messages/" message-id)
+    {:title title :description description}
     (auth-headers)
     (fn [result]
       (swap! app-state update :messages
              (fn [messages]
                (mapv #(if (= (:id %) message-id)
-                        (assoc % :annotation (:annotation result))
+                        (assoc %
+                               :title (:title result)
+                               :description (:description result))
                         %)
                      messages)))
-      (clear-editing-message))
+      (when on-success (on-success)))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update annotation")))))
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message")))))
 
 (defn add-message [app-state auth-headers title on-success]
   (api/post-json "/api/messages"
