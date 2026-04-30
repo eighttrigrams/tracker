@@ -220,7 +220,14 @@
                          (when-not is-expanded (:id entry)))}
       [:div.item-title
        [relation-link/relation-link-button :journal-entry (:id entry)]
-       [:span.item-title-text (:title entry)]]]
+       [:span.item-title-text (:title entry)]]
+      (when (:journal_id entry)
+        [:div.item-date
+         [:span.recurrence-icon {:on-click (fn [e]
+                                             (.stopPropagation e)
+                                             (state/set-journal-filter {:id (:journal_id entry) :title (:title entry)})
+                                             (state/set-active-tab :resources))}
+          "🔁"]])]
      (when is-expanded
        [:div.item-details
         (if (seq (:description entry))
