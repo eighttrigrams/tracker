@@ -244,7 +244,7 @@
       (let [{:keys [id]} message
             expanded? (= expanded-id id)
             editing? (= editing-id id)
-            show-checkbox? (and (not expanded?) (= view :inbox) (not= (:sender message) "YouTube"))]
+            show-checkbox? (and (not expanded?) (= view :inbox))]
         [:li {:class (str (when expanded? "expanded")
                           (when @archiving? " archiving-out"))}
          [:div.mail-item-row
