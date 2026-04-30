@@ -845,6 +845,50 @@
                                               (reset! error nil))}
               (t :modal/create)]]]])))))
 
+(defn done-date-modal []
+  (let [selected-date (r/atom nil)
+        prev-task-id (r/atom nil)]
+    (fn []
+      (when-let [task (:done-date-modal @state/*app-state)]
+        (when (not= (:id task) @prev-task-id)
+          (reset! prev-task-id (:id task))
+          (reset! selected-date (when-let [d (:done_at task)] (.substring d 0 10))))
+        (let [today (today-date-str)
+              valid? (some? @selected-date)]
+          [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-done-date-modal))}
+           [modal-keyboard-shortcut {:on-confirm #(when valid?
+                                                   (state/set-task-done-at (:id task) @selected-date)
+                                                   (reset! selected-date nil) (reset! prev-task-id nil) (state/close-done-date-modal))
+                                     :on-escape #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-done-date-modal))
+                                     :enabled? valid?}]
+           [:div.modal {:on-click #(.stopPropagation %)}
+            [:div.modal-header (t :task/change-done-date)]
+            [:div.modal-body
+             [:div.create-date-picker
+              [:span.date-picker-wrapper
+               [:input.date-picker-input
+                {:type "date"
+                 :max today
+                 :value (or @selected-date "")
+                 :on-change (fn [e]
+                              (let [v (.. e -target -value)]
+                                (reset! selected-date (when (seq v) v))))}]
+               [:button.calendar-icon
+                {:on-click (fn [e]
+                             (.stopPropagation e)
+                             (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+                "📅"]]
+              (when @selected-date
+                [:p.date-selected-display (date/format-date-with-day @selected-date)])]]
+            [:div.modal-footer
+             [:button.cancel {:on-click #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-done-date-modal))} (t :modal/cancel)]
+             [:button.confirm {:disabled (not valid?)
+                               :on-click #(do (state/set-task-done-at (:id task) @selected-date)
+                                              (reset! selected-date nil)
+                                              (reset! prev-task-id nil)
+                                              (state/close-done-date-modal))}
+              (t :modal/confirm)]]]])))))
+
 (defn reminder-date-modal []
   (let [selected-date (r/atom nil)
         prev-task-id (r/atom nil)]

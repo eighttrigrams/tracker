@@ -1214,6 +1214,19 @@
 (defn close-reminder-modal []
   (swap! *app-state dissoc :reminder-modal))
 
+(defn set-task-done-at [task-id done-date]
+  (tasks/set-task-done-at *app-state auth-headers task-id done-date))
+
+(defn open-done-date-modal [task]
+  (swap! *app-state assoc :done-date-modal task))
+
+(defn close-done-date-modal []
+  (swap! *app-state dissoc :done-date-modal))
+
+(defn set-reports-task-dropdown-open [task-id]
+  (swap! *app-state assoc :reports-task-dropdown-open
+         (when (not= (:reports-task-dropdown-open @*app-state) task-id) task-id)))
+
 (defn add-task-to-today [title on-success]
   (tasks/add-task *app-state auth-headers current-scope (constantly false) nil title
                   (fn []

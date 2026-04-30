@@ -182,11 +182,17 @@
        [:div.task-dropdown-menu
         (when extra-dropdown-items
           extra-dropdown-items)
-        [:button.dropdown-item.set-reminder
-         {:on-click #(do
-                       (state/set-task-dropdown-open nil)
-                       (state/open-reminder-modal task))}
-         (t :task/set-reminder)]
+        (if (state/task-done? task)
+          [:button.dropdown-item
+           {:on-click #(do
+                         (state/set-task-dropdown-open nil)
+                         (state/open-done-date-modal task))}
+           (t :task/change-done-date)]
+          [:button.dropdown-item.set-reminder
+           {:on-click #(do
+                         (state/set-task-dropdown-open nil)
+                         (state/open-reminder-modal task))}
+           (t :task/set-reminder)])
         [:button.dropdown-item
          {:on-click #(do
                        (state/set-task-dropdown-open nil)

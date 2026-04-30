@@ -93,7 +93,8 @@
       (:confirm-delete-entry @journal-entries-state/*journal-entries-page-state)
       (:today-page/confirm-move-to-today @state/*app-state)
       (:create-date-modal @state/*app-state)
-      (:reminder-modal @state/*app-state)))
+      (:reminder-modal @state/*app-state)
+      (:done-date-modal @state/*app-state)))
 
 (defn- body-scroll-lock []
   (let [modal-open? (any-modal-open?)]
@@ -124,6 +125,7 @@
      [modals/edit-item-modal]
      [modals/create-date-modal]
      [modals/reminder-date-modal]
+     [modals/done-date-modal]
      (cond
        (nil? auth-required?)
        [:div (t :auth/loading)]

@@ -129,6 +129,7 @@
       (PUT "/:id/due-date" [] task-handler/set-due-date-handler)
       (PUT "/:id/due-time" [] task-handler/set-due-time-handler)
       (PUT "/:id/done" [] task-handler/set-task-done-handler)
+      (PUT "/:id/done-at" [] task-handler/set-task-done-at-handler)
       (PUT "/:id/scope" [] task-handler/set-task-scope-handler)
       (PUT "/:id/importance" [] task-handler/set-task-importance-handler)
       (PUT "/:id/urgency" [] task-handler/set-task-urgency-handler)

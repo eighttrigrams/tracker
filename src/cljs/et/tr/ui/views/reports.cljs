@@ -131,6 +131,21 @@
    [:button.delete-btn {:on-click on-click}
     (t :task/delete)]])
 
+(defn- task-actions [task]
+  [:div.combined-button-wrapper
+   [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)}
+    (t :task/delete)]
+   [:button.combined-dropdown-btn.delete-btn
+    {:on-click #(state/set-reports-task-dropdown-open (:id task))}
+    "▼"]
+   (when (= (:id task) (:reports-task-dropdown-open @state/*app-state))
+     [:div.task-dropdown-menu
+      [:button.dropdown-item
+       {:on-click #(do
+                     (state/set-reports-task-dropdown-open nil)
+                     (state/open-done-date-modal task))}
+       (t :task/change-done-date)]])])
+
 (defn- report-task-item [task]
   (let [is-expanded (= (:expanded-task @reports-state/*reports-page-state) (:id task))]
     [:li {:class (str "report-item report-task" (when is-expanded " expanded"))}
@@ -154,7 +169,7 @@
         [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]
         [:div.item-actions
          [scope-selector task state/set-task-scope]
-         [delete-button #(state/set-confirm-delete-task task)]]]
+         [task-actions task]]]
        [task-item/task-categories-readonly task])]))
 
 (defn- report-meet-item [meet]

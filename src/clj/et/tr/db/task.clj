@@ -291,6 +291,17 @@
                    :returning [:id field :modified_at]})
       db/jdbc-opts)))
 
+(defn set-task-done-at [ds user-id task-id done-date]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:done_at [:|| done-date " " [:coalesce [:time :done_at] "12:00:00"]]
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id task-id]
+                         [:= :done 1]
+                         (db/user-id-where-clause user-id)]
+                 :returning [:id :done_at :modified_at]})
+    db/jdbc-opts))
+
 (defn set-task-reminder [ds user-id task-id reminder-date]
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update :tasks

@@ -133,6 +133,17 @@
       {:status 200 :body result}
       {:status 404 :body {:error "Task not found"}})))
 
+(defn set-task-done-at-handler [req]
+  (let [user-id (common/get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
+        done-date (get-in req [:body :done-date])]
+    (if (and (string? done-date) (re-matches #"\d{4}-\d{2}-\d{2}" done-date))
+      (let [result (db.task/set-task-done-at (common/ensure-ds) user-id task-id done-date)]
+        (if result
+          {:status 200 :body result}
+          {:status 404 :body {:error "Task not found or not done"}}))
+      {:status 400 :body {:error "Invalid date"}})))
+
 (defn set-reminder-handler [req]
   (let [user-id (common/get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))

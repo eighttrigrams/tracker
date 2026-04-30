@@ -272,6 +272,23 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update lined-up-for")))))
 
+(defn set-task-done-at [app-state auth-headers task-id done-date]
+  (api/put-json (str "/api/tasks/" task-id "/done-at")
+    {:done-date done-date}
+    (auth-headers)
+    (fn [result]
+      (let [merge-fn (fn [tasks]
+                       (mapv #(if (= (:id %) task-id)
+                                (merge % (select-keys result [:done_at :modified_at]))
+                                %)
+                             tasks))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :tasks merge-fn)
+                               (update-in [:reports-data :tasks] merge-fn))))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to change done date")))))
+
 (defn set-task-reminder [app-state auth-headers task-id reminder-date]
   (api/put-json (str "/api/tasks/" task-id "/reminder")
     {:reminder-date reminder-date}
