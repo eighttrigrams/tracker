@@ -38,7 +38,8 @@
       "Edit(src/**)",
       "Write(src/**)",
       "Edit(test/**)",
-      "Write(test/**)"
+      "Write(test/**)",
+      "Read(//var/folders/**/NSIRD_screencaptureui_*/**)"
     ],
     "ask": [
       "Bash(git push:*)"

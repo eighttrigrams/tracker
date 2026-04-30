@@ -96,10 +96,7 @@
           [:span.task-time {:class (when overdue? "overdue-time")} (:due_time task)])
         [today-task-title-content task is-expanded]]
        (when-not is-expanded
-         [:<>
-          [task-item/task-category-badges task]
-          (when (seq (:relations task))
-            [relation-badges/relation-badges-collapsed (:relations task) "tsk" (:id task)])])]
+         [task-item/task-category-badges task])]
       (when is-expanded
         [:div.item-toolbar
          [:button.calendar-icon {:on-click (fn [e]
