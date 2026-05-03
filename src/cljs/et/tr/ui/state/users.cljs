@@ -22,13 +22,16 @@
      :error-handler (fn [_]
                       (swap! app-state assoc :available-users []))}))
 
-(defn add-user [app-state auth-headers username password on-success]
-  (api/post-json "/api/users" {:username username :password password} (auth-headers)
-    (fn [user]
-      (swap! app-state update :users conj user)
-      (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add user")))))
+(defn add-user [app-state auth-headers username password machine-target-id on-success]
+  (let [body (cond-> {:username username :password password}
+               machine-target-id (assoc :is_machine_user true
+                                        :for_user_id machine-target-id))]
+    (api/post-json "/api/users" body (auth-headers)
+      (fn [user]
+        (swap! app-state update :users conj user)
+        (when on-success (on-success)))
+      (fn [resp]
+        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add user"))))))
 
 (defn set-confirm-delete-user [app-state user]
   (swap! app-state assoc :confirm-delete-user user))

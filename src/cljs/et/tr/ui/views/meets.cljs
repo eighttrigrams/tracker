@@ -1,6 +1,7 @@
 (ns et.tr.ui.views.meets
   (:require [et.tr.ui.state :as state]
             [et.tr.ui.state.meets :as meets-state]
+            [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
@@ -8,6 +9,8 @@
             [et.tr.ui.components.relation-link :as relation-link]
             [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t]]))
+
+(declare series-create-meeting-button)
 
 (def ^:private meets-category-shortcut-keys
   {"Digit1" :people
@@ -69,37 +72,22 @@
       :set-search-fn state/set-category-selector-search}]))
 
 (defn- meet-date-time-pickers [meet]
-  [:div.meet-date-time-pickers
-   [:span.date-picker-wrapper
-    {:on-click #(.stopPropagation %)}
-    [:input.date-picker-input
-     {:type "date"
-      :value (or (:start_date meet) "")
-      :on-change (fn [e]
-                   (let [v (.. e -target -value)]
-                     (state/set-meet-start-date (:id meet) (when (seq v) v))))}]
-    [:button.calendar-icon {:on-click (fn [e]
-                                        (.stopPropagation e)
-                                        (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-     "📅"]]
-   [:span.time-picker-wrapper
-    {:on-click #(.stopPropagation %)}
-    [:input.time-picker-input
-     {:type "time"
-      :value (or (:start_time meet) "")
-      :on-change (fn [e]
-                   (let [v (.. e -target -value)]
-                     (state/set-meet-start-time (:id meet) (when (seq v) v))))}]
-    [:button.clock-icon {:on-click (fn [e]
-                                     (.stopPropagation e)
-                                     (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-     "🕐"]]])
+  [:button.calendar-icon {:on-click (fn [e]
+                                      (.stopPropagation e)
+                                      (state/set-editing-modal :meet meet :time))}
+   "📅"])
 
 (defn- meet-expanded-view [meet people places projects goals]
   [:div.item-details
-   (when (seq (:description meet))
-     [:div.item-description [task-item/markdown (:description meet)]])
-   [meet-date-time-pickers meet]
+   (if (seq (:description meet))
+     [task-item/clampable-description
+      {:text (:description meet)
+       :on-click #(state/set-editing-modal :meet meet)}]
+     [:button.edit-icon.description-placeholder
+      {:on-click (fn [e]
+                   (.stopPropagation e)
+                   (state/set-editing-modal :meet meet))}
+      "✎"])
    [:div.item-tags
     [meet-category-selector meet state/CATEGORY-TYPE-PERSON people (t :category/person)]
     [meet-category-selector meet state/CATEGORY-TYPE-PLACE places (t :category/place)]
@@ -113,27 +101,64 @@
      [:button.delete-btn {:on-click #(state/set-confirm-delete-meet meet)}
       (t :task/delete)]]]])
 
+(defn- meet-inline-title-edit [meet]
+  (let [value (or (:meets-page/inline-edit-title @state/*app-state) "")]
+    [:input.inline-title-edit
+     {:type "text"
+      :auto-complete "off"
+      :auto-focus true
+      :value value
+      :on-click #(.stopPropagation %)
+      :on-change #(swap! state/*app-state assoc :meets-page/inline-edit-title (.. % -target -value))
+      :on-key-down (fn [e]
+                     (case (.-key e)
+                       "Enter" (do (.stopPropagation e)
+                                   (state/update-meet (:id meet) value (:description meet) (:tags meet)
+                                     #(swap! state/*app-state dissoc :meets-page/inline-edit-meet :meets-page/inline-edit-title)))
+                       "Escape" (do (.stopPropagation e)
+                                    (swap! state/*app-state dissoc :meets-page/inline-edit-meet :meets-page/inline-edit-title))
+                       nil))
+      :on-blur (fn [_]
+                 (state/update-meet (:id meet) value (:description meet) (:tags meet)
+                   #(swap! state/*app-state dissoc :meets-page/inline-edit-meet :meets-page/inline-edit-title)))}]))
+
 (defn- meet-header [meet is-expanded]
-  (let [importance (:importance meet)]
+  (let [importance (:importance meet)
+        inline-editing? (= (:meets-page/inline-edit-meet @state/*app-state) (:id meet))]
     [:div.item-header
-     {:on-click #(state/set-expanded-meet (when-not is-expanded (:id meet)))}
+     {:on-click (fn [_]
+                  (when-not (or inline-editing?
+                                (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                    (state/set-expanded-meet (when-not is-expanded (:id meet)))))}
      [:div.item-title
       [relation-link/relation-link-button :meet (:id meet)]
       (when (and importance (not= importance "normal"))
         [:span.importance-badge {:class importance}
          (case importance "important" "★" "critical" "★★" nil)])
-      (when (seq (:start_time meet))
-        [:span.task-time (:start_time meet)])
-      (:title meet)
-      (when is-expanded
-        [:button.edit-icon {:on-click (fn [e]
-                                        (.stopPropagation e)
-                                        (state/set-editing-modal :meet meet))}
-         "✎"])]
+      (if inline-editing?
+        [meet-inline-title-edit meet]
+        [:span.item-title-text
+         {:on-click (fn [e]
+                      (when (and is-expanded (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc
+                          :meets-page/inline-edit-meet (:id meet)
+                          :meets-page/inline-edit-title (:title meet))))}
+         (:title meet)])]
+     (when is-expanded
+       [:div.item-toolbar
+        [meet-date-time-pickers meet]])
      [:div.item-date
       (when (:start_date meet)
         [:span.due-date {:data-tooltip (date/get-day-name (:start_date meet))}
-         (date/format-date-localized (:start_date meet))])]]))
+         (str (date/format-date-localized (:start_date meet))
+              (when (seq (:start_time meet))
+                (str " - " (:start_time meet))))])
+      (when (and (:meeting_series_id meet) (not= (:id (state/series-filter)) (:meeting_series_id meet)))
+        [:span.recurrence-icon {:on-click (fn [e]
+                                            (.stopPropagation e)
+                                            (state/set-series-filter {:id (:meeting_series_id meet) :title (:title meet)}))}
+         "🔁"])]]))
 
 (defn- meet-categories-readonly [meet]
   [:div.item-tags-readonly
@@ -193,7 +218,7 @@
        :on-change #(state/set-meet-filter-search (-> % .-target .-value))
        :on-key-down (fn [e]
                       (cond
-                        (and (.-altKey e) (= (.-key e) "Enter") (seq input-value))
+                        (and (= (.-key e) "Enter") (seq input-value))
                         (do
                           (.preventDefault e)
                           (state/add-meet input-value
@@ -264,20 +289,241 @@
                                                #(state/clear-shared-filter category-type))
                                    :collapsed? (contains? collapsed-filters filter-key)}]))))
 
+(defn- series-scope-selector [series]
+  (let [scope (or (:scope series) "both")]
+    [:div.task-scope-selector.toggle-group.compact
+     (for [s ["private" "both" "work"]]
+       ^{:key s}
+       [:button.toggle-option
+        {:class (when (= scope s) "active")
+         :on-click (fn [e]
+                     (.stopPropagation e)
+                     (state/set-meeting-series-scope (:id series) s))}
+        s])]))
+
+(defn- series-category-selector [series category-type entities label]
+  (let [current-categories (case category-type
+                             state/CATEGORY-TYPE-PERSON (:people series)
+                             state/CATEGORY-TYPE-PLACE (:places series)
+                             state/CATEGORY-TYPE-PROJECT (:projects series)
+                             state/CATEGORY-TYPE-GOAL (:goals series)
+                             [])]
+    [category-selector/category-selector
+     {:entity series
+      :entity-id-key :id
+      :category-type category-type
+      :entities entities
+      :label label
+      :current-categories current-categories
+      :on-categorize #(state/categorize-meeting-series (:id series) category-type %)
+      :on-uncategorize #(state/uncategorize-meeting-series (:id series) category-type %)
+      :on-close-focus-fn nil
+      :open-selector-state (:category-selector/open @state/*app-state)
+      :search-state (:category-selector/search @state/*app-state)
+      :open-selector-fn state/open-category-selector
+      :close-selector-fn state/close-category-selector
+      :set-search-fn state/set-category-selector-search}]))
+
+(defn- series-expanded-view [series people places projects goals]
+  [:div.item-details
+   (if (seq (:description series))
+     [task-item/clampable-description
+      {:text (:description series)
+       :on-click #(state/set-editing-modal :meeting-series series)}]
+     [:button.edit-icon.description-placeholder
+      {:on-click (fn [e]
+                   (.stopPropagation e)
+                   (state/set-editing-modal :meeting-series series))}
+      "✎"])
+   [:div.item-tags
+    [series-category-selector series state/CATEGORY-TYPE-PERSON people (t :category/person)]
+    [series-category-selector series state/CATEGORY-TYPE-PLACE places (t :category/place)]
+    [series-category-selector series state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+    [series-category-selector series state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+   [:div.item-actions
+    [series-scope-selector series]
+    [:div.combined-button-wrapper
+     [:button.delete-btn {:on-click #(state/set-confirm-delete-series series)}
+      (t :task/delete)]]]])
+
+(defn- series-inline-title-edit [series]
+  (let [value (or (:series-page/inline-edit-title @state/*app-state) "")]
+    [:input.inline-title-edit
+     {:type "text"
+      :auto-complete "off"
+      :auto-focus true
+      :value value
+      :on-click #(.stopPropagation %)
+      :on-change #(swap! state/*app-state assoc :series-page/inline-edit-title (.. % -target -value))
+      :on-key-down (fn [e]
+                     (case (.-key e)
+                       "Enter" (do (.stopPropagation e)
+                                   (state/update-meeting-series (:id series) value (:description series) (:tags series)
+                                     #(swap! state/*app-state dissoc :series-page/inline-edit-series :series-page/inline-edit-title)))
+                       "Escape" (do (.stopPropagation e)
+                                    (swap! state/*app-state dissoc :series-page/inline-edit-series :series-page/inline-edit-title))
+                       nil))
+      :on-blur (fn [_]
+                 (state/update-meeting-series (:id series) value (:description series) (:tags series)
+                   #(swap! state/*app-state dissoc :series-page/inline-edit-series :series-page/inline-edit-title)))}]))
+
+(defn- series-header [series is-expanded]
+  (let [inline-editing? (= (:series-page/inline-edit-series @state/*app-state) (:id series))]
+    [:div.item-header
+     {:on-click (fn [_]
+                  (when-not (or inline-editing?
+                                (and is-expanded (not (.. js/window getSelection -isCollapsed))))
+                    (state/set-expanded-series (when-not is-expanded (:id series)))))}
+     [:div.item-title
+      (if inline-editing?
+        [series-inline-title-edit series]
+        [:span.item-title-text
+         {:on-click (fn [e]
+                      (when (and is-expanded (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! state/*app-state assoc
+                          :series-page/inline-edit-series (:id series)
+                          :series-page/inline-edit-title (:title series))))}
+         (:title series)])]
+     (when is-expanded
+       [:div.item-toolbar
+        [:button.calendar-icon {:on-click (fn [e]
+                                            (.stopPropagation e)
+                                            (state/set-editing-modal :meeting-series series :scheduling))}
+         "📅"]])
+     [:button.series-filter-btn {:on-click (fn [e]
+                                             (.stopPropagation e)
+                                             (state/set-series-filter series))
+                                  :title (t :meets/filter-by-series)}
+      "⏚"]]))
+
+(defn- series-categories-readonly [series]
+  [:div.item-tags-readonly
+   [task-item/category-badges
+    {:item series
+     :category-types [[state/CATEGORY-TYPE-PERSON :people]
+                      [state/CATEGORY-TYPE-PLACE :places]
+                      [state/CATEGORY-TYPE-PROJECT :projects]
+                      [state/CATEGORY-TYPE-GOAL :goals]]
+     :toggle-fn state/toggle-shared-filter
+     :has-filter-fn state/has-filter-for-type?}]])
+
+(defn- series-create-meeting-button [series]
+  [:button.create-next-meeting-btn
+   {:on-click (fn [e]
+                (.stopPropagation e)
+                (state/open-create-date-modal :meeting-series series))}
+   (t :meets/create-meeting)])
+
+(defn- series-item [series expanded-id people places projects goals]
+  (let [is-expanded (= expanded-id (:id series))]
+    [:li {:class (when is-expanded "expanded")}
+     [series-header series is-expanded]
+     (if is-expanded
+       [series-expanded-view series people places projects goals]
+       [:<>
+        [series-categories-readonly series]
+        [series-create-meeting-button series]])]))
+
+(defn- series-search-add-form []
+  (let [input-value (:filter-search @meeting-series-state/*meeting-series-page-state)]
+    [:div.combined-search-add-form
+     [:input#meets-filter-search
+      {:type "text"
+       :auto-complete "off"
+       :placeholder (t :meets/search-or-add-series)
+       :value input-value
+       :on-change #(state/set-meeting-series-filter-search (-> % .-target .-value))
+       :on-key-down (fn [e]
+                      (cond
+                        (and (= (.-key e) "Enter") (seq input-value))
+                        (do
+                          (.preventDefault e)
+                          (state/add-meeting-series input-value
+                                                    #(state/set-meeting-series-filter-search "")))
+
+                        (= (.-key e) "Escape")
+                        (state/set-meeting-series-filter-search "")))}]
+     [:button {:on-click #(when (seq input-value)
+                            (state/add-meeting-series input-value
+                                                      (fn [] (state/set-meeting-series-filter-search ""))))}
+      (t :tasks/add-button)]
+     (when (seq input-value)
+       [:button.clear-search {:on-click #(state/set-meeting-series-filter-search "")} "x"])]))
+
+(defn- series-filter-bar []
+  (let [series-filter (state/series-filter)
+        summary-mode? (:meets-page/meet-summary-mode @state/*app-state)]
+    [:div.series-filter-bar
+     [:span.series-filter-label (:title series-filter)]
+     [:button.journal-summary-btn
+      {:class (when summary-mode? "active")
+       :on-click #(state/toggle-meet-summary-mode)}
+      "📋"]
+     [:button.clear-search {:on-click #(state/clear-series-filter)} "x"]]))
+
+(defn- meets-summary []
+  (let [meets (:meets @state/*app-state)]
+    [:div.journal-entries-summary
+     (for [meet meets]
+       ^{:key (:id meet)}
+       [:div.journal-entry-summary-item
+        [:div.journal-entry-summary-header
+         [:span.journal-entry-summary-title (:title meet)]
+         (when (:start_date meet)
+           [:span.journal-entry-summary-date
+            (str (date/format-date-localized (:start_date meet))
+                 (when (seq (:start_time meet))
+                   (str " - " (:start_time meet))))])]
+        (when (seq (:description meet))
+          [:div.journal-entry-summary-description
+           {:on-click #(state/set-editing-modal :meet meet)}
+           (:description meet)])])]))
+
+(defn- series-toggle []
+  (let [series-mode (:meets-page/series-mode @state/*app-state)]
+    [:div.series-mode-toggle.toggle-group
+     [:button {:class (when series-mode "active")
+               :on-click #(state/toggle-series-mode)}
+      (t :meets/series)]]))
+
 (defn meets-tab []
-  (let [{:keys [meets people places projects goals]} @state/*app-state
-        {:keys [expanded-meet]} @meets-state/*meets-page-state]
+  (let [{:keys [meets meeting-series people places projects goals]} @state/*app-state
+        series-mode (state/series-mode?)
+        series-filter (state/series-filter)
+        summary-mode? (:meets-page/meet-summary-mode @state/*app-state)
+        {:keys [expanded-meet]} @meets-state/*meets-page-state
+        {:keys [expanded-series]} @meeting-series-state/*meeting-series-page-state]
     [:div.main-layout
      [sidebar-filters]
      [:div.main-content.meets-page
       [:div.tasks-header
-       [:h2 (t :meets/heading)]
-       [importance-filter-toggle]
-       [sort-mode-toggle]]
-      [search-add-form]
-      (if (empty? meets)
-        [:p.empty-message (t :meets/no-meets)]
-        [:ul.items
-         (for [meet meets]
-           ^{:key (:id meet)}
-           [meet-item meet expanded-meet people places projects goals])])]]))
+       [series-toggle]
+       (when-not series-mode
+         [importance-filter-toggle])
+       (when-not (or series-mode (and series-filter summary-mode?))
+         [sort-mode-toggle])]
+      (cond
+        series-mode [series-search-add-form]
+        series-filter [series-filter-bar]
+        :else [search-add-form])
+      (cond
+        series-mode
+        (if (empty? meeting-series)
+          [:p.empty-message (t :meets/no-series)]
+          [:ul.items
+           (for [s meeting-series]
+             ^{:key (:id s)}
+             [series-item s expanded-series people places projects goals])])
+
+        (and series-filter summary-mode?)
+        [meets-summary]
+
+        :else
+        (if (empty? meets)
+          [:p.empty-message (t :meets/no-meets)]
+          [:ul.items
+           (for [meet meets]
+             ^{:key (:id meet)}
+             [meet-item meet expanded-meet people places projects goals])]))]]))
+

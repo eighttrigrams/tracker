@@ -1,0 +1,373 @@
+(ns et.tr.db.task
+  (:require [next.jdbc :as jdbc]
+            [honey.sql :as sql]
+            [taoensso.telemere :as tel]
+            [et.tr.db :as db]
+            [et.tr.db.recurring-task :as db.recurring-task]
+            [et.tr.db.relation :as relation]))
+
+(defn add-task
+  ([ds user-id title] (add-task ds user-id title "both"))
+  ([ds user-id title scope]
+   (let [conn (db/get-conn ds)
+         valid-scope (db/normalize-scope scope)
+         min-order (or (:min_order (jdbc/execute-one! conn
+                                     (sql/format {:select [[[:min :sort_order] :min_order]]
+                                                  :from [:tasks]
+                                                  :where (db/user-id-where-clause user-id)})
+                                     db/jdbc-opts))
+                       1.0)
+         new-order (- min-order 1.0)
+         result (jdbc/execute-one! conn
+                  (sql/format {:insert-into :tasks
+                               :values [{:title title
+                                         :sort_order new-order
+                                         :user_id user-id
+                                         :modified_at [:raw "datetime('now')"]
+                                         :scope valid-scope}]
+                               :returning (conj db/task-select-columns :user_id)})
+                  db/jdbc-opts)]
+     (tel/log! {:level :info :data {:task-id (:id result) :user-id user-id}} "Task added")
+     result)))
+
+(defn- build-category-clauses [categories]
+  (let [people-clause (db/build-category-subquery "person" (:people categories))
+        places-clause (db/build-category-subquery "place" (:places categories))
+        projects-clause (db/build-category-subquery "project" (:projects categories))
+        goals-clause (db/build-category-subquery "goal" (:goals categories))]
+    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+
+(defn list-tasks
+  ([ds user-id] (list-tasks ds user-id :recent))
+  ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
+  ([ds user-id sort-mode opts]
+   (let [opts (if (string? opts) {:search-term opts} opts)
+         {:keys [search-term importance context strict categories excluded-places excluded-projects recurring-task-id]} opts
+         conn (db/get-conn ds)
+         user-where (db/user-id-where-clause user-id)
+         base-where (case sort-mode
+                      :due-date [:and user-where [:not= :due_date nil] [:= :done 0]]
+                      :done [:and user-where [:= :done 1]]
+                      :today [:and user-where [:= :done 0]
+                              [:or [:not= :due_date nil]
+                                   [:in :urgency ["urgent" "superurgent"]]
+                                   [:= :today 1]
+                                   [:not= :lined_up_for nil]
+                                   [:= :reminder "active"]]]
+                      :reminder [:and user-where [:= :done 0] [:not= :reminder_date nil]]
+                      [:and user-where [:= :done 0]])
+         search-clause (db/build-search-clause search-term)
+         importance-clause (db/build-importance-clause importance)
+         scope-clause (db/build-scope-clause context strict)
+         category-clauses (build-category-clauses categories)
+         recurring-clause (when recurring-task-id [:= :recurring_task_id recurring-task-id])
+         exclusion-clauses (filterv some? [(db/build-exclusion-subquery "place" excluded-places)
+                                           (db/build-exclusion-subquery "project" excluded-projects)])
+         where-clause (into [:and base-where]
+                            (concat (filter some? [search-clause importance-clause scope-clause recurring-clause])
+                                    category-clauses
+                                    exclusion-clauses))
+         order-by (case sort-mode
+                    :manual [[:sort_order :asc] [:created_at :desc]]
+                    :due-date [[:due_date :asc]
+                               [[:case [:not= :due_time nil] 1 :else 0] :desc]
+                               [:due_time :asc]]
+                    :done [[:done_at :desc]]
+                    :today [[:due_date :asc]
+                            [[:case [:not= :due_time nil] 1 :else 0] :desc]
+                            [:due_time :asc]]
+                    :reminder [[:reminder_date :asc]]
+                    [[:modified_at :desc]])
+         tasks (jdbc/execute! conn
+                 (sql/format {:select db/task-select-columns
+                              :from [:tasks]
+                              :where where-clause
+                              :order-by order-by})
+                 db/jdbc-opts)
+         task-ids (mapv :id tasks)
+         categories (when (seq task-ids)
+                      (jdbc/execute! conn
+                        (sql/format {:select [:task_id :category_type :category_id]
+                                     :from [:task_categories]
+                                     :where [:in :task_id task-ids]})
+                        db/jdbc-opts))
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+         categories-by-task (group-by :task_id categories)
+         tasks-with-categories (db/associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id)]
+     (relation/associate-relations-with-items tasks-with-categories "tsk" conn))))
+
+(defn get-task [ds user-id task-id]
+  (let [conn (db/get-conn ds)
+        user-where (db/user-id-where-clause user-id)
+        task (jdbc/execute-one! conn
+               (sql/format {:select db/task-select-columns
+                            :from [:tasks]
+                            :where [:and [:= :id task-id] user-where]})
+               db/jdbc-opts)]
+    (when task
+      (let [categories (jdbc/execute! conn
+                         (sql/format {:select [:task_id :category_type :category_id]
+                                      :from [:task_categories]
+                                      :where [:= :task_id task-id]})
+                         db/jdbc-opts)
+            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+            categories-by-task (group-by :task_id categories)]
+        (first (db/associate-categories-with-tasks [task] categories-by-task people-by-id places-by-id projects-by-id goals-by-id))))))
+
+(defn task-owned-by-user? [ds task-id user-id]
+  (some? (jdbc/execute-one! (db/get-conn ds)
+           (sql/format {:select [:id]
+                        :from [:tasks]
+                        :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]})
+           db/jdbc-opts)))
+
+(defn categorize-task [ds user-id task-id category-type category-id]
+  (db/validate-category-type! category-type)
+  (when (and (task-owned-by-user? ds task-id user-id)
+             (db/category-owned-by-user? ds category-type category-id user-id))
+    (let [conn (db/get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:insert-into :task_categories
+                       :values [{:task_id task-id
+                                 :category_type category-type
+                                 :category_id category-id}]
+                       :on-conflict []
+                       :do-nothing true}))
+        (jdbc/execute-one! tx
+          (sql/format {:update :tasks
+                       :set {:modified_at [:raw "datetime('now')"]}
+                       :where [:= :id task-id]}))))))
+
+(defn uncategorize-task [ds user-id task-id category-type category-id]
+  (db/validate-category-type! category-type)
+  (when (and (task-owned-by-user? ds task-id user-id)
+             (db/category-owned-by-user? ds category-type category-id user-id))
+    (let [conn (db/get-conn ds)]
+      (jdbc/with-transaction [tx conn]
+        (jdbc/execute-one! tx
+          (sql/format {:delete-from :task_categories
+                       :where [:and
+                               [:= :task_id task-id]
+                               [:= :category_type category-type]
+                               [:= :category_id category-id]]}))
+        (jdbc/execute-one! tx
+          (sql/format {:update :tasks
+                       :set {:modified_at [:raw "datetime('now')"]}
+                       :where [:= :id task-id]}))))))
+
+(defn update-task [ds user-id task-id fields]
+  (let [field-names (keys fields)
+        set-map (assoc fields :modified_at [:raw "datetime('now')"])
+        return-cols (into [:id :created_at :modified_at] field-names)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :tasks
+                   :set set-map
+                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                   :returning return-cols})
+      db/jdbc-opts)))
+
+(defn get-task-sort-order [ds user-id task-id]
+  (:sort_order (jdbc/execute-one! (db/get-conn ds)
+                 (sql/format {:select [:sort_order]
+                              :from [:tasks]
+                              :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]})
+                 db/jdbc-opts)))
+
+(defn reorder-task [ds user-id task-id new-sort-order]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:sort_order new-sort-order}
+                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]}))
+  {:success true :sort_order new-sort-order})
+
+(defn set-task-due-date [ds user-id task-id due-date]
+  (let [set-map (if (nil? due-date)
+                  {:due_date due-date
+                   :due_time nil
+                   :modified_at [:raw "datetime('now')"]}
+                  {:due_date due-date
+                   :today 0
+                   :lined_up_for nil
+                   :urgency "default"
+                   :modified_at [:raw "datetime('now')"]})]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :tasks
+                   :set set-map
+                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                   :returning [:id :due_date :due_time :today :lined_up_for :urgency :modified_at]})
+      db/jdbc-opts)))
+
+(defn set-task-due-time [ds user-id task-id due-time]
+  (let [normalized-time (if (empty? due-time) nil due-time)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :tasks
+                   :set {:due_time normalized-time
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                   :returning [:id :due_date :due_time :modified_at]})
+      db/jdbc-opts)))
+
+(defn delete-task [ds user-id task-id]
+  (when (task-owned-by-user? ds task-id user-id)
+    (let [conn (db/get-conn ds)
+          {:keys [recurring_task_id today]}
+          (jdbc/execute-one! conn
+            (sql/format {:select [:recurring_task_id :today]
+                         :from [:tasks]
+                         :where [:= :id task-id]})
+            db/jdbc-opts)
+          result (jdbc/with-transaction [tx conn]
+                   (jdbc/execute-one! tx
+                     (sql/format {:delete-from :task_categories
+                                  :where [:= :task_id task-id]}))
+                   (jdbc/execute-one! tx
+                     (sql/format {:delete-from :relations
+                                  :where [:or
+                                          [:and [:= :source_type "tsk"] [:= :source_id task-id]]
+                                          [:and [:= :target_type "tsk"] [:= :target_id task-id]]]}))
+                   (let [r (jdbc/execute-one! tx
+                             (sql/format {:delete-from :tasks
+                                          :where [:= :id task-id]}))]
+                     (tel/log! {:level :info :data {:task-id task-id :user-id user-id}} "Task deleted")
+                     {:success (pos? (:next.jdbc/update-count r))}))]
+      (when (and (:success result) recurring_task_id (= 1 today))
+        (db.recurring-task/create-next-after-today-delete ds user-id recurring_task_id))
+      result)))
+
+(defn set-task-done [ds user-id task-id done?]
+  (let [done-val (if done? 1 0)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :tasks
+                   :set (cond-> {:done done-val
+                                 :modified_at [:raw "datetime('now')"]}
+                          done? (assoc :today 0 :lined_up_for nil
+                                       :done_at [:raw "datetime('now')"])
+                          (not done?) (assoc :done_at nil))
+                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                   :returning [:id :done :modified_at :done_at]})
+      db/jdbc-opts)))
+
+(defn set-task-today [ds user-id task-id today?]
+  (let [today-val (if today? 1 0)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :tasks
+                   :set {:today today-val
+                         :lined_up_for nil
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                   :returning [:id :today :lined_up_for :modified_at]})
+      db/jdbc-opts)))
+
+(defn set-task-lined-up-for [ds user-id task-id date]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:lined_up_for date
+                       :today 0
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                 :returning [:id :lined_up_for :today :modified_at]})
+    db/jdbc-opts))
+
+(defn promote-lined-up-tasks! [ds user-id]
+  (jdbc/execute! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:today 1
+                       :lined_up_for nil
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and
+                         [:= :lined_up_for [:raw "date('now','localtime')"]]
+                         (db/user-id-where-clause user-id)]})
+    db/jdbc-opts))
+
+(defn set-task-field [ds user-id task-id field value]
+  (let [normalize-fn (get db/field-normalizers field identity)
+        valid-value (normalize-fn value)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :tasks
+                   :set {field valid-value
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                   :returning [:id field :modified_at]})
+      db/jdbc-opts)))
+
+(defn set-task-done-at [ds user-id task-id done-date]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:done_at [:|| done-date " " [:coalesce [:time :done_at] "12:00:00"]]
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id task-id]
+                         [:= :done 1]
+                         (db/user-id-where-clause user-id)]
+                 :returning [:id :done_at :modified_at]})
+    db/jdbc-opts))
+
+(defn set-task-reminder [ds user-id task-id reminder-date]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:reminder_date reminder-date
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                 :returning [:id :reminder :reminder_date :modified_at]})
+    db/jdbc-opts))
+
+(defn acknowledge-task-reminder [ds user-id task-id]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:reminder nil
+                       :reminder_date nil
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                 :returning [:id :reminder :reminder_date :modified_at]})
+    db/jdbc-opts))
+
+(defn activate-reminders! [ds user-id]
+  (jdbc/execute! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:reminder "active"
+                       :modified_at [:raw "datetime('now')"]}
+                 :where [:and
+                         [:not= :reminder_date nil]
+                         [:is :reminder nil]
+                         [:<= :reminder_date [:raw "date('now','localtime')"]]
+                         (db/user-id-where-clause user-id)]})
+    db/jdbc-opts))
+
+(defn convert-message-to-task [ds user-id message-id]
+  (let [conn (db/get-conn ds)]
+    (jdbc/with-transaction [tx conn]
+      (when-let [message (jdbc/execute-one! tx
+                           (sql/format {:select [:id :title :description :scope :importance :urgency]
+                                        :from [:messages]
+                                        :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
+                           db/jdbc-opts)]
+        (let [description (or (:description message) "")
+              min-order (or (:min_order (jdbc/execute-one! tx
+                                          (sql/format {:select [[[:min :sort_order] :min_order]]
+                                                       :from [:tasks]
+                                                       :where (db/user-id-where-clause user-id)})
+                                          db/jdbc-opts))
+                            1.0)
+              new-order (- min-order 1.0)
+              task (jdbc/execute-one! tx
+                     (sql/format {:insert-into :tasks
+                                  :values [{:title (:title message)
+                                            :sort_order new-order
+                                            :user_id user-id
+                                            :modified_at [:raw "datetime('now')"]
+                                            :scope (or (:scope message) "both")
+                                            :importance (or (:importance message) "normal")
+                                            :urgency (or (:urgency message) "default")}]
+                                  :returning (conj db/task-select-columns :user_id)})
+                     db/jdbc-opts)]
+          (when (seq description)
+            (jdbc/execute-one! tx
+              (sql/format {:update :tasks
+                           :set {:description description :modified_at [:raw "datetime('now')"]}
+                           :where [:and [:= :id (:id task)] (db/user-id-where-clause user-id)]})
+              db/jdbc-opts))
+          (jdbc/execute-one! tx
+            (sql/format {:delete-from :messages
+                         :where [:= :id message-id]}))
+          (tel/log! {:level :info :data {:message-id message-id :task-id (:id task) :user-id user-id}} "Message converted to task")
+          (assoc task :description description :people [] :places [] :projects [] :goals []))))))

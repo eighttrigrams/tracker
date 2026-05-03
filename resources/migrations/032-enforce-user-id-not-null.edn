@@ -1,0 +1,159 @@
+{:id "032-enforce-user-id-not-null"
+ :up ["PRAGMA foreign_keys=OFF"
+
+      "CREATE TABLE tasks_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         title TEXT NOT NULL,
+         description TEXT DEFAULT '',
+         created_at TEXT NOT NULL DEFAULT (datetime('now')),
+         sort_order REAL,
+         due_date TEXT,
+         user_id INTEGER NOT NULL REFERENCES users(id),
+         done INTEGER NOT NULL DEFAULT 0,
+         modified_at TEXT,
+         scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+         importance TEXT NOT NULL DEFAULT 'normal' CHECK (importance IN ('normal', 'important', 'critical')),
+         urgency TEXT NOT NULL DEFAULT 'default' CHECK (urgency IN ('default', 'urgent', 'superurgent')),
+         tags TEXT NOT NULL DEFAULT '',
+         due_time TEXT,
+         today INTEGER NOT NULL DEFAULT 0
+       )"
+      "INSERT INTO tasks_new (id, title, description, created_at, sort_order, due_date, user_id, done, modified_at, scope, importance, urgency, tags, due_time, today) SELECT id, title, COALESCE(description, ''), created_at, sort_order, due_date, user_id, COALESCE(done, 0), modified_at, COALESCE(scope, 'both'), COALESCE(importance, 'normal'), COALESCE(urgency, 'default'), COALESCE(tags, ''), due_time, COALESCE(today, 0) FROM tasks"
+      "DROP TABLE tasks"
+      "ALTER TABLE tasks_new RENAME TO tasks"
+
+      "CREATE TABLE people_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         user_id INTEGER NOT NULL REFERENCES users(id),
+         description TEXT DEFAULT '',
+         sort_order REAL,
+         tags TEXT NOT NULL DEFAULT '',
+         badge_title TEXT NOT NULL DEFAULT '',
+         UNIQUE(name, user_id)
+       )"
+      "INSERT INTO people_new (id, name, user_id, description, sort_order, tags, badge_title) SELECT id, name, user_id, COALESCE(description, ''), sort_order, COALESCE(tags, ''), COALESCE(badge_title, '') FROM people"
+      "DROP TABLE people"
+      "ALTER TABLE people_new RENAME TO people"
+
+      "CREATE TABLE places_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         user_id INTEGER NOT NULL REFERENCES users(id),
+         description TEXT DEFAULT '',
+         sort_order REAL,
+         tags TEXT NOT NULL DEFAULT '',
+         badge_title TEXT NOT NULL DEFAULT '',
+         UNIQUE(name, user_id)
+       )"
+      "INSERT INTO places_new (id, name, user_id, description, sort_order, tags, badge_title) SELECT id, name, user_id, COALESCE(description, ''), sort_order, COALESCE(tags, ''), COALESCE(badge_title, '') FROM places"
+      "DROP TABLE places"
+      "ALTER TABLE places_new RENAME TO places"
+
+      "CREATE TABLE projects_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         user_id INTEGER NOT NULL REFERENCES users(id),
+         description TEXT DEFAULT '',
+         sort_order REAL,
+         tags TEXT NOT NULL DEFAULT '',
+         badge_title TEXT NOT NULL DEFAULT '',
+         UNIQUE(name, user_id)
+       )"
+      "INSERT INTO projects_new (id, name, user_id, description, sort_order, tags, badge_title) SELECT id, name, user_id, COALESCE(description, ''), sort_order, COALESCE(tags, ''), COALESCE(badge_title, '') FROM projects"
+      "DROP TABLE projects"
+      "ALTER TABLE projects_new RENAME TO projects"
+
+      "CREATE TABLE goals_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         user_id INTEGER NOT NULL REFERENCES users(id),
+         description TEXT DEFAULT '',
+         sort_order REAL,
+         tags TEXT NOT NULL DEFAULT '',
+         badge_title TEXT NOT NULL DEFAULT '',
+         UNIQUE(name, user_id)
+       )"
+      "INSERT INTO goals_new (id, name, user_id, description, sort_order, tags, badge_title) SELECT id, name, user_id, COALESCE(description, ''), sort_order, COALESCE(tags, ''), COALESCE(badge_title, '') FROM goals"
+      "DROP TABLE goals"
+      "ALTER TABLE goals_new RENAME TO goals"
+
+      "CREATE TABLE messages_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         sender TEXT NOT NULL,
+         title TEXT NOT NULL,
+         description TEXT DEFAULT '',
+         created_at DATETIME DEFAULT (datetime('now')),
+         done INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0, 1)),
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         annotation TEXT NOT NULL DEFAULT '',
+         type TEXT DEFAULT NULL
+       )"
+      "INSERT INTO messages_new (id, sender, title, description, created_at, done, user_id, annotation, type) SELECT id, sender, title, COALESCE(description, ''), created_at, COALESCE(done, 0), user_id, COALESCE(annotation, ''), type FROM messages"
+      "DROP TABLE messages"
+      "ALTER TABLE messages_new RENAME TO messages"
+      "CREATE INDEX idx_messages_user_done_created ON messages (user_id, done, created_at)"
+
+      "CREATE TABLE resources_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         title TEXT NOT NULL,
+         link TEXT NOT NULL,
+         description TEXT DEFAULT '',
+         tags TEXT DEFAULT '',
+         created_at DATETIME DEFAULT (datetime('now')),
+         modified_at DATETIME DEFAULT (datetime('now')),
+         sort_order REAL NOT NULL DEFAULT 0,
+         scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+         importance TEXT NOT NULL DEFAULT 'normal' CHECK (importance IN ('normal', 'important', 'critical')),
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE
+       )"
+      "INSERT INTO resources_new (id, title, link, description, tags, created_at, modified_at, sort_order, scope, importance, user_id) SELECT id, title, link, COALESCE(description, ''), COALESCE(tags, ''), created_at, modified_at, COALESCE(sort_order, 0), COALESCE(scope, 'both'), COALESCE(importance, 'normal'), user_id FROM resources"
+      "DROP TABLE resources"
+      "ALTER TABLE resources_new RENAME TO resources"
+      "CREATE INDEX idx_resources_user_scope ON resources (user_id, scope)"
+
+      "CREATE TABLE meets_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         title TEXT NOT NULL,
+         description TEXT DEFAULT '',
+         tags TEXT DEFAULT '',
+         created_at DATETIME DEFAULT (datetime('now')),
+         modified_at DATETIME DEFAULT (datetime('now')),
+         sort_order REAL NOT NULL DEFAULT 0,
+         scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+         importance TEXT NOT NULL DEFAULT 'normal' CHECK (importance IN ('normal', 'important', 'critical')),
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         start_date TEXT,
+         start_time TEXT,
+         meeting_series_id INTEGER REFERENCES meeting_series(id) ON DELETE SET NULL,
+         archived INTEGER NOT NULL DEFAULT 0
+       )"
+      "INSERT INTO meets_new (id, title, description, tags, created_at, modified_at, sort_order, scope, importance, user_id, start_date, start_time, meeting_series_id, archived) SELECT id, title, COALESCE(description, ''), COALESCE(tags, ''), created_at, modified_at, COALESCE(sort_order, 0), COALESCE(scope, 'both'), COALESCE(importance, 'normal'), user_id, start_date, start_time, meeting_series_id, COALESCE(archived, 0) FROM meets"
+      "DROP TABLE meets"
+      "ALTER TABLE meets_new RENAME TO meets"
+      "CREATE INDEX idx_meets_user_scope ON meets (user_id, scope)"
+
+      "CREATE TABLE meeting_series_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         title TEXT NOT NULL,
+         description TEXT DEFAULT '',
+         tags TEXT DEFAULT '',
+         created_at DATETIME DEFAULT (datetime('now')),
+         modified_at DATETIME DEFAULT (datetime('now')),
+         sort_order REAL NOT NULL DEFAULT 0,
+         scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         schedule_days TEXT NOT NULL DEFAULT '',
+         schedule_time TEXT DEFAULT NULL,
+         schedule_mode TEXT NOT NULL DEFAULT 'weekly',
+         schedule_anchor TEXT,
+         biweekly_offset INTEGER NOT NULL DEFAULT 0
+       )"
+      "INSERT INTO meeting_series_new (id, title, description, tags, created_at, modified_at, sort_order, scope, user_id, schedule_days, schedule_time, schedule_mode, schedule_anchor, biweekly_offset) SELECT id, title, COALESCE(description, ''), COALESCE(tags, ''), created_at, modified_at, COALESCE(sort_order, 0), COALESCE(scope, 'both'), user_id, COALESCE(schedule_days, ''), schedule_time, COALESCE(schedule_mode, 'weekly'), schedule_anchor, COALESCE(biweekly_offset, 0) FROM meeting_series"
+      "DROP TABLE meeting_series"
+      "ALTER TABLE meeting_series_new RENAME TO meeting_series"
+      "CREATE INDEX idx_meeting_series_user_scope ON meeting_series (user_id, scope)"
+
+      "PRAGMA foreign_keys=ON"]
+ :down []
+ :transactions false}

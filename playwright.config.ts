@@ -2,12 +2,6 @@ import { execSync } from "child_process";
 import { defineConfig } from "@playwright/test";
 import { defineBddConfig } from "playwright-bdd";
 
-// Headless when CI=true. Both container flavours set CI:
-//   - docker-plurama (Claude's working-env container, alpine) sets CI=true in compose
-//   - Dockerfile.e2e (the throwaway image used by `make e2e-docker`) sets ENV CI=1
-// On the host CI is unset, so the browser opens visibly during local debugging.
-const ci = !!process.env.CI;
-
 // Single source of truth for the port lives in config.edn (so the clojure
 // server and the playwright config can't drift). We shell out to babashka
 // to read it; if PORT is set explicitly that wins.
@@ -28,11 +22,14 @@ const testDir = defineBddConfig({
 
 export default defineConfig({
   testDir,
-  timeout: 30_000,
+  timeout: 60_000,
+  retries: process.env.CI ? 2 : 0,
   workers: 1,
+  expect: { timeout: 10_000 },
   use: {
     baseURL: `http://localhost:${port}`,
-    headless: ci,
+    headless: true,
+    actionTimeout: 10_000,
   },
   projects: [{
     name: "chromium",

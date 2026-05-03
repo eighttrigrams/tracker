@@ -1,0 +1,2 @@
+{:up ["ALTER TABLE meeting_series ADD COLUMN biweekly_offset INTEGER NOT NULL DEFAULT 0"]
+ :down ["ALTER TABLE meeting_series DROP COLUMN biweekly_offset"]}

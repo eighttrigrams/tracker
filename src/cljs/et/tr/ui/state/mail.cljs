@@ -6,24 +6,47 @@
 
 (def ^:const DEFAULT-SENDER "Note")
 
-(defonce *mail-page-state (r/atom {:sort-mode :recent
+(defonce *mail-page-state (r/atom {:view :inbox
+                                   :sort-modes {:inbox :recent
+                                                :saved :recent}
                                    :expanded-message nil
                                    :fetch-request-id 0
                                    :sender-filter nil
                                    :excluded-senders #{}
-                                   :editing-message nil
+                                   :importance-filter nil
+                                   :urgency-filter nil
+                                   :search-term ""
+                                   :inline-edit-message nil
+                                   :inline-edit-title nil
                                    :confirm-delete-message nil
+                                   :confirm-delete-all-archived false
+                                   :confirm-delete-archived-below nil
                                    :message-dropdown-open nil
                                    :message-action-dropdown-open nil}))
 
+(defn current-sort-mode [state]
+  (get-in state [:sort-modes (:view state)]))
+
 (defn fetch-messages [app-state auth-headers]
-  (let [request-id (:fetch-request-id (swap! *mail-page-state update :fetch-request-id inc))
-        sort-mode (name (:sort-mode @*mail-page-state))
-        sender-filter (:sender-filter @*mail-page-state)
-        excluded-senders (:excluded-senders @*mail-page-state)
-        url (cond-> (str "/api/messages?sort=" sort-mode)
+  (let [state (swap! *mail-page-state update :fetch-request-id inc)
+        request-id (:fetch-request-id state)
+        view (name (:view state))
+        sort-mode (name (current-sort-mode state))
+        sender-filter (:sender-filter state)
+        excluded-senders (:excluded-senders state)
+        importance (:importance-filter state)
+        urgency (:urgency-filter state)
+        search-term (:search-term state)
+        context (name (:work-private-mode @app-state))
+        strict (:strict-mode @app-state)
+        url (cond-> (str "/api/messages?view=" view "&sort=" sort-mode)
               sender-filter (str "&sender=" (js/encodeURIComponent sender-filter))
-              (seq excluded-senders) (str "&excludedSenders=" (js/encodeURIComponent (str/join "," excluded-senders))))]
+              (seq excluded-senders) (str "&excludedSenders=" (js/encodeURIComponent (str/join "," excluded-senders)))
+              importance (str "&importance=" (name importance))
+              urgency (str "&urgency=" (name urgency))
+              (and (= view "saved") (seq search-term)) (str "&q=" (js/encodeURIComponent search-term))
+              context (str "&context=" (js/encodeURIComponent context))
+              strict (str "&strict=true"))]
     (GET url
       {:response-format :json
        :keywords? true
@@ -36,19 +59,50 @@
                           (swap! app-state assoc :messages [])))})))
 
 (defn set-mail-sort-mode [app-state auth-headers mode]
-  (swap! *mail-page-state assoc :sort-mode mode)
+  (swap! *mail-page-state assoc-in [:sort-modes (:view @*mail-page-state)] mode)
   (fetch-messages app-state auth-headers))
 
+(defn set-mail-view [app-state auth-headers view]
+  (swap! *mail-page-state
+         (fn [s]
+           (cond-> (assoc s :view view)
+             (= view :inbox) (assoc :importance-filter nil :urgency-filter nil :search-term ""))))
+  (fetch-messages app-state auth-headers))
+
+(defonce ^:private search-debounce-timer (atom nil))
+
+(defn set-mail-search-term [app-state auth-headers term]
+  (swap! *mail-page-state assoc :search-term term)
+  (when-let [timer @search-debounce-timer]
+    (js/clearTimeout timer))
+  (reset! search-debounce-timer
+          (js/setTimeout #(fetch-messages app-state auth-headers) 300)))
+
+(defn- has-positive-filter? []
+  (let [{:keys [sender-filter importance-filter urgency-filter]} @*mail-page-state]
+    (or sender-filter importance-filter urgency-filter)))
+
+(defn- clear-positive-filters! []
+  (swap! *mail-page-state assoc :sender-filter nil :importance-filter nil :urgency-filter nil))
+
 (defn set-expanded-message [id]
-  (swap! *mail-page-state assoc :expanded-message id))
+  (swap! *mail-page-state assoc :expanded-message id)
+  (when (nil? id)
+    (js/setTimeout #(when-let [el (.getElementById js/document "mail-add-input")]
+                      (.focus el #js {:preventScroll true})) 0)))
 
 (defn set-message-done [app-state auth-headers message-id done?]
-  (api/put-json (str "/api/messages/" message-id "/done")
-    {:done done?}
-    (auth-headers)
-    (fn [_] (fetch-messages app-state auth-headers))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message")))))
+  (let [clear-filters? (and done?
+                            (has-positive-filter?)
+                            (<= (count (:messages @app-state)) 1))]
+    (api/put-json (str "/api/messages/" message-id "/done")
+      {:done done?}
+      (auth-headers)
+      (fn [_]
+        (when clear-filters? (clear-positive-filters!))
+        (fetch-messages app-state auth-headers))
+      (fn [resp]
+        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message"))))))
 
 (defn set-confirm-delete-message [message]
   (swap! *mail-page-state assoc :confirm-delete-message message))
@@ -62,7 +116,11 @@
     (fn [_]
       (swap! app-state update :messages
              (fn [messages] (filterv #(not= (:id %) message-id) messages)))
-      (clear-confirm-delete-message))
+      (clear-confirm-delete-message)
+      (when (and (has-positive-filter?)
+                 (empty? (:messages @app-state)))
+        (clear-positive-filters!)
+        (fetch-messages app-state auth-headers)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete message"))
       (clear-confirm-delete-message))))
@@ -91,31 +149,76 @@
   (swap! *mail-page-state assoc :sender-filter nil :excluded-senders #{})
   (fetch-messages app-state auth-headers))
 
-(defn set-editing-message [id]
-  (swap! *mail-page-state assoc :editing-message id))
-
-(defn clear-editing-message []
-  (swap! *mail-page-state assoc :editing-message nil))
-
 (defn reset-mail-page-view-state! []
   (swap! *mail-page-state assoc
-         :expanded-message nil
-         :editing-message nil))
+         :expanded-message nil))
 
-(defn update-message-annotation [app-state auth-headers message-id annotation]
-  (api/put-json (str "/api/messages/" message-id "/annotation")
-    {:annotation annotation}
+(defn set-message-importance [app-state auth-headers message-id importance]
+  (api/put-json (str "/api/messages/" message-id "/importance")
+    {:importance importance}
     (auth-headers)
     (fn [result]
       (swap! app-state update :messages
              (fn [messages]
                (mapv #(if (= (:id %) message-id)
-                        (assoc % :annotation (:annotation result))
+                        (assoc % :importance (:importance result))
+                        %)
+                     messages))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))))
+
+(defn set-importance-filter [fetch-messages-fn level]
+  (swap! *mail-page-state assoc :importance-filter level)
+  (fetch-messages-fn))
+
+(defn set-message-urgency [app-state auth-headers message-id urgency]
+  (api/put-json (str "/api/messages/" message-id "/urgency")
+    {:urgency urgency}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :messages
+             (fn [messages]
+               (mapv #(if (= (:id %) message-id)
+                        (assoc % :urgency (:urgency result))
+                        %)
+                     messages))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update urgency")))))
+
+(defn set-urgency-filter [fetch-messages-fn level]
+  (swap! *mail-page-state assoc :urgency-filter level)
+  (fetch-messages-fn))
+
+(defn set-message-scope [app-state auth-headers message-id scope]
+  (api/put-json (str "/api/messages/" message-id "/scope")
+    {:scope scope}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :messages
+             (fn [messages]
+               (mapv #(if (= (:id %) message-id)
+                        (assoc % :scope (:scope result))
+                        %)
+                     messages))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
+
+(defn update-message [app-state auth-headers message-id title description on-success]
+  (api/put-json (str "/api/messages/" message-id)
+    {:title title :description description}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :messages
+             (fn [messages]
+               (mapv #(if (= (:id %) message-id)
+                        (assoc %
+                               :title (:title result)
+                               :description (:description result))
                         %)
                      messages)))
-      (clear-editing-message))
+      (when on-success (on-success)))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update annotation")))))
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message")))))
 
 (defn add-message [app-state auth-headers title on-success]
   (api/post-json "/api/messages"
@@ -146,11 +249,56 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to merge messages")))))
 
 (defn convert-message-to-resource [app-state auth-headers message-id link]
-  (api/post-json (str "/api/messages/" message-id "/convert-to-resource")
-    {:link link}
+  (let [clear-filters? (and (has-positive-filter?)
+                            (<= (count (:messages @app-state)) 1))]
+    (api/post-json (str "/api/messages/" message-id "/convert-to-resource")
+      {:link link}
+      (auth-headers)
+      (fn [_]
+        (swap! *mail-page-state assoc :message-dropdown-open nil)
+        (when clear-filters? (clear-positive-filters!))
+        (fetch-messages app-state auth-headers))
+      (fn [resp]
+        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to resource"))))))
+
+(defn convert-message-to-task [app-state auth-headers message-id]
+  (let [clear-filters? (and (has-positive-filter?)
+                            (<= (count (:messages @app-state)) 1))]
+    (api/post-json (str "/api/messages/" message-id "/convert-to-task")
+      {}
+      (auth-headers)
+      (fn [_]
+        (swap! *mail-page-state assoc :message-dropdown-open nil)
+        (when clear-filters? (clear-positive-filters!))
+        (fetch-messages app-state auth-headers))
+      (fn [resp]
+        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to task"))))))
+
+(defn set-confirm-delete-all-archived [val]
+  (swap! *mail-page-state assoc :confirm-delete-all-archived val))
+
+(defn delete-all-archived [app-state auth-headers]
+  (api/delete-simple "/api/messages/archived"
     (auth-headers)
     (fn [_]
-      (swap! *mail-page-state assoc :message-dropdown-open nil)
+      (set-confirm-delete-all-archived false)
       (fetch-messages app-state auth-headers))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to resource")))))
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete archived messages"))
+      (set-confirm-delete-all-archived false))))
+
+(defn set-confirm-delete-archived-below [message]
+  (swap! *mail-page-state assoc :confirm-delete-archived-below message))
+
+(defn clear-confirm-delete-archived-below []
+  (swap! *mail-page-state assoc :confirm-delete-archived-below nil))
+
+(defn delete-archived-below [app-state auth-headers message-id]
+  (api/delete-simple (str "/api/messages/" message-id "/archived-below")
+    (auth-headers)
+    (fn [_]
+      (clear-confirm-delete-archived-below)
+      (fetch-messages app-state auth-headers))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete archived messages below"))
+      (clear-confirm-delete-archived-below))))

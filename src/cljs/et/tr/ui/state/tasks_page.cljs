@@ -21,14 +21,16 @@
   (seq (get @app-state (filter-type->key filter-type))))
 
 (defn- current-fetch-opts [app-state]
-  {:search-term (:tasks-page/filter-search @app-state)
-   :importance (:tasks-page/importance-filter @app-state)
-   :context (:work-private-mode @app-state)
-   :strict (:strict-mode @app-state)
-   :filter-people (:shared/filter-people @app-state)
-   :filter-places (:shared/filter-places @app-state)
-   :filter-projects (:shared/filter-projects @app-state)
-   :filter-goals (:tasks-page/filter-goals @app-state)})
+  (cond-> {:search-term (:tasks-page/filter-search @app-state)
+           :importance (:tasks-page/importance-filter @app-state)
+           :context (:work-private-mode @app-state)
+           :strict (:strict-mode @app-state)
+           :filter-people (:shared/filter-people @app-state)
+           :filter-places (:shared/filter-places @app-state)
+           :filter-projects (:shared/filter-projects @app-state)
+           :filter-goals (:tasks-page/filter-goals @app-state)}
+    (:tasks-page/filter-recurring @app-state)
+    (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state)))))
 
 (defn toggle-filter [app-state fetch-tasks-fn filter-type id]
   (let [filter-key (filter-type->key filter-type)]
@@ -65,29 +67,19 @@
 (defn clear-uncollapsed-task-filters [app-state fetch-tasks-fn]
   (let [collapsed (:tasks-page/collapsed-filters @app-state)
         all-filters #{:people :places :projects :goals}
-        uncollapsed (clojure.set/difference all-filters collapsed)]
-    (if (empty? uncollapsed)
+        any-visible? (seq (clojure.set/difference all-filters collapsed))]
+    (when-not any-visible?
       (swap! app-state assoc
              :shared/filter-people #{}
              :shared/filter-places #{}
              :shared/filter-projects #{}
              :tasks-page/filter-goals #{}
              :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
+             :tasks-page/filter-search ""
              :tasks-page/importance-filter nil
              :tasks-page/expanded-task nil)
-      (do
-        (doseq [filter-key uncollapsed]
-          (case filter-key
-            :people (swap! app-state assoc :shared/filter-people #{})
-            :places (swap! app-state assoc :shared/filter-places #{})
-            :projects (swap! app-state assoc :shared/filter-projects #{})
-            :goals (swap! app-state assoc :tasks-page/filter-goals #{})))
-        (swap! app-state assoc
-               :tasks-page/collapsed-filters all-filters
-               :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
-               :tasks-page/importance-filter nil
-               :tasks-page/expanded-task nil)))
-    (fetch-tasks-fn (current-fetch-opts app-state))))
+      (.scrollTo js/window 0 0)
+      (fetch-tasks-fn (current-fetch-opts app-state)))))
 
 (defn toggle-filter-collapsed [app-state filter-key]
   (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)
@@ -186,7 +178,7 @@
       (case type
         :task (add-fn title categories on-success)
         :resource (add-fn title (:link item) categories on-success)
-        :meet (add-fn title categories on-success))
+        (:meet :recurring-task) (add-fn title categories on-success))
       (when (empty? people) (swap! app-state assoc :shared/filter-people #{}))
       (when (empty? places) (swap! app-state assoc :shared/filter-places #{}))
       (when (empty? projects) (swap! app-state assoc :shared/filter-projects #{}))

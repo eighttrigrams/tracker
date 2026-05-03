@@ -1,6 +1,7 @@
 (ns et.tr.ui.state.tasks
   (:require [ajax.core :refer [GET POST]]
             [clojure.string :as str]
+            [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
             [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE
                                         CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
@@ -24,7 +25,7 @@
    (fetch-tasks app-state auth-headers calculate-best-horizon-fn nil))
   ([app-state auth-headers calculate-best-horizon-fn {:keys [search-term importance context strict
                                                               filter-people filter-places filter-projects filter-goals
-                                                              excluded-places excluded-projects]}]
+                                                              excluded-places excluded-projects recurring-task-id]}]
    (let [sort-mode (name (:sort-mode @app-state))
          people-param (build-category-param filter-people (:people @app-state))
          places-param (build-category-param filter-places (:places @app-state))
@@ -42,7 +43,8 @@
                projects-param (str "&projects=" projects-param)
                goals-param (str "&goals=" goals-param)
                excluded-places-param (str "&excluded-places=" excluded-places-param)
-               excluded-projects-param (str "&excluded-projects=" excluded-projects-param))]
+               excluded-projects-param (str "&excluded-projects=" excluded-projects-param)
+               recurring-task-id (str "&recurring-task-id=" recurring-task-id))]
      (GET url
        {:response-format :json
         :keywords? true
@@ -101,9 +103,12 @@
     {:title title :description description :tags tags}
     (auth-headers)
     (fn [updated-task]
-      (swap! app-state update :tasks
-             (fn [tasks]
-               (mapv #(if (= (:id %) task-id) (merge % updated-task) %) tasks)))
+      (let [merge-fn (fn [tasks]
+                       (mapv #(if (= (:id %) task-id) (merge % updated-task) %) tasks))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :tasks merge-fn)
+                               (update-in [:reports-data :tasks] merge-fn)))))
       (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))))
@@ -128,7 +133,7 @@
       (swap! app-state update :tasks
              (fn [tasks]
                (mapv #(if (= (:id %) task-id)
-                        (assoc % :due_date (:due_date result) :due_time (:due_time result) :modified_at (:modified_at result))
+                        (merge % (select-keys result [:due_date :due_time :today :modified_at]))
                         %)
                      tasks))))
     (fn [resp]
@@ -162,13 +167,15 @@
   (api/delete-simple (str "/api/tasks/" task-id)
     (auth-headers)
     (fn [_]
-      (swap! app-state
-             (fn [state]
-               (-> state
-                   (update :tasks (fn [tasks] (filterv #(not= (:id %) task-id) tasks)))
-                   (assoc :tasks-page/expanded-task nil
-                          :today-page/expanded-task nil
-                          :confirm-delete-task nil)))))
+      (let [remove-fn (fn [tasks] (filterv #(not= (:id %) task-id) tasks))]
+        (swap! app-state
+               (fn [state]
+                 (-> state
+                     (update :tasks remove-fn)
+                     (update-in [:reports-data :tasks] remove-fn)
+                     (assoc :tasks-page/expanded-task nil
+                            :today-page/expanded-task nil
+                            :confirm-delete-task nil))))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete task"))
       (clear-confirm-delete app-state))))
@@ -190,12 +197,16 @@
     {:scope scope}
     (auth-headers)
     (fn [result]
-      (swap! app-state update :tasks
-             (fn [tasks]
-               (mapv #(if (= (:id %) task-id)
-                        (assoc % :scope (:scope result) :modified_at (:modified_at result))
-                        %)
-                     tasks))))
+      (let [mode (:work-private-mode @app-state)
+            strict? (:strict-mode @app-state)
+            update-and-filter (fn [coll]
+                                (->> coll
+                                     (mapv #(if (= (:id %) task-id)
+                                              (assoc % :scope (:scope result) :modified_at (:modified_at result))
+                                              %))
+                                     (filterv #(filters/matches-scope? % mode strict?))))]
+        (swap! app-state update :tasks update-and-filter)
+        (swap! app-state update-in [:reports-data :tasks] update-and-filter)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
@@ -227,8 +238,87 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update urgency")))))
 
+(defn set-task-today [app-state auth-headers fetch-tasks-fn task-id today?]
+  (api/put-json (str "/api/tasks/" task-id "/today")
+    {:today today?}
+    (auth-headers)
+    (fn [result]
+      (let [found? (some #(= (:id %) task-id) (:tasks @app-state))]
+        (if found?
+          (swap! app-state update :tasks
+                 (fn [tasks]
+                   (mapv #(if (= (:id %) task-id)
+                            (merge % (select-keys result [:today :lined_up_for :modified_at]))
+                            %)
+                         tasks)))
+          (fetch-tasks-fn))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update today flag")))))
+
+(defn set-task-lined-up-for [app-state auth-headers fetch-tasks-fn task-id date]
+  (api/put-json (str "/api/tasks/" task-id "/lined-up-for")
+    {:lined_up_for date}
+    (auth-headers)
+    (fn [result]
+      (let [found? (some #(= (:id %) task-id) (:tasks @app-state))]
+        (if found?
+          (swap! app-state update :tasks
+                 (fn [tasks]
+                   (mapv #(if (= (:id %) task-id)
+                            (merge % (select-keys result [:today :lined_up_for :modified_at]))
+                            %)
+                         tasks)))
+          (fetch-tasks-fn))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update lined-up-for")))))
+
+(defn set-task-done-at [app-state auth-headers task-id done-date]
+  (api/put-json (str "/api/tasks/" task-id "/done-at")
+    {:done-date done-date}
+    (auth-headers)
+    (fn [result]
+      (let [merge-fn (fn [tasks]
+                       (mapv #(if (= (:id %) task-id)
+                                (merge % (select-keys result [:done_at :modified_at]))
+                                %)
+                             tasks))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :tasks merge-fn)
+                               (update-in [:reports-data :tasks] merge-fn))))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to change done date")))))
+
+(defn set-task-reminder [app-state auth-headers task-id reminder-date]
+  (api/put-json (str "/api/tasks/" task-id "/reminder")
+    {:reminder-date reminder-date}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (merge % (select-keys result [:reminder :reminder_date :modified_at]))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set reminder")))))
+
+(defn acknowledge-task-reminder [app-state auth-headers task-id]
+  (api/put-json (str "/api/tasks/" task-id "/acknowledge-reminder")
+    {}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (merge % (select-keys result [:reminder :reminder_date :modified_at]))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to acknowledge reminder")))))
+
 (defn set-drag-task [app-state task-id]
-  (swap! app-state assoc :drag-task task-id))
+  (swap! app-state assoc :drag-task task-id :drag-task-source nil))
 
 (defn set-drag-over-task [app-state task-id]
   (swap! app-state assoc :drag-over-task task-id))
@@ -237,7 +327,7 @@
   (swap! app-state assoc :drag-over-urgency-section section))
 
 (defn clear-drag-state [app-state]
-  (swap! app-state assoc :drag-task nil :drag-over-task nil :drag-over-urgency-section nil))
+  (swap! app-state assoc :drag-task nil :drag-over-task nil :drag-over-urgency-section nil :drag-task-source nil))
 
 (defn reorder-task [app-state auth-headers fetch-tasks-fn task-id target-task-id position]
   (api/post-json (str "/api/tasks/" task-id "/reorder")
@@ -254,6 +344,13 @@
   (swap! app-state assoc
          :sort-mode mode
          :tasks-page/last-sort-mode mode)
+  (fetch-tasks-fn))
+
+(defn toggle-reminder-mode [app-state fetch-tasks-fn]
+  (if (= :reminder (:sort-mode @app-state))
+    (let [last-mode (or (:tasks-page/last-sort-mode @app-state) :recent)]
+      (swap! app-state assoc :sort-mode last-mode))
+    (swap! app-state assoc :sort-mode :reminder))
   (fetch-tasks-fn))
 
 (defn task-done? [task]

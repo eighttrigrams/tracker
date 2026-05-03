@@ -1,16 +1,68 @@
 (ns et.tr.ui.modals
   (:require [reagent.core :as r]
+            [clojure.string]
             [et.tr.ui.state :as state]
             [et.tr.ui.url :as url]
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.meets :as meets-state]
+            [et.tr.ui.state.meeting-series :as meeting-series-state]
+            [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
+            [et.tr.ui.state.journals :as journals-state]
+            [et.tr.ui.state.journal-entries :as journal-entries-state]
+            [et.tr.ui.components.cm-textarea :refer [cm-textarea]]
             [et.tr.i18n :refer [t tf]]
+            [et.tr.ui.date :as date]
             ["marked" :refer [marked]]))
 
+(defn modal-keyboard-shortcut [{:keys [on-confirm on-escape enabled? enter-confirms?]}]
+  (let [state (atom {:on-confirm on-confirm :on-escape on-escape :enabled? enabled? :enter-confirms? enter-confirms?})]
+    (r/create-class
+     {:display-name "modal-keyboard-shortcut"
+      :component-did-mount
+      (fn [_]
+        (let [handler (fn [e]
+                        (let [{:keys [on-confirm on-escape enabled? enter-confirms?]} @state]
+                          (cond
+                            (and enabled?
+                                 (.-metaKey e)
+                                 (if (state/vim-keys?)
+                                   (= "Digit9" (.-code e))
+                                   (= "KeyS" (.-code e))))
+                            (do (.preventDefault e)
+                                (on-confirm))
+
+                            (and enabled?
+                                 enter-confirms?
+                                 (= "Enter" (.-code e)))
+                            (do (.preventDefault e)
+                                (on-confirm))
+
+                            (and on-escape
+                                 (= "Escape" (.-code e)))
+                            (do (.preventDefault e)
+                                (on-escape)))))]
+          (swap! state assoc :handler handler)
+          (.addEventListener js/document "keydown" handler)))
+      :component-did-update
+      (fn [this [_ prev-props]]
+        (let [[_ new-props] (r/argv this)]
+          (swap! state assoc
+                 :on-confirm (:on-confirm new-props)
+                 :on-escape (:on-escape new-props)
+                 :enabled? (:enabled? new-props)
+                 :enter-confirms? (:enter-confirms? new-props))))
+      :component-will-unmount
+      (fn [_]
+        (when-let [handler (:handler @state)]
+          (.removeEventListener js/document "keydown" handler)))
+      :reagent-render
+      (fn [_] nil)})))
+
 (defn- generic-confirm-modal
-  [{:keys [header body-paragraphs on-cancel on-confirm]}]
+  [{:keys [header body-paragraphs on-cancel on-confirm confirm-label]}]
   [:div.modal-overlay
+   [modal-keyboard-shortcut {:on-confirm on-confirm :on-escape on-cancel :enabled? true}]
    [:div.modal {:on-click #(.stopPropagation %)}
     [:div.modal-header header]
     [:div.modal-body
@@ -21,7 +73,7 @@
          [:p (:text p)]))]
     [:div.modal-footer
      [:button.cancel {:on-click on-cancel} (t :modal/cancel)]
-     [:button.confirm-delete {:on-click on-confirm} (t :modal/delete)]]]])
+     [:button.confirm-delete {:on-click on-confirm} (or confirm-label (t :modal/delete))]]]])
 
 (defn- make-confirm-delete-modal [{:keys [state-atom state-key header-i18n confirm-i18n title-key clear-fn delete-fn]}]
   (fn []
@@ -43,6 +95,16 @@
     :clear-fn state/clear-confirm-delete
     :delete-fn state/delete-task}))
 
+(defn confirm-undone-modal []
+  (when-let [task (:confirm-undone-task @state/*app-state)]
+    [generic-confirm-modal
+     {:header (t :modal/undone-task)
+      :body-paragraphs [{:text (t :modal/undone-task-confirm)}
+                        {:text (:title task) :class "task-title"}]
+      :on-cancel state/clear-confirm-undone
+      :on-confirm #(state/confirm-undone-task (:id task))
+      :confirm-label (t :modal/reopen)}]))
+
 (defn confirm-delete-user-modal []
   (let [confirmation-input (r/atom "")]
     (fn []
@@ -50,6 +112,9 @@
         (let [username (:username user)
               matches? (= @confirmation-input username)]
           [:div.modal-overlay
+           [modal-keyboard-shortcut {:on-confirm #(do (reset! confirmation-input "") (state/delete-user (:id user)))
+                                     :on-escape #(do (reset! confirmation-input "") (state/clear-confirm-delete-user))
+                                     :enabled? matches?}]
            [:div.modal {:on-click #(.stopPropagation %)}
             [:div.modal-header (t :modal/delete-user)]
             [:div.modal-body
@@ -58,6 +123,7 @@
              [:p.warning (t :modal/delete-user-warning)]
              [:p {:style {:margin-top "16px"}} (tf :modal/delete-user-type-confirm username)]
              [:input {:type "text"
+                      :auto-complete "off"
                       :value @confirmation-input
                       :on-change #(reset! confirmation-input (-> % .-target .-value))
                       :placeholder (t :modal/enter-username)
@@ -98,6 +164,23 @@
     :clear-fn state/clear-confirm-delete-message
     :delete-fn state/delete-message}))
 
+(defn confirm-delete-all-archived-modal []
+  (when (:confirm-delete-all-archived @mail-state/*mail-page-state)
+    [generic-confirm-modal
+     {:header (t :mail/delete-all-archived)
+      :body-paragraphs [{:text (t :mail/delete-all-archived-confirm)}]
+      :on-cancel #(state/set-confirm-delete-all-archived false)
+      :on-confirm state/delete-all-archived}]))
+
+(defn confirm-delete-archived-below-modal []
+  (when-let [message (:confirm-delete-archived-below @mail-state/*mail-page-state)]
+    [generic-confirm-modal
+     {:header (t :mail/delete-all-below)
+      :body-paragraphs [{:text (t :mail/delete-all-below-confirm)}
+                        {:text (:title message) :class "task-title"}]
+      :on-cancel state/clear-confirm-delete-archived-below
+      :on-confirm #(state/delete-archived-below (:id message))}]))
+
 (def confirm-delete-resource-modal
   (make-confirm-delete-modal
    {:state-atom resources-state/*resources-page-state
@@ -117,6 +200,46 @@
     :title-key :title
     :clear-fn state/clear-confirm-delete-meet
     :delete-fn state/delete-meet}))
+
+(def confirm-delete-meeting-series-modal
+  (make-confirm-delete-modal
+   {:state-atom meeting-series-state/*meeting-series-page-state
+    :state-key :confirm-delete-series
+    :header-i18n :modal/delete-meeting-series
+    :confirm-i18n :modal/delete-meeting-series-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-series
+    :delete-fn state/delete-meeting-series}))
+
+(def confirm-delete-recurring-task-modal
+  (make-confirm-delete-modal
+   {:state-atom recurring-tasks-state/*recurring-tasks-page-state
+    :state-key :confirm-delete-rtask
+    :header-i18n :modal/delete-recurring-task
+    :confirm-i18n :modal/delete-recurring-task-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-rtask
+    :delete-fn state/delete-recurring-task}))
+
+(def confirm-delete-journal-modal
+  (make-confirm-delete-modal
+   {:state-atom journals-state/*journals-page-state
+    :state-key :confirm-delete-journal
+    :header-i18n :modal/delete-journal
+    :confirm-i18n :modal/delete-journal-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-journal
+    :delete-fn state/delete-journal}))
+
+(def confirm-delete-journal-entry-modal
+  (make-confirm-delete-modal
+   {:state-atom journal-entries-state/*journal-entries-page-state
+    :state-key :confirm-delete-entry
+    :header-i18n :modal/delete-journal-entry
+    :confirm-i18n :modal/delete-journal-entry-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-journal-entry
+    :delete-fn state/delete-journal-entry}))
 
 (defn category-tag-item [category-type id name selected? toggle-fn]
   [:span.tag.selectable
@@ -145,9 +268,10 @@
           selected-places (or places #{})
           selected-projects (or projects #{})
           selected-goals (or goals #{})
-          header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories :meet :modal/add-meet-categories)
-          confirm-key (case type :task :modal/add-task :resource :modal/add-resource :meet :modal/add-meet)]
+          header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories :recurring-task :modal/add-recurring-task-categories (:meet :meeting-series) :modal/add-meet-categories)
+          confirm-key (case type :task :modal/add-task :resource :modal/add-resource :recurring-task :modal/add-recurring-task (:meet :meeting-series) :modal/add-meet)]
       [:div.modal-overlay {:on-click #(state/clear-pending-new-item)}
+       [modal-keyboard-shortcut {:on-confirm #(state/confirm-pending-new-item) :on-escape #(state/clear-pending-new-item) :enabled? true :enter-confirms? true}]
        [:div.modal.pending-task-modal {:on-click #(.stopPropagation %)}
         [:div.modal-header (t header-key)]
         [:div.modal-body
@@ -168,25 +292,86 @@
 
 (defn- edit-modal-fields [{:keys [type entity]}]
   (let [field-atoms (case type
-                      (:task :meet) {:title (r/atom (:title entity))
-                                     :description (r/atom (or (:description entity) ""))
-                                     :tags (r/atom (or (:tags entity) ""))}
-                      :resource {:title (r/atom (:title entity))
-                                 :link (r/atom (:link entity))
-                                 :description (r/atom (or (:description entity) ""))
-                                 :tags (r/atom (or (:tags entity) ""))}
+                      :task {:title (r/atom (:title entity))
+                             :description (r/atom (or (:description entity) ""))
+                             :tags (r/atom (or (:tags entity) ""))
+                             :due-date (r/atom (or (:due_date entity) ""))
+                             :due-time (r/atom (or (:due_time entity) ""))}
+                      :meet {:title (r/atom (:title entity))
+                             :description (r/atom (or (:description entity) ""))
+                             :tags (r/atom (or (:tags entity) ""))
+                             :start-date (r/atom (or (:start_date entity) ""))
+                             :start-time (r/atom (or (:start_time entity) ""))}
+                      :journal-entry {:title (r/atom (:title entity))
+                                      :description (r/atom (or (:description entity) ""))
+                                      :tags (r/atom (or (:tags entity) ""))}
+                      :message {:title (r/atom (:title entity))
+                                :description (r/atom (or (:description entity) ""))}
+                      (:meeting-series :recurring-task) {:title (r/atom (:title entity))
+                                       :description (r/atom (or (:description entity) ""))
+                                       :tags (r/atom (or (:tags entity) ""))
+                                       :schedule-days (r/atom (or (:schedule_days entity) ""))
+                                       :schedule-time (r/atom (or (:schedule_time entity) ""))
+                                       :schedule-mode (r/atom (or (:schedule_mode entity) "weekly"))
+                                       :biweekly-offset (r/atom (= 1 (:biweekly_offset entity)))
+                                       :task-type (r/atom (or (:task_type entity) "due_date"))}
+                      :journal {:title (r/atom (:title entity))
+                                :description (r/atom (or (:description entity) ""))
+                                :tags (r/atom (or (:tags entity) ""))}
+                      :resource (cond-> {:title (r/atom (:title entity))
+                                        :description (r/atom (or (:description entity) ""))
+                                        :tags (r/atom (or (:tags entity) ""))}
+                                 (seq (:link entity)) (assoc :link (r/atom (:link entity))))
                       {:title (r/atom (:name entity))
                        :description (r/atom (or (:description entity) ""))
                        :tags (r/atom (or (:tags entity) ""))
                        :badge-title (r/atom (or (:badge_title entity) ""))})]
     (assoc field-atoms :type type :entity entity)))
 
-(defn- edit-modal-save [{:keys [type entity title description tags link badge-title]}]
+(defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
+  (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry :message} type))
+        title-orig (if is-category (:name entity) (:title entity))
+        base-dirty (or (not= @title title-orig)
+                       (not= @description (or (:description entity) ""))
+                       (and tags (not= @tags (or (:tags entity) ""))))]
+    (cond
+      base-dirty true
+      (and link (not= @link (:link entity))) true
+      (and badge-title (not= @badge-title (or (:badge_title entity) ""))) true
+      (and schedule-days (not= @schedule-days (or (:schedule_days entity) ""))) true
+      (and schedule-time (not= @schedule-time (or (:schedule_time entity) ""))) true
+      (and schedule-mode (not= @schedule-mode (or (:schedule_mode entity) "weekly"))) true
+      (and biweekly-offset (not= @biweekly-offset (= 1 (:biweekly_offset entity)))) true
+      (and task-type (not= @task-type (or (:task_type entity) "due_date"))) true
+      (and due-date (not= @due-date (or (:due_date entity) ""))) true
+      (and due-time (not= @due-time (or (:due_time entity) ""))) true
+      (and start-date (not= @start-date (or (:start_date entity) ""))) true
+      (and start-time (not= @start-time (or (:start_time entity) ""))) true
+      :else false)))
+
+(defn- edit-modal-save [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
   (let [id (:id entity)]
     (case type
-      :task (state/update-task id @title @description @tags state/clear-editing-modal)
-      :meet (state/update-meet id @title @description @tags state/clear-editing-modal)
-      :resource (state/update-resource id @title @link @description @tags state/clear-editing-modal)
+      :task (do
+              (when (and due-date (not= @due-date (or (:due_date entity) "")))
+                (state/set-task-due-date id (when (seq @due-date) @due-date)))
+              (when (and due-time (not= @due-time (or (:due_time entity) "")))
+                (state/set-task-due-time id (when (seq @due-time) @due-time)))
+              (state/update-task id @title @description @tags state/clear-editing-modal))
+      :meet (do
+              (when (and start-date (not= @start-date (or (:start_date entity) "")))
+                (state/set-meet-start-date id (when (seq @start-date) @start-date)))
+              (when (and start-time (not= @start-time (or (:start_time entity) "")))
+                (state/set-meet-start-time id (when (seq @start-time) @start-time)))
+              (state/update-meet id @title @description @tags state/clear-editing-modal))
+      :meeting-series (do (state/update-meeting-series id @title @description @tags state/clear-editing-modal)
+                          (state/set-meeting-series-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset nil))
+      :recurring-task (do (state/update-recurring-task id @title @description @tags state/clear-editing-modal)
+                          (state/set-recurring-task-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset @task-type nil))
+      :journal (state/update-journal id @title @description @tags state/clear-editing-modal)
+      :journal-entry (state/update-journal-entry id @title @description @tags state/clear-editing-modal)
+      :resource (state/update-resource id @title (when link @link) @description @tags state/clear-editing-modal)
+      :message (state/update-message id @title @description state/clear-editing-modal)
       (let [category-type (subs (name type) 9)
             update-fn (case category-type
                         "person" state/update-person
@@ -195,74 +380,554 @@
                         "goal" state/update-goal)]
         (update-fn id @title @description @tags @badge-title state/clear-editing-modal)))))
 
+(def ^:private day-keys
+  [{:num "1" :label-key :date/mon}
+   {:num "2" :label-key :date/tue}
+   {:num "3" :label-key :date/wed}
+   {:num "4" :label-key :date/thu}
+   {:num "5" :label-key :date/fri}
+   {:num "6" :label-key :date/sat}
+   {:num "7" :label-key :date/sun}])
+
+(defn- parse-schedule-days [s]
+  (if (or (nil? s) (= s ""))
+    #{}
+    (set (clojure.string/split s #","))))
+
+(defn- serialize-schedule-days [day-set]
+  (clojure.string/join "," (sort day-set)))
+
+(defn- per-day-time? [s]
+  (and (some? s) (clojure.string/includes? s "=")))
+
+(defn- parse-per-day-times [s]
+  (if (or (nil? s) (= s "") (not (per-day-time? s)))
+    {}
+    (into {} (for [pair (clojure.string/split s #",")
+                   :let [[d t] (clojure.string/split pair #"=" 2)]
+                   :when (and d t)]
+               [d t]))))
+
+(defn- serialize-per-day-times [day-time-map]
+  (clojure.string/join "," (for [[d t] (sort-by key day-time-map)] (str d "=" t))))
+
+(defn- shared-time [s]
+  (if (or (nil? s) (per-day-time? s)) "" s))
+
+(defn- parse-time [time-str]
+  (when (seq time-str)
+    (let [[h m] (map js/parseInt (.split time-str ":"))]
+      {:hour h :minute m})))
+
+(defn- format-time [hour minute]
+  (str (.padStart (str hour) 2 "0") ":" (.padStart (str minute) 2 "0")))
+
+(defn- schedule-time-picker [_time-value _on-change]
+  (let [open? (r/atom false)]
+    (fn [time-value on-change]
+      (let [parsed (parse-time time-value)
+            current-hour (:hour parsed)
+            current-minute (:minute parsed)]
+        [:span.time-picker-wrapper
+         {:on-click #(.stopPropagation %)}
+         [:button.clock-icon
+          {:on-click (fn [e]
+                       (.stopPropagation e)
+                       (when (and (not @open?) (not (seq time-value)))
+                         (on-change "09:00"))
+                       (swap! open? not))}
+          (if (seq time-value) time-value "🕐")]
+         (when @open?
+           [:div.time-picker-dropdown
+            {:on-click #(.stopPropagation %)}
+            [:div.time-picker-columns
+             [:div.time-picker-column
+              [:div.time-picker-column-label "H"]
+              [:div.time-picker-values
+               (doall
+                (for [h (range 24)]
+                  ^{:key h}
+                  [:button.time-picker-value
+                   {:class (when (= h current-hour) "selected")
+                    :on-click (fn [e]
+                                (.stopPropagation e)
+                                (on-change (format-time h (or current-minute 0))))}
+                   (.padStart (str h) 2 "0")]))]]
+             [:div.time-picker-column
+              [:div.time-picker-column-label "M"]
+              [:div.time-picker-values
+               (doall
+                (for [m (range 0 60 5)]
+                  ^{:key m}
+                  [:button.time-picker-value
+                   {:class (when (= m current-minute) "selected")
+                    :on-click (fn [e]
+                                (.stopPropagation e)
+                                (on-change (format-time (or current-hour 0) m)))}
+                   (.padStart (str m) 2 "0")]))]]]
+            [:div.time-picker-actions
+             [:button.time-picker-close
+              {:on-click (fn [e]
+                           (.stopPropagation e)
+                           (reset! open? false))}
+              "Done"]]])]))))
+
+(def ^:private month-days
+  (mapv (fn [n] {:num (str n) :label (str n)}) (range 1 29)))
+
+(defn- format-date [js-d]
+  (let [y (.getFullYear js-d)
+        m (.padStart (str (+ 1 (.getMonth js-d))) 2 "0")
+        d (.padStart (str (.getDate js-d)) 2 "0")]
+    (str y "-" m "-" d)))
+
+(defn- today-date-str [] (format-date (js/Date.)))
+
+(defn- scheduling-tab-content []
+  (let [per-day? (r/atom false)
+        day-times (r/atom {})
+        shared-time-val (r/atom "")
+        initialized? (r/atom false)]
+    (fn [_entity schedule-days schedule-time schedule-mode biweekly-offset & [task-type]]
+      (when-not @initialized?
+        (reset! initialized? true)
+        (let [st @schedule-time]
+          (if (per-day-time? st)
+            (do (reset! per-day? true)
+                (reset! day-times (parse-per-day-times st))
+                (reset! shared-time-val ""))
+            (do (reset! per-day? false)
+                (reset! day-times {})
+                (reset! shared-time-val (shared-time st))))))
+      (let [mode @schedule-mode
+            active-days (parse-schedule-days @schedule-days)
+            current-task-type (when task-type @task-type)
+            today-type? (= current-task-type "today")
+            sync-schedule-time! (fn []
+                                  (if (and @per-day? (= mode "weekly"))
+                                    (reset! schedule-time (serialize-per-day-times @day-times))
+                                    (reset! schedule-time @shared-time-val)))
+            set-mode! (fn [new-mode]
+                        (reset! schedule-mode new-mode)
+                        (reset! schedule-days "")
+                        (when (not= new-mode "weekly")
+                          (reset! per-day? false))
+                        (when (= new-mode "biweekly")
+                          (reset! biweekly-offset false))
+                        (sync-schedule-time!))]
+        [:div.scheduling-form
+         (when task-type
+           [:div.schedule-task-type-selector
+            [:label
+             [:input {:type "radio"
+                      :name "task-type"
+                      :checked (not today-type?)
+                      :on-change #(reset! task-type "due_date")}]
+             (str " " (t :scheduling/with-due-date))]
+            [:label
+             [:input {:type "radio"
+                      :name "task-type"
+                      :checked today-type?
+                      :on-change #(reset! task-type "today")}]
+             (str " " (t :scheduling/without-due-date))]])
+         [:div.schedule-mode-selector.toggle-group
+          [:button.toggle-option {:class (when (= mode "weekly") "active")
+                                  :on-click #(set-mode! "weekly")}
+           (t :scheduling/weekly)]
+          [:button.toggle-option {:class (when (= mode "biweekly") "active")
+                                  :on-click #(set-mode! "biweekly")}
+           (t :scheduling/biweekly)]
+          [:button.toggle-option {:class (when (= mode "monthly") "active")
+                                  :on-click #(set-mode! "monthly")}
+           (t :scheduling/monthly)]]
+
+         (case mode
+           "monthly"
+           [:div
+            [:div.schedule-month-days.toggle-group
+             (doall
+              (for [{:keys [num label]} month-days]
+                ^{:key num}
+                [:button.toggle-option.month-day
+                 {:class (when (contains? active-days num) "active")
+                  :on-click (fn [_]
+                              (reset! schedule-days num))}
+                 label]))]
+            (when-not today-type?
+              [:div.schedule-time-row
+               [:label (t :scheduling/time)]
+               [schedule-time-picker
+                @shared-time-val
+                (fn [v]
+                  (reset! shared-time-val v)
+                  (sync-schedule-time!))]])]
+
+           "biweekly"
+           (let [selected-day (first active-days)
+                 offset-val @biweekly-offset
+                 offset-int (if offset-val 1 0)
+                 today-dow (let [d (.getDay (js/Date.))] (if (= d 0) 7 d))
+                 rotated-days (let [idx (dec today-dow)]
+                                (into (subvec day-keys idx) (subvec day-keys 0 idx)))
+                 next-date (when selected-day
+                             (state/next-biweekly-date-from selected-day offset-int (today-date-str)))]
+             [:div
+              [:div.schedule-days.toggle-group
+               (doall
+                (for [{:keys [num label-key]} rotated-days]
+                  ^{:key num}
+                  [:button.toggle-option
+                   {:class (when (contains? active-days num) "active")
+                    :on-click (fn [_]
+                                (reset! schedule-days num))}
+                   (t label-key)]))]
+              (when (:date next-date)
+                [:div.schedule-next-date-row
+                 [:span.schedule-next-date (str (t :scheduling/next-meeting) " " (:date next-date))]])
+              [:div.schedule-offset-row
+               [:label
+                [:input {:type "checkbox"
+                         :checked @biweekly-offset
+                         :on-change (fn [_] (swap! biweekly-offset not))}]
+                (str " " (t :scheduling/offset-week))]]
+              (when-not today-type?
+                [:div.schedule-time-row
+                 [:label (t :scheduling/time)]
+                 [schedule-time-picker
+                  @shared-time-val
+                  (fn [v]
+                    (reset! shared-time-val v)
+                    (sync-schedule-time!))]])])
+
+           [:div
+            [:div.schedule-days.toggle-group
+             (doall
+              (for [{:keys [num label-key]} day-keys]
+                ^{:key num}
+                [:button.toggle-option
+                 {:class (when (contains? active-days num) "active")
+                  :on-click (fn [_]
+                              (let [new-days (if (contains? active-days num)
+                                               (disj active-days num)
+                                               (conj active-days num))]
+                                (reset! schedule-days (serialize-schedule-days new-days))))}
+                 (t label-key)]))]
+            (when-not today-type?
+              [:<>
+               [:div.schedule-per-day-row
+                [:label
+                 [:input {:type "checkbox"
+                          :checked @per-day?
+                          :on-change (fn [_]
+                                       (swap! per-day? not)
+                                       (sync-schedule-time!))}]
+                 (str " " (t :scheduling/per-day))]]
+               (if @per-day?
+                 [:div.schedule-per-day-times
+                  (doall
+                   (for [{:keys [num label-key]} day-keys
+                         :when (contains? active-days num)]
+                     ^{:key num}
+                     [:div.schedule-day-time-row
+                      [:span.schedule-day-label (t label-key)]
+                      [schedule-time-picker
+                       (get @day-times num "")
+                       (fn [v]
+                         (swap! day-times assoc num v)
+                         (sync-schedule-time!))]]))]
+                 [:div.schedule-time-row
+                  [:label (t :scheduling/time)]
+                  [schedule-time-picker
+                   @shared-time-val
+                   (fn [v]
+                     (reset! shared-time-val v)
+                     (sync-schedule-time!))]])])])]))))
+
+(defn- unsaved-changes-modal [{:keys [on-go-back on-discard]}]
+  [:div.modal-overlay
+   [modal-keyboard-shortcut {:on-confirm on-discard :on-escape on-go-back :enabled? true :enter-confirms? true}]
+   [:div.modal {:on-click #(.stopPropagation %)}
+    [:div.modal-header (t :modal/unsaved-changes)]
+    [:div.modal-body
+     [:p (t :modal/unsaved-changes-body)]]
+    [:div.modal-footer
+     [:button.cancel {:on-click on-go-back} (t :modal/go-back)]
+     [:button.confirm-delete {:on-click on-discard} (t :modal/discard)]]]])
+
+(defn- time-tab-content [date-atom time-atom & {:keys [show-time-clear?] :or {show-time-clear? true}}]
+  [:div.time-tab
+   [:div.time-tab-row
+    [:label (t :modal/tab-time-date)]
+    [:div.create-date-picker
+     [:span.date-picker-wrapper
+      [:input.date-picker-input
+       {:type "date"
+        :value (or @date-atom "")
+        :on-change (fn [e]
+                     (let [v (.. e -target -value)]
+                       (reset! date-atom (or v ""))
+                       (when-not (seq v) (reset! time-atom ""))))}]
+      [:button.calendar-icon
+       {:on-click (fn [e]
+                    (.stopPropagation e)
+                    (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+       "📅"]]
+     (when (seq @date-atom)
+       [:p.date-selected-display (date/format-date-with-day @date-atom)])]]
+   (when (seq @date-atom)
+     [:div.time-tab-row
+      [:label (t :modal/tab-time-time)]
+      [:input.time-tab-input
+       {:type "time"
+        :value (or @time-atom "")
+        :on-change #(reset! time-atom (or (.. % -target -value) ""))}]
+      (when (and show-time-clear? (seq @time-atom))
+        [:button.time-tab-clear
+         {:on-click #(reset! time-atom "")}
+         (t :modal/clear)])])])
+
 (defn edit-item-modal []
   (let [fields-state (r/atom nil)
         prev-entity (r/atom nil)
-        active-tab (r/atom :edit)]
+        active-tab (r/atom :edit)
+        confirm-discard? (r/atom false)]
     (fn []
       (if-let [{:keys [type entity tab]} (:editing-modal @state/*app-state)]
         (do
           (when (not= entity @prev-entity)
             (reset! prev-entity entity)
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
-            (reset! active-tab (or tab :edit)))
-          (when-let [{:keys [title description tags link badge-title]} @fields-state]
-            (let [is-category (not (#{:task :meet :resource} type))
+            (reset! active-tab (or tab :edit))
+            (reset! confirm-discard? false))
+          (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]} @fields-state]
+            (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry :message} type))
                   preview-tab-key (case type
-                                    :task :modal/tab-task
-                                    :meet :modal/tab-meet
-                                    :resource :modal/tab-resource
-                                    :modal/tab-category)]
-              [:div.modal-overlay
-               [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
-                [:div.modal-body
-                 [:div.edit-modal-tabs
-                  [:button {:class (when (= @active-tab :preview) "active")
-                            :on-click #(do (reset! active-tab :preview)
-                                           (when-let [path (url/entity->path {:type type :entity entity})]
-                                             (url/replace-state! path)))}
-                   (t preview-tab-key)]
-                  [:button {:class (when (= @active-tab :edit) "active")
-                            :on-click #(do (reset! active-tab :edit)
-                                           (when-let [path (url/entity->path {:type type :entity entity})]
-                                             (url/replace-state! (str path "?section=edit"))))}
-                   (t :modal/edit)]]
-                 (if (= @active-tab :preview)
-                   [:div.edit-modal-preview
-                    [:h2.preview-title @title]
-                    (when (and link (seq @link))
-                      [:a.preview-link {:href @link :target "_blank" :rel "noopener noreferrer"} @link])
-                    [markdown-preview @description]]
-                   [:div.item-edit-form
-                    [:input {:type "text"
-                             :value @title
-                             :on-change #(reset! title (-> % .-target .-value))
-                             :placeholder (if is-category (t :category/name-placeholder) (t :task/title-placeholder))}]
-                    (when link
+                                    (:task :recurring-task) :modal/tab-task
+                                    (:meet :meeting-series) :modal/tab-meet
+                                    (:resource :journal :journal-entry) :modal/tab-resource
+                                    :message :modal/tab-message
+                                    :modal/tab-category)
+                  try-escape (fn []
+                               (if (edit-modal-dirty? @fields-state)
+                                 (reset! confirm-discard? true)
+                                 (state/clear-editing-modal)))]
+              (if @confirm-discard?
+                [unsaved-changes-modal
+                 {:on-go-back #(reset! confirm-discard? false)
+                  :on-discard #(do (reset! confirm-discard? false)
+                                   (state/clear-editing-modal))}]
+                [:div.modal-overlay
+                 [modal-keyboard-shortcut {:on-confirm #(edit-modal-save @fields-state) :on-escape try-escape :enabled? true}]
+                 [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
+                  [:div.modal-body
+                   [:div.edit-modal-tabs
+                    [:button {:class (when (= @active-tab :preview) "active")
+                              :on-click #(do (reset! active-tab :preview)
+                                             (when-let [path (url/entity->path {:type type :entity entity})]
+                                               (url/replace-state! path)))}
+                     (t preview-tab-key)]
+                    [:button {:class (when (= @active-tab :edit) "active")
+                              :on-click #(do (reset! active-tab :edit)
+                                             (when-let [path (url/entity->path {:type type :entity entity})]
+                                               (url/replace-state! (str path "?section=edit"))))}
+                     (t :modal/edit)]
+                    (when (#{:meeting-series :recurring-task} type)
+                      [:button {:class (when (= @active-tab :scheduling) "active")
+                                :on-click #(reset! active-tab :scheduling)}
+                       (t :modal/tab-scheduling)])
+                    (when (#{:task :meet} type)
+                      [:button {:class (when (= @active-tab :time) "active")
+                                :on-click #(reset! active-tab :time)}
+                       (t :modal/tab-time)])]
+                   (case @active-tab
+                     :scheduling
+                     [scheduling-tab-content entity schedule-days schedule-time schedule-mode biweekly-offset
+                      (when (= type :recurring-task) task-type)]
+
+                     :time
+                     (case type
+                       :task [time-tab-content due-date due-time]
+                       :meet [time-tab-content start-date start-time :show-time-clear? false])
+
+                     :preview
+                     [:div.edit-modal-preview
+                      [:h2.preview-title @title]
+                      (when (and link (seq @link))
+                        [:a.preview-link {:href @link :target "_blank" :rel "noopener noreferrer"} @link])
+                      [markdown-preview @description]]
+                     [:div.item-edit-form
                       [:input {:type "text"
-                               :value @link
-                               :on-change #(reset! link (-> % .-target .-value))
-                               :placeholder (t :resources/link-placeholder)}])
-                    (when badge-title
-                      [:input {:type "text"
-                               :value @badge-title
-                               :on-change #(reset! badge-title (-> % .-target .-value))
-                               :placeholder (t :category/badge-title-placeholder)}])
-                    [:input {:type "text"
-                             :value @tags
-                             :on-change #(reset! tags (-> % .-target .-value))
-                             :placeholder (t :task/tags-placeholder)}]
-                    [:textarea {:value @description
-                                :on-change #(reset! description (-> % .-target .-value))
-                                :placeholder (t :task/description-placeholder)
-                                :rows (if (= type :meet) 20 3)}]])]
-                [:div.modal-footer
-                 (when is-category
-                   (let [category-type (subs (name type) 9)]
-                     [:button.confirm-delete
-                      {:on-click #(do (state/clear-editing-modal)
-                                      (state/set-confirm-delete-category category-type entity))}
-                      (t :category/delete)]))
-                 [:button.cancel {:on-click #(state/clear-editing-modal)} (t :modal/cancel)]
-                 [:button.confirm {:on-click #(edit-modal-save @fields-state)} (t :task/save)]]]])))
-        (reset! prev-entity nil)))))
+                               :auto-complete "off"
+                               :value @title
+                               :on-change #(reset! title (-> % .-target .-value))
+                               :placeholder (if is-category (t :category/name-placeholder) (t :task/title-placeholder))}]
+                      (when link
+                        [:input {:type "text"
+                                 :auto-complete "off"
+                                 :value @link
+                                 :on-change #(reset! link (-> % .-target .-value))
+                                 :placeholder (t :resources/link-placeholder)}])
+                      (when badge-title
+                        [:input {:type "text"
+                                 :auto-complete "off"
+                                 :value @badge-title
+                                 :on-change #(reset! badge-title (-> % .-target .-value))
+                                 :placeholder (t :category/badge-title-placeholder)}])
+                      (when tags
+                        [:input {:type "text"
+                                 :auto-complete "off"
+                                 :value @tags
+                                 :on-change #(reset! tags (-> % .-target .-value))
+                                 :placeholder (t :task/tags-placeholder)}])
+                      (if (state/vim-keys?)
+                        [cm-textarea {:value description
+                                      :on-change #(reset! description %)
+                                      :placeholder (t :task/description-placeholder)
+                                      :rows (if (#{:meet :meeting-series :recurring-task} type) 20 3)}]
+                        [:textarea {:value @description
+                                    :on-change #(reset! description (-> % .-target .-value))
+                                    :placeholder (t :task/description-placeholder)
+                                    :rows (if (#{:meet :meeting-series :recurring-task} type) 20 3)}])])]
+                  [:div.modal-footer
+                   (when is-category
+                     (let [category-type (subs (name type) 9)]
+                       [:button.confirm-delete
+                        {:on-click #(do (state/clear-editing-modal)
+                                        (state/set-confirm-delete-category category-type entity))}
+                        (t :category/delete)]))
+                   [:button.cancel {:on-click #(state/clear-editing-modal)} (t :modal/cancel)]
+                   [:button.confirm {:on-click #(edit-modal-save @fields-state)} (t :task/save)]]]]))))
+        (do (reset! prev-entity nil)
+            (reset! confirm-discard? false))))))
+
+(defn create-date-modal []
+  (let [selected-date (r/atom nil)
+        error (r/atom nil)]
+    (fn []
+      (when-let [{:keys [taken-dates loading?]} (state/create-date-modal-state)]
+        (let [taken (or taken-dates #{})
+              date-taken? (contains? taken @selected-date)
+              valid? (and (some? @selected-date) (not date-taken?))]
+          [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! error nil) (state/close-create-date-modal))}
+           [modal-keyboard-shortcut {:on-confirm #(do (state/confirm-create-date-modal @selected-date) (reset! selected-date nil) (reset! error nil))
+                                     :on-escape #(do (reset! selected-date nil) (reset! error nil) (state/close-create-date-modal))
+                                     :enabled? valid?}]
+           [:div.modal.create-date-modal {:on-click #(.stopPropagation %)}
+            [:div.modal-header (t :modal/create-item-header)]
+            [:div.modal-body
+             (if loading?
+               [:div.loading "..."]
+               [:div.create-date-picker
+                [:span.date-picker-wrapper
+                 [:input.date-picker-input
+                  {:type "date"
+                   :value (or @selected-date "")
+                   :on-change (fn [e]
+                                (let [v (.. e -target -value)]
+                                  (reset! selected-date (when (seq v) v))
+                                  (reset! error (when (contains? taken v)
+                                                  (t :modal/date-taken)))))}]
+                 [:button.calendar-icon
+                  {:on-click (fn [e]
+                               (.stopPropagation e)
+                               (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+                  "📅"]]
+                (cond
+                  @error
+                  [:p.date-taken-error @error]
+                  (and @selected-date (not date-taken?))
+                  [:p.date-selected-display (date/format-date-with-day @selected-date)])])]
+            [:div.modal-footer
+             [:button.cancel {:on-click #(do (reset! selected-date nil) (reset! error nil) (state/close-create-date-modal))} (t :modal/cancel)]
+             [:button.confirm {:disabled (not valid?)
+                               :on-click #(do (state/confirm-create-date-modal @selected-date)
+                                              (reset! selected-date nil)
+                                              (reset! error nil))}
+              (t :modal/create)]]]])))))
+
+(defn done-date-modal []
+  (let [selected-date (r/atom nil)
+        prev-task-id (r/atom nil)]
+    (fn []
+      (when-let [task (:done-date-modal @state/*app-state)]
+        (when (not= (:id task) @prev-task-id)
+          (reset! prev-task-id (:id task))
+          (reset! selected-date (when-let [d (:done_at task)] (.substring d 0 10))))
+        (let [today (today-date-str)
+              valid? (some? @selected-date)]
+          [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-done-date-modal))}
+           [modal-keyboard-shortcut {:on-confirm #(when valid?
+                                                   (state/set-task-done-at (:id task) @selected-date)
+                                                   (reset! selected-date nil) (reset! prev-task-id nil) (state/close-done-date-modal))
+                                     :on-escape #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-done-date-modal))
+                                     :enabled? valid?}]
+           [:div.modal {:on-click #(.stopPropagation %)}
+            [:div.modal-header (t :task/change-done-date)]
+            [:div.modal-body
+             [:div.create-date-picker
+              [:span.date-picker-wrapper
+               [:input.date-picker-input
+                {:type "date"
+                 :max today
+                 :value (or @selected-date "")
+                 :on-change (fn [e]
+                              (let [v (.. e -target -value)]
+                                (reset! selected-date (when (seq v) v))))}]
+               [:button.calendar-icon
+                {:on-click (fn [e]
+                             (.stopPropagation e)
+                             (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+                "📅"]]
+              (when @selected-date
+                [:p.date-selected-display (date/format-date-with-day @selected-date)])]]
+            [:div.modal-footer
+             [:button.cancel {:on-click #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-done-date-modal))} (t :modal/cancel)]
+             [:button.confirm {:disabled (not valid?)
+                               :on-click #(do (state/set-task-done-at (:id task) @selected-date)
+                                              (reset! selected-date nil)
+                                              (reset! prev-task-id nil)
+                                              (state/close-done-date-modal))}
+              (t :modal/confirm)]]]])))))
+
+(defn reminder-date-modal []
+  (let [selected-date (r/atom nil)
+        prev-task-id (r/atom nil)]
+    (fn []
+      (when-let [task (:reminder-modal @state/*app-state)]
+        (when (not= (:id task) @prev-task-id)
+          (reset! prev-task-id (:id task))
+          (reset! selected-date (:reminder_date task)))
+        (let [today (today-date-str)
+              changed? (not= @selected-date (:reminder_date task))
+              valid? (or (some? @selected-date) changed?)]
+          [:div.modal-overlay {:on-click #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal))}
+           [modal-keyboard-shortcut {:on-confirm #(do (state/set-task-reminder (:id task) @selected-date) (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal))
+                                     :on-escape #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal))
+                                     :enabled? valid?}]
+           [:div.modal {:on-click #(.stopPropagation %)}
+            [:div.modal-header (t :task/set-reminder)]
+            [:div.modal-body
+             [:div.create-date-picker
+              [:span.date-picker-wrapper
+               [:input.date-picker-input
+                {:type "date"
+                 :min today
+                 :value (or @selected-date "")
+                 :on-change (fn [e]
+                              (let [v (.. e -target -value)]
+                                (reset! selected-date (when (seq v) v))))}]
+               [:button.calendar-icon
+                {:on-click (fn [e]
+                             (.stopPropagation e)
+                             (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
+                "📅"]]
+              (when @selected-date
+                [:p.date-selected-display (date/format-date-with-day @selected-date)])]]
+            [:div.modal-footer
+             [:button.cancel {:on-click #(do (reset! selected-date nil) (reset! prev-task-id nil) (state/close-reminder-modal))} (t :modal/cancel)]
+             [:button.confirm {:disabled (not valid?)
+                               :on-click #(do (state/set-task-reminder (:id task) @selected-date)
+                                              (reset! selected-date nil)
+                                              (reset! prev-task-id nil)
+                                              (state/close-reminder-modal))}
+              (t :modal/confirm)]]]])))))

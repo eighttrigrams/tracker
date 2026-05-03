@@ -5,8 +5,11 @@
 (defn jwt-secret []
   (or (System/getenv "ADMIN_PASSWORD") "dev-secret"))
 
-(defn create-token [user-id username is-admin]
-  (jwt/sign {:user-id user-id :username username :is-admin is-admin} (jwt-secret)))
+(defn create-token
+  ([user-id username is-admin has-mail]
+   (create-token {:user-id user-id :username username :is-admin is-admin :has-mail has-mail}))
+  ([claims]
+   (jwt/sign claims (jwt-secret))))
 
 (defn verify-token [token]
   (try

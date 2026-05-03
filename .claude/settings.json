@@ -3,6 +3,8 @@
     "allow": [
       "Bash(make start)",
       "Bash(make test)",
+      "Bash(make stop)",
+      "Bash(make e2e-docker:*)",
       "Bash(clj -X:test)",
       "mcp__playwright__browser_wait_for",
       "mcp__playwright__browser_navigate",
@@ -25,6 +27,7 @@
       "Bash(git commit:*)",
       "Bash(gh issue list:*)",
       "Bash(ls:*)",
+      "Bash(for:*)",
       "Skill(develop-ui)",
       "Skill(write-e2e-tests)",
       "Skill(writing-clojure:using-the-repl-to-eval-clojure-code)",
@@ -35,16 +38,17 @@
       "Edit(src/**)",
       "Write(src/**)",
       "Edit(test/**)",
-      "Write(test/**)"
+      "Write(test/**)",
+      "Read(//var/folders/**/NSIRD_screencaptureui_*/**)"
     ],
     "ask": [
       "Bash(git push:*)"
     ]
   },
   "enabledPlugins": {
-    "writing-clojure@claude-stuff": true,
-    "architecture@claude-stuff": true,
-    "tools@claude-stuff": true
+    "writing-clojure@eighttrigrams": true,
+    "architecture@eighttrigrams": true,
+    "tools@eighttrigrams": true
   },
   "extraKnownMarketplaces": {
     "claude-stuff": {

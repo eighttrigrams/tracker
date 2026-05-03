@@ -19,6 +19,9 @@
         true)
       false)))
 
+(defn reset-rate-limit! []
+  (reset! request-log []))
+
 (defn wrap-rate-limit
   [handler max-requests window-seconds]
   (let [window-ms (* window-seconds 1000)]

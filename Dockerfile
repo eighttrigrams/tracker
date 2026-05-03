@@ -10,6 +10,9 @@ COPY resources ./resources
 
 RUN npm install
 RUN npx shadow-cljs release app
+
+ARG CACHE_BUST=dev
+RUN sed -i "s/__CACHE_BUST__/${CACHE_BUST}/g" resources/public/index.html
 RUN clj -Sdeps '{:mvn/local-repo "./.m2/repository"}' -T:build uber
 
 FROM eclipse-temurin:21-jre-alpine AS runtime

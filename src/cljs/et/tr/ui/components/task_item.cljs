@@ -1,5 +1,6 @@
 (ns et.tr.ui.components.task-item
   (:require [reagent.core :as r]
+            [clojure.string :as str]
             [et.tr.ui.state :as state]
             [et.tr.ui.components.category-selector :as category-selector]
             [et.tr.ui.components.relation-badges :as relation-badges]
@@ -10,6 +11,46 @@
 (defn markdown [text]
   [:div.markdown-content
    {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
+
+(defn- markdown-blocks [text]
+  (str/split (or text "") #"\r?\n\r?\n+"))
+
+(defn clampable-description [_]
+  (let [expanded? (r/atom false)]
+    (fn [{:keys [text on-click]}]
+      (let [blocks (markdown-blocks text)
+            needs-clamp? (> (count blocks) 10)
+            visible (if (and needs-clamp? (not @expanded?))
+                      (str/join "\n\n" (take 10 blocks))
+                      text)]
+        [:<>
+         [:div.item-description
+          {:on-click (fn [e]
+                       (when (.. js/window getSelection -isCollapsed)
+                         (.stopPropagation e)
+                         (when on-click (on-click))))}
+          [markdown visible]]
+         (when (and needs-clamp? (not @expanded?))
+           [:span.see-more
+            {:on-click (fn [e]
+                         (.stopPropagation e)
+                         (reset! expanded? true))}
+            "See more"])]))))
+
+(defn inline-title-edit [{:keys [title on-change on-commit on-cancel]}]
+  [:input.inline-title-edit
+   {:type "text"
+    :auto-complete "off"
+    :auto-focus true
+    :value title
+    :on-click #(.stopPropagation %)
+    :on-change #(on-change (.. % -target -value))
+    :on-key-down (fn [e]
+                   (case (.-key e)
+                     "Enter" (do (.stopPropagation e) (on-commit))
+                     "Escape" (do (.stopPropagation e) (on-cancel))
+                     nil))
+    :on-blur (fn [_] (on-commit))}])
 
 (defn category-badges [{:keys [item category-types toggle-fn has-filter-fn]}]
   (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]
@@ -115,47 +156,122 @@
    [task-scope-selector task]
    (when show-importance?
      [task-importance-selector task])
-   (when show-urgency?
+   (when (and show-urgency? (not (:due_date task)))
      [task-urgency-selector task])])
 
-(defn task-combined-action-button [task]
-  [:div.combined-button-wrapper
-   [:button.combined-main-btn
-    {:class (if (state/task-done? task) "undone" "done")
-     :on-click #(state/set-task-done (:id task) (not (state/task-done? task)))}
-    (if (state/task-done? task)
-      (t :task/set-undone)
-      (t :task/mark-done))]
-   [:button.combined-dropdown-btn
-    {:class (if (state/task-done? task) "undone" "done")
-     :on-click #(state/set-task-dropdown-open (:id task))}
-    "▼"]
-   (when (= (:id task) (:task-dropdown-open @state/*app-state))
-     [:div.task-dropdown-menu
-      [:button.dropdown-item
-       {:on-click #(do
-                     (state/set-task-dropdown-open nil)
-                     (state/set-confirm-delete-task task))}
-       (t :task/delete)]])])
+(defn task-combined-action-button [task & {:keys [extra-dropdown-items]}]
+  (if (= "active" (:reminder task))
+    [:div.combined-button-wrapper
+     [:button.combined-main-btn.acknowledge-reminder
+      {:on-click #(state/acknowledge-task-reminder (:id task))}
+      (t :task/acknowledge-reminder)]]
+    [:div.combined-button-wrapper
+     [:button.combined-main-btn
+      {:class (if (state/task-done? task) "undone" "done")
+       :on-click #(if (state/task-done? task)
+                    (state/set-confirm-undone-task task)
+                    (state/set-task-done (:id task) true))}
+      (if (state/task-done? task)
+        (t :task/set-undone)
+        (t :task/mark-done))]
+     [:button.combined-dropdown-btn
+      {:class (if (state/task-done? task) "undone" "done")
+       :on-click #(state/set-task-dropdown-open (:id task))}
+      "▼"]
+     (when (= (:id task) (:task-dropdown-open @state/*app-state))
+       [:div.task-dropdown-menu
+        (when extra-dropdown-items
+          extra-dropdown-items)
+        (if (state/task-done? task)
+          [:button.dropdown-item
+           {:on-click #(do
+                         (state/set-task-dropdown-open nil)
+                         (state/open-done-date-modal task))}
+           (t :task/change-done-date)]
+          [:button.dropdown-item.set-reminder
+           {:on-click #(do
+                         (state/set-task-dropdown-open nil)
+                         (state/open-reminder-modal task))}
+           (t :task/set-reminder)])
+        [:button.dropdown-item
+         {:on-click #(do
+                       (state/set-task-dropdown-open nil)
+                       (state/set-confirm-delete-task task))}
+         (t :task/delete)]])]))
+
+(defn- parse-time [time-str]
+  (when (seq time-str)
+    (let [[h m] (map js/parseInt (.split time-str ":"))]
+      {:hour h :minute m})))
+
+(defn- format-time [hour minute]
+  (str (.padStart (str hour) 2 "0") ":" (.padStart (str minute) 2 "0")))
+
+(defn- current-time-default []
+  (let [now (js/Date.)
+        m (.getMinutes now)
+        rounded (* 5 (js/Math.round (/ m 5)))]
+    (format-time (.getHours now) (mod rounded 60))))
+
+(defn generic-time-picker [_entity & _opts]
+  (let [open? (r/atom false)
+        close! (fn [] (reset! open? false))]
+    (fn [entity & {:keys [show-clear? time-key on-change] :or {show-clear? false time-key :due_time on-change nil}}]
+      (let [on-change (or on-change #(state/set-task-due-time (:id entity) %))
+            time-val (get entity time-key)
+            parsed (parse-time time-val)
+            current-hour (:hour parsed)
+            current-minute (:minute parsed)]
+        [:span.time-picker-wrapper
+         {:on-click #(.stopPropagation %)}
+         [:button.clock-icon {:on-click (fn [e]
+                                          (.stopPropagation e)
+                                          (when (and (not @open?) (not (seq time-val)))
+                                            (on-change (current-time-default)))
+                                          (swap! open? not))}
+          "🕐"]
+         (when @open?
+           [:div.time-picker-dropdown
+            {:on-click #(.stopPropagation %)}
+            [:div.time-picker-columns
+             [:div.time-picker-column
+              [:div.time-picker-column-label "H"]
+              [:div.time-picker-values
+               (for [h (range 24)]
+                 ^{:key h}
+                 [:button.time-picker-value
+                  {:class (when (= h current-hour) "selected")
+                   :on-click (fn [e]
+                               (.stopPropagation e)
+                               (on-change (format-time h (or current-minute 0))))}
+                  (.padStart (str h) 2 "0")])]]
+             [:div.time-picker-column
+              [:div.time-picker-column-label "M"]
+              [:div.time-picker-values
+               (for [m (range 0 60 5)]
+                 ^{:key m}
+                 [:button.time-picker-value
+                  {:class (when (= m current-minute) "selected")
+                   :on-click (fn [e]
+                               (.stopPropagation e)
+                               (on-change (format-time (or current-hour 0) m)))}
+                  (.padStart (str m) 2 "0")])]]]
+            [:div.time-picker-actions
+             (when (and show-clear? (seq time-val))
+               [:button.time-picker-clear
+                {:on-click (fn [e]
+                             (.stopPropagation e)
+                             (on-change nil)
+                             (close!))}
+                "Clear"])
+             [:button.time-picker-close
+              {:on-click (fn [e]
+                           (.stopPropagation e)
+                           (close!))}
+              "Done"]]])]))))
 
 (defn time-picker [task & {:keys [show-clear?] :or {show-clear? false}}]
-  [:span.time-picker-wrapper
-   {:on-click #(.stopPropagation %)}
-   [:input.time-picker-input
-    {:type "time"
-     :value (or (:due_time task) "")
-     :on-change (fn [e]
-                  (let [v (.. e -target -value)]
-                    (state/set-task-due-time (:id task) (when (seq v) v))))}]
-   [:button.clock-icon {:on-click (fn [e]
-                                    (.stopPropagation e)
-                                    (-> e .-currentTarget .-parentElement (.querySelector "input") .showPicker))}
-    "🕐"]
-   (when (and show-clear? (seq (:due_time task)))
-     [:button.clear-time {:on-click (fn [e]
-                                      (.stopPropagation e)
-                                      (state/set-task-due-time (:id task) nil))}
-      "✕"])])
+  [generic-time-picker task :show-clear? show-clear?])
 
 (defn item-edit-form
   [{:keys [title-atom description-atom tags-atom
@@ -164,6 +280,7 @@
            on-save on-cancel on-delete]}]
   [:div.item-edit-form
    [:input {:type "text"
+            :auto-complete "off"
             :value @title-atom
             :on-change #(reset! title-atom (-> % .-target .-value))
             :placeholder title-placeholder}]
@@ -173,11 +290,13 @@
                :rows 3}]
    (when tags-atom
      [:input {:type "text"
+              :auto-complete "off"
               :value @tags-atom
               :on-change #(reset! tags-atom (-> % .-target .-value))
               :placeholder tags-placeholder}])
    (when badge-title-atom
      [:input {:type "text"
+              :auto-complete "off"
               :value @badge-title-atom
               :on-change #(reset! badge-title-atom (-> % .-target .-value))
               :placeholder badge-title-placeholder}])
@@ -225,6 +344,30 @@
         :on-categorize #(state/categorize-task (:id task*) category-type* %)
         :on-uncategorize #(state/uncategorize-task (:id task*) category-type* %)
         :on-close-focus-fn state/focus-tasks-search
+        :open-selector-state (:category-selector/open @state/*app-state)
+        :search-state (:category-selector/search @state/*app-state)
+        :open-selector-fn state/open-category-selector
+        :close-selector-fn state/close-category-selector
+        :set-search-fn state/set-category-selector-search}])))
+
+(defn meet-category-selector [_meet _category-type _entities _label]
+  (fn [meet* category-type* entities* label*]
+    (let [current (case category-type*
+                    state/CATEGORY-TYPE-PERSON (:people meet*)
+                    state/CATEGORY-TYPE-PLACE (:places meet*)
+                    state/CATEGORY-TYPE-PROJECT (:projects meet*)
+                    state/CATEGORY-TYPE-GOAL (:goals meet*)
+                    [])]
+      [category-selector/category-selector
+       {:entity meet*
+        :entity-id-key :id
+        :category-type category-type*
+        :entities entities*
+        :label label*
+        :current-categories current
+        :on-categorize #(state/categorize-meet (:id meet*) category-type* %)
+        :on-uncategorize #(state/uncategorize-meet (:id meet*) category-type* %)
+        :on-close-focus-fn nil
         :open-selector-state (:category-selector/open @state/*app-state)
         :search-state (:category-selector/search @state/*app-state)
         :open-selector-fn state/open-category-selector

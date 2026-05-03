@@ -2,6 +2,7 @@
   (:require [ajax.core :refer [GET POST]]
             [clojure.string :as str]
             [reagent.core :as r]
+            [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
             [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
 
@@ -10,6 +11,9 @@
                                         :confirm-delete-resource nil
                                         :filter-search ""
                                         :importance-filter nil
+                                        :domain-filter nil
+                                        :excluded-domains #{}
+                                        :sort-mode :recent
                                         :fetch-request-id 0}))
 
 (defn- ids->names [ids collection]
@@ -19,20 +23,25 @@
 
 (defn fetch-resources [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *resources-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals]} opts
+        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode]} opts
         people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
         goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
+        domain (:domain opts)
+        excluded-domains (:excluded-domains opts)
         url (cond-> "/api/resources?"
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
               importance (str "importance=" (name importance) "&")
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
+              (seq domain) (str "domain=" (js/encodeURIComponent domain) "&")
+              (seq excluded-domains) (str "excludedDomains=" (js/encodeURIComponent (str/join "," excluded-domains)) "&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
-              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&"))]
+              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&")
+              sort-mode (str "sortMode=" (name sort-mode) "&"))]
     (GET url
       {:response-format :json
        :keywords? true
@@ -87,10 +96,13 @@
     (fn [result]
       (swap! app-state update :resources
              (fn [resources]
-               (mapv #(if (= (:id %) resource-id)
-                        (assoc % :scope (:scope result))
-                        %)
-                     resources))))
+               (let [mode (:work-private-mode @app-state)
+                     strict? (:strict-mode @app-state)]
+                 (->> resources
+                      (mapv #(if (= (:id %) resource-id)
+                               (assoc % :scope (:scope result))
+                               %))
+                      (filterv #(filters/matches-scope? % mode strict?)))))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
@@ -151,8 +163,31 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add resource")))}))
 
+(defn set-drag-resource [app-state resource-id]
+  (swap! app-state assoc :drag-resource resource-id))
+
+(defn set-drag-over-resource [app-state resource-id]
+  (swap! app-state assoc :drag-over-resource resource-id))
+
+(defn clear-resource-drag-state [app-state]
+  (swap! app-state assoc :drag-resource nil :drag-over-resource nil))
+
+(defn reorder-resource [app-state auth-headers fetch-resources-fn resource-id target-resource-id position]
+  (api/post-json (str "/api/resources/" resource-id "/reorder")
+    {:target-resource-id target-resource-id :position position}
+    (auth-headers)
+    (fn [_]
+      (clear-resource-drag-state app-state)
+      (fetch-resources-fn))
+    (fn [resp]
+      (clear-resource-drag-state app-state)
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder resource")))))
+
 (defn set-expanded-resource [id]
-  (swap! *resources-page-state assoc :expanded-resource id :editing-resource nil))
+  (swap! *resources-page-state assoc :expanded-resource id :editing-resource nil)
+  (when (nil? id)
+    (js/setTimeout #(when-let [el (.getElementById js/document "resources-filter-search")]
+                      (.focus el #js {:preventScroll true})) 0)))
 
 (defn set-editing-resource [id]
   (swap! *resources-page-state assoc :editing-resource id))
@@ -170,12 +205,36 @@
   (swap! *resources-page-state assoc :filter-search search-term)
   (fetch-resources-fn))
 
+(defn set-sort-mode [fetch-resources-fn mode]
+  (swap! *resources-page-state assoc :sort-mode mode)
+  (fetch-resources-fn))
+
 (defn set-importance-filter [fetch-resources-fn level]
   (swap! *resources-page-state assoc :importance-filter level)
   (fetch-resources-fn))
 
+(defn set-domain-filter [fetch-resources-fn domain]
+  (swap! *resources-page-state assoc :domain-filter domain :excluded-domains #{})
+  (fetch-resources-fn))
+
+(defn clear-domain-filter [fetch-resources-fn]
+  (swap! *resources-page-state assoc :domain-filter nil)
+  (fetch-resources-fn))
+
+(defn toggle-excluded-domain [fetch-resources-fn domain]
+  (swap! *resources-page-state update :excluded-domains
+         (fn [excluded]
+           (if (contains? excluded domain)
+             (disj excluded domain)
+             (conj excluded domain))))
+  (fetch-resources-fn))
+
+(defn clear-excluded-domain [fetch-resources-fn domain]
+  (swap! *resources-page-state update :excluded-domains disj domain)
+  (fetch-resources-fn))
+
 (defn clear-all-resource-filters [fetch-resources-fn]
-  (swap! *resources-page-state assoc :filter-search "" :importance-filter nil)
+  (swap! *resources-page-state assoc :filter-search "" :importance-filter nil :domain-filter nil :excluded-domains #{})
   (fetch-resources-fn))
 
 (defn reset-resources-page-view-state! []

@@ -15,7 +15,11 @@ build:
 	clj -T:build uber
 
 test:
-	clj -X:test
+ifdef NS
+	DEV=true clojure -M:test -n $(NS)
+else
+	DEV=true clj -X:test
+endif
 
 e2e:
 	./scripts/stop.sh && npx shadow-cljs release app && npx bddgen && npx playwright test
@@ -26,8 +30,8 @@ e2e-docker:
 lint:
 	clj-kondo --lint src/clj src/cljc test/clj
 
-deploy:
-	fly deploy
+deploy: e2e-docker backup
+	fly deploy --build-arg CACHE_BUST=$$(git rev-parse --short HEAD)
 
 clean:
 	rm -rf target node_modules .shadow-cljs resources/public/js

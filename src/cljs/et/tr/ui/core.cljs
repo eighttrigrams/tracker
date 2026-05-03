@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.modals :as modals]
+            [et.tr.ui.recording-mode :as recording-mode]
             [et.tr.ui.mail :as mail]
             [et.tr.ui.views.settings :as settings]
             [et.tr.ui.views.users :as users]
@@ -11,6 +12,11 @@
             [et.tr.ui.views.categories :as categories]
             [et.tr.ui.views.resources :as resources]
             [et.tr.ui.views.meets :as meets]
+            [et.tr.ui.views.reports :as reports]
+            [et.tr.ui.state.mail :as mail-state]
+            [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
+            [et.tr.ui.state.journals :as journals-state]
+            [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.components.controls :as controls]
             [et.tr.i18n :as i18n :refer [t]]))
 
@@ -22,17 +28,13 @@
                        (state/login @username @password
                                     (fn []
                                       (reset! username "")
-                                      (reset! password "")
-                                      (state/fetch-tasks)
-                                      (state/fetch-people)
-                                      (state/fetch-places)
-                                      (state/fetch-projects)
-                                      (state/fetch-goals))))]
+                                      (reset! password ""))))]
         [:div.login-form
          [:h2 (t :auth/login)]
          (when-let [error (:error @state/*app-state)]
            [:div.error error [:button.error-dismiss {:on-click state/clear-error} "×"]])
          [:input {:type "text"
+                  :auto-complete "off"
                   :placeholder (t :auth/username)
                   :value @username
                   :on-change #(reset! username (-> % .-target .-value))
@@ -63,25 +65,36 @@
 
 (defn tabs []
   (let [active-tab (:active-tab @state/*app-state)]
-    [:div.tabs
-     [tab-button active-tab :today :nav/today]
-     [tab-button active-tab :tasks :nav/tasks]
-     [tab-button active-tab :resources :nav/resources]
-     [tab-button active-tab :meets :nav/meets]
-     [tab-button active-tab :categories :nav/categories
-      #(contains? #{:categories :people-places :projects-goals} %)]
-     (when (state/is-admin?)
-       [tab-button active-tab :mail :nav/mail])]))
+    (if (state/is-admin?)
+      [:div.tabs
+       [tab-button active-tab :users :nav/users]]
+      [:div.tabs
+       [tab-button active-tab :today :nav/today]
+       [tab-button active-tab :tasks :nav/tasks]
+       [tab-button active-tab :meets :nav/meets]
+       [tab-button active-tab :resources :nav/resources]
+       [tab-button active-tab :reports :nav/reports]
+       (when (state/has-mail?)
+         [tab-button active-tab :mail :nav/mail])])))
 
 (defn- any-modal-open? []
   (or (:pending-new-item @state/*app-state)
       (:editing-modal @state/*app-state)
+      (:confirm-undone-task @state/*app-state)
       (:confirm-delete-task @state/*app-state)
       (:confirm-delete-user @state/*app-state)
       (:confirm-delete-category @state/*app-state)
       (:confirm-delete-message @state/*app-state)
+      (:confirm-delete-all-archived @mail-state/*mail-page-state)
       (:confirm-delete-resource @state/*app-state)
-      (:confirm-delete-meet @state/*app-state)))
+      (:confirm-delete-meet @state/*app-state)
+      (:confirm-delete-rtask @recurring-tasks-state/*recurring-tasks-page-state)
+      (:confirm-delete-journal @journals-state/*journals-page-state)
+      (:confirm-delete-entry @journal-entries-state/*journal-entries-page-state)
+      (:today-page/confirm-move-to-today @state/*app-state)
+      (:create-date-modal @state/*app-state)
+      (:reminder-modal @state/*app-state)
+      (:done-date-modal @state/*app-state)))
 
 (defn- body-scroll-lock []
   (let [modal-open? (any-modal-open?)]
@@ -94,14 +107,25 @@
   (let [{:keys [auth-required? logged-in? active-tab]} @state/*app-state]
     [:div
      (body-scroll-lock)
+     [recording-mode/indicator]
+     [modals/confirm-undone-modal]
      [modals/confirm-delete-modal]
      [modals/confirm-delete-user-modal]
      [modals/confirm-delete-category-modal]
      [modals/confirm-delete-message-modal]
+     [modals/confirm-delete-all-archived-modal]
+     [modals/confirm-delete-archived-below-modal]
      [modals/confirm-delete-resource-modal]
      [modals/confirm-delete-meet-modal]
+     [modals/confirm-delete-meeting-series-modal]
+     [modals/confirm-delete-recurring-task-modal]
+     [modals/confirm-delete-journal-modal]
+     [modals/confirm-delete-journal-entry-modal]
      [modals/pending-item-modal]
      [modals/edit-item-modal]
+     [modals/create-date-modal]
+     [modals/reminder-date-modal]
+     [modals/done-date-modal]
      (cond
        (nil? auth-required?)
        [:div (t :auth/loading)]
@@ -116,11 +140,10 @@
         [:div.top-bar
          [tabs]
          [:div.top-bar-right
-          (when (contains? #{:today :tasks :resources :meets} active-tab)
-            [controls/work-private-toggle])
-          (when (contains? #{:tasks :resources :meets} active-tab)
+          (when (contains? #{:tasks :resources :meets :reports} active-tab)
             [controls/relation-mode-toggle])
-          [controls/dark-mode-toggle]
+          (when (contains? #{:today :tasks :resources :meets :mail :reports} active-tab)
+            [controls/work-private-toggle])
           [controls/user-info]]]
         (case active-tab
           :today [today/today-tab]
@@ -129,19 +152,38 @@
           :categories [categories/categories-tab]
           :people-places [categories/categories-tab]
           :projects-goals [categories/categories-tab]
+          :reports [reports/reports-tab]
           :mail [mail/mail-page]
           :users [users/users-tab]
           :settings [settings/settings-tab]
-          ;; Tasks tab layout: main-layout > [sidebar + main-content > [header + search + list]]
-          [:div.main-layout
-           [tasks/sidebar-filters]
-           [:div.main-content
-            [:div.tasks-header
-             [:h2 {:title (t :tasks/title-tooltip)} (t :tasks/title)]
-             [tasks/importance-filter-toggle]
-             [tasks/sort-mode-toggle]]
-            [tasks/combined-search-add-form]
-            [tasks/tasks-list]]])])]))
+          (let [recurring-mode (state/recurring-mode?)
+                recurring-filter (state/recurring-filter)]
+            [:div.main-layout
+             [tasks/sidebar-filters]
+             [:div.main-content
+              [:div.tasks-header
+               [tasks/recurring-toggle]
+               (when-not recurring-mode
+                 [tasks/reminder-filter-toggle])
+               (when-not recurring-mode
+                 [tasks/importance-filter-toggle])
+               (when-not recurring-mode
+                 [tasks/sort-mode-toggle])]
+              (cond
+                recurring-mode
+                [:<>
+                 [tasks/recurring-search-add-form]
+                 [tasks/recurring-tasks-list]]
+
+                recurring-filter
+                [:<>
+                 [tasks/recurring-filter-bar]
+                 [tasks/tasks-list]]
+
+                :else
+                [:<>
+                 [tasks/combined-search-add-form]
+                 [tasks/tasks-list]])]]))])]))
 
 (defn- handle-keyboard-shortcuts [e]
   (when-not (any-modal-open?)
@@ -150,9 +192,15 @@
           tasks-shortcut-keys (tasks/get-tasks-category-shortcut-keys)
           today-shortcut-keys (today/get-today-category-shortcut-keys)
           resources-shortcut-keys (resources/get-resources-category-shortcut-keys)
-          meets-shortcut-keys (meets/get-meets-category-shortcut-keys)]
+          meets-shortcut-keys (meets/get-meets-category-shortcut-keys)
+          reports-shortcut-keys (reports/get-reports-category-shortcut-keys)]
       (when (.-altKey e)
       (cond
+        (and (.-shiftKey e) (= "KeyW" code))
+        (do
+          (.preventDefault e)
+          (recording-mode/toggle!))
+
         (= "KeyT" code)
         (do
           (.preventDefault e)
@@ -178,7 +226,8 @@
             (= :today active-tab) (state/clear-uncollapsed-today-filters)
             (= :mail active-tab) (state/clear-all-mail-filters)
             (= :resources active-tab) (state/clear-uncollapsed-resource-filters)
-            (= :meets active-tab) (state/clear-uncollapsed-meet-filters)))
+            (= :meets active-tab) (state/clear-uncollapsed-meet-filters)
+            (= :reports active-tab) (state/clear-uncollapsed-report-filters)))
 
         (= :tasks active-tab)
         (when-let [filter-key (tasks-shortcut-keys code)]
@@ -198,7 +247,12 @@
         (= :meets active-tab)
         (when-let [filter-key (meets-shortcut-keys code)]
           (.preventDefault e)
-          (state/toggle-meets-filter-collapsed filter-key)))))))
+          (state/toggle-meets-filter-collapsed filter-key))
+
+        (= :reports active-tab)
+        (when-let [filter-key (reports-shortcut-keys code)]
+          (.preventDefault e)
+          (state/toggle-reports-filter-collapsed filter-key)))))))
 
 (defn init []
   (i18n/load-translations!

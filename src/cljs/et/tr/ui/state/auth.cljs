@@ -23,19 +23,26 @@
   (let [lang (or (:language user) "en")]
     (i18n/set-language! lang)))
 
-(defn fetch-auth-required [app-state _auth-headers _initial-collection-state fetch-all-fn]
+(defn fetch-auth-required [app-state _auth-headers _initial-collection-state fetch-all-fn
+                           & {:keys [on-skip-logins]}]
   (GET "/api/auth/required"
     {:response-format :json
      :keywords? true
      :handler (fn [resp]
                 (swap! app-state assoc :auth-required? (:required resp))
                 (if-not (:required resp)
-                  (let [admin-user {:id nil :username "admin" :is_admin true :language "en"}]
-                    (swap! app-state assoc
-                           :logged-in? true
-                           :current-user admin-user)
-                    (apply-user-language admin-user)
-                    (fetch-all-fn admin-user))
+                  (GET "/api/auth/available-users"
+                    {:response-format :json
+                     :keywords? true
+                     :handler (fn [users]
+                                (let [regular-user (first (remove :is_admin users))
+                                      selected-user (or regular-user {:id nil :username "admin" :is_admin true :has_mail false :language "en"})]
+                                  (swap! app-state assoc
+                                         :logged-in? true
+                                         :current-user selected-user
+                                         :available-users users)
+                                  (apply-user-language selected-user)
+                                  (fetch-all-fn selected-user)))})
                   (let [{:keys [token user]} (load-auth-from-storage)]
                     (when (and token user)
                       (swap! app-state assoc
@@ -45,7 +52,7 @@
                       (apply-user-language user)
                       (fetch-all-fn user)))))}))
 
-(defn login [app-state fetch-messages-fn fetch-users-fn username password on-success]
+(defn login [app-state username password on-success]
   (POST "/api/auth/login"
     {:params {:username username :password password}
      :format :json
@@ -61,10 +68,7 @@
                          :error nil)
                   (save-auth-to-storage token user)
                   (apply-user-language user)
-                  (when on-success (on-success))
-                  (when (:is_admin user)
-                    (fetch-messages-fn)
-                    (fetch-users-fn))))
+                  (when on-success (on-success))))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Invalid credentials")))}))
 
@@ -75,7 +79,8 @@
          {:logged-in? false
           :token nil
           :current-user nil
-          :users []}))
+          :users []
+          :active-tab :today}))
 
 (defn update-user-language [app-state auth-headers language]
   (api/put-json "/api/user/language" {:language language} (auth-headers)
@@ -87,3 +92,13 @@
         (save-auth-to-storage token user)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update language")))))
+
+(defn update-vim-keys [app-state auth-headers enabled]
+  (api/put-json "/api/user/vim-keys" {:vim_keys (if enabled 1 0)} (auth-headers)
+    (fn [_]
+      (swap! app-state update :current-user assoc :vim_keys (if enabled 1 0))
+      (let [user (:current-user @app-state)
+            token (:token @app-state)]
+        (save-auth-to-storage token user)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update setting")))))

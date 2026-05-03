@@ -5,7 +5,7 @@
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  padding: 4px;
+  padding: 2px;
   border-radius: 10px;
   border: 1px solid var(--glass-border);
   position: relative;
@@ -16,7 +16,7 @@
   color: var(--text-secondary);
   padding: 0 12px;
 }
-.logout-btn, .users-btn {
+.users-btn {
   padding: 8px 16px;
   background: transparent;
   border: none;
@@ -26,7 +26,28 @@
   border-radius: 8px;
   transition: all 0.2s ease;
 }
-.logout-btn:hover, .users-btn:hover {
+.users-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-subtle);
+  transform: none;
+}
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.logout-btn:hover {
   color: var(--text-primary);
   background: var(--surface-subtle);
   transform: none;
@@ -76,7 +97,7 @@
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   min-width: 150px;
-  z-index: 100;
+  z-index: 1000;
   overflow: hidden;
 }
 .user-switcher-item {
@@ -151,22 +172,46 @@
 .login-form button {
   width: 100%;
 }
-.username-btn, .settings-btn {
-  padding: 8px 16px;
+.categories-btn {
   background: transparent;
   border: none;
   color: var(--text-secondary);
   font-size: 0.9em;
-  font-weight: 500;
+  padding: 6px 12px;
   border-radius: 8px;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
-.username-btn:hover, .settings-btn:hover {
+.categories-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-subtle);
+}
+.categories-btn.active {
+  color: white;
+  background: var(--accent);
+}
+.settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.6em;
+  line-height: 1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.settings-btn:hover {
   color: var(--text-primary);
   background: var(--surface-subtle);
   transform: none;
 }
-.username-btn.active, .settings-btn.active {
+.settings-btn.active {
   color: white;
   background: var(--accent);
 }

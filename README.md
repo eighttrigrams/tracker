@@ -4,6 +4,8 @@ Task Tracker | Scheduler | Planner
 
 https://tracker-ibh-lq.fly.dev/
 
+Tracker's ontology: https://personalist.org/nolmev-tintep
+
 ## Quickstart
 
 Run

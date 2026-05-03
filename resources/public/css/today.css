@@ -17,6 +17,106 @@
   font-size: 1em;
   font-weight: 600;
 }
+.today-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.today-section-header h3 {
+  margin: 0 0 12px 0;
+}
+.today-subsection {
+  margin-bottom: 16px;
+}
+.today-subsection:last-child {
+  margin-bottom: 0;
+}
+.today-subsection h4 {
+  margin: 0 0 8px 0;
+  font-size: 1em;
+}
+.today-subsection-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.today-subsection-header h4 {
+  margin: 0;
+}
+.today-link-btn {
+  font-size: 1.2em;
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.today-link-btn.has-source {
+  background: #ff9500;
+  color: white;
+  border-color: #ff9500;
+}
+.today-link-btn:hover {
+  background: var(--accent);
+  color: white;
+  transform: none;
+}
+.today-add-btn {
+  font-size: 1.2em;
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.today-add-btn:hover {
+  background: var(--accent);
+  color: white;
+  transform: none;
+}
+.today-add-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.today-add-input {
+  padding: 6px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 0.9em;
+  outline: none;
+  width: 200px;
+}
+.today-add-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.15);
+}
+.today-add-submit {
+  padding: 6px 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.today-add-submit:hover {
+  transform: none;
+  opacity: 0.9;
+}
 .today-section.overdue h3 { color: #ff3b30; }
 .today-section.today h3 { color: var(--accent); }
 .today-section.upcoming h3 { color: var(--text-primary); }
@@ -42,7 +142,8 @@
 .today-task-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: baseline;
+  gap: 8px;
   cursor: pointer;
 }
 .today-task-header:hover { opacity: 0.85; }
@@ -69,6 +170,11 @@
 .today-task-item .task-title {
   font-weight: 500;
   color: var(--text-primary);
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .task-time {
   color: var(--accent);
@@ -120,9 +226,43 @@
   color: white;
   border-color: var(--accent);
 }
+.day-selector {
+  margin: 8px 0;
+  margin-left: auto;
+}
+.day-selector.dragging button.active {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.day-selector button.drop-target {
+  border: 2px dashed var(--accent);
+  background: rgba(0, 113, 227, 0.05);
+}
 .today-view-switcher {
   margin: 16px 0;
   margin-left: auto;
+}
+.today-view-switcher button .reminder-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #ff3b30;
+  border-radius: 50%;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+h3.reminders-heading {
+  position: relative;
+  display: inline-block;
+}
+h3.reminders-heading .reminder-indicator {
+  position: absolute;
+  top: -2px;
+  right: -12px;
+  width: 8px;
+  height: 8px;
+  background: #ff3b30;
+  border-radius: 50%;
 }
 .today-section.urgent h3 {
   color: #ff9500;
@@ -183,4 +323,49 @@
   text-align: center;
   padding: 8px 0;
   margin: 0;
+}
+.today-subsection.drop-target {
+  border: 2px dashed var(--accent);
+  background: rgba(0, 113, 227, 0.05);
+  border-radius: 8px;
+  padding: 8px;
+}
+.task-emoji-prefix {
+  margin-right: 6px;
+}
+.today-flagged {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.1);
+}
+.draggable-today-task,
+.draggable-overdue-task,
+.draggable-reminder-task {
+  cursor: grab;
+  margin-bottom: 6px;
+}
+.draggable-today-task:last-child,
+.draggable-overdue-task:last-child,
+.draggable-reminder-task:last-child {
+  margin-bottom: 0;
+}
+.draggable-today-task:active,
+.draggable-overdue-task:active,
+.draggable-reminder-task:active {
+  cursor: grabbing;
+}
+.draggable-reminder-task.dragging {
+  opacity: 0.5;
+}
+.draggable-today-task {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+.draggable-today-task.dragging {
+  opacity: 0.5;
+}
+.draggable-today-task.drag-over {
+  border-color: var(--accent);
+  border-style: dashed;
 }

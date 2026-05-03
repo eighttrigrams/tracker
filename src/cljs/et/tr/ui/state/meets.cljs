@@ -2,6 +2,7 @@
   (:require [ajax.core :refer [GET POST]]
             [clojure.string :as str]
             [reagent.core :as r]
+            [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
             [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
 
@@ -22,7 +23,7 @@
 
 (defn fetch-meets [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *meets-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode]} opts
+        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode series-id]} opts
         people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
@@ -33,6 +34,8 @@
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
               (= sort-mode :past) (str "sort=past&")
+              (= sort-mode :summary) (str "sort=summary&")
+              series-id (str "series-id=" series-id "&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
@@ -63,12 +66,13 @@
     {:title title :description description :tags tags}
     (auth-headers)
     (fn [result]
-      (swap! app-state update :meets
-             (fn [meets]
-               (mapv #(if (= (:id %) meet-id)
-                        (merge % result)
-                        %)
-                     meets)))
+      (let [merge-fn (fn [meets]
+                       (mapv #(if (= (:id %) meet-id) (merge % result) %) meets))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :meets merge-fn)
+                               (update :today-meets merge-fn)
+                               (update-in [:reports-data :meets] merge-fn)))))
       (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update meet")))))
@@ -77,8 +81,12 @@
   (api/delete-simple (str "/api/meets/" meet-id)
     (auth-headers)
     (fn [_]
-      (swap! app-state update :meets
-             (fn [meets] (filterv #(not= (:id %) meet-id) meets)))
+      (let [remove-fn (fn [meets] (filterv #(not= (:id %) meet-id) meets))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :meets remove-fn)
+                               (update :today-meets remove-fn)
+                               (update-in [:reports-data :meets] remove-fn)))))
       (swap! *meets-page-state assoc :confirm-delete-meet nil))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete meet"))
@@ -89,12 +97,16 @@
     {:scope scope}
     (auth-headers)
     (fn [result]
-      (swap! app-state update :meets
-             (fn [meets]
-               (mapv #(if (= (:id %) meet-id)
-                        (assoc % :scope (:scope result))
-                        %)
-                     meets))))
+      (let [mode (:work-private-mode @app-state)
+            strict? (:strict-mode @app-state)
+            update-and-filter (fn [coll]
+                                (->> coll
+                                     (mapv #(if (= (:id %) meet-id)
+                                              (assoc % :scope (:scope result))
+                                              %))
+                                     (filterv #(filters/matches-scope? % mode strict?))))]
+        (swap! app-state update :meets update-and-filter)
+        (swap! app-state update-in [:reports-data :meets] update-and-filter)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
@@ -172,7 +184,10 @@
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meet")))}))
 
 (defn set-expanded-meet [id]
-  (swap! *meets-page-state assoc :expanded-meet id :editing-meet nil))
+  (swap! *meets-page-state assoc :expanded-meet id :editing-meet nil)
+  (when (nil? id)
+    (js/setTimeout #(when-let [el (.getElementById js/document "meets-filter-search")]
+                      (.focus el #js {:preventScroll true})) 0)))
 
 (defn set-editing-meet [id]
   (swap! *meets-page-state assoc :editing-meet id))
@@ -201,6 +216,13 @@
 (defn clear-all-meet-filters [fetch-meets-fn]
   (swap! *meets-page-state assoc :filter-search "" :importance-filter nil)
   (fetch-meets-fn))
+
+(defn archive-meet [app-state auth-headers fetch-today-meets-fn meet-id]
+  (api/put-json (str "/api/meets/" meet-id "/archive") {}
+    (auth-headers)
+    (fn [_] (fetch-today-meets-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to archive meet")))))
 
 (defn reset-meets-page-view-state! []
   (swap! *meets-page-state assoc

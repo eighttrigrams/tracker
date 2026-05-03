@@ -1,0 +1,24 @@
+{:up ["CREATE TABLE meeting_series (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         title TEXT NOT NULL,
+         description TEXT DEFAULT '',
+         tags TEXT DEFAULT '',
+         created_at DATETIME DEFAULT (datetime('now')),
+         modified_at DATETIME DEFAULT (datetime('now')),
+         sort_order REAL NOT NULL DEFAULT 0,
+         scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+       )"
+       "CREATE INDEX idx_meeting_series_user_scope ON meeting_series (user_id, scope)"
+       "CREATE TABLE meeting_series_categories (
+         meeting_series_id INTEGER NOT NULL,
+         category_type TEXT NOT NULL,
+         category_id INTEGER NOT NULL,
+         PRIMARY KEY (meeting_series_id, category_type, category_id),
+         FOREIGN KEY (meeting_series_id) REFERENCES meeting_series(id) ON DELETE CASCADE
+       )"
+       "ALTER TABLE meets ADD COLUMN meeting_series_id INTEGER REFERENCES meeting_series(id) ON DELETE SET NULL"]
+ :down ["ALTER TABLE meets DROP COLUMN meeting_series_id"
+        "DROP TABLE IF EXISTS meeting_series_categories"
+        "DROP INDEX IF EXISTS idx_meeting_series_user_scope"
+        "DROP TABLE IF EXISTS meeting_series"]}

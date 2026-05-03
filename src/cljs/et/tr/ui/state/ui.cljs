@@ -1,24 +1,31 @@
 (ns et.tr.ui.state.ui
   (:require [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
-            [et.tr.ui.state.meets :as meets-state]))
+            [et.tr.ui.state.meets :as meets-state]
+            [et.tr.ui.state.reports :as reports-state]
+            [et.tr.ui.state.relations :as relations-state]))
+
+(defn focus-input! [id]
+  (js/setTimeout #(when-let [el (.getElementById js/document id)]
+                    (.focus el #js {:preventScroll true})) 0))
 
 (defn focus-tasks-search []
-  (js/setTimeout #(when-let [el (.getElementById js/document "tasks-filter-search")]
-                    (.focus el)) 0))
+  (focus-input! "tasks-filter-search"))
 
 (defn- tasks-fetch-opts
   ([app-state]
    (tasks-fetch-opts app-state (:work-private-mode @app-state) (:strict-mode @app-state)))
   ([app-state context strict]
-   {:search-term (:tasks-page/filter-search @app-state)
-    :importance (:tasks-page/importance-filter @app-state)
-    :context context
-    :strict strict
-    :filter-people (:tasks-page/filter-people @app-state)
-    :filter-places (:shared/filter-places @app-state)
-    :filter-projects (:tasks-page/filter-projects @app-state)
-    :filter-goals (:tasks-page/filter-goals @app-state)}))
+   (cond-> {:search-term (:tasks-page/filter-search @app-state)
+            :importance (:tasks-page/importance-filter @app-state)
+            :context context
+            :strict strict
+            :filter-people (:shared/filter-people @app-state)
+            :filter-places (:shared/filter-places @app-state)
+            :filter-projects (:shared/filter-projects @app-state)
+            :filter-goals (:tasks-page/filter-goals @app-state)}
+     (:tasks-page/filter-recurring @app-state)
+     (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state))))))
 
 (defn- today-fetch-opts
   ([app-state]
@@ -36,7 +43,7 @@
   (focus-tasks-search)
   (fetch-tasks-fn (tasks-fetch-opts app-state)))
 
-(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-messages fetch-resources fetch-meets is-admin]}]
+(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-meets fetch-reports is-admin has-mail]}]
   {:tasks (fn []
             (initialize-tasks-page app-state fetch-tasks))
    :today (fn []
@@ -44,14 +51,17 @@
                    :today-page/collapsed-filters #{:places :projects}
                    :sort-mode :today)
             (fetch-tasks (today-fetch-opts app-state))
-            (fetch-today-meets (today-fetch-opts app-state)))
+            (fetch-today-meets (today-fetch-opts app-state))
+            (fetch-today-journal-entries (today-fetch-opts app-state)))
    :mail (fn []
-           (when (is-admin)
+           (when (has-mail)
              (fetch-messages)))
    :resources (fn []
                 (fetch-resources))
    :meets (fn []
-            (fetch-meets))})
+            (fetch-meets))
+   :reports (fn []
+              (fetch-reports))})
 
 (defn set-active-tab [app-state tab-initializers tab]
   (swap! app-state assoc
@@ -68,18 +78,24 @@
   (mail-state/reset-mail-page-view-state!)
   (resources-state/reset-resources-page-view-state!)
   (meets-state/reset-meets-page-view-state!)
+  (reports-state/reset-reports-page-view-state!)
+  (when-not (contains? #{:tasks :resources :meets :reports} tab)
+    (relations-state/abort-relation-mode))
   (when-let [init-fn (get tab-initializers tab)]
     (init-fn)))
 
 (defn toggle-expanded [app-state page-key task-id]
-  (swap! app-state (fn [state]
-                     (cond-> (assoc state
-                                    page-key (if (= (get state page-key) task-id) nil task-id)
-                                    :category-selector/open nil
-                                    :category-selector/search ""
-                                    :task-dropdown-open nil)
-                       (= page-key :today-page/expanded-task) (assoc :today-page/expanded-meet nil)
-                       (= page-key :today-page/expanded-meet) (assoc :today-page/expanded-task nil)))))
+  (let [collapsing? (= (get @app-state page-key) task-id)]
+    (swap! app-state (fn [state]
+                       (cond-> (assoc state
+                                      page-key (if (= (get state page-key) task-id) nil task-id)
+                                      :category-selector/open nil
+                                      :category-selector/search ""
+                                      :task-dropdown-open nil)
+                         (= page-key :today-page/expanded-task) (assoc :today-page/expanded-meet nil)
+                         (= page-key :today-page/expanded-meet) (assoc :today-page/expanded-task nil))))
+    (when (and collapsing? (= page-key :tasks-page/expanded-task))
+      (focus-input! "tasks-filter-search"))))
 
 (defn set-editing [app-state task-id]
   (swap! app-state assoc :editing-task task-id))
@@ -93,25 +109,31 @@
     :today (today-fetch-opts app-state context strict)
     {:context context :strict strict}))
 
-(defn set-work-private-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn mode]
+(defn set-work-private-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn fetch-messages-fn fetch-today-journal-entries-fn fetch-reports-fn mode]
   (swap! app-state assoc :work-private-mode mode)
   (case (:active-tab @app-state)
     :resources (fetch-resources-fn)
     :meets (fetch-meets-fn)
+    :mail (fetch-messages-fn)
+    :reports (fetch-reports-fn)
     :today (let [opts (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state))]
              (fetch-tasks-fn opts)
-             (fetch-today-meets-fn opts))
+             (fetch-today-meets-fn opts)
+             (fetch-today-journal-entries-fn opts))
     (fetch-tasks-fn (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state)))))
 
-(defn toggle-strict-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn]
+(defn toggle-strict-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-meets-fn fetch-messages-fn fetch-today-journal-entries-fn fetch-reports-fn]
   (let [new-strict (not (:strict-mode @app-state))]
     (swap! app-state assoc :strict-mode new-strict)
     (case (:active-tab @app-state)
       :resources (fetch-resources-fn)
       :meets (fetch-meets-fn)
+      :mail (fetch-messages-fn)
+      :reports (fetch-reports-fn)
       :today (let [opts (fetch-opts-for-current-tab app-state (:work-private-mode @app-state) new-strict)]
                (fetch-tasks-fn opts)
-               (fetch-today-meets-fn opts))
+               (fetch-today-meets-fn opts)
+               (fetch-today-journal-entries-fn opts))
       (fetch-tasks-fn (fetch-opts-for-current-tab app-state (:work-private-mode @app-state) new-strict)))))
 
 (defn toggle-dark-mode [app-state]

@@ -6,19 +6,21 @@
 (def ^:private horizon-order date/horizon-order)
 (def ^:private horizon-end-date date/horizon-end-date)
 
+(declare selected-day-date)
+
 (def ^:const target-upcoming-tasks-count 10)
 
 (defn- count-upcoming-items-for-horizon [app-state horizon]
-  (let [today (today-str)
+  (let [after-date (selected-day-date app-state)
         end-date (horizon-end-date horizon)
         task-count (count (filter (fn [task]
                                     (and (:due_date task)
-                                         (> (:due_date task) today)
+                                         (> (:due_date task) after-date)
                                          (<= (:due_date task) end-date)))
                                   (:tasks @app-state)))
         meet-count (count (filter (fn [meet]
                                     (and (:start_date meet)
-                                         (> (:start_date meet) today)
+                                         (> (:start_date meet) after-date)
                                          (<= (:start_date meet) end-date)))
                                   (:today-meets @app-state)))]
     (+ task-count meet-count)))
@@ -107,8 +109,16 @@
   (swap! app-state assoc-in [:today-page/category-search category-key] search-term))
 
 (defn set-today-selected-view [app-state view]
-  (when (#{:urgent :upcoming} view)
+  (when (#{:urgent :upcoming :reminders} view)
     (swap! app-state assoc :today-page/selected-view view)))
+
+(defn set-selected-day [app-state day-offset]
+  (swap! app-state assoc :today-page/selected-day day-offset)
+  (swap! app-state assoc :upcoming-horizon (calculate-best-horizon app-state)))
+
+(defn selected-day-date [app-state]
+  (let [offset (or (:today-page/selected-day @app-state) 0)]
+    (date/add-days (today-str) offset)))
 
 (defn- sort-by-date-and-time [tasks]
   (sort-by (juxt :due_date #(if (:due_time %) 1 0) :due_time) tasks))
@@ -130,22 +140,46 @@
          (sort-by-date-and-time))))
 
 (defn upcoming-tasks [app-state]
-  (let [today (today-str)
+  (let [after-date (selected-day-date app-state)
         horizon (:upcoming-horizon @app-state)
         end-date (horizon-end-date horizon)]
     (->> (:tasks @app-state)
          (remove task-done?)
          (filter #(and (:due_date %)
-                       (> (:due_date %) today)
+                       (> (:due_date %) after-date)
                        (<= (:due_date %) end-date)))
          (sort-by-date-and-time))))
 
 (defn- tasks-by-urgency [app-state urgency-level]
-  (let [today (today-str)]
+  (let [today (today-str)
+        sel-offset (or (:today-page/selected-day @app-state) 0)
+        sel-date (date/add-days today sel-offset)]
     (->> (:tasks @app-state)
          (filter #(= urgency-level (:urgency %)))
          (remove #(= (:due_date %) today))
+         (remove #(and (:due_date %) (< (:due_date %) today)))
+         (remove #(and (zero? sel-offset) (= 1 (:today %))))
+         (remove #(= (:lined_up_for %) sel-date))
          (sort-by :sort_order))))
+
+(defn today-flagged-tasks [app-state]
+  (let [today (today-str)
+        offset (or (:today-page/selected-day @app-state) 0)]
+    (if (zero? offset)
+      (->> (:tasks @app-state)
+           (filter #(= 1 (:today %)))
+           (remove #(= (:due_date %) today))
+           (remove #(and (:due_date %) (< (:due_date %) today)))
+           (sort-by :sort_order))
+      (let [target-date (date/add-days today offset)]
+        (->> (:tasks @app-state)
+             (filter #(= (:lined_up_for %) target-date))
+             (sort-by :sort_order))))))
+
+(defn reminder-tasks [app-state]
+  (->> (:tasks @app-state)
+       (filter #(= "active" (:reminder %)))
+       (sort-by :modified_at)))
 
 (defn superurgent-tasks [app-state]
   (tasks-by-urgency app-state "superurgent"))
@@ -162,11 +196,23 @@
          (filter #(= (:start_date %) today))
          sort-meets-by-date-and-time)))
 
+(defn selected-day-tasks [app-state]
+  (let [target-date (selected-day-date app-state)]
+    (->> (:tasks @app-state)
+         (filter #(= (:due_date %) target-date))
+         (sort-by-date-and-time))))
+
+(defn selected-day-meets [app-state]
+  (let [target-date (selected-day-date app-state)]
+    (->> (:today-meets @app-state)
+         (filter #(= (:start_date %) target-date))
+         sort-meets-by-date-and-time)))
+
 (defn upcoming-meets [app-state]
-  (let [today (today-str)
+  (let [after-date (selected-day-date app-state)
         horizon (:upcoming-horizon @app-state)
         end-date (horizon-end-date horizon)]
     (->> (:today-meets @app-state)
-         (filter #(and (> (:start_date %) today)
+         (filter #(and (> (:start_date %) after-date)
                        (<= (:start_date %) end-date)))
          sort-meets-by-date-and-time)))

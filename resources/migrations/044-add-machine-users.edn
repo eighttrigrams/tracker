@@ -1,0 +1,7 @@
+{:up ["ALTER TABLE users ADD COLUMN is_machine_user INTEGER NOT NULL DEFAULT 0"
+      "ALTER TABLE users ADD COLUMN for_user_id INTEGER REFERENCES users(id)"
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_one_machine_per_user ON users(for_user_id) WHERE is_machine_user = 1"]
+ :down ["DROP INDEX IF EXISTS idx_users_one_machine_per_user"
+        "ALTER TABLE users DROP COLUMN for_user_id"
+        "ALTER TABLE users DROP COLUMN is_machine_user"]
+ :transactions false}

@@ -59,6 +59,7 @@
         [:input.category-search
          {:id input-id
           :type "text"
+          :auto-complete "off"
           :placeholder (t :category/search)
           :value search-term
           :on-change #(set-search-fn filter-key (-> % .-target .-value))

@@ -20,8 +20,8 @@ fi
 
 BODY=$(cat "$LOG_FILE")
 
-if [ -f "$PROJECT_DIR/.credentials" ]; then
-  "$SCRIPT_DIR/send-message.sh" "$TITLE" "$BODY" "E2E Testing"
-fi
+# if [ -f "$PROJECT_DIR/.credentials" ]; then
+#   "$SCRIPT_DIR/send-message.sh" "$TITLE" "$BODY" "E2E Testing"
+# fi
 
 exit "$TEST_EXIT"
