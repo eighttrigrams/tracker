@@ -192,17 +192,14 @@
     [resource-only-message-actions message]
     (let [page-state @mail-state/*mail-page-state
           view (:view page-state)
-          sort-mode (mail-state/current-sort-mode page-state)
           dropdown-open? (= (:id message) (:message-action-dropdown-open page-state))
-          show-merge? (and (= view :inbox) (= (:sender message) "Note") next-message-id)
-          show-delete-below? (and (= view :saved) (= sort-mode :recent))
-          show-dropdown? (or show-merge? show-delete-below?)]
+          show-merge? (and (= view :inbox) (= (:sender message) "Note") next-message-id)]
       [:div.item-actions
        [archive-button-with-dropdown message]
        [message-scope-selector message]
        [message-importance-selector message]
        [message-urgency-selector message]
-       (if show-dropdown?
+       (if show-merge?
          [:div.combined-button-wrapper
           [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
            (t :task/delete)]
@@ -211,18 +208,11 @@
            "▼"]
           (when dropdown-open?
             [:div.task-dropdown-menu
-             (when show-merge?
-               [:button.dropdown-item
-                {:on-click #(do
-                              (state/set-message-action-dropdown-open nil)
-                              (state/merge-message-with-below (:id message) next-message-id))}
-                (t :mail/merge-with-below)])
-             (when show-delete-below?
-               [:button.dropdown-item
-                {:on-click #(do
-                              (state/set-message-action-dropdown-open nil)
-                              (state/set-confirm-delete-archived-below message))}
-                (t :mail/delete-all-below)])])]
+             [:button.dropdown-item
+              {:on-click #(do
+                            (state/set-message-action-dropdown-open nil)
+                            (state/merge-message-with-below (:id message) next-message-id))}
+              (t :mail/merge-with-below)]])]
          [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
           (t :task/delete)])])))
 
@@ -389,10 +379,6 @@
        [mail-add-form])
      (when (= view :saved)
        [mail-search-bar])
-     (when (and (= view :saved) (seq messages))
-       [:div.mail-delete-all-archived
-        [:button.delete-btn {:on-click #(state/set-confirm-delete-all-archived true)}
-         (t :mail/delete-all-archived)]])
      [mail-sender-filter-badge]
      (if (empty? messages)
        [:p.empty-message (t :mail/no-messages)]

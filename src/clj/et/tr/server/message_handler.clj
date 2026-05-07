@@ -145,19 +145,6 @@
                 {:status 200 :body result})
             {:status 404 :body {:error "Message not found"}}))))))
 
-(defn delete-all-archived-handler [req]
-  (if (common/has-mail? req)
-    (let [user-id (common/get-user-id req)
-          result (db.message/delete-all-archived-messages (common/ensure-ds) user-id)]
-      {:status 200 :body result})
-    {:status 403 :body {:error "Mail access required"}}))
-
-(defn delete-archived-below-handler [req]
-  (with-mail-message-context req user-id message-id
-    (if-let [result (db.message/delete-archived-below (common/ensure-ds) user-id message-id)]
-      {:status 200 :body result}
-      {:status 404 :body {:error "Message not found"}})))
-
 (defn convert-message-to-resource-handler [req]
   (with-mail-message-context req user-id message-id
     (let [link (get-in req [:body :link])]

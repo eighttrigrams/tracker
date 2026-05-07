@@ -128,32 +128,6 @@
                    :returning [:id :urgency]})
       db/jdbc-opts)))
 
-(defn delete-archived-below [ds user-id message-id]
-  (let [source (jdbc/execute-one! (db/get-conn ds)
-                 (sql/format {:select [:created_at]
-                              :from [:messages]
-                              :where [:and [:= :id message-id]
-                                      (db/user-id-where-clause user-id)
-                                      [:= :done 1]]})
-                 db/jdbc-opts)]
-    (when source
-      (let [result (jdbc/execute-one! (db/get-conn ds)
-                     (sql/format {:delete-from :messages
-                                  :where [:and (db/user-id-where-clause user-id)
-                                          [:= :done 1]
-                                          [:<= :created_at (:created_at source)]]}))]
-        (tel/log! {:level :info
-                   :data {:user-id user-id :message-id message-id :count (:next.jdbc/update-count result)}}
-          "Archived messages below deleted")
-        {:success true :deleted-count (:next.jdbc/update-count result)}))))
-
-(defn delete-all-archived-messages [ds user-id]
-  (let [result (jdbc/execute-one! (db/get-conn ds)
-                 (sql/format {:delete-from :messages
-                              :where [:and (db/user-id-where-clause user-id) [:= :done 1]]}))]
-    (tel/log! {:level :info :data {:user-id user-id :count (:next.jdbc/update-count result)}} "All archived messages deleted")
-    {:success true :deleted-count (:next.jdbc/update-count result)}))
-
 (defn merge-messages [ds user-id source-id target-id]
   (when (and (message-owned-by-user? ds source-id user-id)
              (message-owned-by-user? ds target-id user-id))

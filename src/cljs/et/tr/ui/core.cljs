@@ -13,7 +13,6 @@
             [et.tr.ui.views.resources :as resources]
             [et.tr.ui.views.meets :as meets]
             [et.tr.ui.views.reports :as reports]
-            [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.state.journals :as journals-state]
             [et.tr.ui.state.journal-entries :as journal-entries-state]
@@ -85,7 +84,6 @@
       (:confirm-delete-user @state/*app-state)
       (:confirm-delete-category @state/*app-state)
       (:confirm-delete-message @state/*app-state)
-      (:confirm-delete-all-archived @mail-state/*mail-page-state)
       (:confirm-delete-resource @state/*app-state)
       (:confirm-delete-meet @state/*app-state)
       (:confirm-delete-rtask @recurring-tasks-state/*recurring-tasks-page-state)
@@ -113,8 +111,6 @@
      [modals/confirm-delete-user-modal]
      [modals/confirm-delete-category-modal]
      [modals/confirm-delete-message-modal]
-     [modals/confirm-delete-all-archived-modal]
-     [modals/confirm-delete-archived-below-modal]
      [modals/confirm-delete-resource-modal]
      [modals/confirm-delete-meet-modal]
      [modals/confirm-delete-meeting-series-modal]

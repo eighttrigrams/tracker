@@ -19,8 +19,6 @@
                                    :inline-edit-message nil
                                    :inline-edit-title nil
                                    :confirm-delete-message nil
-                                   :confirm-delete-all-archived false
-                                   :confirm-delete-archived-below nil
                                    :message-dropdown-open nil
                                    :message-action-dropdown-open nil}))
 
@@ -269,31 +267,3 @@
       (fn [resp]
         (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to task"))))))
 
-(defn set-confirm-delete-all-archived [val]
-  (swap! *mail-page-state assoc :confirm-delete-all-archived val))
-
-(defn delete-all-archived [app-state auth-headers]
-  (api/delete-simple "/api/messages/archived"
-    (auth-headers)
-    (fn [_]
-      (set-confirm-delete-all-archived false)
-      (fetch-messages app-state auth-headers))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete archived messages"))
-      (set-confirm-delete-all-archived false))))
-
-(defn set-confirm-delete-archived-below [message]
-  (swap! *mail-page-state assoc :confirm-delete-archived-below message))
-
-(defn clear-confirm-delete-archived-below []
-  (swap! *mail-page-state assoc :confirm-delete-archived-below nil))
-
-(defn delete-archived-below [app-state auth-headers message-id]
-  (api/delete-simple (str "/api/messages/" message-id "/archived-below")
-    (auth-headers)
-    (fn [_]
-      (clear-confirm-delete-archived-below)
-      (fetch-messages app-state auth-headers))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete archived messages below"))
-      (clear-confirm-delete-archived-below))))

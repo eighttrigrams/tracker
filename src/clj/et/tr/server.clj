@@ -173,7 +173,6 @@
     (context "/messages" []
       (GET "/" [] message-handler/list-messages-handler)
       (POST "/" [] message-handler/add-message-handler)
-      (DELETE "/archived" [] message-handler/delete-all-archived-handler)
       (PUT "/:id/done" [] message-handler/set-message-done-handler)
       (PUT "/:id/scope" [] message-handler/set-message-scope-handler)
       (PUT "/:id/importance" [] message-handler/set-message-importance-handler)
@@ -181,7 +180,6 @@
       (POST "/:id/convert-to-resource" [] message-handler/convert-message-to-resource-handler)
       (POST "/:id/convert-to-task" [] message-handler/convert-message-to-task-handler)
       (POST "/:id/merge" [] message-handler/merge-messages-handler)
-      (DELETE "/:id/archived-below" [] message-handler/delete-archived-below-handler)
       (PUT "/:id" [] message-handler/update-message-handler)
       (DELETE "/:id" [] message-handler/delete-message-handler))
 
