@@ -13,8 +13,10 @@
             [et.tr.i18n :refer [t]]))
 
 (def ^:private today-category-shortcut-keys
-  {"Digit1" :places
-   "Digit2" :projects})
+  {"Digit1" :people
+   "Digit2" :places
+   "Digit3" :projects
+   "Digit4" :goals})
 
 (def today-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) today-category-shortcut-keys)))
@@ -298,33 +300,57 @@
                :on-click #(state/set-upcoming-horizon :eighteen-months)} (t :today/eighteen-months)]]))
 
 
-(defn- today-exclusion-filter-section [filter-key items excluded-ids collapsed-filters toggle-fn clear-fn]
-  [filter-section/category-filter-section {:title (t (keyword "category" (name filter-key)))
-                            :shortcut-number (today-category-shortcut-numbers filter-key)
-                            :filter-key filter-key
-                            :items items
-                            :marked-ids excluded-ids
-                            :toggle-fn toggle-fn
-                            :clear-fn clear-fn
-                            :collapsed? (contains? collapsed-filters filter-key)
-                            :toggle-collapsed-fn state/toggle-today-filter-collapsed
-                            :set-search-fn state/set-today-category-search
-                            :search-state-path [:today-page/category-search filter-key]
-                            :section-class (str (name filter-key) " exclusion-filter")
-                            :item-active-class "excluded"
-                            :label-class "excluded"
-                            :page-prefix "today"}])
+(defn- today-filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
+  [filter-section/category-filter-section {:title title
+                                           :shortcut-number (today-category-shortcut-numbers filter-key)
+                                           :filter-key filter-key
+                                           :items items
+                                           :marked-ids selected-ids
+                                           :toggle-fn toggle-fn
+                                           :clear-fn clear-fn
+                                           :collapsed? collapsed?
+                                           :toggle-collapsed-fn state/toggle-today-filter-collapsed
+                                           :set-search-fn state/set-today-category-search
+                                           :search-state-path [:today-page/category-search filter-key]
+                                           :section-class (name filter-key)
+                                           :item-active-class "active"
+                                           :label-class nil
+                                           :page-prefix "today"}])
+
+(def ^:private today-sidebar-filter-configs
+  [{:filter-key :people
+    :title-key :category/people
+    :items-key :people
+    :filter-state-key :shared/filter-people
+    :category-type state/CATEGORY-TYPE-PERSON}
+   {:filter-key :places
+    :title-key :category/places
+    :items-key :places
+    :filter-state-key :shared/filter-places
+    :category-type state/CATEGORY-TYPE-PLACE}
+   {:filter-key :projects
+    :title-key :category/projects
+    :items-key :projects
+    :filter-state-key :shared/filter-projects
+    :category-type state/CATEGORY-TYPE-PROJECT}
+   {:filter-key :goals
+    :title-key :category/goals
+    :items-key :goals
+    :filter-state-key :shared/filter-goals
+    :category-type state/CATEGORY-TYPE-GOAL}])
 
 (defn today-sidebar-filters []
-  (let [{:keys [places projects]} @state/*app-state
-        excluded-places (:today-page/excluded-places @state/*app-state)
-        excluded-projects (:today-page/excluded-projects @state/*app-state)
-        collapsed-filters (:today-page/collapsed-filters @state/*app-state)]
-    [:div.sidebar
-     [today-exclusion-filter-section :places places excluded-places collapsed-filters
-      state/toggle-today-excluded-place state/clear-today-excluded-places]
-     [today-exclusion-filter-section :projects projects excluded-projects collapsed-filters
-      state/toggle-today-excluded-project state/clear-today-excluded-projects]]))
+  (let [app-state @state/*app-state
+        collapsed-filters (:today-page/collapsed-filters app-state)]
+    (into [:div.sidebar]
+          (for [{:keys [filter-key title-key items-key filter-state-key category-type]} today-sidebar-filter-configs]
+            [today-filter-section {:title (t title-key)
+                                   :filter-key filter-key
+                                   :items (get app-state items-key)
+                                   :selected-ids (get app-state filter-state-key)
+                                   :toggle-fn #(state/toggle-shared-filter category-type %)
+                                   :clear-fn #(state/clear-shared-filter category-type)
+                                   :collapsed? (contains? collapsed-filters filter-key)}]))))
 
 (defn- urgency-emoji [task]
   (case (:urgency task)

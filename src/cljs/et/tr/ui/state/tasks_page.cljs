@@ -7,7 +7,7 @@
   (let [filter-people (:shared/filter-people @app-state)
         filter-places (:shared/filter-places @app-state)
         filter-projects (:shared/filter-projects @app-state)
-        filter-goals (:tasks-page/filter-goals @app-state)]
+        filter-goals (:shared/filter-goals @app-state)]
     (or (seq filter-people) (seq filter-places) (seq filter-projects) (seq filter-goals))))
 
 (defn- filter-type->key [filter-type]
@@ -15,7 +15,7 @@
     constants/CATEGORY-TYPE-PERSON :shared/filter-people
     constants/CATEGORY-TYPE-PLACE :shared/filter-places
     constants/CATEGORY-TYPE-PROJECT :shared/filter-projects
-    constants/CATEGORY-TYPE-GOAL :tasks-page/filter-goals))
+    constants/CATEGORY-TYPE-GOAL :shared/filter-goals))
 
 (defn has-filter-for-type? [app-state filter-type]
   (seq (get @app-state (filter-type->key filter-type))))
@@ -28,7 +28,7 @@
            :filter-people (:shared/filter-people @app-state)
            :filter-places (:shared/filter-places @app-state)
            :filter-projects (:shared/filter-projects @app-state)
-           :filter-goals (:tasks-page/filter-goals @app-state)}
+           :filter-goals (:shared/filter-goals @app-state)}
     (:tasks-page/filter-recurring @app-state)
     (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state)))))
 
@@ -73,7 +73,7 @@
              :shared/filter-people #{}
              :shared/filter-places #{}
              :shared/filter-projects #{}
-             :tasks-page/filter-goals #{}
+             :shared/filter-goals #{}
              :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
              :tasks-page/filter-search ""
              :tasks-page/importance-filter nil
@@ -147,10 +147,11 @@
   (let [filter-people (:shared/filter-people @app-state)
         filter-places (:shared/filter-places @app-state)
         filter-projects (:shared/filter-projects @app-state)
-        categories (cond-> {:people filter-people
-                            :places filter-places
-                            :projects filter-projects}
-                     (= type :task) (assoc :goals (:tasks-page/filter-goals @app-state)))]
+        filter-goals (:shared/filter-goals @app-state)
+        categories {:people filter-people
+                    :places filter-places
+                    :projects filter-projects
+                    :goals filter-goals}]
     (swap! app-state assoc :pending-new-item
            (cond-> {:type type
                     :title title
@@ -182,5 +183,5 @@
       (when (empty? people) (swap! app-state assoc :shared/filter-people #{}))
       (when (empty? places) (swap! app-state assoc :shared/filter-places #{}))
       (when (empty? projects) (swap! app-state assoc :shared/filter-projects #{}))
-      (when (and (= type :task) (empty? goals)) (swap! app-state assoc :tasks-page/filter-goals #{})))
+      (when (empty? goals) (swap! app-state assoc :shared/filter-goals #{})))
     (clear-pending-new-item app-state)))

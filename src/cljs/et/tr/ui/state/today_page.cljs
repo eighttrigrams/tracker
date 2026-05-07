@@ -35,70 +35,37 @@
 (defn current-fetch-opts [app-state]
   {:context (:work-private-mode @app-state)
    :strict (:strict-mode @app-state)
-   :excluded-places (:today-page/excluded-places @app-state)
-   :excluded-projects (:today-page/excluded-projects @app-state)})
+   :filter-people (:shared/filter-people @app-state)
+   :filter-places (:shared/filter-places @app-state)
+   :filter-projects (:shared/filter-projects @app-state)
+   :filter-goals (:shared/filter-goals @app-state)})
 
-(defn- toggle-today-excluded [app-state fetch-fn state-key item-id]
-  (swap! app-state update state-key
-         #(if (contains? % item-id)
-            (disj % item-id)
-            (conj % item-id)))
-  (fetch-fn (current-fetch-opts app-state)))
-
-(defn- clear-today-excluded [app-state fetch-fn state-key]
-  (swap! app-state assoc state-key #{})
-  (fetch-fn (current-fetch-opts app-state)))
-
-(defn toggle-today-excluded-place [app-state fetch-fn place-id]
-  (toggle-today-excluded app-state fetch-fn :today-page/excluded-places place-id))
-
-(defn toggle-today-excluded-project [app-state fetch-fn project-id]
-  (toggle-today-excluded app-state fetch-fn :today-page/excluded-projects project-id))
-
-(defn clear-today-excluded-places [app-state fetch-fn]
-  (clear-today-excluded app-state fetch-fn :today-page/excluded-places))
-
-(defn clear-today-excluded-projects [app-state fetch-fn]
-  (clear-today-excluded app-state fetch-fn :today-page/excluded-projects))
-
-(defn- get-uncollapsed-filters [collapsed]
-  (let [all-filters #{:places :projects}]
-    (clojure.set/difference all-filters collapsed)))
-
-(defn- clear-filter-state [app-state uncollapsed]
-  (let [all-filters #{:places :projects}]
-    (if (empty? uncollapsed)
-      (swap! app-state assoc
-             :today-page/excluded-places #{}
-             :today-page/excluded-projects #{}
-             :today-page/category-search {:places "" :projects ""})
-      (do
-        (doseq [filter-key uncollapsed]
-          (case filter-key
-            :places (swap! app-state assoc :today-page/excluded-places #{})
-            :projects (swap! app-state assoc :today-page/excluded-projects #{})))
-        (swap! app-state assoc
-               :today-page/collapsed-filters all-filters
-               :today-page/category-search {:places "" :projects ""})))))
+(def ^:private all-filter-keys #{:people :places :projects :goals})
 
 (defn clear-uncollapsed-today-filters [app-state fetch-fn]
   (let [collapsed (:today-page/collapsed-filters @app-state)
-        uncollapsed (get-uncollapsed-filters collapsed)]
-    (clear-filter-state app-state uncollapsed)
-    (fetch-fn (current-fetch-opts app-state))))
+        any-visible? (seq (clojure.set/difference all-filter-keys collapsed))]
+    (when-not any-visible?
+      (swap! app-state assoc
+             :shared/filter-people #{}
+             :shared/filter-places #{}
+             :shared/filter-projects #{}
+             :shared/filter-goals #{}
+             :today-page/category-search {:people "" :places "" :projects "" :goals ""})
+      (.scrollTo js/window 0 0)
+      (fetch-fn (current-fetch-opts app-state)))))
 
 (defn toggle-today-filter-collapsed [app-state filter-key]
-  (let [was-collapsed (contains? (:today-page/collapsed-filters @app-state) filter-key)
-        all-filters #{:places :projects}]
+  (let [was-collapsed (contains? (:today-page/collapsed-filters @app-state) filter-key)]
     (swap! app-state update :today-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
-               (disj all-filters filter-key)
+               (disj all-filter-keys filter-key)
                (conj collapsed filter-key))))
     (when was-collapsed
       (swap! app-state update :today-page/category-search
              (fn [searches]
-               (reduce #(assoc %1 %2 "") searches all-filters)))
+               (reduce #(assoc %1 %2 "") searches all-filter-keys)))
       (js/setTimeout
        (fn []
          (when-let [el (.getElementById js/document (str "today-filter-" (name filter-key)))]

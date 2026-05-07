@@ -62,13 +62,13 @@
                             :users []
                             :available-users []
 
-                            ;; Shared category filters (between tasks and resources)
+                            ;; Shared category filters (across all tabs)
                             :shared/filter-people #{}
                             :shared/filter-places #{}
                             :shared/filter-projects #{}
+                            :shared/filter-goals #{}
 
                             ;; Tasks page state
-                            :tasks-page/filter-goals #{}
                             :tasks-page/filter-search ""
                             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
                             :tasks-page/importance-filter nil
@@ -84,10 +84,8 @@
                             :today-meets []
 
                             ;; Today page state
-                            :today-page/excluded-places #{}
-                            :today-page/excluded-projects #{}
-                            :today-page/collapsed-filters #{:places :projects}
-                            :today-page/category-search {:places "" :projects ""}
+                            :today-page/collapsed-filters #{:people :places :projects :goals}
+                            :today-page/category-search {:people "" :places "" :projects "" :goals ""}
                             :today-page/expanded-task nil
                             :today-page/expanded-meet nil
                             :today-page/selected-view :urgent
@@ -96,7 +94,6 @@
                             :upcoming-horizon nil
 
                             ;; Resources page state
-                            :resources-page/filter-goals #{}
                             :resources-page/collapsed-filters #{:people :places :projects :goals}
                             :resources-page/category-search {:people "" :places "" :projects "" :goals ""}
 
@@ -113,7 +110,6 @@
                             :today-page/journals-mode false
 
                             ;; Reports page state
-                            :reports-page/filter-goals #{}
                             :reports-page/collapsed-filters #{:people :places :projects :goals}
                             :reports-page/category-search {:people "" :places "" :projects "" :goals ""}
                             :reports-page/items-filter :all
@@ -123,7 +119,6 @@
                             ;; Meets page state
                             :meets-page/series-mode false
                             :meets-page/filter-series nil
-                            :meets-page/filter-goals #{}
                             :meets-page/collapsed-filters #{:people :places :projects :goals}
                             :meets-page/category-search {:people "" :places "" :projects "" :goals ""}
 
@@ -333,8 +328,8 @@
 (declare has-active-shared-filters?)
 (declare set-pending-new-item)
 (declare fetch-reports)
-(declare toggle-reports-goal-filter)
-(declare clear-reports-goal-filter)
+(declare fetch-today-all)
+(declare today-fetch-opts)
 
 (defn- resources-fetch-opts []
   {:search-term (:filter-search @resources-state/*resources-page-state)
@@ -347,7 +342,7 @@
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:resources-page/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)})
 
 (defn fetch-resources
   ([] (fetch-resources (resources-fetch-opts)))
@@ -441,7 +436,7 @@
              :filter-people (:shared/filter-people @*app-state)
              :filter-places (:shared/filter-places @*app-state)
              :filter-projects (:shared/filter-projects @*app-state)
-             :filter-goals (:meets-page/filter-goals @*app-state)}
+             :filter-goals (:shared/filter-goals @*app-state)}
       series-filter (assoc :series-id (:id series-filter)))))
 
 (defn fetch-meets
@@ -517,7 +512,7 @@
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:meets-page/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)})
 
 (defn fetch-meeting-series
   ([] (fetch-meeting-series (meeting-series-fetch-opts)))
@@ -601,7 +596,7 @@
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:tasks-page/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)})
 
 (defn fetch-recurring-tasks
   ([] (fetch-recurring-tasks (recurring-tasks-fetch-opts)))
@@ -660,7 +655,7 @@
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:resources-page/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)})
 
 (defn fetch-journals
   ([] (fetch-journals (journals-fetch-opts)))
@@ -705,7 +700,7 @@
      :filter-people (:shared/filter-people @*app-state)
      :filter-places (:shared/filter-places @*app-state)
      :filter-projects (:shared/filter-projects @*app-state)
-     :filter-goals (:resources-page/filter-goals @*app-state)
+     :filter-goals (:shared/filter-goals @*app-state)
      :journal-id (when journal-filter (:id journal-filter))
      :with-description (boolean (:resources-page/journal-with-description-only @*app-state))}))
 
@@ -871,22 +866,6 @@
          (.focus el)))
      0)))
 
-(defn toggle-meets-goal-filter [id]
-  (swap! *app-state update :meets-page/filter-goals
-         #(if (contains? % id) (disj % id) (conj % id)))
-  (if (:meets-page/series-mode @*app-state)
-    (fetch-meeting-series)
-    (fetch-meets)))
-
-(defn clear-meets-goal-filter []
-  (swap! *app-state assoc :meets-page/filter-goals #{})
-  (if (:meets-page/series-mode @*app-state)
-    (fetch-meeting-series)
-    (fetch-meets)))
-
-(defn has-meets-goal-filter? []
-  (seq (:meets-page/filter-goals @*app-state)))
-
 (defn set-meets-category-search [category-key search-term]
   (swap! *app-state assoc-in [:meets-page/category-search category-key] search-term))
 
@@ -899,7 +878,7 @@
              :shared/filter-people #{}
              :shared/filter-places #{}
              :shared/filter-projects #{}
-             :meets-page/filter-goals #{}
+             :shared/filter-goals #{}
              :meets-page/category-search {:people "" :places "" :projects "" :goals ""})
       (.scrollTo js/window 0 0)
       (if (:meets-page/series-mode @*app-state)
@@ -927,63 +906,36 @@
          (.focus el)))
      0)))
 
-(defn toggle-resources-goal-filter [id]
-  (swap! *app-state update :resources-page/filter-goals
-         #(if (contains? % id) (disj % id) (conj % id)))
-  (fetch-resources-or-journals))
-
-(defn clear-resources-goal-filter []
-  (swap! *app-state assoc :resources-page/filter-goals #{})
-  (fetch-resources-or-journals))
-
-(defn has-resources-goal-filter? []
-  (seq (:resources-page/filter-goals @*app-state)))
-
 (defn set-resources-category-search [category-key search-term]
   (swap! *app-state assoc-in [:resources-page/category-search category-key] search-term))
 
+(def ^:private shared-filter-key
+  {constants/CATEGORY-TYPE-PERSON :shared/filter-people
+   constants/CATEGORY-TYPE-PLACE :shared/filter-places
+   constants/CATEGORY-TYPE-PROJECT :shared/filter-projects
+   constants/CATEGORY-TYPE-GOAL :shared/filter-goals})
+
+(defn- refetch-current-tab []
+  (case (:active-tab @*app-state)
+    :tasks (if (:tasks-page/recurring-mode @*app-state)
+             (fetch-recurring-tasks)
+             (fetch-tasks))
+    :resources (fetch-resources-or-journals)
+    :meets (if (:meets-page/series-mode @*app-state)
+             (fetch-meeting-series)
+             (fetch-meets))
+    :reports (fetch-reports)
+    :today (fetch-today-all (today-fetch-opts))
+    nil))
+
 (defn toggle-shared-filter [filter-type id]
-  (if (= filter-type constants/CATEGORY-TYPE-GOAL)
-    (case (:active-tab @*app-state)
-      :resources (toggle-resources-goal-filter id)
-      :meets (toggle-meets-goal-filter id)
-      :reports (toggle-reports-goal-filter id)
-      nil)
-    (let [filter-key (case filter-type
-                       constants/CATEGORY-TYPE-PERSON :shared/filter-people
-                       constants/CATEGORY-TYPE-PLACE :shared/filter-places
-                       constants/CATEGORY-TYPE-PROJECT :shared/filter-projects)]
-      (swap! *app-state update filter-key
-             #(if (contains? % id)
-                (disj % id)
-                (conj % id)))
-      (case (:active-tab @*app-state)
-        :tasks (if (:tasks-page/recurring-mode @*app-state)
-                 (fetch-recurring-tasks)
-                 (fetch-tasks))
-        :resources (fetch-resources-or-journals)
-        :meets (if (:meets-page/series-mode @*app-state)
-                 (fetch-meeting-series)
-                 (fetch-meets))
-        :reports (fetch-reports)
-        nil))))
+  (swap! *app-state update (shared-filter-key filter-type)
+         #(if (contains? % id) (disj % id) (conj % id)))
+  (refetch-current-tab))
 
 (defn clear-shared-filter [filter-type]
-  (let [filter-key (case filter-type
-                     constants/CATEGORY-TYPE-PERSON :shared/filter-people
-                     constants/CATEGORY-TYPE-PLACE :shared/filter-places
-                     constants/CATEGORY-TYPE-PROJECT :shared/filter-projects)]
-    (swap! *app-state assoc filter-key #{})
-    (case (:active-tab @*app-state)
-      :tasks (if (:tasks-page/recurring-mode @*app-state)
-               (fetch-recurring-tasks)
-               (fetch-tasks))
-      :resources (fetch-resources-or-journals)
-      :meets (if (:meets-page/series-mode @*app-state)
-               (fetch-meeting-series)
-               (fetch-meets))
-      :reports (fetch-reports)
-      nil)))
+  (swap! *app-state assoc (shared-filter-key filter-type) #{})
+  (refetch-current-tab))
 
 (defn clear-uncollapsed-resource-filters []
   (let [collapsed (:resources-page/collapsed-filters @*app-state)
@@ -994,7 +946,7 @@
              :shared/filter-people #{}
              :shared/filter-places #{}
              :shared/filter-projects #{}
-             :resources-page/filter-goals #{}
+             :shared/filter-goals #{}
              :resources-page/category-search {:people "" :places "" :projects "" :goals ""})
       (.scrollTo js/window 0 0)
       (resources-state/clear-all-resource-filters fetch-resources))))
@@ -1109,13 +1061,15 @@
                      :filter-people (:shared/filter-people @*app-state)
                      :filter-places (:shared/filter-places @*app-state)
                      :filter-projects (:shared/filter-projects @*app-state)
-                     :filter-goals (:tasks-page/filter-goals @*app-state)}
+                     :filter-goals (:shared/filter-goals @*app-state)}
              (:tasks-page/filter-recurring @*app-state)
              (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @*app-state))))
     :today {:context (:work-private-mode @*app-state)
             :strict (:strict-mode @*app-state)
-            :excluded-places (:today-page/excluded-places @*app-state)
-            :excluded-projects (:today-page/excluded-projects @*app-state)}
+            :filter-people (:shared/filter-people @*app-state)
+            :filter-places (:shared/filter-places @*app-state)
+            :filter-projects (:shared/filter-projects @*app-state)
+            :filter-goals (:shared/filter-goals @*app-state)}
     {:context (:work-private-mode @*app-state)
      :strict (:strict-mode @*app-state)}))
 
@@ -1124,7 +1078,7 @@
   ([opts]
    (tasks/fetch-tasks *app-state auth-headers today-page/calculate-best-horizon opts)))
 
-(defn- today-fetch-opts []
+(defn today-fetch-opts []
   (today-page/current-fetch-opts *app-state))
 
 (defn fetch-today-meets
@@ -1132,7 +1086,7 @@
   ([opts]
    (meets-state/fetch-today-meets *app-state auth-headers today-page/calculate-best-horizon opts)))
 
-(defn- fetch-today-all [opts]
+(defn fetch-today-all [opts]
   (fetch-tasks opts)
   (fetch-today-meets opts))
 
@@ -1280,14 +1234,7 @@
   (tasks-page/has-active-shared-filters? *app-state))
 
 (defn has-filter-for-type? [filter-type]
-  (if (= filter-type constants/CATEGORY-TYPE-GOAL)
-    (case (:active-tab @*app-state)
-      :tasks (seq (:tasks-page/filter-goals @*app-state))
-      :resources (seq (:resources-page/filter-goals @*app-state))
-      :meets (seq (:meets-page/filter-goals @*app-state))
-      :reports (seq (:reports-page/filter-goals @*app-state))
-      nil)
-    (tasks-page/has-filter-for-type? *app-state filter-type)))
+  (tasks-page/has-filter-for-type? *app-state filter-type))
 
 (defn toggle-filter [filter-type id]
   (tasks-page/toggle-filter *app-state fetch-tasks filter-type id))
@@ -1363,18 +1310,6 @@
 (defn set-upcoming-horizon [horizon]
   (today-page/set-upcoming-horizon *app-state horizon))
 
-(defn toggle-today-excluded-place [place-id]
-  (today-page/toggle-today-excluded-place *app-state fetch-today-all place-id))
-
-(defn toggle-today-excluded-project [project-id]
-  (today-page/toggle-today-excluded-project *app-state fetch-today-all project-id))
-
-(defn clear-today-excluded-places []
-  (today-page/clear-today-excluded-places *app-state fetch-today-all))
-
-(defn clear-today-excluded-projects []
-  (today-page/clear-today-excluded-projects *app-state fetch-today-all))
-
 (defn clear-uncollapsed-today-filters []
   (today-page/clear-uncollapsed-today-filters *app-state fetch-today-all))
 
@@ -1434,7 +1369,7 @@
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:reports-page/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)})
 
 (defn fetch-reports
   ([] (fetch-reports (reports-fetch-opts)))
@@ -1462,15 +1397,6 @@
          (.focus el)))
      0)))
 
-(defn toggle-reports-goal-filter [id]
-  (swap! *app-state update :reports-page/filter-goals
-         #(if (contains? % id) (disj % id) (conj % id)))
-  (fetch-reports))
-
-(defn clear-reports-goal-filter []
-  (swap! *app-state assoc :reports-page/filter-goals #{})
-  (fetch-reports))
-
 (defn set-reports-items-filter [items-filter]
   (swap! *app-state assoc :reports-page/items-filter items-filter)
   (fetch-reports))
@@ -1490,7 +1416,7 @@
              :shared/filter-people #{}
              :shared/filter-places #{}
              :shared/filter-projects #{}
-             :reports-page/filter-goals #{}
+             :shared/filter-goals #{}
              :reports-page/category-search {:people "" :places "" :projects "" :goals ""})
       (do
         (doseq [filter-key uncollapsed]
@@ -1498,7 +1424,7 @@
             :people (swap! *app-state assoc :shared/filter-people #{})
             :places (swap! *app-state assoc :shared/filter-places #{})
             :projects (swap! *app-state assoc :shared/filter-projects #{})
-            :goals (swap! *app-state assoc :reports-page/filter-goals #{})))
+            :goals (swap! *app-state assoc :shared/filter-goals #{})))
         (swap! *app-state assoc
                :reports-page/collapsed-filters all-filters
                :reports-page/category-search {:people "" :places "" :projects "" :goals ""})))

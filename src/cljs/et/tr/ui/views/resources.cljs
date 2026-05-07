@@ -338,7 +338,7 @@
    {:filter-key :goals
     :title-key :category/goals
     :items-key :goals
-    :filter-state-key :resources-page/filter-goals
+    :filter-state-key :shared/filter-goals
     :category-type state/CATEGORY-TYPE-GOAL}])
 
 (defn- sidebar-filters []
@@ -350,12 +350,8 @@
                                        :filter-key filter-key
                                        :items (get app-state items-key)
                                        :selected-ids (get app-state filter-state-key)
-                                       :toggle-fn (if (= category-type state/CATEGORY-TYPE-GOAL)
-                                                    #(state/toggle-resources-goal-filter %)
-                                                    #(state/toggle-shared-filter category-type %))
-                                       :clear-fn (if (= category-type state/CATEGORY-TYPE-GOAL)
-                                                   #(state/clear-resources-goal-filter)
-                                                   #(state/clear-shared-filter category-type))
+                                       :toggle-fn #(state/toggle-shared-filter category-type %)
+                                       :clear-fn #(state/clear-shared-filter category-type)
                                        :collapsed? (contains? collapsed-filters filter-key)}]))))
 
 (defn- journals-toggle []
