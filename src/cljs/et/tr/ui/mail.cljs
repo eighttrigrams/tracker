@@ -243,7 +243,7 @@
       "✎"])
    [mail-message-actions message next-message-id]])
 
-(defn- archive-checkbox [message archiving?]
+(defn- archive-checkbox [message archiving? expanded?]
   [:div.archive-checkbox-wrapper
    [:input.archive-checkbox
     {:type "checkbox"
@@ -251,6 +251,8 @@
      :on-click #(.stopPropagation %)
      :on-change (fn [_]
                   (reset! archiving? true)
+                  (when expanded?
+                    (state/set-expanded-message nil))
                   (js/setTimeout #(state/set-message-done (:id message) true) 1000))}]])
 
 (defn- mail-message-item [_message _expanded-id _view _next-message-id]
@@ -258,16 +260,16 @@
     (fn [message expanded-id view next-message-id]
       (let [{:keys [id]} message
             expanded? (= expanded-id id)
-            show-checkbox? (and (not expanded?) (= view :inbox))]
+            show-checkbox? (= view :inbox)]
         [:li {:class (str (when expanded? "expanded")
                           (when @archiving? " archiving-out"))}
          [:div.mail-item-row
           (when show-checkbox?
-            [archive-checkbox message archiving?])
+            [archive-checkbox message archiving? expanded?])
           [:div.mail-item-content
-           [mail-message-header message expanded?]
-           (when expanded?
-             [mail-message-expanded-content message next-message-id])]]]))))
+           [mail-message-header message expanded?]]]
+         (when expanded?
+           [mail-message-expanded-content message next-message-id])]))))
 
 (defn- mail-sender-filter-badge []
   (let [sender-filter (:sender-filter @mail-state/*mail-page-state)
