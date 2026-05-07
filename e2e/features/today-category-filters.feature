@@ -42,7 +42,7 @@ Feature: Today page category filters
     And I navigate to the "Today" tab
     Then the "Renovations" filter should be active in the projects sidebar
 
-  Scenario: Clicking a category badge on a Today item selects that category
+  Scenario: Clicking a category badge on a Today task item selects that category
     Given I am on the app
     And the place "Lagos" exists
     And the place "Bordeira" exists
@@ -56,3 +56,18 @@ Feature: Today page category filters
     Then the "Lagos" filter should be active in the places sidebar
     And I should see "Fix plumbing" in the today view
     And I should not see "Paint walls" in the today view
+
+  Scenario: Clicking a category badge on a Today meet item selects that category
+    Given I am on the app
+    And the place "Lagos" exists
+    And the place "Bordeira" exists
+    And a meet "Standup" with start date today exists
+    And a meet "Retro" with start date today exists
+    And meet "Standup" is assigned to place "Lagos"
+    And meet "Retro" is assigned to place "Bordeira"
+    And I reload the page
+    When I navigate to the "Today" tab
+    And I click the "Lagos" badge on the today item "Standup"
+    Then the "Lagos" filter should be active in the places sidebar
+    And I should see "Standup" in the today view
+    And I should not see "Retro" in the today view

@@ -23,6 +23,20 @@ Given(
   },
 );
 
+Given(
+  "meet {string} is assigned to place {string}",
+  async ({ request }, meetTitle: string, placeName: string) => {
+    const meets = await (await request.get("/api/meets", { headers })).json();
+    const meet = meets.find((m: any) => m.title === meetTitle);
+    const places = await (await request.get("/api/places", { headers })).json();
+    const place = places.find((p: any) => p.name === placeName);
+    await request.post(`/api/meets/${meet.id}/categorize`, {
+      headers,
+      data: { "category-type": "place", "category-id": place.id },
+    });
+  },
+);
+
 Then(
   'the "Today" sidebar should show the {string} filter section',
   async ({ page }, sectionClass: string) => {

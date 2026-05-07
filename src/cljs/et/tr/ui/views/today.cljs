@@ -7,7 +7,6 @@
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.filter-section :as filter-section]
-            [et.tr.filters :as filters]
             [et.tr.ui.components.relation-link :as relation-link]
             [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t]]))
@@ -240,20 +239,7 @@
           [:span.task-time (:start_time meet)])
         [today-meet-title-content meet is-expanded]]
        (when-not is-expanded
-         [:<>
-          (when (or (seq (:people meet)) (seq (:places meet)) (seq (:projects meet)))
-            [:div.task-badges
-             (for [person (:people meet)]
-               ^{:key (str "person-" (:id person))}
-               [:span.tag.person (filters/badge-label person)])
-             (for [place (:places meet)]
-               ^{:key (str "place-" (:id place))}
-               [:span.tag.place (filters/badge-label place)])
-             (for [project (:projects meet)]
-               ^{:key (str "project-" (:id project))}
-               [:span.tag.project (filters/badge-label project)])])
-          (when (seq (:relations meet))
-            [relation-badges/relation-badges-collapsed (:relations meet) "met" (:id meet)])])]
+         [task-item/task-category-badges meet])]
       (when is-expanded
         [:div.item-toolbar
          [:button.calendar-icon {:on-click (fn [e]
