@@ -22,10 +22,11 @@
      :error-handler (fn [_]
                       (swap! app-state assoc :available-users []))}))
 
-(defn add-user [app-state auth-headers username password machine-target-id on-success]
+(defn add-user [app-state auth-headers username password machine-target-id mail-only? on-success]
   (let [body (cond-> {:username username :password password}
                machine-target-id (assoc :is_machine_user true
-                                        :for_user_id machine-target-id))]
+                                        :for_user_id machine-target-id
+                                        :mail_only (boolean mail-only?)))]
     (api/post-json "/api/users" body (auth-headers)
       (fn [user]
         (swap! app-state update :users conj user)

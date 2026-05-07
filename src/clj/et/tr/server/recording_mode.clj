@@ -34,7 +34,8 @@
   "When a verified token marks the caller as a machine user and the request
   mutates an /api/* endpoint, only let it through while recording mode is on.
   Otherwise log the intent and return a stub response — read access stays
-  open regardless."
+  open regardless. Mail-only machine users never get through to non-mail
+  endpoints, even when recording is on."
   [handler]
   (fn [req]
     (if (and (api-request? req) (mutating? req) (not (gate-exempt? req)))
@@ -45,9 +46,10 @@
                               :method (:request-method req)
                               :machine-user-id (:user-id claims)
                               :for-user-id (:for-user-id claims)
+                              :mail-only (boolean (:mail-only claims))
                               :recording (enabled?)}}
                       "MACHINE WRITE")
-            (if (enabled?)
+            (if (and (enabled?) (not (:mail-only claims)))
               (handler req)
               {:status 200
                :headers {"Content-Type" "application/json"}

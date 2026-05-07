@@ -164,6 +164,8 @@
   :users/machine-user "Machine user"
   :users/machine-target "For user"
   :users/machine-badge "machine"
+  :users/mail-only "Mail only"
+  :users/mail-only-badge "mail-only"
 
   :settings/profile "Profile"
   :settings/username "Username"
@@ -472,6 +474,8 @@
   :users/machine-user "Maschinenbenutzer"
   :users/machine-target "Für Benutzer"
   :users/machine-badge "Maschine"
+  :users/mail-only "Nur Mail"
+  :users/mail-only-badge "nur Mail"
 
   :settings/profile "Profil"
   :settings/username "Benutzername"
@@ -762,6 +766,8 @@
   :users/machine-user "Utilizador máquina"
   :users/machine-target "Para utilizador"
   :users/machine-badge "máquina"
+  :users/mail-only "Só correio"
+  :users/mail-only-badge "só correio"
 
   :settings/profile "Perfil"
   :settings/username "Nome de utilizador"

@@ -8,14 +8,17 @@
         password (r/atom "")
         machine? (r/atom false)
         target-id (r/atom nil)
+        mail-only? (r/atom false)
         reset-form (fn []
                      (reset! username "")
                      (reset! password "")
                      (reset! machine? false)
-                     (reset! target-id nil))
+                     (reset! target-id nil)
+                     (reset! mail-only? false))
         submit (fn []
                  (state/add-user @username @password
                                  (when @machine? @target-id)
+                                 (and @machine? @mail-only?)
                                  reset-form))]
     (fn []
       (let [eligible-targets (->> (:users @state/*app-state)
@@ -37,7 +40,9 @@
                    :on-change (fn [e]
                                 (let [v (-> e .-target .-checked)]
                                   (reset! machine? v)
-                                  (when-not v (reset! target-id nil))))}]
+                                  (when-not v
+                                    (reset! target-id nil)
+                                    (reset! mail-only? false))))}]
           (t :users/machine-user)]
          (when @machine?
            [:select {:value (or @target-id "")
@@ -47,6 +52,12 @@
             (for [u eligible-targets]
               ^{:key (:id u)}
               [:option {:value (:id u)} (:username u)])])
+         (when @machine?
+           [:label.mail-only-checkbox
+            [:input {:type "checkbox"
+                     :checked @mail-only?
+                     :on-change #(reset! mail-only? (-> % .-target .-checked))}]
+            (t :users/mail-only)])
          [:button {:on-click submit
                    :disabled (or (and @machine? (nil? @target-id))
                                  (empty? @username)
@@ -67,6 +78,8 @@
            [:span.username (:username user)]
            (when (:is_machine_user user)
              [:span.machine-user-badge (t :users/machine-badge)])
+           (when (:mail_only user)
+             [:span.mail-only-badge (t :users/mail-only-badge)])
            [:button.delete-user-btn
             {:on-click #(state/set-confirm-delete-user user)}
             (t :task/delete)]]))]]]))
