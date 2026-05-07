@@ -193,13 +193,8 @@
   (api/put-json (str "/api/messages/" message-id "/scope")
     {:scope scope}
     (auth-headers)
-    (fn [result]
-      (swap! app-state update :messages
-             (fn [messages]
-               (mapv #(if (= (:id %) message-id)
-                        (assoc % :scope (:scope result))
-                        %)
-                     messages))))
+    (fn [_]
+      (fetch-messages app-state auth-headers))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
