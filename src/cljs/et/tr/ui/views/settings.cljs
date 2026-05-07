@@ -69,11 +69,11 @@
     :reagent-render
     (fn []
       (let [events (:events @state/*app-state)]
-        [:div.manage-section.settings-section
-         [:h3 (t :settings/history)]
+        [:div.history-page
+         [:h3.history-heading (t :settings/history)]
          (if (empty? events)
-           [:div.settings-item.history-empty (t :history/no-events)]
-           [:ul.history-list
+           [:div.history-empty (t :history/no-events)]
+           [:ul.items.history-list
             (for [ev events]
               ^{:key (:id ev)}
               [event-row ev])])]))}))
@@ -99,8 +99,7 @@
        [:h3 (t :settings/data)]
        [:div.settings-item
         [:button.export-btn {:on-click #(state/export-data)}
-         (t :settings/export-data)]]]
-      [history-section]]
+         (t :settings/export-data)]]]]
      [:hr.settings-separator]
      [:div.shortcuts-section
       [:h3 (t :settings/shortcuts)]
@@ -127,4 +126,6 @@
        [:div.shortcuts-list
         [:div.shortcut-item
          [:span.shortcut-key "Option+Enter"]
-         [:span.shortcut-desc (t :settings/shortcut-add-task)]]]]]]))
+         [:span.shortcut-desc (t :settings/shortcut-add-task)]]]]]
+     [:hr.settings-separator]
+     [history-section]]))

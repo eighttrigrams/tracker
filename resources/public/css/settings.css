@@ -100,19 +100,20 @@
   color: var(--text-secondary);
   margin-left: 12px;
 }
+.history-page {
+  width: 100%;
+}
+.history-heading {
+  margin: 0 0 16px 0;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--text-primary);
+}
 .history-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  max-width: 700px;
+  /* picks up .items > li glass-card style from task-item.css */
 }
 .history-item {
-  padding: 8px 4px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   cursor: pointer;
-}
-.history-item:hover {
-  background: rgba(0, 0, 0, 0.02);
 }
 .history-row {
   display: flex;
