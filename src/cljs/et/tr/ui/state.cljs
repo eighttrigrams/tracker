@@ -462,14 +462,18 @@
 (defn set-meet-importance [meet-id importance]
   (meets-state/set-meet-importance *app-state auth-headers meet-id importance))
 
+(defn- fetch-meets-and-today-meets []
+  (fetch-meets)
+  (fetch-today-meets))
+
 (defn set-meet-start-date [meet-id start-date]
-  (meets-state/set-meet-start-date *app-state auth-headers fetch-meets meet-id start-date))
+  (meets-state/set-meet-start-date *app-state auth-headers fetch-meets-and-today-meets meet-id start-date))
 
 (defn archive-meet [meet-id]
-  (meets-state/archive-meet *app-state auth-headers fetch-today-meets meet-id))
+  (meets-state/archive-meet *app-state auth-headers fetch-meets-and-today-meets meet-id))
 
 (defn set-meet-start-time [meet-id start-time]
-  (meets-state/set-meet-start-time *app-state auth-headers fetch-meets meet-id start-time))
+  (meets-state/set-meet-start-time *app-state auth-headers fetch-meets-and-today-meets meet-id start-time))
 
 (defn set-meets-sort-mode [mode]
   (meets-state/set-sort-mode fetch-meets mode))
@@ -499,10 +503,10 @@
   (meets-state/clear-all-meet-filters fetch-meets))
 
 (defn categorize-meet [meet-id category-type category-id]
-  (meets-state/categorize-meet *app-state auth-headers fetch-meets meet-id category-type category-id))
+  (meets-state/categorize-meet *app-state auth-headers fetch-meets-and-today-meets meet-id category-type category-id))
 
 (defn uncategorize-meet [meet-id category-type category-id]
-  (meets-state/uncategorize-meet *app-state auth-headers fetch-meets meet-id category-type category-id))
+  (meets-state/uncategorize-meet *app-state auth-headers fetch-meets-and-today-meets meet-id category-type category-id))
 
 (declare fetch-meeting-series)
 
@@ -1192,7 +1196,8 @@
          (when (not= (:reports-task-dropdown-open @*app-state) task-id) task-id)))
 
 (defn add-task-to-today [title on-success]
-  (tasks/add-task *app-state auth-headers current-scope (constantly false) nil title
+  (tasks/add-task *app-state auth-headers current-scope has-active-filters?
+                  #(set-pending-new-item :task %1 %2) title
                   (fn []
                     (let [task (first (:tasks @*app-state))]
                       (when task
@@ -1200,7 +1205,8 @@
                     (when on-success (on-success)))))
 
 (defn add-task-lined-up-for [title date on-success]
-  (tasks/add-task *app-state auth-headers current-scope (constantly false) nil title
+  (tasks/add-task *app-state auth-headers current-scope has-active-filters?
+                  #(set-pending-new-item :task %1 %2) title
                   (fn []
                     (let [task (first (:tasks @*app-state))]
                       (when task

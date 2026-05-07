@@ -105,8 +105,11 @@
                                               (assoc % :scope (:scope result))
                                               %))
                                      (filterv #(filters/matches-scope? % mode strict?))))]
-        (swap! app-state update :meets update-and-filter)
-        (swap! app-state update-in [:reports-data :meets] update-and-filter)))
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :meets update-and-filter)
+                               (update :today-meets update-and-filter)
+                               (update-in [:reports-data :meets] update-and-filter))))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
@@ -115,12 +118,16 @@
     {:importance importance}
     (auth-headers)
     (fn [result]
-      (swap! app-state update :meets
-             (fn [meets]
-               (mapv #(if (= (:id %) meet-id)
-                        (assoc % :importance (:importance result))
-                        %)
-                     meets))))
+      (let [merge-fn (fn [meets]
+                       (mapv #(if (= (:id %) meet-id)
+                                (assoc % :importance (:importance result))
+                                %)
+                             meets))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :meets merge-fn)
+                               (update :today-meets merge-fn)
+                               (update-in [:reports-data :meets] merge-fn))))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))))
 
