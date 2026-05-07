@@ -57,6 +57,43 @@
              :user-id (:for-user-id claims))
       claims)))
 
+(defn- ds-username [user-id]
+  (when user-id
+    (-> (jdbc/execute-one! (db/get-conn (ensure-ds))
+          (sql/format {:select [:username] :from [:users] :where [:= :id user-id]})
+          db/jdbc-opts)
+        :username)))
+
+(defn claims->actor
+  "Build the actor map that downstream DB writes use to record events.
+  Distinguishes the raw caller (machine row when applicable) from the
+  parent (target) user, and snapshots usernames so we can still display
+  history after the user is deleted."
+  [claims]
+  (when claims
+    (let [machine? (boolean (:is-machine-user claims))]
+      (cond-> {:actor-user-id (:user-id claims)
+               :actor-username (or (:username claims)
+                                   (ds-username (:user-id claims))
+                                   "unknown")
+               :is-machine? machine?}
+        machine? (assoc :parent-user-id (:for-user-id claims)
+                        :parent-username (ds-username (:for-user-id claims)))))))
+
+(defn get-actor [req]
+  (or (some-> (auth/extract-token req) auth/verify-token claims->actor)
+      (when (allow-skip-logins?)
+        (let [user-id-str (get-in req [:headers "x-user-id"])
+              user-id (when (and user-id-str (not= user-id-str "null"))
+                        (Integer/parseInt user-id-str))]
+          (if user-id
+            {:actor-user-id user-id
+             :actor-username (or (ds-username user-id) "unknown")
+             :is-machine? false}
+            {:actor-user-id nil
+             :actor-username "admin"
+             :is-machine? false})))))
+
 (defn get-user-from-request [req]
   (or (some-> (auth/extract-token req) auth/verify-token claims->identity)
       (when (allow-skip-logins?)

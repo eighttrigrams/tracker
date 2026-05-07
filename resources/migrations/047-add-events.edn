@@ -1,0 +1,21 @@
+{:up ["CREATE TABLE events (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         ts TEXT NOT NULL DEFAULT (datetime('now')),
+         actor_user_id INTEGER REFERENCES users(id),
+         actor_username TEXT NOT NULL,
+         is_machine INTEGER NOT NULL DEFAULT 0,
+         parent_user_id INTEGER REFERENCES users(id),
+         parent_username TEXT,
+         effective_user_id INTEGER REFERENCES users(id),
+         entity_type TEXT,
+         entity_id INTEGER,
+         action TEXT NOT NULL,
+         payload TEXT NOT NULL,
+         dropped INTEGER NOT NULL DEFAULT 0
+       )"
+      "CREATE INDEX idx_events_effective_user_ts ON events(effective_user_id, ts DESC)"
+      "CREATE INDEX idx_events_entity ON events(entity_type, entity_id)"]
+ :down ["DROP INDEX IF EXISTS idx_events_entity"
+        "DROP INDEX IF EXISTS idx_events_effective_user_ts"
+        "DROP TABLE IF EXISTS events"]
+ :transactions false}
