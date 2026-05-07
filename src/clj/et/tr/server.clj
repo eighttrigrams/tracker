@@ -13,6 +13,8 @@
             [et.tr.server.relation-handler :as relation-handler]
             [et.tr.server.report-handler :as report-handler]
             [et.tr.server.user-handler :as user-handler]
+            [et.tr.server.event-handler :as event-handler]
+            [et.tr.server.events :as events]
             [et.tr.server.today-board-handler :as today-board-handler]
             [et.tr.server.category-handler :as category-handler]
             [et.tr.auth :as auth]
@@ -90,9 +92,14 @@
    :headers {"Content-Type" "text/html"}
    :body (slurp (io/resource "public/index.html"))})
 
-(defn- toggle-recording-mode-handler [_]
+(defn- toggle-recording-mode-handler [req]
   (let [now (recording-mode/toggle!)]
     (tel/log! {:level :info :data {:recording now}} (str "RECORDING MODE " (if now "ON" "OFF")))
+    (events/record! req {:entity-type :recording-mode
+                         :entity-id nil
+                         :action :recording-toggle
+                         :system? true
+                         :payload {:on now}})
     {:status 200 :body {:recording now}}))
 
 (defroutes api-routes
@@ -102,6 +109,7 @@
     (GET "/reports" [] report-handler/reports-handler)
     (POST "/recording-mode/toggle" [] toggle-recording-mode-handler)
     (GET "/today-board" [] today-board-handler/today-board-handler)
+    (GET "/events" [] event-handler/list-events-handler)
 
     (context "/auth" []
       (GET "/required" [] user-handler/password-required-handler)

@@ -1,5 +1,7 @@
 (ns et.tr.server.relation-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.server.events :as events]
+            [et.tr.db :as db]
             [et.tr.db.relation :as db.relation]))
 
 (def ^:private valid-relation-types #{"tsk" "res" "met" "jen"})
@@ -22,7 +24,15 @@
 
       :else
       (if-let [result (db.relation/add-relation (common/ensure-ds) user-id source-type source-id target-type target-id)]
-        {:status 201 :body result}
+        (let [conn (db/get-conn (common/ensure-ds))
+              src-title (db.relation/fetch-title-for-relation conn source-type source-id)
+              tgt-title (db.relation/fetch-title-for-relation conn target-type target-id)]
+          (events/record! req {:entity-type :relation
+                               :entity-id nil
+                               :action :relation-add
+                               :payload {:source {:type source-type :id source-id :title src-title}
+                                         :target {:type target-type :id target-id :title tgt-title}}})
+          {:status 201 :body result})
         {:status 404 :body {:success false :error "Item not found"}}))))
 
 (defn delete-relation-handler [req]
@@ -43,7 +53,15 @@
 
       :else
       (if-let [result (db.relation/delete-relation (common/ensure-ds) user-id source-type source-id target-type target-id)]
-        {:status 200 :body result}
+        (let [conn (db/get-conn (common/ensure-ds))
+              src-title (db.relation/fetch-title-for-relation conn source-type source-id)
+              tgt-title (db.relation/fetch-title-for-relation conn target-type target-id)]
+          (events/record! req {:entity-type :relation
+                               :entity-id nil
+                               :action :relation-delete
+                               :payload {:source {:type source-type :id source-id :title src-title}
+                                         :target {:type target-type :id target-id :title tgt-title}}})
+          {:status 200 :body result})
         {:status 404 :body {:success false :error "Item not found"}}))))
 
 (defn get-relations-handler [req]

@@ -1,5 +1,6 @@
 (ns et.tr.server.resource-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.server.events :as events]
             [et.tr.db :as db]
             [et.tr.db.resource :as db.resource]
             [clojure.string :as str]))
@@ -46,6 +47,7 @@
                     (or (common/fetch-youtube-title effective-link) title)
                     title)
             resource (db.resource/add-resource (common/ensure-ds) user-id title effective-link (or scope "both"))]
+        (events/record-create! req :resource (:id resource) resource)
         {:status 201 :body resource}))))
 
 (defn update-resource-handler [req]
@@ -61,19 +63,26 @@
 
       :else
       (let [effective-link (when (seq link) link)
+            before (events/fetch-fields :resources resource-id [:title :link :description :tags])
             resource (db.resource/update-resource (common/ensure-ds) user-id resource-id {:title title :link effective-link :description (or description "") :tags (or tags "")})]
+        (events/record-update! req :resource resource-id before
+                               (select-keys resource [:title :link :description :tags]))
         {:status 200 :body resource}))))
 
 (defn delete-resource-handler [req]
   (let [user-id (common/get-user-id req)
         resource-id (Integer/parseInt (get-in req [:params :id]))
+        snapshot (events/fetch-row :resources resource-id)
         result (db.resource/delete-resource (common/ensure-ds) user-id resource-id)]
     (if (:success result)
-      {:status 200 :body {:success true}}
+      (do (events/record-delete! req :resource resource-id snapshot)
+          {:status 200 :body {:success true}})
       {:status 404 :body {:success false :error "Resource not found"}})))
 
-(def categorize-resource-handler (common/make-categorize-handler db.resource/categorize-resource))
-(def uncategorize-resource-handler (common/make-uncategorize-handler db.resource/uncategorize-resource))
+(def categorize-resource-handler
+  (common/make-categorize-handler db.resource/categorize-resource :resource))
+(def uncategorize-resource-handler
+  (common/make-uncategorize-handler db.resource/uncategorize-resource :resource))
 
 (defn reorder-resource-handler [req]
   (let [user-id (common/get-user-id req)
@@ -100,9 +109,13 @@
 (def set-resource-scope-handler
   (common/make-entity-property-handler :scope db/valid-scopes
                                        "Invalid scope. Must be 'private', 'both', or 'work'"
-                                       {:entity-type :resource :set-fn db.resource/set-resource-field}))
+                                       {:entity-type :resource
+                                        :set-fn db.resource/set-resource-field
+                                        :table :resources}))
 
 (def set-resource-importance-handler
   (common/make-entity-property-handler :importance db/valid-importances
                                        "Invalid importance. Must be 'normal', 'important', or 'critical'"
-                                       {:entity-type :resource :set-fn db.resource/set-resource-field}))
+                                       {:entity-type :resource
+                                        :set-fn db.resource/set-resource-field
+                                        :table :resources}))

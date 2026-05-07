@@ -1,5 +1,6 @@
 (ns et.tr.server.message-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.server.events :as events]
             [et.tr.db :as db]
             [et.tr.db.message :as db.message]
             [et.tr.db.resource :as db.resource]
@@ -65,6 +66,7 @@
 
         :else
         (let [message (db.message/add-message (common/ensure-ds) user-id sender title description type scope importance urgency)]
+          (events/record-create! req :message (:id message) message)
           {:status 201 :body message})))
     {:status 403 :body {:error "Mail access required"}}))
 
@@ -73,16 +75,21 @@
     {:status 400 :body {:error "Missing required field: done"}}
     (with-mail-message-context req user-id message-id
       (let [done? (boolean (get-in req [:body :done]))
+            before (events/fetch-fields :messages message-id [:done])
             result (db.message/set-message-done (common/ensure-ds) user-id message-id done?)]
         (if result
-          {:status 200 :body result}
+          (do (events/record-update! req :message message-id before
+                                     (select-keys result [:done]))
+              {:status 200 :body result})
           {:status 404 :body {:error "Message not found"}})))))
 
 (defn delete-message-handler [req]
   (with-mail-message-context req user-id message-id
-    (let [result (db.message/delete-message (common/ensure-ds) user-id message-id)]
+    (let [snapshot (events/fetch-row :messages message-id)
+          result (db.message/delete-message (common/ensure-ds) user-id message-id)]
       (if (:success result)
-        {:status 200 :body {:success true}}
+        (do (events/record-delete! req :message message-id snapshot)
+            {:status 200 :body {:success true}})
         {:status 404 :body {:success false :error "Message not found"}}))))
 
 (defn update-message-handler [req]
@@ -90,19 +97,26 @@
     (let [{:keys [title description]} (:body req)]
       (if (str/blank? title)
         {:status 400 :body {:error "Title is required"}}
-        (if-let [result (db.message/update-message (common/ensure-ds) user-id message-id title description)]
-          {:status 200 :body result}
-          {:status 404 :body {:error "Message not found"}})))))
+        (let [before (events/fetch-fields :messages message-id [:title :description])
+              result (db.message/update-message (common/ensure-ds) user-id message-id title description)]
+          (if result
+            (do (events/record-update! req :message message-id before
+                                       (select-keys result [:title :description]))
+                {:status 200 :body result})
+            {:status 404 :body {:error "Message not found"}}))))))
 
 (defn set-message-scope-handler [req]
   (with-mail-message-context req user-id message-id
     (let [scope (get-in req [:body :scope])]
       (if (and (some? scope) (not (#{"private" "work" "both"} scope)))
         {:status 400 :body {:error "Scope must be 'private', 'work', or 'both'"}}
-        (let [result (db.message/set-message-scope (common/ensure-ds) user-id message-id
+        (let [before (events/fetch-fields :messages message-id [:scope])
+              result (db.message/set-message-scope (common/ensure-ds) user-id message-id
                        (if (= scope "both") nil scope))]
           (if result
-            {:status 200 :body result}
+            (do (events/record-update! req :message message-id before
+                                       (select-keys result [:scope]))
+                {:status 200 :body result})
             {:status 404 :body {:error "Message not found"}}))))))
 
 (defn set-message-importance-handler [req]
@@ -110,9 +124,12 @@
     (let [importance (get-in req [:body :importance])]
       (if-not (contains? db/valid-importances importance)
         {:status 400 :body {:error "Invalid importance. Must be 'normal', 'important', or 'critical'"}}
-        (let [result (db.message/set-message-importance (common/ensure-ds) user-id message-id importance)]
+        (let [before (events/fetch-fields :messages message-id [:importance])
+              result (db.message/set-message-importance (common/ensure-ds) user-id message-id importance)]
           (if result
-            {:status 200 :body result}
+            (do (events/record-update! req :message message-id before
+                                       (select-keys result [:importance]))
+                {:status 200 :body result})
             {:status 404 :body {:error "Message not found"}}))))))
 
 (defn set-message-urgency-handler [req]
@@ -120,9 +137,12 @@
     (let [urgency (get-in req [:body :urgency])]
       (if-not (contains? db/valid-urgencies urgency)
         {:status 400 :body {:error "Invalid urgency. Must be 'default', 'urgent', or 'superurgent'"}}
-        (let [result (db.message/set-message-urgency (common/ensure-ds) user-id message-id urgency)]
+        (let [before (events/fetch-fields :messages message-id [:urgency])
+              result (db.message/set-message-urgency (common/ensure-ds) user-id message-id urgency)]
           (if result
-            {:status 200 :body result}
+            (do (events/record-update! req :message message-id before
+                                       (select-keys result [:urgency]))
+                {:status 200 :body result})
             {:status 404 :body {:error "Message not found"}}))))))
 
 (defn delete-all-archived-handler [req]

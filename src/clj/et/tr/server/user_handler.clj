@@ -1,5 +1,6 @@
 (ns et.tr.server.user-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.server.events :as events]
             [et.tr.db.user :as db.user]
             [et.tr.auth :as auth]
             [clojure.string :as str]))
@@ -85,6 +86,14 @@
                                           {:is-machine-user machine?
                                            :for-user-id (when machine? for_user_id)
                                            :mail-only (and machine? mail-only?)})]
+            (events/record! req {:entity-type :user
+                                 :entity-id (:id user)
+                                 :action :user-create
+                                 :system? true
+                                 :payload {:username username
+                                           :is_machine machine?
+                                           :for_user_id (when machine? for_user_id)
+                                           :mail_only (and machine? mail-only?)}})
             {:status 201 :body (-> user
                                    (dissoc :password_hash)
                                    (update :is_machine_user #(= 1 %))
@@ -96,9 +105,18 @@
 (defn delete-user-handler [req]
   (if (common/is-admin? req)
     (let [user-id (Integer/parseInt (get-in req [:params :id]))
+          target (db.user/get-user-by-id (common/ensure-ds) user-id)
           result (db.user/delete-user (common/ensure-ds) user-id)]
       (if (:success result)
-        {:status 200 :body {:success true}}
+        (do (events/record! req {:entity-type :user
+                                 :entity-id user-id
+                                 :action :user-delete
+                                 :system? true
+                                 :payload {:username (:username target)
+                                           :is_machine (= 1 (:is_machine_user target))
+                                           :for_user_id (:for_user_id target)
+                                           :mail_only (= 1 (:mail_only target))}})
+            {:status 200 :body {:success true}})
         {:status 404 :body {:error "User not found"}}))
     {:status 403 :body {:error "Admin access required"}}))
 

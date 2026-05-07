@@ -5,17 +5,28 @@
             [taoensso.telemere :as tel]
             [et.tr.db :as db]))
 
-(defn- effective-user-id [{:keys [actor-user-id is-machine? parent-user-id]}]
+(def current-event-version
+  "Schema version of the event payloads written by this build. Bump when the
+  shape of `payload` (or any other event field) changes in a non-additive
+  way; readers can branch on `:version` to interpret older rows correctly."
+  1)
+
+(defn- effective-user-id-fn [{:keys [actor-user-id is-machine? parent-user-id]}]
   (if is-machine? parent-user-id actor-user-id))
 
-(defn- ->row [actor {:keys [entity-type entity-id action payload dropped]
+(defn- ->row [actor {:keys [entity-type entity-id action payload dropped version
+                            effective-user-id system?]
                      :or {dropped false}}]
-  {:actor_user_id (:actor-user-id actor)
+  {:version (or version current-event-version)
+   :actor_user_id (:actor-user-id actor)
    :actor_username (or (:actor-username actor) "unknown")
    :is_machine (if (:is-machine? actor) 1 0)
    :parent_user_id (when (:is-machine? actor) (:parent-user-id actor))
    :parent_username (when (:is-machine? actor) (:parent-username actor))
-   :effective_user_id (effective-user-id actor)
+   :effective_user_id (cond
+                        system?           nil
+                        (some? effective-user-id) effective-user-id
+                        :else             (effective-user-id-fn actor))
    :entity_type (some-> entity-type name)
    :entity_id entity-id
    :action (name action)
@@ -52,11 +63,13 @@
    (list-events-for-user ds viewing-user-id 100))
   ([ds viewing-user-id limit]
    (let [rows (jdbc/execute! (db/get-conn ds)
-                (sql/format {:select [:id :ts :actor_user_id :actor_username :is_machine
+                (sql/format {:select [:id :ts :version :actor_user_id :actor_username :is_machine
                                       :parent_user_id :parent_username :effective_user_id
                                       :entity_type :entity_id :action :payload :dropped]
                              :from [:events]
-                             :where [:= :effective_user_id viewing-user-id]
+                             :where [:or
+                                     [:= :effective_user_id viewing-user-id]
+                                     [:is :effective_user_id nil]]
                              :order-by [[:ts :desc] [:id :desc]]
                              :limit limit})
                 db/jdbc-opts)]

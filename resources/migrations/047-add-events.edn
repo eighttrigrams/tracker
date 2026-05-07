@@ -1,6 +1,7 @@
 {:up ["CREATE TABLE events (
          id INTEGER PRIMARY KEY AUTOINCREMENT,
          ts TEXT NOT NULL DEFAULT (datetime('now')),
+         version INTEGER NOT NULL DEFAULT 1,
          actor_user_id INTEGER REFERENCES users(id),
          actor_username TEXT NOT NULL,
          is_machine INTEGER NOT NULL DEFAULT 0,

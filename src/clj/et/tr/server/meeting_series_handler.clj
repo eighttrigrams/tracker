@@ -1,5 +1,6 @@
 (ns et.tr.server.meeting-series-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.server.events :as events]
             [et.tr.db :as db]
             [et.tr.db.meeting-series :as db.meeting-series]
             [clojure.string :as str]))
@@ -29,7 +30,9 @@
         {:keys [title scope]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      {:status 201 :body (db.meeting-series/add-meeting-series (common/ensure-ds) user-id title (or scope "both"))})))
+      (let [series (db.meeting-series/add-meeting-series (common/ensure-ds) user-id title (or scope "both"))]
+        (events/record-create! req :meeting-series (:id series) series)
+        {:status 201 :body series}))))
 
 (defn update-meeting-series-handler [req]
   (let [user-id (common/get-user-id req)
@@ -37,14 +40,20 @@
         {:keys [title description tags]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      {:status 200 :body (db.meeting-series/update-meeting-series (common/ensure-ds) user-id series-id {:title title :description (or description "") :tags (or tags "")})})))
+      (let [before (events/fetch-fields :meeting_series series-id [:title :description :tags])
+            result (db.meeting-series/update-meeting-series (common/ensure-ds) user-id series-id {:title title :description (or description "") :tags (or tags "")})]
+        (events/record-update! req :meeting-series series-id before
+                               (select-keys result [:title :description :tags]))
+        {:status 200 :body result}))))
 
 (defn delete-meeting-series-handler [req]
   (let [user-id (common/get-user-id req)
         series-id (Integer/parseInt (get-in req [:params :id]))
+        snapshot (events/fetch-row :meeting_series series-id)
         result (db.meeting-series/delete-meeting-series (common/ensure-ds) user-id series-id)]
     (if (:success result)
-      {:status 200 :body {:success true}}
+      (do (events/record-delete! req :meeting-series series-id snapshot)
+          {:status 200 :body {:success true}})
       {:status 404 :body {:success false :error "Meeting series not found"}})))
 
 (defn create-next-meeting-handler [req]
@@ -60,7 +69,8 @@
 
       :else
       (if-let [meet (db.meeting-series/create-meeting-for-series (common/ensure-ds) user-id series-id date time)]
-        {:status 201 :body meet}
+        (do (events/record-create! req :meet (:id meet) meet)
+            {:status 201 :body meet})
         {:status 404 :body {:error "Meeting series not found"}}))))
 
 (defn get-taken-dates-handler [req]
@@ -70,8 +80,10 @@
       {:status 200 :body {:dates dates}}
       {:status 404 :body {:error "Meeting series not found"}})))
 
-(def categorize-meeting-series-handler (common/make-categorize-handler db.meeting-series/categorize-meeting-series))
-(def uncategorize-meeting-series-handler (common/make-uncategorize-handler db.meeting-series/uncategorize-meeting-series))
+(def categorize-meeting-series-handler
+  (common/make-categorize-handler db.meeting-series/categorize-meeting-series :meeting-series))
+(def uncategorize-meeting-series-handler
+  (common/make-uncategorize-handler db.meeting-series/uncategorize-meeting-series :meeting-series))
 
 (defn- valid-schedule-time? [schedule-time]
   (or (nil? schedule-time)
@@ -90,11 +102,17 @@
         {:keys [schedule-days schedule-time schedule-mode biweekly-offset]} (:body req)]
     (if (not (valid-schedule-time? schedule-time))
       {:status 400 :body {:error "Invalid time format"}}
-      (if-let [result (db.meeting-series/set-meeting-series-schedule (common/ensure-ds) user-id series-id schedule-days schedule-time schedule-mode biweekly-offset)]
-        {:status 200 :body result}
-        {:status 404 :body {:error "Meeting series not found"}}))))
+      (let [before (events/fetch-fields :meeting_series series-id
+                                        [:schedule_days :schedule_time :schedule_mode :biweekly_offset])]
+        (if-let [result (db.meeting-series/set-meeting-series-schedule (common/ensure-ds) user-id series-id schedule-days schedule-time schedule-mode biweekly-offset)]
+          (do (events/record-update! req :meeting-series series-id before
+                                     (select-keys result [:schedule_days :schedule_time :schedule_mode :biweekly_offset]))
+              {:status 200 :body result})
+          {:status 404 :body {:error "Meeting series not found"}})))))
 
 (def set-meeting-series-scope-handler
   (common/make-entity-property-handler :scope db/valid-scopes
                                        "Invalid scope. Must be 'private', 'both', or 'work'"
-                                       {:entity-type :meeting-series :set-fn db.meeting-series/set-meeting-series-field}))
+                                       {:entity-type :meeting-series
+                                        :set-fn db.meeting-series/set-meeting-series-field
+                                        :table :meeting_series}))
