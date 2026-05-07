@@ -59,5 +59,11 @@ export default defineConfig({
     url: `http://localhost:${port}`,
     timeout: 120_000,
     reuseExistingServer: false,
+    // The dev rate limit (720 req/60s) is tight for a sequential SPA e2e
+    // suite — boot fans out ~8 requests, setup POSTs add 10+, and bursts
+    // cross the limit. Hitting 429 on /api/test/reset breaks the next
+    // test (empty body → JSON.parse error → cascading locator timeouts).
+    // Raise the cap for the test server only; prod still uses the default.
+    env: { RATE_LIMIT_MAX_REQUESTS: "99999" },
   },
 });
