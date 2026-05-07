@@ -1,4 +1,4 @@
-.PHONY: start stop start-prod build test e2e e2e-docker lint deploy clean backup backup-replay
+.PHONY: start stop start-prod build test e2e e2e-docker lint deploy deploy-preflight clean backup backup-replay
 
 start:
 	@if [ -f .env ]; then set -a && . ./.env && set +a; fi && ./scripts/start.sh
@@ -30,7 +30,19 @@ e2e-docker:
 lint:
 	clj-kondo --lint src/clj src/cljc test/clj
 
-deploy: e2e-docker backup
+deploy-preflight:
+	@branch=$$(git rev-parse --abbrev-ref HEAD); \
+	if [ "$$branch" != "main" ]; then \
+	  echo "deploy: refusing — current branch is '$$branch', not main" >&2; exit 1; \
+	fi
+	@if ! git diff-index --quiet HEAD -- || [ -n "$$(git ls-files --others --exclude-standard)" ]; then \
+	  echo "deploy: refusing — working tree is not clean" >&2; exit 1; \
+	fi
+	@if [ -n "$$(git log @{u}..HEAD 2>/dev/null)" ]; then \
+	  echo "deploy: refusing — local main has unpushed commits" >&2; exit 1; \
+	fi
+
+deploy: deploy-preflight e2e-docker backup
 	fly deploy --build-arg CACHE_BUST=$$(git rev-parse --short HEAD)
 
 clean:
