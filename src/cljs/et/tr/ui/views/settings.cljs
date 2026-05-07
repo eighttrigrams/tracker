@@ -1,5 +1,7 @@
 (ns et.tr.ui.views.settings
-  (:require [et.tr.ui.state :as state]
+  (:require [reagent.core :as r]
+            [cljs.pprint]
+            [et.tr.ui.state :as state]
             [et.tr.i18n :refer [t]]))
 
 (defn language-selector []
@@ -24,6 +26,58 @@
                :on-change #(state/update-vim-keys (not enabled))}]
       (str " " (t :settings/vim-keys))]]))
 
+(defn- summary-line [ev]
+  (let [actor (:actor_username ev)
+        ent (or (:entity_type ev) "")
+        eid (:entity_id ev)
+        action (:action ev)
+        target (cond-> (str ent (when eid (str " #" eid)))
+                 (= "" ent) (str "system"))]
+    (str actor " " action " " target)))
+
+(defn- event-row [ev]
+  (let [expanded? (r/atom false)]
+    (fn [ev]
+      [:li.history-item
+       {:class (when (:dropped ev) "history-item-dropped")
+        :on-click #(swap! expanded? not)}
+       [:div.history-row
+        [:span.history-ts (or (:ts ev) "")]
+        [:span.history-actor
+         (:actor_username ev)
+         (when (:is_machine ev)
+           [:span.history-via " " (t :history/via) " "
+            (str "user #" (:parent_user_id ev) " (" (or (:parent_username ev) "?") ")")])]
+        [:span.history-summary (summary-line ev)]
+        (when (:dropped ev)
+          [:span.history-dropped-badge (t :history/dropped-badge)])]
+       (when @expanded?
+         [:pre.history-payload
+          (with-out-str
+            (cljs.pprint/pprint
+              (-> ev
+                  (select-keys [:version :id :ts :entity_type :entity_id :action
+                                :actor_user_id :actor_username :is_machine
+                                :parent_user_id :parent_username :effective_user_id
+                                :dropped :payload])
+                  (assoc :payload (:payload ev)))))])])))
+
+(defn history-section []
+  (r/create-class
+   {:component-did-mount
+    (fn [] (state/fetch-events))
+    :reagent-render
+    (fn []
+      (let [events (:events @state/*app-state)]
+        [:div.manage-section.settings-section
+         [:h3 (t :settings/history)]
+         (if (empty? events)
+           [:div.settings-item.history-empty (t :history/no-events)]
+           [:ul.history-list
+            (for [ev events]
+              ^{:key (:id ev)}
+              [event-row ev])])]))}))
+
 (defn settings-tab []
   (let [current-user (:current-user @state/*app-state)
         is-admin (:is_admin current-user)]
@@ -45,7 +99,8 @@
        [:h3 (t :settings/data)]
        [:div.settings-item
         [:button.export-btn {:on-click #(state/export-data)}
-         (t :settings/export-data)]]]]
+         (t :settings/export-data)]]]
+      [history-section]]
      [:hr.settings-separator]
      [:div.shortcuts-section
       [:h3 (t :settings/shortcuts)]

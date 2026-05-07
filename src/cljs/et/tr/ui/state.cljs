@@ -21,6 +21,7 @@
             [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.state.relations :as relations-state]
             [et.tr.ui.state.reports :as reports-state]
+            [et.tr.ui.state.events :as events-state]
             [et.tr.ui.state.ui :as ui]))
 
 (def ^:const CATEGORY-TYPE-PERSON constants/CATEGORY-TYPE-PERSON)
@@ -959,6 +960,9 @@
 
 (defn add-user [username password machine-target-id mail-only? on-success]
   (users/add-user *app-state auth-headers username password machine-target-id mail-only? on-success))
+
+(defn fetch-events []
+  (events-state/fetch-events *app-state auth-headers))
 
 (defn set-confirm-delete-user [user]
   (users/set-confirm-delete-user *app-state user))

@@ -373,3 +373,43 @@
                 first)]
     (is (= 201 (:status resp)))
     (is (some? ev))))
+
+(deftest two-machine-users-record-distinct-actor-but-same-effective-user
+  (with-real-auth
+    (ensure-recording-on!)
+    (try
+      (let [m1 (db.user/create-user *ds* "bot1" "p"
+                                    {:is-machine-user true :for-user-id *user-id*})
+            m2 (db.user/create-user *ds* "bot2" "p"
+                                    {:is-machine-user true :for-user-id *user-id*})
+            t1 (machine-token (:id m1) *user-id*)
+            t2 (machine-token (:id m2) *user-id*)
+            _ (API :post "/api/tasks" {:body {:title "from-m1"} :token t1})
+            _ (API :post "/api/tasks" {:body {:title "from-m2"} :token t2})
+            evs (->> (events-for *user-id*)
+                     (filter #(and (= "task" (:entity_type %)) (= "create" (:action %)))))
+            actor-ids (set (map :actor_user_id evs))]
+        (is (>= (count evs) 2))
+        (is (contains? actor-ids (:id m1)))
+        (is (contains? actor-ids (:id m2)))
+        ;; both events filed under the parent user
+        (is (every? #(= *user-id* (:effective_user_id %)) evs)))
+      (finally (ensure-recording-off!)))))
+
+(deftest other-user-cannot-see-my-entity-events-but-sees-system-events
+  (let [u2 (db.user/create-user *ds* "u2" "p")
+        _ (create-task! "private")
+        _ (API :post "/api/recording-mode/toggle" {})
+        my-evs (events-for *user-id*)
+        u2-evs (events-for (:id u2))]
+    (is (some #(and (= "task" (:entity_type %)) (= "create" (:action %))) my-evs))
+    (is (not-any? #(and (= "task" (:entity_type %)) (= "create" (:action %))) u2-evs))
+    (is (some #(= "recording-toggle" (:action %)) u2-evs))
+    ;; reset
+    (ensure-recording-off!)))
+
+(deftest version-field-present-on-stored-events
+  (create-task! "vt")
+  (let [resp (API :get "/api/events" {})
+        evs (get-in resp [:body :events])]
+    (is (every? #(= 1 (:version %)) evs))))
