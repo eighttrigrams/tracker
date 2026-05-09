@@ -8,6 +8,7 @@
             [et.tr.ui.scheduling :as scheduling]
             [et.tr.ui.state.auth :as auth]
             [et.tr.ui.state.mail :as mail]
+            [et.tr.ui.state.sources :as sources]
             [et.tr.ui.state.users :as users]
             [et.tr.ui.state.categories :as categories]
             [et.tr.ui.state.tasks :as tasks]
@@ -310,6 +311,37 @@
 
 (defn convert-message-to-task [message-id]
   (mail/convert-message-to-task *app-state auth-headers message-id))
+
+;; ── Sources (Inbox / Sources mode) ──
+
+(defn sources-mode? [] (sources/sources-mode?))
+
+(defn toggle-sources-mode []
+  (sources/toggle-mode auth-headers))
+
+(defn set-youtube-source-enabled [enabled?]
+  (sources/set-enabled auth-headers enabled?))
+
+(defn set-youtube-source-polling-minutes [minutes]
+  (sources/set-polling-minutes auth-headers minutes))
+
+(defn add-youtube-channel []
+  (sources/add-channel auth-headers))
+
+(defn set-youtube-channel-enabled [channel-id enabled?]
+  (sources/set-channel-enabled auth-headers channel-id enabled?))
+
+(defn set-youtube-channel-name [channel-id name-val]
+  (sources/set-channel-name auth-headers channel-id name-val))
+
+(defn set-youtube-channel-min-minutes [channel-id minutes]
+  (sources/set-channel-min-minutes auth-headers channel-id minutes))
+
+(defn delete-youtube-channel [channel-id]
+  (sources/delete-channel auth-headers channel-id))
+
+(defn set-sources-form-field [k v]
+  (sources/set-form-field k v))
 
 (declare has-active-shared-filters?)
 (declare set-pending-new-item)

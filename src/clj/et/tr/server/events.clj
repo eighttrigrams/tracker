@@ -61,6 +61,20 @@
                 :action :create
                 :payload {:row (presentable row)}}))
 
+(defn record-create-with-actor!
+  "Like record-create!, but takes a pre-resolved actor map and an explicit
+  effective-user-id. Used by background workers that have no Ring request."
+  [ds actor effective-user-id entity-type entity-id row]
+  (try
+    (when actor
+      (db.event/record-event! ds actor
+                              {:entity-type entity-type
+                               :entity-id entity-id
+                               :action :create
+                               :payload {:row (presentable row)}
+                               :effective-user-id effective-user-id}))
+    (catch Throwable _ nil)))
+
 (defn record-update!
   "Diff before vs after, emit an :update event only if at least one tracked
   field changed. When exactly one field changed, payload is flattened to

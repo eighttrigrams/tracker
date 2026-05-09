@@ -1,6 +1,7 @@
 (ns et.tr.ui.mail
   (:require [et.tr.ui.state :as state]
             [et.tr.ui.state.mail :as mail-state]
+            [et.tr.ui.views.sources :as sources-view]
             [et.tr.i18n :refer [t]]
             [reagent.core :as r]
             [clojure.string :as str]
@@ -327,6 +328,13 @@
                :on-click #(state/set-mail-view (if (= view :saved) :inbox :saved))}
       (t :mail/view-saved)]]))
 
+(defn- sources-toggle []
+  (let [active? (state/sources-mode?)]
+    [:div.series-mode-toggle.toggle-group
+     [:button {:class (when active? "active")
+               :on-click #(state/toggle-sources-mode)}
+      (t :sources/sources)]]))
+
 (defn- any-filter-active? []
   (let [{:keys [sender-filter excluded-senders importance-filter urgency-filter]} @mail-state/*mail-page-state]
     (or sender-filter (seq excluded-senders) importance-filter urgency-filter)))
@@ -366,25 +374,35 @@
   (let [{:keys [messages]} @state/*app-state
         page-state @mail-state/*mail-page-state
         {:keys [expanded-message view]} page-state
-        sort-mode (mail-state/current-sort-mode page-state)]
+        sort-mode (mail-state/current-sort-mode page-state)
+        sources? (state/sources-mode?)]
     [:div.mail-page
      [:div.tasks-header
-      (when (= view :saved)
+      [sources-toggle]
+      (when (and (not sources?) (= view :saved))
         [:<>
          [importance-filter-toggle]
          [urgency-filter-toggle]])
-      [mail-sort-toggle]
-      [mail-view-toggle]]
-     (when (and (= view :inbox) (= sort-mode :recent))
-       [mail-add-form])
-     (when (= view :saved)
-       [mail-search-bar])
-     [mail-sender-filter-badge]
-     (if (empty? messages)
-       [:p.empty-message (t :mail/no-messages)]
-       (let [indexed (map-indexed vector messages)]
-         [:ul.items
-          (for [[idx message] indexed]
-            (let [next-message-id (some-> (get messages (inc idx)) :id)]
-              ^{:key (:id message)}
-              [mail-message-item message expanded-message view next-message-id]))]))]))
+      (when-not sources?
+        [mail-sort-toggle])
+      (when-not sources?
+        [mail-view-toggle])]
+     (cond
+       sources?
+       [sources-view/sources-page]
+
+       :else
+       [:<>
+        (when (and (= view :inbox) (= sort-mode :recent))
+          [mail-add-form])
+        (when (= view :saved)
+          [mail-search-bar])
+        [mail-sender-filter-badge]
+        (if (empty? messages)
+          [:p.empty-message (t :mail/no-messages)]
+          (let [indexed (map-indexed vector messages)]
+            [:ul.items
+             (for [[idx message] indexed]
+               (let [next-message-id (some-> (get messages (inc idx)) :id)]
+                 ^{:key (:id message)}
+                 [mail-message-item message expanded-message view next-message-id]))]))])]))

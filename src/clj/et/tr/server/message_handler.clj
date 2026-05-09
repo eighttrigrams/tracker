@@ -37,37 +37,46 @@
                                                                                 :search-term (get-in req [:params "q"])})})
     {:status 403 :body {:error "Mail access required"}}))
 
+(defn- validate-message-fields
+  [{:keys [sender title type scope importance urgency]}]
+  (cond
+    (str/blank? sender) "Sender is required"
+    (str/blank? title) "Title is required"
+    (and (not (str/blank? type))
+         (not (#{"text" "markdown" "html"} type)))
+    "Type must be one of: text, markdown, html"
+    (and (some? scope)
+         (not (#{"private" "work"} scope)))
+    "Scope must be 'private' or 'work'"
+    (and (some? importance)
+         (not (db/valid-importances importance)))
+    "Importance must be 'normal', 'important', or 'critical'"
+    (and (some? urgency)
+         (not (db/valid-urgencies urgency)))
+    "Urgency must be 'default', 'urgent', or 'superurgent'"))
+
+(defn add-message!
+  "Service-level function for adding a message. Validates inputs, persists
+  via db.message/add-message, and records a :create event using `actor`.
+  Returns either {:error msg} on validation failure or the created
+  message map on success. Called by both the HTTP handler and the
+  in-process source worker."
+  [ds actor user-id {:keys [sender title description type scope importance urgency] :as fields}]
+  (if-let [error (validate-message-fields fields)]
+    {:error error}
+    (let [message (db.message/add-message ds user-id sender title description
+                                          type scope importance urgency)]
+      (events/record-create-with-actor! ds actor user-id :message (:id message) message)
+      message)))
+
 (defn add-message-handler [req]
   (if (common/has-mail? req)
     (let [user-id (common/get-user-id req)
-          {:keys [sender title description type scope importance urgency]} (:body req)]
-      (cond
-        (str/blank? sender)
-        {:status 400 :body {:success false :error "Sender is required"}}
-
-        (str/blank? title)
-        {:status 400 :body {:success false :error "Title is required"}}
-
-        (and (not (str/blank? type))
-             (not (#{"text" "markdown" "html"} type)))
-        {:status 400 :body {:success false :error "Type must be one of: text, markdown, html"}}
-
-        (and (some? scope)
-             (not (#{"private" "work"} scope)))
-        {:status 400 :body {:success false :error "Scope must be 'private' or 'work'"}}
-
-        (and (some? importance)
-             (not (db/valid-importances importance)))
-        {:status 400 :body {:success false :error "Importance must be 'normal', 'important', or 'critical'"}}
-
-        (and (some? urgency)
-             (not (db/valid-urgencies urgency)))
-        {:status 400 :body {:success false :error "Urgency must be 'default', 'urgent', or 'superurgent'"}}
-
-        :else
-        (let [message (db.message/add-message (common/ensure-ds) user-id sender title description type scope importance urgency)]
-          (events/record-create! req :message (:id message) message)
-          {:status 201 :body message})))
+          actor (common/get-actor req)
+          result (add-message! (common/ensure-ds) actor user-id (:body req))]
+      (if (:error result)
+        {:status 400 :body {:success false :error (:error result)}}
+        {:status 201 :body result}))
     {:status 403 :body {:error "Mail access required"}}))
 
 (defn set-message-done-handler [req]

@@ -17,12 +17,14 @@
             [et.tr.server.events :as events]
             [et.tr.server.today-board-handler :as today-board-handler]
             [et.tr.server.category-handler :as category-handler]
+            [et.tr.server.source-handler :as source-handler]
             [et.tr.auth :as auth]
             [et.tr.server.recording-mode :as recording-mode]
             [et.tr.server.audit :as audit]
             [et.tr.telegram :as telegram]
             [et.tr.export :as export]
             [et.tr.worker :as worker]
+            [et.tr.source-worker :as source-worker]
             [et.tr.db.category :as db.category]
             [et.tr.db.task :as db.task]
             [next.jdbc :as jdbc]
@@ -264,6 +266,14 @@
       (DELETE "/" [] relation-handler/delete-relation-handler)
       (GET "/:type/:id" [] relation-handler/get-relations-handler))
 
+    (context "/sources/youtube" []
+      (GET "/settings" [] source-handler/get-youtube-settings-handler)
+      (PUT "/settings" [] source-handler/put-youtube-settings-handler)
+      (GET "/channels" [] source-handler/list-youtube-channels-handler)
+      (POST "/channels" [] source-handler/add-youtube-channel-handler)
+      (PUT "/channels/:id" [] source-handler/update-youtube-channel-handler)
+      (DELETE "/channels/:id" [] source-handler/delete-youtube-channel-handler))
+
     (DELETE "/:category/:id" [] category-handler/delete-category-handler)
 
     (context "/test" []
@@ -353,7 +363,8 @@
         (spit ".nrepl-port" nrepl-port)
         (tel/log! :info (str "nREPL server started on port " nrepl-port))))
     (when prod?
-      (worker/start-scheduler (common/ensure-ds)))
+      (worker/start-scheduler (common/ensure-ds))
+      (source-worker/start-scheduler (common/ensure-ds)))
     (if-let [port (env-int "PORT" (:port @common/*config))]
       (do
         (tel/log! :info (str "Starting server on port " port))
