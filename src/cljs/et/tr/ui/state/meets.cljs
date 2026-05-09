@@ -105,8 +105,11 @@
                                               (assoc % :scope (:scope result))
                                               %))
                                      (filterv #(filters/matches-scope? % mode strict?))))]
-        (swap! app-state update :meets update-and-filter)
-        (swap! app-state update-in [:reports-data :meets] update-and-filter)))
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :meets update-and-filter)
+                               (update :today-meets update-and-filter)
+                               (update-in [:reports-data :meets] update-and-filter))))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
@@ -115,12 +118,16 @@
     {:importance importance}
     (auth-headers)
     (fn [result]
-      (swap! app-state update :meets
-             (fn [meets]
-               (mapv #(if (= (:id %) meet-id)
-                        (assoc % :importance (:importance result))
-                        %)
-                     meets))))
+      (let [merge-fn (fn [meets]
+                       (mapv #(if (= (:id %) meet-id)
+                                (assoc % :importance (:importance result))
+                                %)
+                             meets))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :meets merge-fn)
+                               (update :today-meets merge-fn)
+                               (update-in [:reports-data :meets] merge-fn))))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))))
 
@@ -231,14 +238,18 @@
 
 (defn fetch-today-meets [app-state auth-headers calculate-best-horizon-fn opts]
   (let [request-id (swap! *today-meets-request-id inc)
-        {:keys [context strict excluded-places excluded-projects]} opts
-        excluded-place-names (when (seq excluded-places) (ids->names excluded-places (:places @app-state)))
-        excluded-project-names (when (seq excluded-projects) (ids->names excluded-projects (:projects @app-state)))
+        {:keys [context strict filter-people filter-places filter-projects filter-goals]} opts
+        people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
+        place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
+        project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
+        goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
         url (cond-> "/api/meets?"
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
-              (seq excluded-place-names) (str "excluded-places=" (js/encodeURIComponent (str/join "," excluded-place-names)) "&")
-              (seq excluded-project-names) (str "excluded-projects=" (js/encodeURIComponent (str/join "," excluded-project-names)) "&"))]
+              (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
+              (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
+              (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
+              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&"))]
     (GET url
       {:response-format :json
        :keywords? true

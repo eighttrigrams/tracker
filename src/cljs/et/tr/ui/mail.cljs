@@ -1,6 +1,7 @@
 (ns et.tr.ui.mail
   (:require [et.tr.ui.state :as state]
             [et.tr.ui.state.mail :as mail-state]
+            [et.tr.ui.views.sources :as sources-view]
             [et.tr.i18n :refer [t]]
             [reagent.core :as r]
             [clojure.string :as str]
@@ -192,17 +193,14 @@
     [resource-only-message-actions message]
     (let [page-state @mail-state/*mail-page-state
           view (:view page-state)
-          sort-mode (mail-state/current-sort-mode page-state)
           dropdown-open? (= (:id message) (:message-action-dropdown-open page-state))
-          show-merge? (and (= view :inbox) (= (:sender message) "Note") next-message-id)
-          show-delete-below? (and (= view :saved) (= sort-mode :recent))
-          show-dropdown? (or show-merge? show-delete-below?)]
+          show-merge? (and (= view :inbox) (= (:sender message) "Note") next-message-id)]
       [:div.item-actions
        [archive-button-with-dropdown message]
        [message-scope-selector message]
        [message-importance-selector message]
        [message-urgency-selector message]
-       (if show-dropdown?
+       (if show-merge?
          [:div.combined-button-wrapper
           [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
            (t :task/delete)]
@@ -211,18 +209,11 @@
            "▼"]
           (when dropdown-open?
             [:div.task-dropdown-menu
-             (when show-merge?
-               [:button.dropdown-item
-                {:on-click #(do
-                              (state/set-message-action-dropdown-open nil)
-                              (state/merge-message-with-below (:id message) next-message-id))}
-                (t :mail/merge-with-below)])
-             (when show-delete-below?
-               [:button.dropdown-item
-                {:on-click #(do
-                              (state/set-message-action-dropdown-open nil)
-                              (state/set-confirm-delete-archived-below message))}
-                (t :mail/delete-all-below)])])]
+             [:button.dropdown-item
+              {:on-click #(do
+                            (state/set-message-action-dropdown-open nil)
+                            (state/merge-message-with-below (:id message) next-message-id))}
+              (t :mail/merge-with-below)]])]
          [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
           (t :task/delete)])])))
 
@@ -243,7 +234,7 @@
       "✎"])
    [mail-message-actions message next-message-id]])
 
-(defn- archive-checkbox [message archiving?]
+(defn- archive-checkbox [message archiving? expanded?]
   [:div.archive-checkbox-wrapper
    [:input.archive-checkbox
     {:type "checkbox"
@@ -251,6 +242,8 @@
      :on-click #(.stopPropagation %)
      :on-change (fn [_]
                   (reset! archiving? true)
+                  (when expanded?
+                    (state/set-expanded-message nil))
                   (js/setTimeout #(state/set-message-done (:id message) true) 1000))}]])
 
 (defn- mail-message-item [_message _expanded-id _view _next-message-id]
@@ -258,16 +251,16 @@
     (fn [message expanded-id view next-message-id]
       (let [{:keys [id]} message
             expanded? (= expanded-id id)
-            show-checkbox? (and (not expanded?) (= view :inbox))]
+            show-checkbox? (= view :inbox)]
         [:li {:class (str (when expanded? "expanded")
                           (when @archiving? " archiving-out"))}
          [:div.mail-item-row
           (when show-checkbox?
-            [archive-checkbox message archiving?])
+            [archive-checkbox message archiving? expanded?])
           [:div.mail-item-content
-           [mail-message-header message expanded?]
-           (when expanded?
-             [mail-message-expanded-content message next-message-id])]]]))))
+           [mail-message-header message expanded?]]]
+         (when expanded?
+           [mail-message-expanded-content message next-message-id])]))))
 
 (defn- mail-sender-filter-badge []
   (let [sender-filter (:sender-filter @mail-state/*mail-page-state)
@@ -335,6 +328,13 @@
                :on-click #(state/set-mail-view (if (= view :saved) :inbox :saved))}
       (t :mail/view-saved)]]))
 
+(defn- sources-toggle []
+  (let [active? (state/sources-mode?)]
+    [:div.series-mode-toggle.toggle-group
+     [:button {:class (when active? "active")
+               :on-click #(state/toggle-sources-mode)}
+      (t :sources/sources)]]))
+
 (defn- any-filter-active? []
   (let [{:keys [sender-filter excluded-senders importance-filter urgency-filter]} @mail-state/*mail-page-state]
     (or sender-filter (seq excluded-senders) importance-filter urgency-filter)))
@@ -374,29 +374,35 @@
   (let [{:keys [messages]} @state/*app-state
         page-state @mail-state/*mail-page-state
         {:keys [expanded-message view]} page-state
-        sort-mode (mail-state/current-sort-mode page-state)]
+        sort-mode (mail-state/current-sort-mode page-state)
+        sources? (state/sources-mode?)]
     [:div.mail-page
      [:div.tasks-header
-      (when (= view :saved)
+      [sources-toggle]
+      (when (and (not sources?) (= view :saved))
         [:<>
          [importance-filter-toggle]
          [urgency-filter-toggle]])
-      [mail-sort-toggle]
-      [mail-view-toggle]]
-     (when (and (= view :inbox) (= sort-mode :recent))
-       [mail-add-form])
-     (when (= view :saved)
-       [mail-search-bar])
-     (when (and (= view :saved) (seq messages))
-       [:div.mail-delete-all-archived
-        [:button.delete-btn {:on-click #(state/set-confirm-delete-all-archived true)}
-         (t :mail/delete-all-archived)]])
-     [mail-sender-filter-badge]
-     (if (empty? messages)
-       [:p.empty-message (t :mail/no-messages)]
-       (let [indexed (map-indexed vector messages)]
-         [:ul.items
-          (for [[idx message] indexed]
-            (let [next-message-id (some-> (get messages (inc idx)) :id)]
-              ^{:key (:id message)}
-              [mail-message-item message expanded-message view next-message-id]))]))]))
+      (when-not sources?
+        [mail-sort-toggle])
+      (when-not sources?
+        [mail-view-toggle])]
+     (cond
+       sources?
+       [sources-view/sources-page]
+
+       :else
+       [:<>
+        (when (and (= view :inbox) (= sort-mode :recent))
+          [mail-add-form])
+        (when (= view :saved)
+          [mail-search-bar])
+        [mail-sender-filter-badge]
+        (if (empty? messages)
+          [:p.empty-message (t :mail/no-messages)]
+          (let [indexed (map-indexed vector messages)]
+            [:ul.items
+             (for [[idx message] indexed]
+               (let [next-message-id (some-> (get messages (inc idx)) :id)]
+                 ^{:key (:id message)}
+                 [mail-message-item message expanded-message view next-message-id]))]))])]))

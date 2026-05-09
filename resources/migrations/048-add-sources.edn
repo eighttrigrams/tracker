@@ -1,0 +1,27 @@
+{:up ["CREATE TABLE youtube_settings (
+         user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+         enabled INTEGER NOT NULL DEFAULT 1,
+         polling_minutes INTEGER NOT NULL DEFAULT 60,
+         last_polled_at TEXT
+       )"
+      "CREATE TABLE youtube_channels (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         channel_id TEXT NOT NULL,
+         name TEXT,
+         min_duration_minutes INTEGER,
+         enabled INTEGER NOT NULL DEFAULT 1,
+         added_at TEXT NOT NULL DEFAULT (datetime('now')),
+         UNIQUE(user_id, channel_id)
+       )"
+      "CREATE INDEX idx_youtube_channels_user ON youtube_channels (user_id)"
+      "CREATE TABLE youtube_videos_notified (
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         video_id TEXT NOT NULL,
+         notified_at TEXT NOT NULL DEFAULT (datetime('now')),
+         PRIMARY KEY (user_id, video_id)
+       )"]
+ :down ["DROP TABLE IF EXISTS youtube_videos_notified"
+        "DROP INDEX IF EXISTS idx_youtube_channels_user"
+        "DROP TABLE IF EXISTS youtube_channels"
+        "DROP TABLE IF EXISTS youtube_settings"]}

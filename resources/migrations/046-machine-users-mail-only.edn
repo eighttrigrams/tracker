@@ -1,0 +1,5 @@
+{:up ["DROP INDEX IF EXISTS idx_users_one_machine_per_user"
+      "ALTER TABLE users ADD COLUMN mail_only INTEGER NOT NULL DEFAULT 0"]
+ :down ["ALTER TABLE users DROP COLUMN mail_only"
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_one_machine_per_user ON users(for_user_id) WHERE is_machine_user = 1"]
+ :transactions false}

@@ -1,5 +1,6 @@
 (ns et.tr.server.recurring-task-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.server.events :as events]
             [et.tr.db :as db]
             [et.tr.db.recurring-task :as db.recurring-task]
             [clojure.string :as str]))
@@ -29,7 +30,9 @@
         {:keys [title scope]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      {:status 201 :body (db.recurring-task/add-recurring-task (common/ensure-ds) user-id title (or scope "both"))})))
+      (let [rt (db.recurring-task/add-recurring-task (common/ensure-ds) user-id title (or scope "both"))]
+        (events/record-create! req :recurring-task (:id rt) rt)
+        {:status 201 :body rt}))))
 
 (defn update-recurring-task-handler [req]
   (let [user-id (common/get-user-id req)
@@ -37,14 +40,20 @@
         {:keys [title description tags]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      {:status 200 :body (db.recurring-task/update-recurring-task (common/ensure-ds) user-id rtask-id {:title title :description (or description "") :tags (or tags "")})})))
+      (let [before (events/fetch-fields :recurring_tasks rtask-id [:title :description :tags])
+            result (db.recurring-task/update-recurring-task (common/ensure-ds) user-id rtask-id {:title title :description (or description "") :tags (or tags "")})]
+        (events/record-update! req :recurring-task rtask-id before
+                               (select-keys result [:title :description :tags]))
+        {:status 200 :body result}))))
 
 (defn delete-recurring-task-handler [req]
   (let [user-id (common/get-user-id req)
         rtask-id (Integer/parseInt (get-in req [:params :id]))
+        snapshot (events/fetch-row :recurring_tasks rtask-id)
         result (db.recurring-task/delete-recurring-task (common/ensure-ds) user-id rtask-id)]
     (if (:success result)
-      {:status 200 :body {:success true}}
+      (do (events/record-delete! req :recurring-task rtask-id snapshot)
+          {:status 200 :body {:success true}})
       {:status 404 :body {:success false :error "Recurring task not found"}})))
 
 (defn create-next-task-handler [req]
@@ -60,7 +69,8 @@
 
       :else
       (if-let [task (db.recurring-task/create-task-for-recurring (common/ensure-ds) user-id rtask-id date time)]
-        {:status 201 :body task}
+        (do (events/record-create! req :task (:id task) task)
+            {:status 201 :body task})
         {:status 404 :body {:error "Recurring task not found"}}))))
 
 (defn get-taken-dates-handler [req]
@@ -70,8 +80,10 @@
       {:status 200 :body {:dates dates}}
       {:status 404 :body {:error "Recurring task not found"}})))
 
-(def categorize-recurring-task-handler (common/make-categorize-handler db.recurring-task/categorize-recurring-task))
-(def uncategorize-recurring-task-handler (common/make-uncategorize-handler db.recurring-task/uncategorize-recurring-task))
+(def categorize-recurring-task-handler
+  (common/make-categorize-handler db.recurring-task/categorize-recurring-task :recurring-task))
+(def uncategorize-recurring-task-handler
+  (common/make-uncategorize-handler db.recurring-task/uncategorize-recurring-task :recurring-task))
 
 (defn- valid-schedule-time? [schedule-time]
   (or (nil? schedule-time)
@@ -90,11 +102,17 @@
         {:keys [schedule-days schedule-time schedule-mode biweekly-offset task-type]} (:body req)]
     (if (not (valid-schedule-time? schedule-time))
       {:status 400 :body {:error "Invalid time format"}}
-      (if-let [result (db.recurring-task/set-recurring-task-schedule (common/ensure-ds) user-id rtask-id schedule-days schedule-time schedule-mode biweekly-offset task-type)]
-        {:status 200 :body result}
-        {:status 404 :body {:error "Recurring task not found"}}))))
+      (let [before (events/fetch-fields :recurring_tasks rtask-id
+                                        [:schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type])]
+        (if-let [result (db.recurring-task/set-recurring-task-schedule (common/ensure-ds) user-id rtask-id schedule-days schedule-time schedule-mode biweekly-offset task-type)]
+          (do (events/record-update! req :recurring-task rtask-id before
+                                     (select-keys result [:schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type]))
+              {:status 200 :body result})
+          {:status 404 :body {:error "Recurring task not found"}})))))
 
 (def set-recurring-task-scope-handler
   (common/make-entity-property-handler :scope db/valid-scopes
                                        "Invalid scope. Must be 'private', 'both', or 'work'"
-                                       {:entity-type :recurring-task :set-fn db.recurring-task/set-recurring-task-field}))
+                                       {:entity-type :recurring-task
+                                        :set-fn db.recurring-task/set-recurring-task-field
+                                        :table :recurring_tasks}))

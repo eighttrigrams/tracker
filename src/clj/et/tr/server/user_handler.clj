@@ -1,5 +1,6 @@
 (ns et.tr.server.user-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.server.events :as events]
             [et.tr.db.user :as db.user]
             [et.tr.auth :as auth]
             [clojure.string :as str]))
@@ -25,15 +26,18 @@
                 effective-has-mail (if machine?
                                      (= 1 (:has_mail target))
                                      (= 1 (:has_mail user)))
+                mail-only? (and machine? (= 1 (:mail_only user)))
                 claims (cond-> {:user-id (:id user) :username (:username user)
                                 :is-admin false :has-mail effective-has-mail}
                          machine? (assoc :is-machine-user true
-                                         :for-user-id (:for_user_id user)))]
+                                         :for-user-id (:for_user_id user)
+                                         :mail-only mail-only?))]
             {:status 200 :body {:success true
                                 :token (auth/create-token claims)
                                 :user (-> user
                                           (assoc :has_mail effective-has-mail)
-                                          (update :is_machine_user #(= 1 %)))}})
+                                          (update :is_machine_user #(= 1 %))
+                                          (update :mail_only #(= 1 %)))}})
           {:status 401 :body {:success false :error "Invalid credentials"}})))))
 
 (defn password-required-handler [_req]
@@ -51,13 +55,16 @@
 (defn list-users-handler [req]
   (if (common/is-admin? req)
     {:status 200 :body (->> (db.user/list-users (common/ensure-ds))
-                            (mapv #(update % :is_machine_user (fn [v] (= 1 v)))))}
+                            (mapv #(-> %
+                                       (update :is_machine_user (fn [v] (= 1 v)))
+                                       (update :mail_only (fn [v] (= 1 v))))))}
     {:status 403 :body {:error "Admin access required"}}))
 
 (defn add-user-handler [req]
   (if (common/is-admin? req)
-    (let [{:keys [username password is_machine_user for_user_id]} (:body req)
-          machine? (boolean is_machine_user)]
+    (let [{:keys [username password is_machine_user for_user_id mail_only]} (:body req)
+          machine? (boolean is_machine_user)
+          mail-only? (boolean mail_only)]
       (cond
         (or (str/blank? username) (str/blank? password))
         {:status 400 :body {:error "Username and password are required"}}
@@ -73,17 +80,24 @@
                (or (nil? target) (= 1 (:is_machine_user target)))))
         {:status 400 :body {:error "Target user is invalid"}}
 
-        (and machine? (db.user/machine-user-for (common/ensure-ds) for_user_id))
-        {:status 409 :body {:error "Target user already has a machine user"}}
-
         :else
         (try
           (let [user (db.user/create-user (common/ensure-ds) username password
                                           {:is-machine-user machine?
-                                           :for-user-id (when machine? for_user_id)})]
+                                           :for-user-id (when machine? for_user_id)
+                                           :mail-only (and machine? mail-only?)})]
+            (events/record! req {:entity-type :user
+                                 :entity-id (:id user)
+                                 :action :user-create
+                                 :system? true
+                                 :payload {:username username
+                                           :is_machine machine?
+                                           :for_user_id (when machine? for_user_id)
+                                           :mail_only (and machine? mail-only?)}})
             {:status 201 :body (-> user
                                    (dissoc :password_hash)
-                                   (update :is_machine_user #(= 1 %)))})
+                                   (update :is_machine_user #(= 1 %))
+                                   (update :mail_only #(= 1 %)))})
           (catch Exception _
             {:status 409 :body {:error "Username already exists"}}))))
     {:status 403 :body {:error "Admin access required"}}))
@@ -91,9 +105,18 @@
 (defn delete-user-handler [req]
   (if (common/is-admin? req)
     (let [user-id (Integer/parseInt (get-in req [:params :id]))
+          target (db.user/get-user-by-id (common/ensure-ds) user-id)
           result (db.user/delete-user (common/ensure-ds) user-id)]
       (if (:success result)
-        {:status 200 :body {:success true}}
+        (do (events/record! req {:entity-type :user
+                                 :entity-id user-id
+                                 :action :user-delete
+                                 :system? true
+                                 :payload {:username (:username target)
+                                           :is_machine (= 1 (:is_machine_user target))
+                                           :for_user_id (:for_user_id target)
+                                           :mail_only (= 1 (:mail_only target))}})
+            {:status 200 :body {:success true}})
         {:status 404 :body {:error "User not found"}}))
     {:status 403 :body {:error "Admin access required"}}))
 

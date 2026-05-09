@@ -13,14 +13,18 @@
             [et.tr.server.relation-handler :as relation-handler]
             [et.tr.server.report-handler :as report-handler]
             [et.tr.server.user-handler :as user-handler]
+            [et.tr.server.event-handler :as event-handler]
+            [et.tr.server.events :as events]
             [et.tr.server.today-board-handler :as today-board-handler]
             [et.tr.server.category-handler :as category-handler]
+            [et.tr.server.source-handler :as source-handler]
             [et.tr.auth :as auth]
             [et.tr.server.recording-mode :as recording-mode]
             [et.tr.server.audit :as audit]
             [et.tr.telegram :as telegram]
             [et.tr.export :as export]
             [et.tr.worker :as worker]
+            [et.tr.source-worker :as source-worker]
             [et.tr.db.category :as db.category]
             [et.tr.db.task :as db.task]
             [next.jdbc :as jdbc]
@@ -95,9 +99,14 @@
      :headers {"Content-Type" "text/html"}
      :body html}))
 
-(defn- toggle-recording-mode-handler [_]
+(defn- toggle-recording-mode-handler [req]
   (let [now (recording-mode/toggle!)]
     (tel/log! {:level :info :data {:recording now}} (str "RECORDING MODE " (if now "ON" "OFF")))
+    (events/record! req {:entity-type :recording-mode
+                         :entity-id nil
+                         :action :recording-toggle
+                         :system? true
+                         :payload {:on now}})
     {:status 200 :body {:recording now}}))
 
 (defroutes api-routes
@@ -107,6 +116,7 @@
     (GET "/reports" [] report-handler/reports-handler)
     (POST "/recording-mode/toggle" [] toggle-recording-mode-handler)
     (GET "/today-board" [] today-board-handler/today-board-handler)
+    (GET "/events" [] event-handler/list-events-handler)
 
     (context "/auth" []
       (GET "/required" [] user-handler/password-required-handler)
@@ -170,7 +180,6 @@
     (context "/messages" []
       (GET "/" [] message-handler/list-messages-handler)
       (POST "/" [] message-handler/add-message-handler)
-      (DELETE "/archived" [] message-handler/delete-all-archived-handler)
       (PUT "/:id/done" [] message-handler/set-message-done-handler)
       (PUT "/:id/scope" [] message-handler/set-message-scope-handler)
       (PUT "/:id/importance" [] message-handler/set-message-importance-handler)
@@ -178,7 +187,6 @@
       (POST "/:id/convert-to-resource" [] message-handler/convert-message-to-resource-handler)
       (POST "/:id/convert-to-task" [] message-handler/convert-message-to-task-handler)
       (POST "/:id/merge" [] message-handler/merge-messages-handler)
-      (DELETE "/:id/archived-below" [] message-handler/delete-archived-below-handler)
       (PUT "/:id" [] message-handler/update-message-handler)
       (DELETE "/:id" [] message-handler/delete-message-handler))
 
@@ -262,6 +270,14 @@
       (POST "/" [] relation-handler/add-relation-handler)
       (DELETE "/" [] relation-handler/delete-relation-handler)
       (GET "/:type/:id" [] relation-handler/get-relations-handler))
+
+    (context "/sources/youtube" []
+      (GET "/settings" [] source-handler/get-youtube-settings-handler)
+      (PUT "/settings" [] source-handler/put-youtube-settings-handler)
+      (GET "/channels" [] source-handler/list-youtube-channels-handler)
+      (POST "/channels" [] source-handler/add-youtube-channel-handler)
+      (PUT "/channels/:id" [] source-handler/update-youtube-channel-handler)
+      (DELETE "/channels/:id" [] source-handler/delete-youtube-channel-handler))
 
     (DELETE "/:category/:id" [] category-handler/delete-category-handler)
 
@@ -352,7 +368,8 @@
         (spit ".nrepl-port" nrepl-port)
         (tel/log! :info (str "nREPL server started on port " nrepl-port))))
     (when prod?
-      (worker/start-scheduler (common/ensure-ds)))
+      (worker/start-scheduler (common/ensure-ds))
+      (source-worker/start-scheduler (common/ensure-ds)))
     (if-let [port (env-int "PORT" (:port @common/*config))]
       (do
         (tel/log! :info (str "Starting server on port " port))

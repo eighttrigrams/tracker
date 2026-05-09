@@ -74,9 +74,6 @@
                            "important" "★"
                            "critical" "★★"
                            nil)
-        active-tab (:active-tab @state/*app-state)
-        on-tasks-page? (= :tasks active-tab)
-        on-today-page? (= :today active-tab)
         all-types [[state/CATEGORY-TYPE-PERSON :people]
                    [state/CATEGORY-TYPE-PLACE :places]
                    [state/CATEGORY-TYPE-PROJECT :projects]
@@ -91,16 +88,14 @@
          (into [:<>]
                (for [category (mapcat (fn [[type k]] (map #(assoc % :type type) (get task k))) all-types)]
                  (let [type-has-filter? (state/has-filter-for-type? (:type category))
-                       clickable? (and (not on-today-page?) (not type-has-filter?))]
+                       clickable? (not type-has-filter?)]
                    ^{:key (str (:type category) "-" (:id category))}
                    [:span.tag {:class (:type category)
                                :style (when clickable? {:cursor "pointer"})
                                :on-click (when clickable?
                                            (fn [e]
                                              (.stopPropagation e)
-                                             (if on-tasks-page?
-                                               (state/toggle-filter (:type category) (:id category))
-                                               (state/toggle-shared-filter (:type category) (:id category)))))}
+                                             (state/toggle-shared-filter (:type category) (:id category))))}
                     (filters/badge-label category)]))))
        (when has-relations?
          [relation-badges/relation-badges-collapsed (:relations task) "tsk" (:id task)])])))

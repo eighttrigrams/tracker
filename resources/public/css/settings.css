@@ -100,3 +100,70 @@
   color: var(--text-secondary);
   margin-left: 12px;
 }
+.history-page {
+  width: 100%;
+}
+.history-heading {
+  margin: 0 0 16px 0;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.history-list {
+  /* picks up .items > li glass-card style from task-item.css */
+}
+.history-item {
+  cursor: pointer;
+}
+.history-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85em;
+}
+.history-ts {
+  font-family: 'SF Mono', SFMono-Regular, Menlo, Monaco, monospace;
+  color: var(--text-secondary);
+  min-width: 130px;
+}
+.history-actor {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.history-via {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 0.9em;
+}
+.history-summary {
+  color: var(--text-secondary);
+  flex: 1 1 auto;
+}
+.history-dropped-badge {
+  background: rgba(255, 100, 100, 0.15);
+  color: #b91c1c;
+  font-size: 0.75em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.history-item-dropped {
+  opacity: 0.78;
+}
+.history-payload {
+  margin: 8px 0 4px;
+  padding: 8px;
+  background: var(--surface-subtle);
+  border-radius: 4px;
+  font-size: 0.78em;
+  font-family: 'SF Mono', SFMono-Regular, Menlo, Monaco, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-primary);
+}
+.history-empty {
+  color: var(--text-secondary);
+  font-style: italic;
+}

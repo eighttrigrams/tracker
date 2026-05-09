@@ -85,7 +85,7 @@
                            [:= :source_id source-id]]})
       db/jdbc-opts)))
 
-(defn- fetch-title-for-relation [conn type id]
+(defn fetch-title-for-relation [conn type id]
   (let [table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)]
     (:title (jdbc/execute-one! conn
               (sql/format {:select [:title]

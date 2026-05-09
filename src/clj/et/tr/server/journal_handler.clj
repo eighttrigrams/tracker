@@ -1,5 +1,6 @@
 (ns et.tr.server.journal-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.server.events :as events]
             [et.tr.db :as db]
             [et.tr.db.journal :as db.journal]
             [clojure.string :as str]))
@@ -29,7 +30,9 @@
         {:keys [title scope schedule-type]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      {:status 201 :body (db.journal/add-journal (common/ensure-ds) user-id title (or scope "both") (or schedule-type "daily"))})))
+      (let [journal (db.journal/add-journal (common/ensure-ds) user-id title (or scope "both") (or schedule-type "daily"))]
+        (events/record-create! req :journal (:id journal) journal)
+        {:status 201 :body journal}))))
 
 (defn update-journal-handler [req]
   (let [user-id (common/get-user-id req)
@@ -37,23 +40,33 @@
         {:keys [title description tags]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      {:status 200 :body (db.journal/update-journal (common/ensure-ds) user-id journal-id {:title title :description (or description "") :tags (or tags "")})})))
+      (let [before (events/fetch-fields :journals journal-id [:title :description :tags])
+            result (db.journal/update-journal (common/ensure-ds) user-id journal-id {:title title :description (or description "") :tags (or tags "")})]
+        (events/record-update! req :journal journal-id before
+                               (select-keys result [:title :description :tags]))
+        {:status 200 :body result}))))
 
 (defn delete-journal-handler [req]
   (let [user-id (common/get-user-id req)
         journal-id (Integer/parseInt (get-in req [:params :id]))
+        snapshot (events/fetch-row :journals journal-id)
         result (db.journal/delete-journal (common/ensure-ds) user-id journal-id)]
     (if (:success result)
-      {:status 200 :body {:success true}}
+      (do (events/record-delete! req :journal journal-id snapshot)
+          {:status 200 :body {:success true}})
       {:status 404 :body {:success false :error "Journal not found"}})))
 
-(def categorize-journal-handler (common/make-categorize-handler db.journal/categorize-journal))
-(def uncategorize-journal-handler (common/make-uncategorize-handler db.journal/uncategorize-journal))
+(def categorize-journal-handler
+  (common/make-categorize-handler db.journal/categorize-journal :journal))
+(def uncategorize-journal-handler
+  (common/make-uncategorize-handler db.journal/uncategorize-journal :journal))
 
 (def set-journal-scope-handler
   (common/make-entity-property-handler :scope db/valid-scopes
                                        "Invalid scope. Must be 'private', 'both', or 'work'"
-                                       {:entity-type :journal :set-fn db.journal/set-journal-field}))
+                                       {:entity-type :journal
+                                        :set-fn db.journal/set-journal-field
+                                        :table :journals}))
 
 (defn create-entry-handler [req]
   (let [user-id (common/get-user-id req)
@@ -62,5 +75,6 @@
     (if (not (common/valid-date-format? date))
       {:status 400 :body {:error "Invalid date format. Use YYYY-MM-DD"}}
       (if-let [entry (db.journal/create-entry-for-journal (common/ensure-ds) user-id journal-id date)]
-        {:status 201 :body entry}
+        (do (events/record-create! req :journal-entry (:id entry) entry)
+            {:status 201 :body entry})
         {:status 404 :body {:error "Journal not found"}}))))

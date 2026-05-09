@@ -1,5 +1,6 @@
 (ns et.tr.server.common
   (:require [et.tr.db :as db]
+            [et.tr.db.event :as db.event]
             [et.tr.auth :as auth]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
@@ -56,6 +57,43 @@
              :machine-user-id (:user-id claims)
              :user-id (:for-user-id claims))
       claims)))
+
+(defn- ds-username [user-id]
+  (when user-id
+    (-> (jdbc/execute-one! (db/get-conn (ensure-ds))
+          (sql/format {:select [:username] :from [:users] :where [:= :id user-id]})
+          db/jdbc-opts)
+        :username)))
+
+(defn claims->actor
+  "Build the actor map that downstream DB writes use to record events.
+  Distinguishes the raw caller (machine row when applicable) from the
+  parent (target) user, and snapshots usernames so we can still display
+  history after the user is deleted."
+  [claims]
+  (when claims
+    (let [machine? (boolean (:is-machine-user claims))]
+      (cond-> {:actor-user-id (:user-id claims)
+               :actor-username (or (:username claims)
+                                   (ds-username (:user-id claims))
+                                   "unknown")
+               :is-machine? machine?}
+        machine? (assoc :parent-user-id (:for-user-id claims)
+                        :parent-username (ds-username (:for-user-id claims)))))))
+
+(defn get-actor [req]
+  (or (some-> (auth/extract-token req) auth/verify-token claims->actor)
+      (when (allow-skip-logins?)
+        (let [user-id-str (get-in req [:headers "x-user-id"])
+              user-id (when (and user-id-str (not= user-id-str "null"))
+                        (Integer/parseInt user-id-str))]
+          (if user-id
+            {:actor-user-id user-id
+             :actor-username (or (ds-username user-id) "unknown")
+             :is-machine? false}
+            {:actor-user-id nil
+             :actor-username "admin"
+             :is-machine? false})))))
 
 (defn get-user-from-request [req]
   (or (some-> (auth/extract-token req) auth/verify-token claims->identity)
@@ -139,48 +177,107 @@
       (tel/log! {:level :warn :data {:url url :error (.getMessage e)}} "Failed to fetch Substack title")
       nil)))
 
-(defn make-categorize-handler [db-fn]
-  (fn [req]
-    (let [user-id (get-user-id req)
-          entity-id (Integer/parseInt (get-in req [:params :id]))
-          {:keys [category-type category-id]} (:body req)]
-      (cond
-        (or (nil? category-type) (str/blank? category-type))
-        {:status 400 :body {:success false :error "category-type is required"}}
+(declare get-actor)
 
-        (or (nil? category-id) (not (integer? category-id)) (< category-id 1))
-        {:status 400 :body {:success false :error "category-id must be a positive integer"}}
+(defn- record-link-event!
+  "Recorded only after a successful db write. Looks up the category title
+  via a fresh select."
+  [req entity-type entity-id action category-type category-id]
+  (try
+    (let [tbl ({"person" :people "place" :places
+                "project" :projects "goal" :goals} category-type)
+          title (when tbl
+                  (:name (jdbc/execute-one! (db/get-conn (ensure-ds))
+                           (sql/format {:select [:name] :from [tbl]
+                                        :where [:= :id category-id]})
+                           db/jdbc-opts)))]
+      (when-let [actor (get-actor req)]
+        (db.event/record-event!
+         (ensure-ds) actor
+         {:entity-type (name entity-type)
+          :entity-id entity-id
+          :action action
+          :payload {:category-type category-type
+                    :category-id category-id
+                    :category-title title}})))
+    (catch Throwable _ nil)))
 
-        :else
-        (do
-          (db-fn (ensure-ds) user-id entity-id category-type category-id)
-          {:status 200 :body {:success true}})))))
+(defn make-categorize-handler
+  ([db-fn] (make-categorize-handler db-fn nil))
+  ([db-fn entity-type]
+   (fn [req]
+     (let [user-id (get-user-id req)
+           entity-id (Integer/parseInt (get-in req [:params :id]))
+           {:keys [category-type category-id]} (:body req)]
+       (cond
+         (or (nil? category-type) (str/blank? category-type))
+         {:status 400 :body {:success false :error "category-type is required"}}
 
-(defn make-uncategorize-handler [db-fn]
-  (fn [req]
-    (let [user-id (get-user-id req)
-          entity-id (Integer/parseInt (get-in req [:params :id]))
-          {:keys [category-type category-id]} (:body req)]
-      (cond
-        (or (nil? category-type) (str/blank? category-type))
-        {:status 400 :body {:success false :error "category-type is required"}}
+         (or (nil? category-id) (not (integer? category-id)) (< category-id 1))
+         {:status 400 :body {:success false :error "category-id must be a positive integer"}}
 
-        (or (nil? category-id) (not (integer? category-id)) (< category-id 1))
-        {:status 400 :body {:success false :error "category-id must be a positive integer"}}
+         :else
+         (do
+           (db-fn (ensure-ds) user-id entity-id category-type category-id)
+           (when entity-type
+             (record-link-event! req entity-type entity-id :link category-type category-id))
+           {:status 200 :body {:success true}}))))))
 
-        :else
-        (do
-          (db-fn (ensure-ds) user-id entity-id category-type category-id)
-          {:status 200 :body {:success true}})))))
+(defn make-uncategorize-handler
+  ([db-fn] (make-uncategorize-handler db-fn nil))
+  ([db-fn entity-type]
+   (fn [req]
+     (let [user-id (get-user-id req)
+           entity-id (Integer/parseInt (get-in req [:params :id]))
+           {:keys [category-type category-id]} (:body req)]
+       (cond
+         (or (nil? category-type) (str/blank? category-type))
+         {:status 400 :body {:success false :error "category-type is required"}}
 
-(defn make-entity-property-handler [field valid-values error-message {:keys [entity-type set-fn]}]
+         (or (nil? category-id) (not (integer? category-id)) (< category-id 1))
+         {:status 400 :body {:success false :error "category-id must be a positive integer"}}
+
+         :else
+         (do
+           (db-fn (ensure-ds) user-id entity-id category-type category-id)
+           (when entity-type
+             (record-link-event! req entity-type entity-id :unlink category-type category-id))
+           {:status 200 :body {:success true}}))))))
+
+(defn- record-property-event!
+  "Emit an :update event with single-field shape after the db write
+  succeeded. Best-effort — never throws."
+  [req entity-type entity-id field old-value new-value]
+  (try
+    (when (not= old-value new-value)
+      (when-let [actor (get-actor req)]
+        (db.event/record-event!
+         (ensure-ds) actor
+         {:entity-type (name entity-type)
+          :entity-id entity-id
+          :action :update
+          :payload {:field (name field)
+                    :old-value old-value
+                    :new-value new-value}})))
+    (catch Throwable _ nil)))
+
+(defn make-entity-property-handler [field valid-values error-message
+                                    {:keys [entity-type set-fn table]}]
   (fn [req]
     (let [value (get-in req [:body field])]
       (if-not (contains? valid-values value)
         {:status 400 :body {:error error-message}}
         (let [user-id (get-user-id req)
               entity-id (Integer/parseInt (get-in req [:params :id]))
+              old-row (when table
+                        (jdbc/execute-one! (db/get-conn (ensure-ds))
+                          (sql/format {:select [field] :from [(keyword table)]
+                                       :where [:= :id entity-id]})
+                          db/jdbc-opts))
               result (set-fn (ensure-ds) user-id entity-id field value)]
           (if result
-            {:status 200 :body result}
+            (do (when (and table entity-type)
+                  (record-property-event! req entity-type entity-id
+                                          field (get old-row field) (get result field)))
+                {:status 200 :body result})
             {:status 404 :body {:error (str (name entity-type) " not found")}}))))))

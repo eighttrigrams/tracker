@@ -1,5 +1,6 @@
 (ns et.tr.server.category-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.server.events :as events]
             [et.tr.db.category :as db.category]
             [clojure.string :as str]))
 
@@ -13,7 +14,9 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db.category/add-person (common/ensure-ds) user-id name)}
+        (let [row (db.category/add-person (common/ensure-ds) user-id name)]
+          (events/record-create! req :person (:id row) row)
+          {:status 201 :body row})
         (catch Exception _
           {:status 409 :body {:success false :error "Person already exists"}})))))
 
@@ -27,7 +30,9 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db.category/add-place (common/ensure-ds) user-id name)}
+        (let [row (db.category/add-place (common/ensure-ds) user-id name)]
+          (events/record-create! req :place (:id row) row)
+          {:status 201 :body row})
         (catch Exception _
           {:status 409 :body {:success false :error "Place already exists"}})))))
 
@@ -41,7 +46,9 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db.category/add-project (common/ensure-ds) user-id name)}
+        (let [row (db.category/add-project (common/ensure-ds) user-id name)]
+          (events/record-create! req :project (:id row) row)
+          {:status 201 :body row})
         (catch Exception _
           {:status 409 :body {:success false :error "Project already exists"}})))))
 
@@ -55,65 +62,41 @@
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        {:status 201 :body (db.category/add-goal (common/ensure-ds) user-id name)}
+        (let [row (db.category/add-goal (common/ensure-ds) user-id name)]
+          (events/record-create! req :goal (:id row) row)
+          {:status 201 :body row})
         (catch Exception _
           {:status 409 :body {:success false :error "Goal already exists"}})))))
 
-(defn update-person-handler [req]
+(defn- update-category-handler*
+  [req entity-type table label db-fn]
   (let [user-id (common/get-user-id req)
-        person-id (Integer/parseInt (get-in req [:params :id]))
+        cat-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [name description tags badge-title]} (:body req)]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
-        (let [result (db.category/update-person (common/ensure-ds) user-id person-id name (or description "") (or tags "") badge-title)]
+        (let [before (events/fetch-fields table cat-id [:name :description :tags :badge_title])
+              result (db-fn (common/ensure-ds) user-id cat-id name (or description "") (or tags "") badge-title)]
           (if result
-            {:status 200 :body result}
-            {:status 404 :body {:success false :error "Person not found"}}))
+            (do (events/record-update! req entity-type cat-id before
+                                       (select-keys result [:name :description :tags :badge_title]))
+                {:status 200 :body result})
+            {:status 404 :body {:success false :error (str label " not found")}}))
         (catch Exception _
-          {:status 409 :body {:success false :error "Person with this name already exists"}})))))
+          {:status 409 :body {:success false :error (str label " with this name already exists")}})))))
+
+(defn update-person-handler [req]
+  (update-category-handler* req :person :people "Person" db.category/update-person))
 
 (defn update-place-handler [req]
-  (let [user-id (common/get-user-id req)
-        place-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags badge-title]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        (let [result (db.category/update-place (common/ensure-ds) user-id place-id name (or description "") (or tags "") badge-title)]
-          (if result
-            {:status 200 :body result}
-            {:status 404 :body {:success false :error "Place not found"}}))
-        (catch Exception _
-          {:status 409 :body {:success false :error "Place with this name already exists"}})))))
+  (update-category-handler* req :place :places "Place" db.category/update-place))
 
 (defn update-project-handler [req]
-  (let [user-id (common/get-user-id req)
-        project-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags badge-title]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        (let [result (db.category/update-project (common/ensure-ds) user-id project-id name (or description "") (or tags "") badge-title)]
-          (if result
-            {:status 200 :body result}
-            {:status 404 :body {:success false :error "Project not found"}}))
-        (catch Exception _
-          {:status 409 :body {:success false :error "Project with this name already exists"}})))))
+  (update-category-handler* req :project :projects "Project" db.category/update-project))
 
 (defn update-goal-handler [req]
-  (let [user-id (common/get-user-id req)
-        goal-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags badge-title]} (:body req)]
-    (if (str/blank? name)
-      {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        (let [result (db.category/update-goal (common/ensure-ds) user-id goal-id name (or description "") (or tags "") badge-title)]
-          (if result
-            {:status 200 :body result}
-            {:status 404 :body {:success false :error "Goal not found"}}))
-        (catch Exception _
-          {:status 409 :body {:success false :error "Goal with this name already exists"}})))))
+  (update-category-handler* req :goal :goals "Goal" db.category/update-goal))
 
 (def ^:private category-config
   {"people" {:type "person" :table "people"}
@@ -128,9 +111,11 @@
         {:keys [type table]} (get category-config category-key)]
     (if-not type
       {:status 400 :body {:success false :error "Invalid category type"}}
-      (let [result (db.category/delete-category (common/ensure-ds) user-id category-id type table)]
+      (let [snapshot (events/fetch-row (keyword table) category-id)
+            result (db.category/delete-category (common/ensure-ds) user-id category-id type table)]
         (if (:success result)
-          {:status 200 :body {:success true}}
+          (do (events/record-delete! req (keyword type) category-id snapshot)
+              {:status 200 :body {:success true}})
           {:status 404 :body {:success false :error (str (str/capitalize type) " not found")}})))))
 
 (defn reorder-category-handler [req list-fn table-name]

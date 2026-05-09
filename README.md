@@ -1,6 +1,6 @@
 # Tracker
 
-Task Tracker | Scheduler | Planner
+Task Tracker | Scheduler | Planner 
 
 https://tracker-ibh-lq.fly.dev/
 

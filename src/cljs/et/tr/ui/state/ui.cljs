@@ -23,7 +23,7 @@
             :filter-people (:shared/filter-people @app-state)
             :filter-places (:shared/filter-places @app-state)
             :filter-projects (:shared/filter-projects @app-state)
-            :filter-goals (:tasks-page/filter-goals @app-state)}
+            :filter-goals (:shared/filter-goals @app-state)}
      (:tasks-page/filter-recurring @app-state)
      (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state))))))
 
@@ -33,8 +33,10 @@
   ([app-state context strict]
    {:context context
     :strict strict
-    :excluded-places (:today-page/excluded-places @app-state)
-    :excluded-projects (:today-page/excluded-projects @app-state)}))
+    :filter-people (:shared/filter-people @app-state)
+    :filter-places (:shared/filter-places @app-state)
+    :filter-projects (:shared/filter-projects @app-state)
+    :filter-goals (:shared/filter-goals @app-state)}))
 
 (defn- initialize-tasks-page [app-state fetch-tasks-fn]
   (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
@@ -48,7 +50,7 @@
             (initialize-tasks-page app-state fetch-tasks))
    :today (fn []
             (swap! app-state assoc
-                   :today-page/collapsed-filters #{:places :projects}
+                   :today-page/collapsed-filters #{:people :places :projects :goals}
                    :sort-mode :today)
             (fetch-tasks (today-fetch-opts app-state))
             (fetch-today-meets (today-fetch-opts app-state))
@@ -73,8 +75,8 @@
          :category-selector/open nil
          :category-selector/search ""
          :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
-         :today-page/category-search {:places "" :projects ""}
-         :meets-page/category-search {:people "" :places "" :projects ""}
+         :today-page/category-search {:people "" :places "" :projects "" :goals ""}
+         :meets-page/category-search {:people "" :places "" :projects "" :goals ""}
          :tasks-page/expanded-task nil
          :today-page/expanded-task nil
          :today-page/expanded-meet nil
