@@ -90,11 +90,18 @@
         {:status 200 :body {:success true}})))
 
 (defn- serve-index [_]
-  (let [js-file (io/file (io/resource "public/js/main.js"))
-        bust (if (.exists js-file) (.lastModified js-file) (System/currentTimeMillis))
-        html (-> (io/resource "public/index.html")
-                 slurp
-                 (str/replace "__CACHE_BUST__" (str bust)))]
+  (let [html (if (common/prod-mode?)
+               ;; In prod, __CACHE_BUST__ is replaced at Docker build time by sed
+               ;; (see Dockerfile). Resources live inside the jar, so io/file on a
+               ;; jar:file: URL would throw — slurp the resource as-is.
+               (slurp (io/resource "public/index.html"))
+               ;; In dev, resources are on disk; substitute __CACHE_BUST__ at request
+               ;; time using main.js mtime so reloads pick up fresh shadow-cljs builds.
+               (let [js-file (io/file (io/resource "public/js/main.js"))
+                     bust (if (.exists js-file) (.lastModified js-file) (System/currentTimeMillis))]
+                 (-> (io/resource "public/index.html")
+                     slurp
+                     (str/replace "__CACHE_BUST__" (str bust)))))]
     {:status 200
      :headers {"Content-Type" "text/html"}
      :body html}))
