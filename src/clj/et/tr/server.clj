@@ -415,6 +415,29 @@
     (.mkdirs log-dir)
     (tel/add-handler! :file (tel/handler:file {:path path}))))
 
+(defn build-app
+  "Initialise tracker (config, datasource, optional file logging) and return
+   a ring handler. Does not start jetty, nREPL, or background workers — caller
+   owns those. Composing apps (e.g. plurama) call this, then optionally
+   start-workers! once."
+  [config]
+  (reset! common/*config config)
+  (let [prod? (common/prod-mode?)]
+    (when (and (true? (:dangerously-skip-logins? @common/*config)) prod?)
+      (throw (ex-info "Cannot use :dangerously-skip-logins? in production mode" {})))
+    (when-let [logfile (and (not prod?) (:logfile @common/*config))]
+      (setup-file-logging logfile))
+    (common/ensure-ds)
+    (app prod?)))
+
+(defn start-workers!
+  "Start tracker's two background schedulers (recurring tasks/meetings/journals
+   /reminders, and source feed polling). Caller must invoke at most once after
+   build-handler. Returns the ScheduledExecutorServices."
+  []
+  [(worker/start-scheduler (common/ensure-ds))
+   (source-worker/start-scheduler (common/ensure-ds))])
+
 (defn -main [& args]
   (reset! common/*config (common/load-config))
   (let [prod? (common/prod-mode?)
