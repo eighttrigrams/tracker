@@ -5,14 +5,25 @@
             [et.tr.db.journal-entry :as db.journal-entry]
             [clojure.string :as str]))
 
-(defn get-journal-entry-handler [req]
+(defn get-journal-entry-handler
+  "GET /api/journal-entries/:id — fetch a single journal entry by id for the
+  current user. Parses :id as an integer. Returns the entry row on 200, or
+  404 with {:error \"Journal entry not found\"} when absent."
+  [req]
   (let [user-id (common/get-user-id req)
         entry-id (Integer/parseInt (get-in req [:params :id]))]
     (if-let [entry (db.journal-entry/get-journal-entry (common/ensure-ds) user-id entry-id)]
       {:status 200 :body entry}
       {:status 404 :body {:error "Journal entry not found"}})))
 
-(defn list-journal-entries-handler [req]
+(defn list-journal-entries-handler
+  "GET /api/journal-entries/ — list journal entries for the current user.
+  Query params: q (search term), importance, context, strict (\"true\"/
+  \"false\"), comma-separated category id lists people/places/projects/goals,
+  sortMode, withDescription (\"true\"/\"false\"), and journalId (parsed as an
+  int, ignored if non-numeric). Categories are only forwarded when at least
+  one list is provided. Always returns 200 with the result vector."
+  [req]
   (let [user-id (common/get-user-id req)
         search-term (get-in req [:params "q"])
         importance (get-in req [:params "importance"])
@@ -30,13 +41,23 @@
                      {:people people :places places :projects projects :goals goals})]
     {:status 200 :body (db.journal-entry/list-journal-entries (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :journal-id journal-id :with-description with-description})}))
 
-(defn list-today-journal-entries-handler [req]
+(defn list-today-journal-entries-handler
+  "GET /api/journal-entries/today — list today's journal entries for the
+  current user. Query params: context and strict (\"true\"/\"false\"). Always
+  returns 200 with the result vector."
+  [req]
   (let [user-id (common/get-user-id req)
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))]
     {:status 200 :body (db.journal-entry/list-today-journal-entries (common/ensure-ds) user-id {:context context :strict strict})}))
 
-(defn add-journal-entry-handler [req]
+(defn add-journal-entry-handler
+  "POST /api/journal-entries/ — create a journal entry. Body fields: :title
+  (required, non-blank) and :scope (one of private/both/work, defaults to
+  \"both\"). Returns 400 {:success false :error \"Title is required\"} when
+  the title is blank, otherwise 201 with the created row and records a
+  :journal-entry create event."
+  [req]
   (let [user-id (common/get-user-id req)
         {:keys [title scope]} (:body req)]
     (if (str/blank? title)
@@ -45,7 +66,13 @@
         (events/record-create! req :journal-entry (:id entry) entry)
         {:status 201 :body entry}))))
 
-(defn update-journal-entry-handler [req]
+(defn update-journal-entry-handler
+  "PUT /api/journal-entries/:id — update title/description/tags on a journal
+  entry. Body fields: :title (required, non-blank), :description and :tags
+  (default to empty strings). Returns 400 {:success false :error \"Title is
+  required\"} for a blank title, otherwise 200 with the updated row and
+  records a :journal-entry update event with before/after field snapshots."
+  [req]
   (let [user-id (common/get-user-id req)
         entry-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [title description tags]} (:body req)]
@@ -57,7 +84,13 @@
                                (select-keys result [:title :description :tags]))
         {:status 200 :body result}))))
 
-(defn delete-journal-entry-handler [req]
+(defn delete-journal-entry-handler
+  "DELETE /api/journal-entries/:id — delete a journal entry owned by the
+  current user. Snapshots the row first, then on success records a
+  :journal-entry delete event and returns 200 {:success true}. Returns 404
+  {:success false :error \"Journal entry not found\"} when no row was
+  removed."
+  [req]
   (let [user-id (common/get-user-id req)
         entry-id (Integer/parseInt (get-in req [:params :id]))
         snapshot (events/fetch-row :journal_entries entry-id)
@@ -68,11 +101,25 @@
       {:status 404 :body {:success false :error "Journal entry not found"}})))
 
 (def categorize-journal-entry-handler
+  "POST /api/journal-entries/:id/categorize — attach a category (person,
+  place, project, or goal) to a journal entry. Body fields per
+  common/make-categorize-handler: :category-type and :category-id. Returns
+  the shared categorize response shape and records a :journal-entry event."
   (common/make-categorize-handler db.journal-entry/categorize-journal-entry :journal-entry))
+
 (def uncategorize-journal-entry-handler
+  "DELETE /api/journal-entries/:id/categorize — detach a category from a
+  journal entry. Body fields: :category-type and :category-id. Returns the
+  shared uncategorize response shape and records a :journal-entry event."
   (common/make-uncategorize-handler db.journal-entry/uncategorize-journal-entry :journal-entry))
 
-(defn reorder-journal-entry-handler [req]
+(defn reorder-journal-entry-handler
+  "POST /api/journal-entries/:id/reorder — move a journal entry before or
+  after another entry in the manual sort order. Body fields: :target-entry-id
+  (the anchor entry) and :position (\"before\" or \"after\"). Computes a new
+  sort_order by averaging with the neighbour (or stepping by 1.0 at an end)
+  and returns 200 {:success true :sort_order ...}."
+  [req]
   (let [user-id (common/get-user-id req)
         entry-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [target-entry-id position]} (:body req)
@@ -95,6 +142,11 @@
     {:status 200 :body {:success true :sort_order new-order}}))
 
 (def set-journal-entry-scope-handler
+  "PUT /api/journal-entries/:id/scope — change the scope of a journal entry.
+  Body field :scope must be one of db/valid-scopes (private/both/work);
+  invalid values yield 400 {:error \"Invalid scope. Must be 'private',
+  'both', or 'work'\"}. On success returns the shared property-update shape
+  and records a :journal-entry update event."
   (common/make-entity-property-handler :scope db/valid-scopes
                                        "Invalid scope. Must be 'private', 'both', or 'work'"
                                        {:entity-type :journal-entry
@@ -102,6 +154,12 @@
                                         :table :journal_entries}))
 
 (def set-journal-entry-importance-handler
+  "PUT /api/journal-entries/:id/importance — change the importance of a
+  journal entry. Body field :importance must be one of db/valid-importances
+  (normal/important/critical); invalid values yield 400 {:error \"Invalid
+  importance. Must be 'normal', 'important', or 'critical'\"}. On success
+  returns the shared property-update shape and records a :journal-entry
+  update event."
   (common/make-entity-property-handler :importance db/valid-importances
                                        "Invalid importance. Must be 'normal', 'important', or 'critical'"
                                        {:entity-type :journal-entry

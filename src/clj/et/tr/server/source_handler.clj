@@ -41,12 +41,21 @@
 
 ;; ── YouTube ────────────────────────────────────────────────────────────
 
-(defn get-youtube-settings-handler [req]
+(defn get-youtube-settings-handler
+  "GET /api/sources/youtube/settings — return the caller's YouTube polling
+  settings as {:enabled :polling_minutes :last_polled_at}, or null when no row
+  exists yet. Requires mail access; returns 403 otherwise."
+  [req]
   (mail-only-guard req
     (fn [user-id]
       {:status 200 :body (present-settings (db.youtube/get-settings (common/ensure-ds) user-id))})))
 
-(defn put-youtube-settings-handler [req]
+(defn put-youtube-settings-handler
+  "PUT /api/sources/youtube/settings — upsert the caller's YouTube polling
+  settings. Body fields: :enabled (bool/0/1) and :polling_minutes (positive
+  int). Returns 400 when polling_minutes is present but not a positive integer,
+  403 without mail access, else 200 with the saved settings."
+  [req]
   (mail-only-guard req
     (fn [user-id]
       (let [{:keys [enabled polling_minutes]} (:body req)
@@ -64,13 +73,23 @@
                            :polling-minutes polling-minutes})]
             {:status 200 :body (present-settings updated)}))))))
 
-(defn list-youtube-channels-handler [req]
+(defn list-youtube-channels-handler
+  "GET /api/sources/youtube/channels — list the caller's tracked YouTube
+  channels as a vector of {:id :channel_id :name :min_duration_minutes :added_at
+  :enabled} maps. Requires mail access; returns 403 otherwise."
+  [req]
   (mail-only-guard req
     (fn [user-id]
       {:status 200 :body (mapv present-channel
                                (db.youtube/list-channels (common/ensure-ds) user-id))})))
 
-(defn add-youtube-channel-handler [req]
+(defn add-youtube-channel-handler
+  "POST /api/sources/youtube/channels — track a new YouTube channel for the
+  caller. Body fields: :channel_id (required, non-blank), :name (optional),
+  :min_duration_minutes (optional int), :enabled (optional bool, defaults true).
+  Returns 400 on missing/invalid fields, 409 when already tracked, 403 without
+  mail access, else 201 with the created channel."
+  [req]
   (mail-only-guard req
     (fn [user-id]
       (let [{:keys [channel_id name min_duration_minutes enabled]} (:body req)
@@ -100,7 +119,13 @@
                 {:status 409 :body {:error "Channel already added for this user"}}
                 (throw e)))))))))
 
-(defn update-youtube-channel-handler [req]
+(defn update-youtube-channel-handler
+  "PUT /api/sources/youtube/channels/:id — update mutable fields on one of the
+  caller's tracked channels. Body fields (all optional, only provided keys
+  change): :name, :min_duration_minutes (int or blank for null), :enabled.
+  Returns 400 when min_duration_minutes is malformed or no fields are provided,
+  404 if the channel is not owned/found, 403 without mail access, else 200."
+  [req]
   (mail-only-guard req
     (fn [user-id]
       (let [channel-row-id (Integer/parseInt (get-in req [:params :id]))
@@ -135,7 +160,11 @@
             {:status 200 :body (present-channel updated)}
             {:status 404 :body {:error "Channel not found"}}))))))
 
-(defn delete-youtube-channel-handler [req]
+(defn delete-youtube-channel-handler
+  "DELETE /api/sources/youtube/channels/:id — stop tracking the given channel
+  for the caller. Returns {:success true} on 200, {:success false :error ...}
+  on 404 if the channel is not owned/found, 403 without mail access."
+  [req]
   (mail-only-guard req
     (fn [user-id]
       (let [channel-row-id (Integer/parseInt (get-in req [:params :id]))
@@ -250,16 +279,82 @@
    :update-feed db.atom/update-feed
    :delete-feed db.atom/delete-feed})
 
-(def get-podcast-settings-handler   (get-feed-settings-handler  podcast-ns))
-(def put-podcast-settings-handler   (put-feed-settings-handler  podcast-ns))
-(def list-podcast-feeds-handler     (list-feeds-handler         podcast-ns))
-(def add-podcast-feed-handler       (add-feed-handler           podcast-ns))
-(def update-podcast-feed-handler    (update-feed-handler        podcast-ns))
-(def delete-podcast-feed-handler    (delete-feed-handler        podcast-ns))
+(def get-podcast-settings-handler
+  "GET /api/sources/podcast/settings — return the caller's podcast polling
+  settings as {:enabled :polling_minutes :last_polled_at}, or null when no row
+  exists yet. Requires mail access; returns 403 otherwise."
+  (get-feed-settings-handler  podcast-ns))
 
-(def get-atom-settings-handler      (get-feed-settings-handler  atom-ns))
-(def put-atom-settings-handler      (put-feed-settings-handler  atom-ns))
-(def list-atom-feeds-handler        (list-feeds-handler         atom-ns))
-(def add-atom-feed-handler          (add-feed-handler           atom-ns))
-(def update-atom-feed-handler       (update-feed-handler        atom-ns))
-(def delete-atom-feed-handler       (delete-feed-handler        atom-ns))
+(def put-podcast-settings-handler
+  "PUT /api/sources/podcast/settings — upsert the caller's podcast polling
+  settings. Body fields: :enabled (bool/0/1) and :polling_minutes (positive
+  int). Returns 400 when polling_minutes is present but not a positive integer,
+  403 without mail access, else 200 with the saved settings."
+  (put-feed-settings-handler  podcast-ns))
+
+(def list-podcast-feeds-handler
+  "GET /api/sources/podcast/feeds — list the caller's tracked podcast feeds as
+  a vector of {:id :feed_url :name :added_at :enabled} maps. Requires mail
+  access; returns 403 otherwise."
+  (list-feeds-handler         podcast-ns))
+
+(def add-podcast-feed-handler
+  "POST /api/sources/podcast/feeds — track a new podcast feed for the caller.
+  Body fields: :feed_url (required, non-blank), :name (optional), :enabled
+  (optional bool, defaults true). Returns 400 when feed_url is missing, 409
+  when already tracked, 403 without mail access, else 201 with the created
+  feed."
+  (add-feed-handler           podcast-ns))
+
+(def update-podcast-feed-handler
+  "PUT /api/sources/podcast/feeds/:id — update mutable fields on one of the
+  caller's tracked podcast feeds. Body fields (all optional, only provided
+  keys change): :name, :enabled. Returns 400 when no fields are provided, 404
+  if the feed is not owned/found, 403 without mail access, else 200."
+  (update-feed-handler        podcast-ns))
+
+(def delete-podcast-feed-handler
+  "DELETE /api/sources/podcast/feeds/:id — stop tracking the given podcast
+  feed for the caller. Returns {:success true} on 200, {:success false
+  :error ...} on 404 if the feed is not owned/found, 403 without mail access."
+  (delete-feed-handler        podcast-ns))
+
+(def get-atom-settings-handler
+  "GET /api/sources/atom/settings — return the caller's Atom/RSS polling
+  settings as {:enabled :polling_minutes :last_polled_at}, or null when no row
+  exists yet. Requires mail access; returns 403 otherwise."
+  (get-feed-settings-handler  atom-ns))
+
+(def put-atom-settings-handler
+  "PUT /api/sources/atom/settings — upsert the caller's Atom/RSS polling
+  settings. Body fields: :enabled (bool/0/1) and :polling_minutes (positive
+  int). Returns 400 when polling_minutes is present but not a positive integer,
+  403 without mail access, else 200 with the saved settings."
+  (put-feed-settings-handler  atom-ns))
+
+(def list-atom-feeds-handler
+  "GET /api/sources/atom/feeds — list the caller's tracked Atom/RSS feeds as
+  a vector of {:id :feed_url :name :added_at :enabled} maps. Requires mail
+  access; returns 403 otherwise."
+  (list-feeds-handler         atom-ns))
+
+(def add-atom-feed-handler
+  "POST /api/sources/atom/feeds — track a new Atom/RSS feed for the caller.
+  Body fields: :feed_url (required, non-blank), :name (optional), :enabled
+  (optional bool, defaults true). Returns 400 when feed_url is missing, 409
+  when already tracked, 403 without mail access, else 201 with the created
+  feed."
+  (add-feed-handler           atom-ns))
+
+(def update-atom-feed-handler
+  "PUT /api/sources/atom/feeds/:id — update mutable fields on one of the
+  caller's tracked Atom/RSS feeds. Body fields (all optional, only provided
+  keys change): :name, :enabled. Returns 400 when no fields are provided, 404
+  if the feed is not owned/found, 403 without mail access, else 200."
+  (update-feed-handler        atom-ns))
+
+(def delete-atom-feed-handler
+  "DELETE /api/sources/atom/feeds/:id — stop tracking the given Atom/RSS feed
+  for the caller. Returns {:success true} on 200, {:success false :error ...}
+  on 404 if the feed is not owned/found, 403 without mail access."
+  (delete-feed-handler        atom-ns))

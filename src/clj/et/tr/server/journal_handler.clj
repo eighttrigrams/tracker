@@ -5,14 +5,24 @@
             [et.tr.db.journal :as db.journal]
             [clojure.string :as str]))
 
-(defn get-journal-handler [req]
+(defn get-journal-handler
+  "GET /api/journals/:id — fetch a single journal by id for the current user.
+  Parses :id as an integer. Returns the journal row on 200, or 404 with
+  {:error \"Journal not found\"} when absent."
+  [req]
   (let [user-id (common/get-user-id req)
         journal-id (Integer/parseInt (get-in req [:params :id]))]
     (if-let [journal (db.journal/get-journal (common/ensure-ds) user-id journal-id)]
       {:status 200 :body journal}
       {:status 404 :body {:error "Journal not found"}})))
 
-(defn list-journals-handler [req]
+(defn list-journals-handler
+  "GET /api/journals/ — list journals for the current user. Query params: q
+  (search term), context, strict (\"true\"/\"false\"), and comma-separated
+  category id lists people, places, projects, goals. Categories are only
+  forwarded to the query when at least one list is provided. Always returns
+  200 with the result vector."
+  [req]
   (let [user-id (common/get-user-id req)
         search-term (get-in req [:params "q"])
         context (get-in req [:params "context"])
@@ -25,7 +35,13 @@
                      {:people people :places places :projects projects :goals goals})]
     {:status 200 :body (db.journal/list-journals (common/ensure-ds) user-id {:search-term search-term :context context :strict strict :categories categories})}))
 
-(defn add-journal-handler [req]
+(defn add-journal-handler
+  "POST /api/journals/ — create a journal. Body fields: :title (required,
+  non-blank), :scope (one of private/both/work, defaults to \"both\") and
+  :schedule-type (defaults to \"daily\"). Returns 400 {:success false :error
+  \"Title is required\"} when the title is blank, otherwise 201 with the
+  created row and records a :journal create event."
+  [req]
   (let [user-id (common/get-user-id req)
         {:keys [title scope schedule-type]} (:body req)]
     (if (str/blank? title)
@@ -34,7 +50,13 @@
         (events/record-create! req :journal (:id journal) journal)
         {:status 201 :body journal}))))
 
-(defn update-journal-handler [req]
+(defn update-journal-handler
+  "PUT /api/journals/:id — update title/description/tags on a journal. Body
+  fields: :title (required, non-blank), :description and :tags (default to
+  empty strings). Returns 400 {:success false :error \"Title is required\"}
+  for a blank title, otherwise 200 with the updated row and records a
+  :journal update event with before/after field snapshots."
+  [req]
   (let [user-id (common/get-user-id req)
         journal-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [title description tags]} (:body req)]
@@ -46,7 +68,12 @@
                                (select-keys result [:title :description :tags]))
         {:status 200 :body result}))))
 
-(defn delete-journal-handler [req]
+(defn delete-journal-handler
+  "DELETE /api/journals/:id — delete a journal owned by the current user.
+  Snapshots the row first, then on success records a :journal delete event
+  and returns 200 {:success true}. Returns 404 {:success false :error
+  \"Journal not found\"} when no row was removed."
+  [req]
   (let [user-id (common/get-user-id req)
         journal-id (Integer/parseInt (get-in req [:params :id]))
         snapshot (events/fetch-row :journals journal-id)
@@ -57,18 +84,38 @@
       {:status 404 :body {:success false :error "Journal not found"}})))
 
 (def categorize-journal-handler
+  "POST /api/journals/:id/categorize — attach a category (person, place,
+  project, or goal) to a journal. Body fields per
+  common/make-categorize-handler: :category-type and :category-id. Returns
+  the shared categorize response shape and records a :journal event."
   (common/make-categorize-handler db.journal/categorize-journal :journal))
+
 (def uncategorize-journal-handler
+  "DELETE /api/journals/:id/categorize — detach a category from a journal.
+  Body fields: :category-type and :category-id. Returns the shared
+  uncategorize response shape and records a :journal event."
   (common/make-uncategorize-handler db.journal/uncategorize-journal :journal))
 
 (def set-journal-scope-handler
+  "PUT /api/journals/:id/scope — change the scope of a journal. Body field
+  :scope must be one of db/valid-scopes (private/both/work); invalid values
+  yield 400 {:error \"Invalid scope. Must be 'private', 'both', or 'work'\"}.
+  On success returns the shared property-update shape and records a :journal
+  update event."
   (common/make-entity-property-handler :scope db/valid-scopes
                                        "Invalid scope. Must be 'private', 'both', or 'work'"
                                        {:entity-type :journal
                                         :set-fn db.journal/set-journal-field
                                         :table :journals}))
 
-(defn create-entry-handler [req]
+(defn create-entry-handler
+  "POST /api/journals/:id/create-entry — create a new journal entry under the
+  given journal for a specific date. Body field :date must be in YYYY-MM-DD
+  format; otherwise returns 400 {:error \"Invalid date format. Use
+  YYYY-MM-DD\"}. Returns 404 {:error \"Journal not found\"} when the parent
+  is missing, otherwise 201 with the created entry and a :journal-entry
+  create event."
+  [req]
   (let [user-id (common/get-user-id req)
         journal-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [date]} (:body req)]

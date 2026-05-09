@@ -15,6 +15,9 @@
     (filterv #(= today (:start_date %)) meets)))
 
 (defn today-board-handler
+  "GET /api/today-board — fetch today's board for the current user: tasks due/marked
+  for today, meets whose start_date matches the local-time current date, and
+  today's journal entries. Returns {:tasks :meets :journal-entries}."
   [req]
   (let [user-id (common/get-user-id req)
         ds (common/ensure-ds)]

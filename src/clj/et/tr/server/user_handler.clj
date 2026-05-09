@@ -5,7 +5,16 @@
             [et.tr.auth :as auth]
             [clojure.string :as str]))
 
-(defn login-handler [req]
+(defn login-handler
+  "POST /api/auth/login — public (unauthenticated) login endpoint. Body
+  fields: :username and :password. When skip-logins is enabled the password
+  is ignored and a bare user record is returned (admin gets a synthetic
+  one). Otherwise the password is verified; admins use common/admin-password
+  and other users go through db.user/verify-user. Machine users have their
+  effective :has_mail and :mail_only resolved from the target user. On
+  success returns 200 {:success true :token :user}; on failure 401
+  {:success false :error \"Invalid credentials\"} or \"User not found\"."
+  [req]
   (let [{:keys [username password]} (:body req)]
     (if (common/allow-skip-logins?)
       (if (= username "admin")
@@ -40,10 +49,21 @@
                                           (update :mail_only #(= 1 %)))}})
           {:status 401 :body {:success false :error "Invalid credentials"}})))))
 
-(defn password-required-handler [_req]
+(defn password-required-handler
+  "GET /api/auth/required — public probe used by the login UI to decide
+  whether to show a password field. Returns 200 {:required boolean} where
+  :required is true unless common/allow-skip-logins? is on (dev/single-user
+  mode)."
+  [_req]
   {:status 200 :body {:required (not (common/allow-skip-logins?))}})
 
-(defn available-users-handler [_req]
+(defn available-users-handler
+  "GET /api/auth/available-users — list users selectable from the dev login
+  picker. Only enabled when common/allow-skip-logins? is true; otherwise
+  returns 403 {:error \"Not available in production mode\"}. Filters out
+  machine users and prepends the synthetic admin entry. Returns 200 with a
+  seq of {:id :username :is_admin :has_mail :language :vim_keys} maps."
+  [_req]
   (if (common/allow-skip-logins?)
     (let [users (->> (db.user/list-users (common/ensure-ds))
                      (remove #(= 1 (:is_machine_user %)))
@@ -52,7 +72,12 @@
       {:status 200 :body (cons admin users)})
     {:status 403 :body {:error "Not available in production mode"}}))
 
-(defn list-users-handler [req]
+(defn list-users-handler
+  "GET /api/users — admin-only listing of all users. Returns 200 with a
+  vector of user rows (with :is_machine_user and :mail_only coerced to
+  booleans) when common/is-admin? is satisfied, otherwise 403 {:error
+  \"Admin access required\"}."
+  [req]
   (if (common/is-admin? req)
     {:status 200 :body (->> (db.user/list-users (common/ensure-ds))
                             (mapv #(-> %
@@ -60,7 +85,15 @@
                                        (update :mail_only (fn [v] (= 1 v))))))}
     {:status 403 :body {:error "Admin access required"}}))
 
-(defn add-user-handler [req]
+(defn add-user-handler
+  "POST /api/users — admin-only user creation. Body fields: :username and
+  :password (both required, non-blank), :is_machine_user (boolean),
+  :for_user_id (required when is_machine_user, must reference a real
+  non-machine user), :mail_only (boolean, machine users only). Returns 201
+  with the created user (sans :password_hash), 400 {:error} on validation
+  failure, 409 {:error} on duplicate username, or 403 when not admin.
+  Records a system :user-create event."
+  [req]
   (if (common/is-admin? req)
     (let [{:keys [username password is_machine_user for_user_id mail_only]} (:body req)
           machine? (boolean is_machine_user)
@@ -102,7 +135,13 @@
             {:status 409 :body {:error "Username already exists"}}))))
     {:status 403 :body {:error "Admin access required"}}))
 
-(defn delete-user-handler [req]
+(defn delete-user-handler
+  "DELETE /api/users/:id — admin-only user deletion. Path param :id is
+  parsed as an integer. Returns 200 {:success true} on success, 404
+  {:error \"User not found\"} when the row does not exist, or 403 {:error
+  \"Admin access required\"} when the caller is not an admin. Records a
+  system :user-delete event with the deleted user's identifying fields."
+  [req]
   (if (common/is-admin? req)
     (let [user-id (Integer/parseInt (get-in req [:params :id]))
           target (db.user/get-user-by-id (common/ensure-ds) user-id)
@@ -122,7 +161,13 @@
 
 (def ^:private valid-languages #{"en" "de" "pt"})
 
-(defn update-language-handler [req]
+(defn update-language-handler
+  "PUT /api/user/language — set the calling user's UI :language. Body
+  field :language must be one of #{\"en\" \"de\" \"pt\"}. Admin callers are
+  rejected with 400 since the synthetic admin has no row. Returns 200 with
+  the updated row, 400 {:error} on invalid input or admin caller, or 404
+  {:error} when the user row cannot be located."
+  [req]
   (let [user-info (common/get-user-from-request req)
         user-id (:user-id user-info)
         {:keys [language]} (:body req)]
@@ -141,7 +186,13 @@
         {:status 200 :body result}
         {:status 404 :body {:error "User not found"}}))))
 
-(defn update-vim-keys-handler [req]
+(defn update-vim-keys-handler
+  "PUT /api/user/vim-keys — toggle the caller's vim-keys preference. Body
+  field :vim_keys must be 0 or 1 (stored as boolean in the DB). Admin
+  callers are rejected with 400 since the synthetic admin has no row.
+  Returns 200 with the updated row, 400 {:error} on invalid input or admin
+  caller, or 404 {:error} when the user row cannot be located."
+  [req]
   (let [user-info (common/get-user-from-request req)
         user-id (:user-id user-info)
         vim-keys (:vim_keys (:body req))]

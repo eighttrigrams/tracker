@@ -55,7 +55,11 @@
             (edn/read-string (slurp (io/resource "translations.edn")))))
   @translations-cache)
 
-(defn translations-handler [_req]
+(defn translations-handler
+  "GET /api/translations — return the i18n translations bundle (an EDN map keyed
+  by language tag) loaded once and cached. Auth is not required; the bundle is
+  static and ships in the application resources."
+  [_req]
   {:status 200 :body (load-translations)})
 
 (defn- require-auth [req]
@@ -64,7 +68,12 @@
       (auth/verify-token token))
     (common/get-user-from-request req)))
 
-(defn export-data-handler [req]
+(defn export-data-handler
+  "GET /api/export — stream a ZIP archive containing the authenticated user's
+  full data export (tasks, meets, journals, etc. as EDN/JSON files). 401 if
+  unauthenticated. Filename is `export-<username>-<yyyy-MM-dd-HHmmss>.zip`. 500
+  on export failure with the exception message."
+  [req]
   (let [user-info (require-auth req)]
     (if-not user-info
       {:status 401 :body {:error "Authentication required"}}
@@ -106,7 +115,7 @@
      :headers {"Content-Type" "text/html"}
      :body html}))
 
-(defn- toggle-recording-mode-handler [req]
+(defn toggle-recording-mode-handler [req]
   (let [now (recording-mode/toggle!)]
     (tel/log! {:level :info :data {:recording now}} (str "RECORDING MODE " (if now "ON" "OFF")))
     (events/record! req {:entity-type :recording-mode
@@ -116,8 +125,42 @@
                          :payload {:on now}})
     {:status 200 :body {:recording now}}))
 
+(def ^:private describe-namespaces
+  "Namespaces whose public vars back HTTP routes. The /api/describe endpoint
+  walks these to enumerate the API surface from var metadata."
+  '[et.tr.server
+    et.tr.server.task-handler
+    et.tr.server.category-handler
+    et.tr.server.message-handler
+    et.tr.server.resource-handler
+    et.tr.server.meet-handler
+    et.tr.server.meeting-series-handler
+    et.tr.server.recurring-task-handler
+    et.tr.server.journal-handler
+    et.tr.server.journal-entry-handler
+    et.tr.server.relation-handler
+    et.tr.server.report-handler
+    et.tr.server.user-handler
+    et.tr.server.event-handler
+    et.tr.server.today-board-handler
+    et.tr.server.source-handler])
+
+(defn describe-handler [_req]
+  {:status 200
+   :body (->> describe-namespaces
+              (mapcat (fn [ns-sym] (when-let [n (find-ns ns-sym)] (ns-publics n))))
+              (keep (fn [[sym v]]
+                      (when-let [doc (:doc (meta v))]
+                        {:name (str sym)
+                         :ns (str (ns-name (.ns ^clojure.lang.Var v)))
+                         :arglists (pr-str (:arglists (meta v)))
+                         :doc doc})))
+              (sort-by (juxt :ns :name))
+              vec)})
+
 (defroutes api-routes
   (context "/api" []
+    (GET "/describe" [] describe-handler)
     (GET "/translations" [] translations-handler)
     (GET "/export" [] export-data-handler)
     (GET "/reports" [] report-handler/reports-handler)

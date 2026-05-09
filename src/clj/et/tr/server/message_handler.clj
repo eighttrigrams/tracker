@@ -15,7 +15,12 @@
        ~@body)
      {:status 403 :body {:error "Mail access required"}}))
 
-(defn list-messages-handler [req]
+(defn list-messages-handler
+  "GET /api/messages — list messages for the authenticated user. Query params:
+  view (default \"inbox\"), sort (default \"recent\"), sender, context, strict
+  (\"true\" enables strict context match), excludedSenders (CSV), importance,
+  urgency, q (search term). Requires Mail access; returns 403 otherwise."
+  [req]
   (if (common/has-mail? req)
     (let [user-id (common/get-user-id req)
           view (keyword (get-in req [:params "view"] "inbox"))
@@ -69,7 +74,13 @@
       (events/record-create-with-actor! ds actor user-id :message (:id message) message)
       message)))
 
-(defn add-message-handler [req]
+(defn add-message-handler
+  "POST /api/messages — create a new message. Body fields: sender (required),
+  title (required), description, type (\"text\"|\"markdown\"|\"html\"), scope
+  (\"private\"|\"work\"), importance, urgency. Validates inputs (400 on
+  failure) and records a :create event. Requires Mail access (403 otherwise);
+  returns 201 with the created message on success."
+  [req]
   (if (common/has-mail? req)
     (let [user-id (common/get-user-id req)
           actor (common/get-actor req)
@@ -79,7 +90,12 @@
         {:status 201 :body result}))
     {:status 403 :body {:error "Mail access required"}}))
 
-(defn set-message-done-handler [req]
+(defn set-message-done-handler
+  "PUT /api/messages/:id/done — mark a message done or undone. Body field:
+  done (boolean, required; 400 if missing). Records an :update event with the
+  before/after :done value. Requires Mail access (403 otherwise); 404 when the
+  message does not exist for the user."
+  [req]
   (if-not (contains? (:body req) :done)
     {:status 400 :body {:error "Missing required field: done"}}
     (with-mail-message-context req user-id message-id
@@ -92,7 +108,12 @@
               {:status 200 :body result})
           {:status 404 :body {:error "Message not found"}})))))
 
-(defn delete-message-handler [req]
+(defn delete-message-handler
+  "DELETE /api/messages/:id — delete a message owned by the user. Snapshots
+  the row first and records a :delete event on success. Requires Mail access
+  (403 otherwise); returns 404 with {:success false} when the message is not
+  found, 200 with {:success true} on success."
+  [req]
   (with-mail-message-context req user-id message-id
     (let [snapshot (events/fetch-row :messages message-id)
           result (db.message/delete-message (common/ensure-ds) user-id message-id)]
@@ -101,7 +122,12 @@
             {:status 200 :body {:success true}})
         {:status 404 :body {:success false :error "Message not found"}}))))
 
-(defn update-message-handler [req]
+(defn update-message-handler
+  "PUT /api/messages/:id — update a message's title and/or description. Body
+  fields: title (required, non-blank; 400 otherwise), description. Records an
+  :update event diffing the changed fields. Requires Mail access (403); 404
+  when the message is not found."
+  [req]
   (with-mail-message-context req user-id message-id
     (let [{:keys [title description]} (:body req)]
       (if (str/blank? title)
@@ -114,7 +140,12 @@
                 {:status 200 :body result})
             {:status 404 :body {:error "Message not found"}}))))))
 
-(defn set-message-scope-handler [req]
+(defn set-message-scope-handler
+  "PUT /api/messages/:id/scope — set a message's scope. Body field: scope
+  (\"private\", \"work\", or \"both\"; \"both\" is stored as nil). Validates
+  the value and returns 400 on an invalid scope. Records an :update event on
+  the :scope field. Requires Mail access (403); 404 when not found."
+  [req]
   (with-mail-message-context req user-id message-id
     (let [scope (get-in req [:body :scope])]
       (if (and (some? scope) (not (#{"private" "work" "both"} scope)))
@@ -128,7 +159,12 @@
                 {:status 200 :body result})
             {:status 404 :body {:error "Message not found"}}))))))
 
-(defn set-message-importance-handler [req]
+(defn set-message-importance-handler
+  "PUT /api/messages/:id/importance — set a message's importance. Body field:
+  importance (must be one of db/valid-importances: \"normal\", \"important\",
+  \"critical\"; 400 otherwise). Records an :update event on the :importance
+  field. Requires Mail access (403); 404 when the message is not found."
+  [req]
   (with-mail-message-context req user-id message-id
     (let [importance (get-in req [:body :importance])]
       (if-not (contains? db/valid-importances importance)
@@ -141,7 +177,12 @@
                 {:status 200 :body result})
             {:status 404 :body {:error "Message not found"}}))))))
 
-(defn set-message-urgency-handler [req]
+(defn set-message-urgency-handler
+  "PUT /api/messages/:id/urgency — set a message's urgency. Body field:
+  urgency (must be one of db/valid-urgencies: \"default\", \"urgent\",
+  \"superurgent\"; 400 otherwise). Records an :update event on the :urgency
+  field. Requires Mail access (403); 404 when the message is not found."
+  [req]
   (with-mail-message-context req user-id message-id
     (let [urgency (get-in req [:body :urgency])]
       (if-not (contains? db/valid-urgencies urgency)
@@ -154,7 +195,13 @@
                 {:status 200 :body result})
             {:status 404 :body {:error "Message not found"}}))))))
 
-(defn convert-message-to-resource-handler [req]
+(defn convert-message-to-resource-handler
+  "POST /api/messages/:id/convert-to-resource — convert a message into a
+  resource pointing at a URL. Body field: link (required, must match
+  https?://...; 400 otherwise). For YouTube and Substack URLs, the title is
+  fetched via common helpers and passed through. Requires Mail access (403);
+  404 when the message is not found."
+  [req]
   (with-mail-message-context req user-id message-id
     (let [link (get-in req [:body :link])]
       (if (or (str/blank? link) (not (re-matches #"https?://.*" link)))
@@ -166,13 +213,23 @@
             {:status 200 :body result}
             {:status 404 :body {:error "Message not found"}}))))))
 
-(defn convert-message-to-task-handler [req]
+(defn convert-message-to-task-handler
+  "POST /api/messages/:id/convert-to-task — convert a message into a task
+  belonging to the same user. No body fields are required. Requires Mail
+  access (403); 404 when the message is not found, 200 with the new task
+  on success."
+  [req]
   (with-mail-message-context req user-id message-id
     (if-let [result (db.task/convert-message-to-task (common/ensure-ds) user-id message-id)]
       {:status 200 :body result}
       {:status 404 :body {:error "Message not found"}})))
 
-(defn merge-messages-handler [req]
+(defn merge-messages-handler
+  "POST /api/messages/:id/merge — merge the message at :id into another
+  message. Body field: target-id (required; 400 if missing). Requires Mail
+  access (403); returns 404 when either message cannot be found, 200 with
+  the merged result otherwise."
+  [req]
   (with-mail-message-context req user-id message-id
     (let [target-id (get-in req [:body :target-id])]
       (if (nil? target-id)

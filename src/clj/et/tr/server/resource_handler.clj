@@ -5,14 +5,24 @@
             [et.tr.db.resource :as db.resource]
             [clojure.string :as str]))
 
-(defn get-resource-handler [req]
+(defn get-resource-handler
+  "GET /api/resources/:id — fetch a single resource owned by the caller.
+  The :id path param is parsed as an integer. Returns 200 with the resource
+  row or 404 {:error} if no row matches both the id and the caller's user-id."
+  [req]
   (let [user-id (common/get-user-id req)
         resource-id (Integer/parseInt (get-in req [:params :id]))]
     (if-let [resource (db.resource/get-resource (common/ensure-ds) user-id resource-id)]
       {:status 200 :body resource}
       {:status 404 :body {:error "Resource not found"}})))
 
-(defn list-resources-handler [req]
+(defn list-resources-handler
+  "GET /api/resources — list the caller's resources, filtered and sorted by
+  query params. Recognised params: q (search term), importance, context,
+  strict (\"true\" toggles strict context match), people/places/projects/goals
+  (comma-separated category id lists), domain, excludedDomains
+  (comma-separated), and sortMode. Always returns 200 with a vector of rows."
+  [req]
   (let [user-id (common/get-user-id req)
         search-term (get-in req [:params "q"])
         importance (get-in req [:params "importance"])
@@ -31,7 +41,14 @@
                      {:people people :places places :projects projects :goals goals})]
     {:status 200 :body (db.resource/list-resources (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :domain domain :excluded-domains excluded-domains :sort-mode sort-mode})}))
 
-(defn add-resource-handler [req]
+(defn add-resource-handler
+  "POST /api/resources — create a new resource for the caller. Body fields:
+  :title (required, non-blank), :link (optional, must start with http:// or
+  https:// when present), :scope (defaults to \"both\"). YouTube links have
+  their title auto-fetched and substituted. Returns 201 with the created row,
+  or 400 {:success false :error} on validation failure. Records a :create
+  event after a successful insert."
+  [req]
   (let [user-id (common/get-user-id req)
         {:keys [title link scope]} (:body req)]
     (cond
@@ -50,7 +67,13 @@
         (events/record-create! req :resource (:id resource) resource)
         {:status 201 :body resource}))))
 
-(defn update-resource-handler [req]
+(defn update-resource-handler
+  "PUT /api/resources/:id — update mutable fields on the caller's resource.
+  Body fields: :title (required, non-blank), :link (optional, must be a valid
+  http(s) URL when present), :description, :tags. Returns 200 with the
+  updated row, or 400 {:success false :error} on validation failure. Records
+  an :update event with the before/after diff."
+  [req]
   (let [user-id (common/get-user-id req)
         resource-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [title link description tags]} (:body req)]
@@ -69,7 +92,13 @@
                                (select-keys resource [:title :link :description :tags]))
         {:status 200 :body resource}))))
 
-(defn delete-resource-handler [req]
+(defn delete-resource-handler
+  "DELETE /api/resources/:id — delete the caller's resource. Snapshots the
+  row first so the audit log retains its contents. Returns 200 {:success
+  true} on success, or 404 {:success false :error} when the row does not
+  exist or is not owned by the caller. Records a :delete event with the
+  snapshot."
+  [req]
   (let [user-id (common/get-user-id req)
         resource-id (Integer/parseInt (get-in req [:params :id]))
         snapshot (events/fetch-row :resources resource-id)
@@ -80,11 +109,27 @@
       {:status 404 :body {:success false :error "Resource not found"}})))
 
 (def categorize-resource-handler
+  "POST /api/resources/:id/categorize — link the resource to a category.
+  Body fields: :category-type (\"person\"/\"place\"/\"project\"/\"goal\") and
+  :category-id (positive integer). Returns 200 {:success true} on success,
+  or 400 {:success false :error} when either field is missing or invalid.
+  Records a :link event."
   (common/make-categorize-handler db.resource/categorize-resource :resource))
+
 (def uncategorize-resource-handler
+  "DELETE /api/resources/:id/categorize — unlink the resource from a
+  category. Body fields: :category-type and :category-id, validated as for
+  categorize. Returns 200 {:success true} on success, or 400 {:success false
+  :error} on bad input. Records an :unlink event."
   (common/make-uncategorize-handler db.resource/uncategorize-resource :resource))
 
-(defn reorder-resource-handler [req]
+(defn reorder-resource-handler
+  "POST /api/resources/:id/reorder — move the resource within the caller's
+  manual ordering. Body fields: :target-resource-id (the neighbour to anchor
+  on) and :position (\"before\" or \"after\"). Computes a new fractional
+  sort_order halfway between the target and its neighbour (or one step past
+  the edge when there is none). Returns 200 {:success true :sort_order}."
+  [req]
   (let [user-id (common/get-user-id req)
         resource-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [target-resource-id position]} (:body req)
@@ -107,6 +152,11 @@
     {:status 200 :body {:success true :sort_order new-order}}))
 
 (def set-resource-scope-handler
+  "PUT /api/resources/:id/scope — set the resource's :scope field. Body
+  field :scope must be one of db/valid-scopes (\"private\", \"both\", or
+  \"work\"). Returns 200 with the updated row, 400 {:error} on an invalid
+  value, or 404 {:error} when the resource does not exist or is not owned
+  by the caller. Records an :update event with the field-level diff."
   (common/make-entity-property-handler :scope db/valid-scopes
                                        "Invalid scope. Must be 'private', 'both', or 'work'"
                                        {:entity-type :resource
@@ -114,6 +164,11 @@
                                         :table :resources}))
 
 (def set-resource-importance-handler
+  "PUT /api/resources/:id/importance — set the resource's :importance
+  field. Body field :importance must be one of db/valid-importances
+  (\"normal\", \"important\", or \"critical\"). Returns 200 with the updated
+  row, 400 {:error} on invalid input, or 404 {:error} when the resource is
+  not found. Records an :update event with the field-level diff."
   (common/make-entity-property-handler :importance db/valid-importances
                                        "Invalid importance. Must be 'normal', 'important', or 'critical'"
                                        {:entity-type :resource

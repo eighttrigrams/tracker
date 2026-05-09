@@ -22,7 +22,14 @@
                                   db/jdbc-opts))))]
       (mapv #(assoc % :schedule_type (get schedule-map (:journal_id %))) entries))))
 
-(defn reports-handler [req]
+(defn reports-handler
+  "GET /api/reports — list completed/past tasks, meets, and journal entries for
+  reporting. Query params: context (filter by context title), strict (\"true\"
+  for strict context match), items (\"all\" | \"tasks-meets\" | \"journals\"),
+  and people/places/projects/goals (comma-separated category filters). Returns
+  {:tasks :meets :journal_entries}, with journal entries annotated by
+  :schedule_type."
+  [req]
   (let [user-id (common/get-user-id req)
         ds (common/ensure-ds)
         context (get-in req [:params "context"])
