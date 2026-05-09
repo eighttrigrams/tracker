@@ -1,4 +1,4 @@
-{:id "046-add-category-modified-at"
+{:id "049-add-category-modified-at"
  :up ["ALTER TABLE people ADD COLUMN modified_at TEXT"
       "UPDATE people SET modified_at = datetime('now')"
       "ALTER TABLE places ADD COLUMN modified_at TEXT"
