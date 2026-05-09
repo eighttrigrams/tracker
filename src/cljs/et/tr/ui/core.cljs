@@ -63,19 +63,27 @@
      :on-click #(state/set-active-tab tab-key)}
     (t translation-key)]))
 
+(def ^:private category-tabs #{:cat-people :cat-places :cat-projects :cat-goals})
+
 (defn tabs []
   (let [active-tab (:active-tab @state/*app-state)]
     (if (state/is-admin?)
       [:div.tabs
        [tab-button active-tab :users :nav/users]]
-      [:div.tabs
-       [tab-button active-tab :today :nav/today]
-       [tab-button active-tab :tasks :nav/tasks]
-       [tab-button active-tab :meets :nav/meets]
-       [tab-button active-tab :resources :nav/resources]
-       [tab-button active-tab :reports :nav/reports]
-       (when (state/has-mail?)
-         [tab-button active-tab :mail :nav/mail])])))
+      (if (contains? category-tabs active-tab)
+        [:div.tabs
+         [tab-button active-tab :cat-people :category/people]
+         [tab-button active-tab :cat-places :category/places]
+         [tab-button active-tab :cat-projects :category/projects]
+         [tab-button active-tab :cat-goals :category/goals]]
+        [:div.tabs
+         [tab-button active-tab :today :nav/today]
+         [tab-button active-tab :tasks :nav/tasks]
+         [tab-button active-tab :meets :nav/meets]
+         [tab-button active-tab :resources :nav/resources]
+         [tab-button active-tab :reports :nav/reports]
+         (when (state/has-mail?)
+           [tab-button active-tab :mail :nav/mail])]))))
 
 (defn- any-modal-open? []
   (or (:pending-new-item @state/*app-state)
@@ -149,9 +157,10 @@
           :today [today/today-tab]
           :resources [resources/resources-tab]
           :meets [meets/meets-tab]
-          :categories [categories/categories-tab]
-          :people-places [categories/categories-tab]
-          :projects-goals [categories/categories-tab]
+          :cat-people [categories/category-cards-page :people]
+          :cat-places [categories/category-cards-page :places]
+          :cat-projects [categories/category-cards-page :projects]
+          :cat-goals [categories/category-cards-page :goals]
           :reports [reports/reports-tab]
           :mail [mail/mail-page]
           :users [users/users-tab]

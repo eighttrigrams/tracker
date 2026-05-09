@@ -21,10 +21,13 @@
 (defn fetch-goals [app-state auth-headers]
   (fetch-collection auth-headers "/api/goals" :goals app-state))
 
+(defn- sort-by-modified [items]
+  (->> items (sort-by :modified_at #(compare %2 %1)) vec))
+
 (defn- add-category-entity [app-state auth-headers endpoint state-key error-msg name on-success]
   (api/post-json endpoint {:name name} (auth-headers)
     (fn [entity]
-      (swap! app-state update state-key conj entity)
+      (swap! app-state update state-key #(sort-by-modified (conj % entity)))
       (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] error-msg)))))
@@ -47,7 +50,7 @@
     (auth-headers)
     (fn [updated]
       (swap! app-state update state-key
-             (fn [items] (mapv #(if (= (:id %) id) updated %) items)))
+             #(sort-by-modified (mapv (fn [item] (if (= (:id item) id) updated item)) %)))
       (fetch-tasks-fn)
       (when on-success (on-success)))
     (fn [resp]

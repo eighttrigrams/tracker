@@ -113,8 +113,12 @@
        [:div.user-info
         (when-not is-admin
           [:button.categories-btn
-           {:class (when (contains? #{:categories :people-places :projects-goals} active-tab) "active")
-            :on-click #(state/set-active-tab :categories)}
+           {:class (when (contains? #{:cat-people :cat-places :cat-projects :cat-goals} active-tab) "active")
+            :on-click #(state/set-active-tab
+                        (if (contains? #{:cat-people :cat-places :cat-projects :cat-goals}
+                                       (:active-tab @state/*app-state))
+                          :tasks
+                          :cat-people))}
            (t :nav/categories)])
         [dark-mode-toggle]
         [:button.settings-btn

@@ -1,0 +1,13 @@
+{:id "046-add-category-modified-at"
+ :up ["ALTER TABLE people ADD COLUMN modified_at TEXT"
+      "UPDATE people SET modified_at = datetime('now')"
+      "ALTER TABLE places ADD COLUMN modified_at TEXT"
+      "UPDATE places SET modified_at = datetime('now')"
+      "ALTER TABLE projects ADD COLUMN modified_at TEXT"
+      "UPDATE projects SET modified_at = datetime('now')"
+      "ALTER TABLE goals ADD COLUMN modified_at TEXT"
+      "UPDATE goals SET modified_at = datetime('now')"]
+ :down ["ALTER TABLE people DROP COLUMN modified_at"
+        "ALTER TABLE places DROP COLUMN modified_at"
+        "ALTER TABLE projects DROP COLUMN modified_at"
+        "ALTER TABLE goals DROP COLUMN modified_at"]}

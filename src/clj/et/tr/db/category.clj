@@ -22,8 +22,9 @@
         new-order (+ max-order 1.0)
         result (jdbc/execute-one! conn
                  (sql/format {:insert-into (keyword table-name)
-                              :values [{:name name :user_id user-id :sort_order new-order}]
-                              :returning [:id :name :tags :sort_order :badge_title]})
+                              :values [{:name name :user_id user-id :sort_order new-order
+                                        :modified_at [:raw "datetime('now')"]}]
+                              :returning [:id :name :tags :sort_order :badge_title :modified_at]})
                  db/jdbc-opts)]
     (tel/log! {:level :info :data {:category table-name :id (:id result) :user-id user-id}} "Category added")
     result))
@@ -43,10 +44,10 @@
 (defn- list-category [ds user-id table-name]
   (validate-table-name! table-name)
   (jdbc/execute! (db/get-conn ds)
-    (sql/format {:select [:id :name :description :tags :sort_order :badge_title]
+    (sql/format {:select [:id :name :description :tags :sort_order :badge_title :modified_at]
                  :from [(keyword table-name)]
                  :where (db/user-id-where-clause user-id)
-                 :order-by [[:sort_order :asc] [:name :asc]]})
+                 :order-by [[:modified_at :desc] [:name :asc]]})
     db/jdbc-opts))
 
 (defn list-people [ds user-id]
@@ -65,9 +66,10 @@
   (validate-table-name! table-name)
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update (keyword table-name)
-                 :set {:name name :description description :tags tags :badge_title (or badge-title "")}
+                 :set {:name name :description description :tags tags :badge_title (or badge-title "")
+                       :modified_at [:raw "datetime('now')"]}
                  :where [:and [:= :id category-id] (db/user-id-where-clause user-id)]
-                 :returning [:id :name :description :tags :badge_title]})
+                 :returning [:id :name :description :tags :badge_title :modified_at]})
     db/jdbc-opts))
 
 (defn update-person [ds user-id person-id name description tags badge-title]

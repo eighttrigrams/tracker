@@ -86,9 +86,14 @@
         {:status 200 :body {:success true}})))
 
 (defn- serve-index [_]
-  {:status 200
-   :headers {"Content-Type" "text/html"}
-   :body (slurp (io/resource "public/index.html"))})
+  (let [js-file (io/file (io/resource "public/js/main.js"))
+        bust (if (.exists js-file) (.lastModified js-file) (System/currentTimeMillis))
+        html (-> (io/resource "public/index.html")
+                 slurp
+                 (str/replace "__CACHE_BUST__" (str bust)))]
+    {:status 200
+     :headers {"Content-Type" "text/html"}
+     :body html}))
 
 (defn- toggle-recording-mode-handler [_]
   (let [now (recording-mode/toggle!)]

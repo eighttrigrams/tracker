@@ -6,17 +6,16 @@
             [et.tr.filters :as filters]))
 
 (defn add-entity-form [placeholder add-fn name-atom]
-  (fn []
-    [:div.add-entity-form
-     [:input {:type "text"
-              :auto-complete "off"
-              :placeholder placeholder
-              :value @name-atom
-              :on-change #(reset! name-atom (-> % .-target .-value))
-              :on-key-down #(when (= (.-key %) "Enter")
-                              (add-fn @name-atom (fn [] (reset! name-atom ""))))}]
-     [:button {:on-click #(add-fn @name-atom (fn [] (reset! name-atom "")))}
-      "+"]]))
+  [:div.add-entity-form
+   [:input {:type "text"
+            :auto-complete "off"
+            :placeholder placeholder
+            :value @name-atom
+            :on-change #(reset! name-atom (-> % .-target .-value))
+            :on-key-down #(when (= (.-key %) "Enter")
+                            (add-fn @name-atom (fn [] (reset! name-atom ""))))}]
+   [:button {:on-click #(add-fn @name-atom (fn [] (reset! name-atom "")))}
+    "+"]])
 
 (defn category-item [item category-type _update-fn state-key]
   (let [drag-cat (:drag-category @state/*app-state)
@@ -58,56 +57,46 @@
        (when (seq (:description item))
          [:span.category-description [task-item/markdown (:description item)]])]))
 
-(defn- subtab-button [active-tab tab-key translation-key]
-  [:button.subtab
-   {:class (when (= active-tab tab-key) "active")
-    :on-click #(state/set-active-tab tab-key)}
-   (t translation-key)])
+(defn- category-card [item category-type state-key]
+  (let [expanded? (let [exp (:categories-page/expanded @state/*app-state)]
+                    (and exp (= (:type exp) state-key) (= (:id exp) (:id item))))]
+    [:div.category-card {:class (when expanded? "expanded")}
+     [:div.category-card-header
+      {:on-click #(state/toggle-category-item-expanded state-key (:id item))}
+      [:span.category-card-name (:name item)]
+      (when (seq (:badge_title item))
+        [:span.category-card-badge (:badge_title item)])
+      (when (seq (:tags item))
+        [:span.category-card-tags (:tags item)])]
+     (when expanded?
+       [:div.category-card-body
+        (if (seq (:description item))
+          [task-item/clampable-description
+           {:text (:description item)
+            :on-click #(state/set-editing-modal (keyword (str "category-" category-type)) item)}]
+          [:button.edit-icon.description-placeholder
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (state/set-editing-modal (keyword (str "category-" category-type)) item))}
+           "✎"])])]))
 
-(defn- categories-subtabs []
-  (let [raw-tab (:active-tab @state/*app-state)
-        active-tab (if (= raw-tab :categories) :people-places raw-tab)]
-    [:div.categories-subtabs
-     [subtab-button active-tab :people-places :nav/people-places]
-     [subtab-button active-tab :projects-goals :nav/projects-goals]]))
-
-(defn- category-manage-section [items name-atom title-key add-label-key add-fn category-type update-fn state-key]
-  (let [filtered-items (filters/filter-by-name items @name-atom)]
-    [:div.manage-section
-     [:h3 (t title-key)]
-     [add-entity-form (t add-label-key) add-fn name-atom]
-     [:ul.entity-list
-      (doall
-       (for [item filtered-items]
-         ^{:key (:id item)}
-         [category-item item category-type update-fn state-key]))]]))
-
-(defn people-places-tab []
-  (let [person-name (r/atom "")
-        place-name (r/atom "")]
-    (fn []
-      (let [{:keys [people places]} @state/*app-state]
-        [:div.manage-tab
-         [category-manage-section people person-name :category/people :category/add-person
-          state/add-person state/CATEGORY-TYPE-PERSON state/update-person :people]
-         [category-manage-section places place-name :category/places :category/add-place
-          state/add-place state/CATEGORY-TYPE-PLACE state/update-place :places]]))))
-
-(defn projects-goals-tab []
-  (let [project-name (r/atom "")
-        goal-name (r/atom "")]
-    (fn []
-      (let [{:keys [projects goals]} @state/*app-state]
-        [:div.manage-tab
-         [category-manage-section projects project-name :category/projects :category/add-project
-          state/add-project state/CATEGORY-TYPE-PROJECT state/update-project :projects]
-         [category-manage-section goals goal-name :category/goals :category/add-goal
-          state/add-goal state/CATEGORY-TYPE-GOAL state/update-goal :goals]]))))
-
-(defn categories-tab []
-  (let [active-tab (:active-tab @state/*app-state)]
-    [:div.categories-page
-     [categories-subtabs]
-     (case active-tab
-       :projects-goals [projects-goals-tab]
-       [people-places-tab])]))
+(defn category-cards-page [category-type]
+  (let [name-atom (r/atom "")]
+    (fn [category-type]
+      (let [items (get @state/*app-state category-type)
+            [add-fn add-label category-type-str]
+            (case category-type
+              :people  [state/add-person  :category/add-person  state/CATEGORY-TYPE-PERSON]
+              :places  [state/add-place   :category/add-place   state/CATEGORY-TYPE-PLACE]
+              :projects [state/add-project :category/add-project state/CATEGORY-TYPE-PROJECT]
+              :goals   [state/add-goal    :category/add-goal    state/CATEGORY-TYPE-GOAL])]
+        [:div.category-cards-page {:key (name category-type)}
+         [:div.category-cards-toolbar
+          [add-entity-form (t add-label) add-fn name-atom]]
+         [:div.category-cards-grid
+          (if (empty? items)
+            [:div.category-cards-empty (t :category/no-results)]
+            (doall
+             (for [item items]
+               ^{:key (:id item)}
+               [category-card item category-type-str category-type])))]]))))

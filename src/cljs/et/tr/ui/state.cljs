@@ -144,6 +144,7 @@
                             :drag-category nil
                             :drag-over-category nil
                             :category-page/editing nil
+                            :categories-page/expanded nil
                             :show-user-switcher false
                             :work-private-mode :both
                             :strict-mode false
@@ -1524,6 +1525,10 @@
                                         :fetch-resources fetch-resources-or-journals
                                         :fetch-meets fetch-meets-or-series
                                         :fetch-reports fetch-reports
+                                        :fetch-people fetch-people
+                                        :fetch-places fetch-places
+                                        :fetch-projects fetch-projects
+                                        :fetch-goals fetch-goals
                                         :is-admin is-admin?
                                         :has-mail has-mail?}))
 
@@ -1532,6 +1537,12 @@
 
 (defn toggle-expanded [page-key task-id]
   (ui/toggle-expanded *app-state page-key task-id))
+
+(defn toggle-category-item-expanded [category-type id]
+  (let [current (:categories-page/expanded @*app-state)]
+    (if (and current (= (:type current) category-type) (= (:id current) id))
+      (swap! *app-state assoc :categories-page/expanded nil)
+      (swap! *app-state assoc :categories-page/expanded {:type category-type :id id}))))
 
 (defn set-editing [task-id]
   (ui/set-editing *app-state task-id))

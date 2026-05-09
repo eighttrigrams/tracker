@@ -43,7 +43,7 @@
   (focus-tasks-search)
   (fetch-tasks-fn (tasks-fetch-opts app-state)))
 
-(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-meets fetch-reports is-admin has-mail]}]
+(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-meets fetch-reports fetch-people fetch-places fetch-projects fetch-goals is-admin has-mail]}]
   {:tasks (fn []
             (initialize-tasks-page app-state fetch-tasks))
    :today (fn []
@@ -61,7 +61,11 @@
    :meets (fn []
             (fetch-meets))
    :reports (fn []
-              (fetch-reports))})
+              (fetch-reports))
+   :cat-people   (fn [] (fetch-people))
+   :cat-places   (fn [] (fetch-places))
+   :cat-projects (fn [] (fetch-projects))
+   :cat-goals    (fn [] (fetch-goals))})
 
 (defn set-active-tab [app-state tab-initializers tab]
   (swap! app-state assoc
