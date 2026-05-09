@@ -2,15 +2,18 @@
   (:require [et.tr.db.task :as db.task]
             [et.tr.db.message :as db.message]
             [et.tr.db.user :as db.user]
+            [et.tr.server.common :as common]
             [clj-http.client :as http]
             [clojure.string :as str]
             [taoensso.telemere :as tel]))
 
 (defn- telegram-secret []
-  (System/getenv "TELEGRAM_WEBHOOK_SECRET"))
+  (or (get-in @common/*config [:message-bot :secret])
+      (System/getenv "MESSAGE_BOT_SECRET")))
 
 (defn- telegram-token []
-  (System/getenv "TELEGRAM_BOT_TOKEN"))
+  (or (get-in @common/*config [:message-bot :token])
+      (System/getenv "MESSAGE_BOT_TOKEN")))
 
 (def ^:private allowed-user-ids #{"361811399"})
 
