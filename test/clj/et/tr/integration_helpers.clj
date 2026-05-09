@@ -6,6 +6,7 @@
             [et.tr.server :as server]
             [et.tr.server.common :as common]
             [et.tr.server.recording-mode :as recording-mode]
+            [et.tr.middleware.machine-user :as machine-user]
             [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
             [ring.middleware.params :refer [wrap-params]]
             [next.jdbc :as jdbc]
@@ -21,6 +22,7 @@
 
 (defn make-app []
   (-> server/app-routes
+      (machine-user/wrap-machine-default-limit)
       (wrap-params)
       (wrap-json-body {:keywords? true})
       (recording-mode/wrap-machine-write-guard)

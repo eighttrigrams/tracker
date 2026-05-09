@@ -51,7 +51,7 @@
 (defn list-recurring-tasks
   ([ds user-id] (list-recurring-tasks ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term context strict categories]} opts
+   (let [{:keys [search-term context strict categories limit]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags])
@@ -101,12 +101,13 @@
                                :else
                                [:exists has-future-task-due]]
          rtasks (jdbc/execute! conn
-                  (sql/format {:select (into db/recurring-task-select-columns
-                                             [[has-today-task-expr :has_today_task]
-                                              [has-future-task-expr :has_future_task]])
-                               :from [:recurring_tasks]
-                               :where where-clause
-                               :order-by [[:sort_order :asc]]})
+                  (sql/format (cond-> {:select (into db/recurring-task-select-columns
+                                                     [[has-today-task-expr :has_today_task]
+                                                      [has-future-task-expr :has_future_task]])
+                                       :from [:recurring_tasks]
+                                       :where where-clause
+                                       :order-by [[:sort_order :asc]]}
+                                limit (assoc :limit limit)))
                   db/jdbc-opts)
          rtasks (mapv (fn [rt]
                         (-> rt

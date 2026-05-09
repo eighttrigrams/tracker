@@ -20,8 +20,9 @@
   "GET /api/meets/ — list meets for the calling user. Query params: q (search
   term), importance, context, strict (\"true\" toggles strict mode), sort
   (\"past\" | \"summary\" | default \"upcoming\"), people, places, projects,
-  goals, excluded-places, excluded-projects (all CSV id lists), and series-id
-  (int). Category filters only kick in when at least one of people/places/
+  goals, excluded-places, excluded-projects (all CSV id lists), series-id
+  (int), limit (int — caps the row count; machine users default to 10 when
+  omitted). Category filters only kick in when at least one of people/places/
   projects/goals is non-empty. Returns 200 with the matching rows."
   [req]
   (let [user-id (common/get-user-id req)
@@ -40,9 +41,10 @@
         excluded-places (common/parse-category-param (get-in req [:params "excluded-places"]))
         excluded-projects (common/parse-category-param (get-in req [:params "excluded-projects"]))
         series-id (when-let [s (get-in req [:params "series-id"])] (Integer/parseInt s))
+        limit (common/parse-int-opt (get-in req [:params "limit"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.meet/list-meets (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects :series-id series-id})}))
+    {:status 200 :body (db.meet/list-meets (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects :series-id series-id :limit limit})}))
 
 (defn add-meet-handler
   "POST /api/meets/ — create a new meet for the calling user. Body: {:title

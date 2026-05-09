@@ -35,7 +35,7 @@
 (defn list-messages
   ([ds user-id] (list-messages ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [view sort-mode sender-filter excluded-senders context strict importance urgency search-term]
+   (let [{:keys [view sort-mode sender-filter excluded-senders context strict importance urgency search-term limit]
           :or {view :inbox sort-mode :recent}} opts
          user-where (db/user-id-where-clause user-id)
          done-filter (case view
@@ -54,10 +54,11 @@
                         urgency-clause (conj urgency-clause)
                         search-clause (conj search-clause))]
      (jdbc/execute! (db/get-conn ds)
-       (sql/format {:select [:id :sender :title :description :created_at :done :type :scope :importance :urgency]
-                    :from [:messages]
-                    :where where-clause
-                    :order-by [[:created_at order-dir]]})
+       (sql/format (cond-> {:select [:id :sender :title :description :created_at :done :type :scope :importance :urgency]
+                            :from [:messages]
+                            :where where-clause
+                            :order-by [[:created_at order-dir]]}
+                     limit (assoc :limit limit)))
        db/jdbc-opts))))
 
 (defn message-owned-by-user? [ds message-id user-id]

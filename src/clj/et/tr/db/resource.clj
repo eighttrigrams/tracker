@@ -65,7 +65,7 @@
 (defn list-resources
   ([ds user-id] (list-resources ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories domain excluded-domains sort-mode]} opts
+   (let [{:keys [search-term importance context strict categories domain excluded-domains sort-mode limit]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags :link])
@@ -80,14 +80,15 @@
                             (concat (filter some? [search-clause importance-clause scope-clause domain-clause excluded-domains-clause])
                                     category-clauses))
          resources (jdbc/execute! conn
-                     (sql/format {:select db/resource-select-columns
-                                  :from [:resources]
-                                  :where where-clause
-                                  :order-by (case sort-mode
-                                              "added" [[:created_at :desc]]
-                                              "recent" [[:modified_at :desc]]
-                                              "manual" [[:sort_order :asc]]
-                                              [[:modified_at :desc]])})
+                     (sql/format (cond-> {:select db/resource-select-columns
+                                          :from [:resources]
+                                          :where where-clause
+                                          :order-by (case sort-mode
+                                                      "added" [[:created_at :desc]]
+                                                      "recent" [[:modified_at :desc]]
+                                                      "manual" [[:sort_order :asc]]
+                                                      [[:modified_at :desc]])}
+                                   limit (assoc :limit limit)))
                      db/jdbc-opts)
          resource-ids (mapv :id resources)
          categories-data (when (seq resource-ids)

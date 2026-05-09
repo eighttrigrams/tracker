@@ -52,7 +52,7 @@
 (defn list-journals
   ([ds user-id] (list-journals ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term context strict categories]} opts
+   (let [{:keys [search-term context strict categories limit]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags])
@@ -62,10 +62,11 @@
                             (concat (filter some? [search-clause scope-clause])
                                     category-clauses))
          journals (jdbc/execute! conn
-                    (sql/format {:select db/journal-select-columns
-                                 :from [:journals]
-                                 :where where-clause
-                                 :order-by [[:sort_order :asc]]})
+                    (sql/format (cond-> {:select db/journal-select-columns
+                                         :from [:journals]
+                                         :where where-clause
+                                         :order-by [[:sort_order :asc]]}
+                                  limit (assoc :limit limit)))
                     db/jdbc-opts)
          journal-ids (mapv :id journals)
          categories-data (when (seq journal-ids)

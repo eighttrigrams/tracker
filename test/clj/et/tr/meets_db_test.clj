@@ -101,3 +101,10 @@
     (db.meet/categorize-meet *ds* *user-id* (:id m1) "project" (:id project))
     (let [meets (db.meet/list-meets *ds* *user-id* {:excluded-projects ["Alpha"]})]
       (is (= ["General"] (mapv :title meets))))))
+
+(deftest list-meets-honors-limit-test
+  (testing ":limit option caps the rows returned"
+    (dotimes [i 12] (db.meet/add-meet *ds* *user-id* (str "Meet " i)))
+    (is (= 12 (count (db.meet/list-meets *ds* *user-id* {}))))
+    (is (= 5  (count (db.meet/list-meets *ds* *user-id* {:limit 5}))))
+    (is (= 1  (count (db.meet/list-meets *ds* *user-id* {:limit 1}))))))

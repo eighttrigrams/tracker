@@ -19,7 +19,8 @@
   "GET /api/messages — list messages for the authenticated user. Query params:
   view (default \"inbox\"), sort (default \"recent\"), sender, context, strict
   (\"true\" enables strict context match), excludedSenders (CSV), importance,
-  urgency, q (search term). Requires Mail access; returns 403 otherwise."
+  urgency, q (search term), limit (int — caps the row count; machine users
+  default to 10 when omitted). Requires Mail access; returns 403 otherwise."
   [req]
   (if (common/has-mail? req)
     (let [user-id (common/get-user-id req)
@@ -30,7 +31,8 @@
           strict (= "true" (get-in req [:params "strict"]))
           excluded-senders-param (get-in req [:params "excludedSenders"])
           excluded-senders (when (and excluded-senders-param (not (str/blank? excluded-senders-param)))
-                             (set (str/split excluded-senders-param #",")))]
+                             (set (str/split excluded-senders-param #",")))
+          limit (common/parse-int-opt (get-in req [:params "limit"]))]
       {:status 200 :body (db.message/list-messages (common/ensure-ds) user-id {:view view
                                                                                 :sort-mode sort-mode
                                                                                 :sender-filter sender
@@ -39,7 +41,8 @@
                                                                                 :strict strict
                                                                                 :importance (get-in req [:params "importance"])
                                                                                 :urgency (get-in req [:params "urgency"])
-                                                                                :search-term (get-in req [:params "q"])})})
+                                                                                :search-term (get-in req [:params "q"])
+                                                                                :limit limit})})
     {:status 403 :body {:error "Mail access required"}}))
 
 (defn- validate-message-fields

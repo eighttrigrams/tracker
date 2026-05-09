@@ -30,6 +30,7 @@
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [et.tr.middleware.rate-limit :as rate-limit :refer [wrap-rate-limit]]
+            [et.tr.middleware.machine-user :as machine-user]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.string :as str]
@@ -392,6 +393,7 @@
 
 (defn- app [prod?]
   (-> app-routes
+      (machine-user/wrap-machine-default-limit)
       (wrap-params)
       (wrap-json-body {:keywords? true})
       (recording-mode/wrap-machine-write-guard)

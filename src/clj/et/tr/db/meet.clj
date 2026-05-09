@@ -51,7 +51,7 @@
 (defn list-meets
   ([ds user-id] (list-meets ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories sort-mode excluded-places excluded-projects series-id]} opts
+   (let [{:keys [search-term importance context strict categories sort-mode excluded-places excluded-projects series-id limit]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          date-clause (case sort-mode
@@ -78,10 +78,11 @@
                     :past [[:start_date :desc] [:start_time :desc]]
                     [[:start_date :asc] [:start_time :asc]])
          meets (jdbc/execute! conn
-                 (sql/format {:select db/meet-select-columns
-                              :from [:meets]
-                              :where where-clause
-                              :order-by order-by})
+                 (sql/format (cond-> {:select db/meet-select-columns
+                                      :from [:meets]
+                                      :where where-clause
+                                      :order-by order-by}
+                               limit (assoc :limit limit)))
                  db/jdbc-opts)
          meet-ids (mapv :id meets)
          categories-data (when (seq meet-ids)

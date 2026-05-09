@@ -51,7 +51,7 @@
 (defn list-meeting-series
   ([ds user-id] (list-meeting-series ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term context strict categories]} opts
+   (let [{:keys [search-term context strict categories limit]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags])
@@ -74,12 +74,13 @@
                                   [:> :meets.start_date today-expr]]
                           :limit 1}
          series (jdbc/execute! conn
-                  (sql/format {:select (into db/meeting-series-select-columns
-                                             [[[:exists has-today-meet] :has_today_meet]
-                                              [[:exists has-future-meet] :has_future_meet]])
-                               :from [:meeting_series]
-                               :where where-clause
-                               :order-by [[:sort_order :asc]]})
+                  (sql/format (cond-> {:select (into db/meeting-series-select-columns
+                                                     [[[:exists has-today-meet] :has_today_meet]
+                                                      [[:exists has-future-meet] :has_future_meet]])
+                                       :from [:meeting_series]
+                                       :where where-clause
+                                       :order-by [[:sort_order :asc]]}
+                                limit (assoc :limit limit)))
                   db/jdbc-opts)
          series (mapv (fn [s]
                         (-> s

@@ -42,7 +42,7 @@
   ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
   ([ds user-id sort-mode opts]
    (let [opts (if (string? opts) {:search-term opts} opts)
-         {:keys [search-term importance context strict categories excluded-places excluded-projects recurring-task-id]} opts
+         {:keys [search-term importance context strict categories excluded-places excluded-projects recurring-task-id limit]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          base-where (case sort-mode
@@ -79,10 +79,11 @@
                     :reminder [[:reminder_date :asc]]
                     [[:modified_at :desc]])
          tasks (jdbc/execute! conn
-                 (sql/format {:select db/task-select-columns
-                              :from [:tasks]
-                              :where where-clause
-                              :order-by order-by})
+                 (sql/format (cond-> {:select db/task-select-columns
+                                      :from [:tasks]
+                                      :where where-clause
+                                      :order-by order-by}
+                               limit (assoc :limit limit)))
                  db/jdbc-opts)
          task-ids (mapv :id tasks)
          categories (when (seq task-ids)

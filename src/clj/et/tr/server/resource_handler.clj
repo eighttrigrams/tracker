@@ -21,7 +21,8 @@
   query params. Recognised params: q (search term), importance, context,
   strict (\"true\" toggles strict context match), people/places/projects/goals
   (comma-separated category id lists), domain, excludedDomains
-  (comma-separated), and sortMode. Always returns 200 with a vector of rows."
+  (comma-separated), sortMode, limit (int — caps the row count; machine users
+  default to 10 when omitted). Always returns 200 with a vector of rows."
   [req]
   (let [user-id (common/get-user-id req)
         search-term (get-in req [:params "q"])
@@ -37,9 +38,10 @@
         excluded-domains (when (and excluded-domains-param (not (str/blank? excluded-domains-param)))
                            (set (str/split excluded-domains-param #",")))
         sort-mode (get-in req [:params "sortMode"])
+        limit (common/parse-int-opt (get-in req [:params "limit"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.resource/list-resources (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :domain domain :excluded-domains excluded-domains :sort-mode sort-mode})}))
+    {:status 200 :body (db.resource/list-resources (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :domain domain :excluded-domains excluded-domains :sort-mode sort-mode :limit limit})}))
 
 (defn add-resource-handler
   "POST /api/resources — create a new resource for the caller. Body fields:

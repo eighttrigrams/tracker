@@ -18,10 +18,11 @@
 
 (defn list-meeting-series-handler
   "GET /api/meeting-series/ — list meeting series for the calling user. Query
-  params: q (search term), context, strict (\"true\" toggles strict mode), and
-  CSV id lists people, places, projects, goals. Category filters only kick in
-  when at least one of people/places/projects/goals is non-empty. Returns 200
-  with the matching rows."
+  params: q (search term), context, strict (\"true\" toggles strict mode),
+  CSV id lists people/places/projects/goals, and limit (int — caps the row
+  count; machine users default to 10 when omitted). Category filters only
+  kick in when at least one of people/places/projects/goals is non-empty.
+  Returns 200 with the matching rows."
   [req]
   (let [user-id (common/get-user-id req)
         search-term (get-in req [:params "q"])
@@ -31,9 +32,10 @@
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
+        limit (common/parse-int-opt (get-in req [:params "limit"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.meeting-series/list-meeting-series (common/ensure-ds) user-id {:search-term search-term :context context :strict strict :categories categories})}))
+    {:status 200 :body (db.meeting-series/list-meeting-series (common/ensure-ds) user-id {:search-term search-term :context context :strict strict :categories categories :limit limit})}))
 
 (defn add-meeting-series-handler
   "POST /api/meeting-series/ — create a new meeting series for the calling

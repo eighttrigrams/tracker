@@ -18,10 +18,11 @@
 
 (defn list-recurring-tasks-handler
   "GET /api/recurring-tasks/ — list recurring tasks for the current user.
-  Query params: q (search term), context, strict (\"true\"/\"false\"), and
-  comma-separated category id lists people, places, projects, goals. Categories
-  are only forwarded to the query when at least one list is provided. Always
-  returns 200 with the result vector."
+  Query params: q (search term), context, strict (\"true\"/\"false\"),
+  comma-separated category id lists people/places/projects/goals, and limit
+  (int — caps the row count; machine users default to 10 when omitted).
+  Categories are only forwarded to the query when at least one list is
+  provided. Always returns 200 with the result vector."
   [req]
   (let [user-id (common/get-user-id req)
         search-term (get-in req [:params "q"])
@@ -31,9 +32,10 @@
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
+        limit (common/parse-int-opt (get-in req [:params "limit"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.recurring-task/list-recurring-tasks (common/ensure-ds) user-id {:search-term search-term :context context :strict strict :categories categories})}))
+    {:status 200 :body (db.recurring-task/list-recurring-tasks (common/ensure-ds) user-id {:search-term search-term :context context :strict strict :categories categories :limit limit})}))
 
 (defn add-recurring-task-handler
   "POST /api/recurring-tasks/ — create a recurring task. Body fields: :title

@@ -128,6 +128,11 @@
   (when (and param (not (str/blank? param)))
     (vec (str/split param #","))))
 
+(defn parse-int-opt [s]
+  (when (and s (not (str/blank? s)))
+    (try (Integer/parseInt (str/trim s))
+         (catch NumberFormatException _ nil))))
+
 (defn valid-time-format? [time-str]
   (or (nil? time-str)
       (empty? time-str)
