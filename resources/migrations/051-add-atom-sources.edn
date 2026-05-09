@@ -1,0 +1,26 @@
+{:up ["CREATE TABLE atom_settings (
+         user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+         enabled INTEGER NOT NULL DEFAULT 1,
+         polling_minutes INTEGER NOT NULL DEFAULT 60,
+         last_polled_at TEXT
+       )"
+      "CREATE TABLE atom_feeds (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         feed_url TEXT NOT NULL,
+         name TEXT,
+         enabled INTEGER NOT NULL DEFAULT 1,
+         added_at TEXT NOT NULL DEFAULT (datetime('now')),
+         UNIQUE(user_id, feed_url)
+       )"
+      "CREATE INDEX idx_atom_feeds_user ON atom_feeds (user_id)"
+      "CREATE TABLE atom_entries_notified (
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         entry_id TEXT NOT NULL,
+         notified_at TEXT NOT NULL DEFAULT (datetime('now')),
+         PRIMARY KEY (user_id, entry_id)
+       )"]
+ :down ["DROP TABLE IF EXISTS atom_entries_notified"
+        "DROP INDEX IF EXISTS idx_atom_feeds_user"
+        "DROP TABLE IF EXISTS atom_feeds"
+        "DROP TABLE IF EXISTS atom_settings"]}

@@ -5,35 +5,63 @@
 
 (defonce *sources-page-state
   (r/atom {:mode false
+           :loaded? false
+           :error nil
+
+           ;; YouTube
            :settings nil
            :channels []
-           :loaded? false
            :add-channel-id ""
            :add-channel-name ""
            :add-channel-min ""
-           :error nil}))
+
+           ;; Podcasts
+           :podcast-settings nil
+           :podcast-feeds []
+           :add-podcast-url ""
+           :add-podcast-name ""
+
+           ;; Atom feeds
+           :atom-settings nil
+           :atom-feeds []
+           :add-atom-url ""
+           :add-atom-name ""}))
 
 (defn sources-mode? [] (:mode @*sources-page-state))
 
+(defn- fetch-json [path auth-headers k]
+  (GET path
+    {:response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler #(swap! *sources-page-state assoc k %)
+     :error-handler #(swap! *sources-page-state assoc :error
+                            (str "Failed to load " (name k)))}))
+
 (defn fetch-all [auth-headers]
-  (GET "/api/sources/youtube/settings"
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler #(swap! *sources-page-state assoc :settings %)
-     :error-handler #(swap! *sources-page-state assoc :error "Failed to load YouTube settings")})
+  (fetch-json "/api/sources/youtube/settings" auth-headers :settings)
+  (fetch-json "/api/sources/podcast/settings" auth-headers :podcast-settings)
+  (fetch-json "/api/sources/atom/settings"    auth-headers :atom-settings)
   (GET "/api/sources/youtube/channels"
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler #(swap! *sources-page-state assoc :channels (vec %) :loaded? true)
-     :error-handler #(swap! *sources-page-state assoc :error "Failed to load channels"
+    {:response-format :json :keywords? true :headers (auth-headers)
+     :handler #(swap! *sources-page-state assoc :channels (vec %))
+     :error-handler #(swap! *sources-page-state assoc :error "Failed to load channels")})
+  (GET "/api/sources/podcast/feeds"
+    {:response-format :json :keywords? true :headers (auth-headers)
+     :handler #(swap! *sources-page-state assoc :podcast-feeds (vec %))
+     :error-handler #(swap! *sources-page-state assoc :error "Failed to load podcast feeds")})
+  (GET "/api/sources/atom/feeds"
+    {:response-format :json :keywords? true :headers (auth-headers)
+     :handler #(swap! *sources-page-state assoc :atom-feeds (vec %) :loaded? true)
+     :error-handler #(swap! *sources-page-state assoc :error "Failed to load atom feeds"
                                                        :loaded? true)}))
 
 (defn toggle-mode [auth-headers]
   (let [new-mode (not (:mode @*sources-page-state))]
     (swap! *sources-page-state assoc :mode new-mode)
     (when new-mode (fetch-all auth-headers))))
+
+;; ── YouTube ────────────────────────────────────────────────────────────
 
 (defn update-settings [auth-headers fields]
   (api/put-json "/api/sources/youtube/settings"
@@ -101,3 +129,99 @@
 
 (defn set-form-field [k v]
   (swap! *sources-page-state assoc k v))
+
+;; ── Generic feed-source helpers (podcasts, atom) ───────────────────────
+
+(defn- set-feed-error [resp default-msg]
+  (swap! *sources-page-state assoc :error
+         (get-in resp [:response :error] default-msg)))
+
+(defn- update-feed-settings*
+  [auth-headers path settings-key fields]
+  (api/put-json path fields (auth-headers)
+    (fn [updated] (swap! *sources-page-state assoc settings-key updated :error nil))
+    (fn [resp] (set-feed-error resp "Failed to update settings"))))
+
+(defn- add-feed*
+  [auth-headers path feeds-key url-key name-key]
+  (let [s @*sources-page-state
+        url (get s url-key)
+        name-val (get s name-key)
+        params (cond-> {:feed_url url}
+                 (seq name-val) (assoc :name name-val))]
+    (api/post-json path params (auth-headers)
+      (fn [created]
+        (swap! *sources-page-state
+               (fn [st] (-> st
+                            (update feeds-key #(into [created] %))
+                            (assoc url-key "" name-key "" :error nil)))))
+      (fn [resp] (set-feed-error resp "Failed to add feed")))))
+
+(defn- update-feed*
+  [auth-headers path feeds-key feed-id fields]
+  (api/put-json (str path "/" feed-id) fields (auth-headers)
+    (fn [updated]
+      (swap! *sources-page-state update feeds-key
+             (fn [fs] (mapv #(if (= (:id %) feed-id) updated %) fs)))
+      (swap! *sources-page-state assoc :error nil))
+    (fn [resp] (set-feed-error resp "Failed to update feed"))))
+
+(defn- delete-feed*
+  [auth-headers path feeds-key feed-id]
+  (api/delete-simple (str path "/" feed-id) (auth-headers)
+    (fn [_]
+      (swap! *sources-page-state update feeds-key
+             (fn [fs] (filterv #(not= (:id %) feed-id) fs))))
+    (fn [resp] (set-feed-error resp "Failed to delete feed"))))
+
+;; ── Podcasts ───────────────────────────────────────────────────────────
+
+(defn set-podcast-enabled [auth-headers enabled]
+  (update-feed-settings* auth-headers "/api/sources/podcast/settings"
+                         :podcast-settings {:enabled enabled}))
+
+(defn set-podcast-polling-minutes [auth-headers minutes]
+  (update-feed-settings* auth-headers "/api/sources/podcast/settings"
+                         :podcast-settings {:polling_minutes minutes}))
+
+(defn add-podcast-feed [auth-headers]
+  (add-feed* auth-headers "/api/sources/podcast/feeds"
+             :podcast-feeds :add-podcast-url :add-podcast-name))
+
+(defn set-podcast-feed-enabled [auth-headers feed-id enabled]
+  (update-feed* auth-headers "/api/sources/podcast/feeds"
+                :podcast-feeds feed-id {:enabled enabled}))
+
+(defn set-podcast-feed-name [auth-headers feed-id name-val]
+  (update-feed* auth-headers "/api/sources/podcast/feeds"
+                :podcast-feeds feed-id {:name name-val}))
+
+(defn delete-podcast-feed [auth-headers feed-id]
+  (delete-feed* auth-headers "/api/sources/podcast/feeds"
+                :podcast-feeds feed-id))
+
+;; ── Atom ───────────────────────────────────────────────────────────────
+
+(defn set-atom-enabled [auth-headers enabled]
+  (update-feed-settings* auth-headers "/api/sources/atom/settings"
+                         :atom-settings {:enabled enabled}))
+
+(defn set-atom-polling-minutes [auth-headers minutes]
+  (update-feed-settings* auth-headers "/api/sources/atom/settings"
+                         :atom-settings {:polling_minutes minutes}))
+
+(defn add-atom-feed [auth-headers]
+  (add-feed* auth-headers "/api/sources/atom/feeds"
+             :atom-feeds :add-atom-url :add-atom-name))
+
+(defn set-atom-feed-enabled [auth-headers feed-id enabled]
+  (update-feed* auth-headers "/api/sources/atom/feeds"
+                :atom-feeds feed-id {:enabled enabled}))
+
+(defn set-atom-feed-name [auth-headers feed-id name-val]
+  (update-feed* auth-headers "/api/sources/atom/feeds"
+                :atom-feeds feed-id {:name name-val}))
+
+(defn delete-atom-feed [auth-headers feed-id]
+  (delete-feed* auth-headers "/api/sources/atom/feeds"
+                :atom-feeds feed-id))

@@ -286,6 +286,22 @@
       (PUT "/channels/:id" [] source-handler/update-youtube-channel-handler)
       (DELETE "/channels/:id" [] source-handler/delete-youtube-channel-handler))
 
+    (context "/sources/podcast" []
+      (GET "/settings" [] source-handler/get-podcast-settings-handler)
+      (PUT "/settings" [] source-handler/put-podcast-settings-handler)
+      (GET "/feeds" [] source-handler/list-podcast-feeds-handler)
+      (POST "/feeds" [] source-handler/add-podcast-feed-handler)
+      (PUT "/feeds/:id" [] source-handler/update-podcast-feed-handler)
+      (DELETE "/feeds/:id" [] source-handler/delete-podcast-feed-handler))
+
+    (context "/sources/atom" []
+      (GET "/settings" [] source-handler/get-atom-settings-handler)
+      (PUT "/settings" [] source-handler/put-atom-settings-handler)
+      (GET "/feeds" [] source-handler/list-atom-feeds-handler)
+      (POST "/feeds" [] source-handler/add-atom-feed-handler)
+      (PUT "/feeds/:id" [] source-handler/update-atom-feed-handler)
+      (DELETE "/feeds/:id" [] source-handler/delete-atom-feed-handler))
+
     (DELETE "/:category/:id" [] category-handler/delete-category-handler)
 
     (context "/test" []

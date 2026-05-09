@@ -344,6 +344,42 @@
 (defn set-sources-form-field [k v]
   (sources/set-form-field k v))
 
+(defn set-podcast-source-enabled [enabled?]
+  (sources/set-podcast-enabled auth-headers enabled?))
+
+(defn set-podcast-source-polling-minutes [minutes]
+  (sources/set-podcast-polling-minutes auth-headers minutes))
+
+(defn add-podcast-feed []
+  (sources/add-podcast-feed auth-headers))
+
+(defn set-podcast-feed-enabled [feed-id enabled?]
+  (sources/set-podcast-feed-enabled auth-headers feed-id enabled?))
+
+(defn set-podcast-feed-name [feed-id name-val]
+  (sources/set-podcast-feed-name auth-headers feed-id name-val))
+
+(defn delete-podcast-feed [feed-id]
+  (sources/delete-podcast-feed auth-headers feed-id))
+
+(defn set-atom-source-enabled [enabled?]
+  (sources/set-atom-enabled auth-headers enabled?))
+
+(defn set-atom-source-polling-minutes [minutes]
+  (sources/set-atom-polling-minutes auth-headers minutes))
+
+(defn add-atom-feed []
+  (sources/add-atom-feed auth-headers))
+
+(defn set-atom-feed-enabled [feed-id enabled?]
+  (sources/set-atom-feed-enabled auth-headers feed-id enabled?))
+
+(defn set-atom-feed-name [feed-id name-val]
+  (sources/set-atom-feed-name auth-headers feed-id name-val))
+
+(defn delete-atom-feed [feed-id]
+  (sources/delete-atom-feed auth-headers feed-id))
+
 (declare has-active-shared-filters?)
 (declare set-pending-new-item)
 (declare fetch-reports)
