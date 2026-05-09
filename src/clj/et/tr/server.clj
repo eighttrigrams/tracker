@@ -104,12 +104,12 @@
                ;; In prod, __CACHE_BUST__ is replaced at Docker build time by sed
                ;; (see Dockerfile). Resources live inside the jar, so io/file on a
                ;; jar:file: URL would throw — slurp the resource as-is.
-               (slurp (io/resource "public/index.html"))
+               (slurp (io/resource "public/tracker/index.html"))
                ;; In dev, resources are on disk; substitute __CACHE_BUST__ at request
                ;; time using main.js mtime so reloads pick up fresh shadow-cljs builds.
-               (let [js-file (io/file (io/resource "public/js/main.js"))
+               (let [js-file (io/file (io/resource "public/tracker/js/main.js"))
                      bust (if (.exists js-file) (.lastModified js-file) (System/currentTimeMillis))]
-                 (-> (io/resource "public/index.html")
+                 (-> (io/resource "public/tracker/index.html")
                      slurp
                      (str/replace "__CACHE_BUST__" (str bust)))))]
     {:status 200
@@ -364,7 +364,7 @@
   (POST "/webhook/telegram" [] (telegram/webhook-handler (common/ensure-ds)))
   (GET "/" [] serve-index)
   (GET "/item/*" [] serve-index)
-  (route/resources "/")
+  (route/resources "/" {:root "public/tracker"})
   (route/not-found {:status 404 :body {:error "Not found"}}))
 
 (defn- mutating-request? [req]
