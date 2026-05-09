@@ -2,8 +2,10 @@ Feature: Category filter persistence across tab switches
 
   Scenario: Filter by place persists when switching to Today and back
     Given I am on the app
-    When I click the "Categories" tab
-    And I add a place called "Lagos"
+    When I click the "Categories" button
+    And I click the "Places" category tab
+    And I add a category entry called "Lagos"
+    And I click the "Categories" button
     And I click the "Tasks" tab
     And I add a task called "Fix plumbing"
     And I add a task called "Paint walls"

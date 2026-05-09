@@ -2,8 +2,10 @@ Feature: Filter tasks by place
 
   Scenario: User can filter tasks by place
     Given I am on the app
-    When I click the "Categories" tab
-    And I add a place called "Test Office"
+    When I click the "Categories" button
+    And I click the "Places" category tab
+    And I add a category entry called "Test Office"
+    And I click the "Categories" button
     And I click the "Tasks" tab
     And I add a task called "Task with place"
     And I add a task called "Task without place"
