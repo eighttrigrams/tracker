@@ -20,6 +20,17 @@ if [ -z "$PORT" ]; then
   exit 1
 fi
 
+# Mark which environment owns the dev server. stop.sh reads this to refuse a
+# cross-env stop: on macOS, `lsof -ti:$PORT` from the host returns Docker's
+# port-forward proxy PIDs, and killing those tears down the container's
+# networking. Conversely, stopping from inside the container while the server
+# was started on the host would miss the real PID entirely.
+if [ -f /.dockerenv ]; then
+  echo proxy > .dev-server.lock
+else
+  echo host > .dev-server.lock
+fi
+
 SKIP_LOGINS=$(bb -e '(:dangerously-skip-logins? (read-string (slurp "config.edn")))')
 
 if [ "$MODE" = "prod" ]; then
