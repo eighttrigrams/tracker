@@ -23,7 +23,7 @@
 
 (defn- with-mocked-fetch [videos f]
   (with-redefs [youtube/get-latest-videos (fn [_channel-id] videos)
-                youtube/get-video-duration-minutes (fn [_api-key _id] nil)]
+                youtube/get-video-duration-minutes (fn [_id] nil)]
     (f)))
 
 (deftest first-poll-marks-existing-videos-as-notified
@@ -119,7 +119,7 @@
                   (fn [_] [{:video-id "vShort" :title "Short"
                             :published "2999-03-03T00:00:00Z"
                             :link "https://youtu.be/vShort" :author "Shorty"}])
-                  youtube/get-video-duration-minutes (fn [_ _] 1.0)]
-      (source-worker/run-youtube-tick *ds* "test-key"))
+                  youtube/get-video-duration-minutes (fn [_] 1.0)]
+      (source-worker/run-youtube-tick *ds*))
     (is (empty? (list-inbox)))
     (is (db.youtube/video-notified? *ds* *user-id* "vShort"))))

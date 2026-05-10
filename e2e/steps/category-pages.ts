@@ -27,8 +27,8 @@ When("I click the {string} category tab", async ({ page }, name: string) => {
 });
 
 When("I add a category entry called {string}", async ({ page }, name: string) => {
-  await page.locator(".add-entity-form input").fill(name);
-  await page.locator(".add-entity-form button").click();
+  await page.locator(".combined-search-add-form input").fill(name);
+  await page.locator(".combined-search-add-form button").first().click();
   await page.waitForLoadState("networkidle");
 });
 

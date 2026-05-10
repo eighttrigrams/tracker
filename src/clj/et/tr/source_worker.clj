@@ -45,9 +45,9 @@
 
 (def ^:private yt-actor (worker-actor "youtube"))
 
-(defn- video-too-short? [api-key video-id min-duration]
-  (when (and min-duration api-key)
-    (when-let [duration (youtube/get-video-duration-minutes api-key video-id)]
+(defn- video-too-short? [video-id min-duration]
+  (when min-duration
+    (when-let [duration (youtube/get-video-duration-minutes video-id)]
       (< duration min-duration))))
 
 (defn- forward-video! [ds user-id channel video]
@@ -60,7 +60,7 @@
                                    :title title :channel display-author}}
               "YouTube worker: forwarded video to inbox")))
 
-(defn- process-yt-channel! [ds api-key user-id channel]
+(defn- process-yt-channel! [ds user-id channel]
   (let [{:keys [channel_id added_at min_duration_minutes]} channel
         videos (youtube/get-latest-videos channel_id)]
     (doseq [{:keys [video-id published] :as video} videos]
@@ -69,7 +69,7 @@
           (before? published added_at)
           (db.youtube/mark-video-notified! ds user-id video-id)
 
-          (video-too-short? api-key video-id min_duration_minutes)
+          (video-too-short? video-id min_duration_minutes)
           (do (tel/log! {:level :info :data {:user-id user-id :video-id video-id
                                              :title (:title video)}}
                         "YouTube worker: skipping short video")
@@ -79,7 +79,7 @@
           (do (forward-video! ds user-id channel video)
               (db.youtube/mark-video-notified! ds user-id video-id)))))))
 
-(defn- poll-yt-user! [ds api-key user-id]
+(defn- poll-yt-user! [ds user-id]
   (try
     (let [channels (db.youtube/list-channels ds user-id)
           enabled (filter #(= 1 (:enabled %)) channels)]
@@ -87,7 +87,7 @@
                 "YouTube worker: polling user")
       (doseq [channel enabled]
         (try
-          (process-yt-channel! ds api-key user-id channel)
+          (process-yt-channel! ds user-id channel)
           (catch Exception e
             (tel/log! {:level :warn :data {:user-id user-id
                                            :channel (:channel_id channel)
@@ -98,18 +98,16 @@
       (tel/log! {:level :error :data {:user-id user-id :error (.getMessage e)}}
                 "YouTube worker: user poll failed"))))
 
-(defn run-youtube-tick
-  ([ds] (run-youtube-tick ds (System/getenv "YOUTUBE_API_KEY")))
-  ([ds api-key]
-   (try
-     (let [user-ids (db.youtube/users-due-for-poll ds)]
-       (tel/log! {:level :info :data {:users (count user-ids)}}
-                 "YouTube worker: tick start")
-       (doseq [user-id user-ids]
-         (poll-yt-user! ds api-key user-id)))
-     (catch Exception e
-       (tel/log! {:level :error :data {:error (.getMessage e)}}
-                 "YouTube worker: tick failed")))))
+(defn run-youtube-tick [ds]
+  (try
+    (let [user-ids (db.youtube/users-due-for-poll ds)]
+      (tel/log! {:level :info :data {:users (count user-ids)}}
+                "YouTube worker: tick start")
+      (doseq [user-id user-ids]
+        (poll-yt-user! ds user-id)))
+    (catch Exception e
+      (tel/log! {:level :error :data {:error (.getMessage e)}}
+                "YouTube worker: tick failed"))))
 
 ;; ── Podcasts ───────────────────────────────────────────────────────────
 
