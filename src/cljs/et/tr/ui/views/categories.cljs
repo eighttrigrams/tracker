@@ -3,18 +3,41 @@
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.i18n :refer [t]]))
 
-(defn combined-search-add-form [category-type placeholder add-fn]
-  (let [input-value (or (get-in @state/*app-state [:categories-page/filter-search category-type]) "")
-        clear-search #(state/set-categories-filter-search category-type "")
+;; Handlers derive category-type from live app-state instead of closure
+;; capture: Reagent re-renders on rAF, so a fast click after a tab switch
+;; (or fill+click pair) can otherwise fire a handler that closed over the
+;; previous render's category-type or empty input value.
+(def ^:private active-tab->category-type
+  {:cat-people :people :cat-places :places :cat-projects :projects :cat-goals :goals})
+
+(def ^:private category-type->add-fn
+  {:people state/add-person :places state/add-place
+   :projects state/add-project :goals state/add-goal})
+
+(defn- current-category-type []
+  (active-tab->category-type (:active-tab @state/*app-state)))
+
+(defn- current-search-value []
+  (when-let [ct (current-category-type)]
+    (or (get-in @state/*app-state [:categories-page/filter-search ct]) "")))
+
+(defn combined-search-add-form [_category-type placeholder]
+  (let [clear-search #(when-let [ct (current-category-type)]
+                        (state/set-categories-filter-search ct ""))
         do-add (fn []
-                 (when (seq input-value)
-                   (add-fn input-value clear-search)))]
+                 (let [ct (current-category-type)
+                       v (current-search-value)
+                       add-fn (category-type->add-fn ct)]
+                   (when (and (seq v) add-fn)
+                     (add-fn v clear-search))))
+        input-value (or (current-search-value) "")]
     [:div.combined-search-add-form
      [:input {:type "text"
               :auto-complete "off"
               :placeholder placeholder
               :value input-value
-              :on-change #(state/set-categories-filter-search category-type (-> % .-target .-value))
+              :on-change #(when-let [ct (current-category-type)]
+                            (state/set-categories-filter-search ct (-> % .-target .-value)))
               :on-key-down (fn [e]
                              (cond
                                (= (.-key e) "Enter")
@@ -92,14 +115,14 @@
 
 (defn category-cards-page [category-type]
   (let [items (get @state/*app-state category-type)
-        [add-fn add-label category-type-str]
+        [add-label category-type-str]
         (case category-type
-          :people  [state/add-person  :category/search-or-add-person  state/CATEGORY-TYPE-PERSON]
-          :places  [state/add-place   :category/search-or-add-place   state/CATEGORY-TYPE-PLACE]
-          :projects [state/add-project :category/search-or-add-project state/CATEGORY-TYPE-PROJECT]
-          :goals   [state/add-goal    :category/search-or-add-goal    state/CATEGORY-TYPE-GOAL])]
+          :people  [:category/search-or-add-person  state/CATEGORY-TYPE-PERSON]
+          :places  [:category/search-or-add-place   state/CATEGORY-TYPE-PLACE]
+          :projects [:category/search-or-add-project state/CATEGORY-TYPE-PROJECT]
+          :goals   [:category/search-or-add-goal    state/CATEGORY-TYPE-GOAL])]
     [:div.category-cards-page {:key (name category-type)}
-     [combined-search-add-form category-type (t add-label) add-fn]
+     [combined-search-add-form category-type (t add-label)]
      [:div.category-cards-grid
       (if (empty? items)
         [:div.category-cards-empty (t :category/no-results)]
