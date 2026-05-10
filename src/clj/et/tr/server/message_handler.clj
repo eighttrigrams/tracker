@@ -87,6 +87,25 @@
       (db.task/set-task-today ds user-id (:id task) true))
     task))
 
+(defn- promote-youtube-fields
+  "When the user has dropped a YouTube link directly into the inbox (URL
+  appears in title or description), rewrite the message so it looks like
+  a worker-fed YouTube inbox item: sender=\"YouTube\", title hides the
+  video title behind \"New … just dropped\", description carries the
+  link. Skipped when the caller already identifies as YouTube (i.e. the
+  source worker), so its channel-name override is preserved."
+  [{:keys [sender title description] :as fields}]
+  (or (when (not= sender "YouTube")
+        (when-let [url (or (common/extract-youtube-url title)
+                           (common/extract-youtube-url description))]
+          (let [{:keys [author]} (or (common/fetch-youtube-oembed url) {})]
+            (assoc fields
+                   :sender "YouTube"
+                   :title (common/build-dropped-title author)
+                   :type "markdown"
+                   :description url))))
+      fields))
+
 (defn add-message!
   "Service-level function for adding a message. Validates inputs, persists
   via db.message/add-message, and records a :create event using `actor`.
@@ -97,15 +116,21 @@
   When `title` carries the shortcut prefix `t` or `tt` (see
   `task-prefix-match`), creates a task directly instead of a message and
   records a :task :create event. The task is returned in place of a
-  message map; callers should treat the response as opaque."
-  [ds actor user-id {:keys [sender title description type scope importance urgency] :as fields}]
+  message map; callers should treat the response as opaque.
+
+  When the message body contains a YouTube URL, the fields are rewritten
+  into the canonical worker-fed shape so the user's inbox has a single
+  uniform format for YouTube videos regardless of origin."
+  [ds actor user-id fields]
   (if-let [error (validate-message-fields fields)]
     {:error error}
-    (if-let [match (task-prefix-match title)]
+    (if-let [match (task-prefix-match (:title fields))]
       (let [task (create-task-from-prefix! ds user-id match fields)]
         (events/record-create-with-actor! ds actor user-id :task (:id task) task)
         task)
-      (let [message (db.message/add-message ds user-id sender title description
+      (let [{:keys [sender title description type scope importance urgency]}
+            (promote-youtube-fields fields)
+            message (db.message/add-message ds user-id sender title description
                                             type scope importance urgency)]
         (events/record-create-with-actor! ds actor user-id :message (:id message) message)
         message))))

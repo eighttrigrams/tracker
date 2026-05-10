@@ -47,31 +47,22 @@
                 "Failed to fetch YouTube feed")
       nil)))
 
-(defn- parse-iso8601-duration [duration-str]
-  (let [[_ h m s] (re-find #"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?" duration-str)
-        hours (if h (parse-long h) 0)
-        minutes (if m (parse-long m) 0)
-        seconds (if s (parse-long s) 0)]
-    (+ (* hours 60) minutes (/ seconds 60.0))))
-
 (defn get-video-duration-minutes
-  "Look up the duration (in minutes, decimal) of a video via the YouTube
-  Data API. Returns nil if the API key is missing, the request fails,
-  or the response shape is unexpected."
-  [api-key video-id]
-  (when (and api-key video-id)
+  "Look up the duration (in minutes, decimal) of a video by scraping
+  `lengthSeconds` from the public watch page. Keyless. Returns nil if
+  the request fails or the field cannot be found."
+  [video-id]
+  (when video-id
     (try
-      (let [resp (http/get "https://www.googleapis.com/youtube/v3/videos"
-                   {:query-params {:part "contentDetails"
-                                   :id video-id
-                                   :key api-key}
-                    :as :json
+      (let [resp (http/get (str "https://www.youtube.com/watch?v=" video-id)
+                   {:as :string
                     :throw-exceptions false
                     :socket-timeout 30000
-                    :connection-timeout 30000})]
+                    :connection-timeout 30000
+                    :headers {"User-Agent" "Mozilla/5.0"}})]
         (when (= 200 (:status resp))
-          (when-let [duration (-> resp :body :items first :contentDetails :duration)]
-            (parse-iso8601-duration duration))))
+          (when-let [[_ secs] (re-find #"\"lengthSeconds\":\"(\d+)\"" (:body resp))]
+            (/ (parse-long secs) 60.0))))
       (catch Exception e
         (tel/log! {:level :warn :data {:video-id video-id :error (.getMessage e)}}
                   "Failed to fetch YouTube video duration")

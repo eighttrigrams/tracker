@@ -149,7 +149,9 @@
 (defn youtube-url? [url]
   (some? (re-find #"(?:youtube\.com/watch|youtube\.com/shorts/|youtu\.be/)" url)))
 
-(defn fetch-youtube-title [url]
+(defn fetch-youtube-oembed
+  "Calls YouTube's oEmbed endpoint. Returns {:author … :title …} or nil."
+  [url]
   (try
     (let [resp (http/get "https://www.youtube.com/oembed"
                  {:query-params {:url url :format "json"}
@@ -157,13 +159,40 @@
                   :socket-timeout 5000
                   :connection-timeout 5000})
           {:keys [author_name title]} (:body resp)]
-      (when title
-        (if author_name
-          (str author_name " — " title)
-          title)))
+      (when (or author_name title)
+        {:author author_name :title title}))
     (catch Exception e
-      (tel/log! {:level :warn :data {:url url :error (.getMessage e)}} "Failed to fetch YouTube title")
+      (tel/log! {:level :warn :data {:url url :error (.getMessage e)}} "Failed to fetch YouTube oEmbed")
       nil)))
+
+(defn fetch-youtube-title [url]
+  (when-let [{:keys [author title]} (fetch-youtube-oembed url)]
+    (when title
+      (if author
+        (str author " — " title)
+        title))))
+
+(defn extract-youtube-url
+  "Find the first YouTube URL in `text`, or nil."
+  [text]
+  (when (string? text)
+    (some (fn [u] (when (youtube-url? u) u))
+          (re-seq #"https?://\S+" text))))
+
+(def ^:private dropped-title-re #"(?i)^New YouTube video.*just dropped\.?\s*$")
+
+(defn youtube-message-not-yet-titled?
+  "True if a message looks like a freshly-arrived YouTube inbox item whose
+  title hasn't been replaced with the actual video title yet."
+  [{:keys [sender title]}]
+  (and (= sender "YouTube")
+       (string? title)
+       (boolean (re-matches dropped-title-re title))))
+
+(defn build-dropped-title [author]
+  (if (and author (not (str/blank? author)))
+    (str "New YouTube video from \"" author "\" just dropped.")
+    "New YouTube video just dropped."))
 
 (defn substack-url? [url]
   (some? (re-find #"\.substack\.com/" url)))
