@@ -203,7 +203,8 @@
   100% { opacity: 0; transform: translateX(20px); }
 }
 .mail-page .item-actions > .combined-button-wrapper:first-child { margin-left: 0; margin-right: 0; }
-.mail-page .tasks-header { justify-content: flex-end; }
+.mail-page .tasks-header { justify-content: flex-start; }
+.mail-page .tasks-header .series-mode-toggle { margin-right: auto; }
 
 .mail-delete-all-archived {
   display: flex;
