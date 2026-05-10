@@ -69,7 +69,19 @@
    :cat-projects (fn [] (fetch-projects))
    :cat-goals    (fn [] (fetch-goals))})
 
+(def ^:private global-tabs #{:today :tasks :meets :resources :reports :mail})
+(def ^:private category-tabs #{:cat-people :cat-places :cat-projects :cat-goals})
+(def ^:private settings-tabs #{:settings-profile :settings-shortcuts :settings-history})
+
+(defn- supersection-key [tab]
+  (cond
+    (global-tabs tab) :last-global-tab
+    (category-tabs tab) :last-category-tab
+    (settings-tabs tab) :last-settings-tab))
+
 (defn set-active-tab [app-state tab-initializers tab]
+  (when-let [k (supersection-key (:active-tab @app-state))]
+    (swap! app-state assoc k (:active-tab @app-state)))
   (swap! app-state assoc
          :active-tab tab
          :category-selector/open nil
