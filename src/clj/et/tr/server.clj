@@ -182,6 +182,13 @@
       (POST "/" [] user-handler/add-user-handler)
       (DELETE "/:id" [] user-handler/delete-user-handler))
 
+    (context "/me/machine-users" []
+      (GET    "/"             [] user-handler/list-my-machine-users-handler)
+      (POST   "/"             [] user-handler/create-my-machine-user-handler)
+      (PUT    "/:id"          [] user-handler/update-my-machine-user-handler)
+      (PUT    "/:id/password" [] user-handler/update-my-machine-user-password-handler)
+      (DELETE "/:id"          [] user-handler/delete-my-machine-user-handler))
+
     (context "/tasks" []
       (GET "/" [] task-handler/list-tasks-handler)
       (GET "/:id" [] task-handler/get-task-handler)

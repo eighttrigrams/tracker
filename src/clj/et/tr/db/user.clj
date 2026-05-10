@@ -112,3 +112,42 @@
                    :where [:= :id user-id]
                    :returning [:id :vim_keys]})
       db/jdbc-opts)))
+
+(defn list-machine-users-for-user
+  "Rows for the parent user's machine users, ordered by creation time."
+  [ds parent-user-id]
+  (jdbc/execute! (db/get-conn ds)
+    (sql/format {:select [:id :username :for_user_id :mail_only :created_at]
+                 :from [:users]
+                 :where [:and
+                         [:= :is_machine_user 1]
+                         [:= :for_user_id parent-user-id]]
+                 :order-by [[:created_at :asc]]})
+    db/jdbc-opts))
+
+(defn update-username
+  "Returns the updated row, or nil if no row matched. Throws on
+  uniqueness violation (caller catches and surfaces 409)."
+  [ds user-id new-username]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :users
+                 :set {:username new-username}
+                 :where [:= :id user-id]
+                 :returning [:id :username :is_machine_user :for_user_id :mail_only]})
+    db/jdbc-opts))
+
+(defn update-mail-only [ds user-id mail-only?]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :users
+                 :set {:mail_only (if mail-only? 1 0)}
+                 :where [:= :id user-id]
+                 :returning [:id :username :is_machine_user :for_user_id :mail_only]})
+    db/jdbc-opts))
+
+(defn update-password [ds user-id new-password]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :users
+                 :set {:password_hash (hashers/derive new-password)}
+                 :where [:= :id user-id]
+                 :returning [:id :username]})
+    db/jdbc-opts))

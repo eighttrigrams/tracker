@@ -210,3 +210,177 @@
       (if-let [result (db.user/set-vim-keys (common/ensure-ds) user-id (= 1 vim-keys))]
         {:status 200 :body result}
         {:status 404 :body {:error "User not found"}}))))
+
+(defn- human-caller
+  "Return the caller's user-info map only if the request is from a
+  logged-in non-admin human. Machine-user tokens, the synthetic admin,
+  and unauthenticated callers all yield nil. Used to gate the
+  /api/me/machine-users endpoints — see point 4 of the design: only
+  human owners may manage their machine users."
+  [req]
+  (let [u (common/get-user-from-request req)]
+    (when (and u
+               (:user-id u)
+               (not (:is-admin u))
+               (not (:machine? u)))
+      u)))
+
+(defn- present-machine-user [row]
+  (when row
+    (-> row
+        (update :is_machine_user #(= 1 %))
+        (update :mail_only #(= 1 %)))))
+
+(defn- owned-machine-user
+  "Load the target user row and return it only if it is a machine user
+  whose for_user_id matches `parent-id`. Returns nil otherwise so callers
+  can respond with a uniform 404 (no existence leak)."
+  [ds parent-id target-id]
+  (let [target (db.user/get-user-by-id ds target-id)]
+    (when (and target
+               (= 1 (:is_machine_user target))
+               (= parent-id (:for_user_id target)))
+      target)))
+
+(defn list-my-machine-users-handler
+  "GET /api/me/machine-users — list the caller's machine users. Returns
+  403 for admin/machine-user/unauthenticated callers, 200 with a vector
+  of {:id :username :for_user_id :mail_only :created_at} otherwise."
+  [req]
+  (if-let [{:keys [user-id]} (human-caller req)]
+    {:status 200 :body (->> (db.user/list-machine-users-for-user
+                              (common/ensure-ds) user-id)
+                            (mapv #(update % :mail_only (fn [v] (= 1 v)))))}
+    {:status 403 :body {:error "Forbidden"}}))
+
+(defn create-my-machine-user-handler
+  "POST /api/me/machine-users — create a machine user owned by the
+  caller. Body: :username (required), :password (required), :mail_only
+  (boolean, default false). The caller's id is forced into for_user_id;
+  any client-supplied for_user_id / is_machine_user is ignored. Returns
+  201 with the row, 400 on validation failure, 409 on duplicate
+  username, 403 for non-human callers."
+  [req]
+  (if-let [{:keys [user-id]} (human-caller req)]
+    (let [{:keys [username password mail_only]} (:body req)]
+      (cond
+        (or (str/blank? username) (str/blank? password))
+        {:status 400 :body {:error "Username and password are required"}}
+
+        (= username "admin")
+        {:status 400 :body {:error "Cannot create user named 'admin'"}}
+
+        :else
+        (try
+          (let [user (db.user/create-user (common/ensure-ds) username password
+                                          {:is-machine-user true
+                                           :for-user-id user-id
+                                           :mail-only (boolean mail_only)})]
+            (events/record! req {:entity-type :user
+                                 :entity-id (:id user)
+                                 :action :user-create
+                                 :payload {:username username
+                                           :is_machine true
+                                           :for_user_id user-id
+                                           :mail_only (boolean mail_only)}})
+            {:status 201 :body (-> user
+                                   (dissoc :password_hash)
+                                   present-machine-user)})
+          (catch Exception _
+            {:status 409 :body {:error "Username already exists"}}))))
+    {:status 403 :body {:error "Forbidden"}}))
+
+(defn update-my-machine-user-handler
+  "PUT /api/me/machine-users/:id — rename or toggle mail_only on a
+  machine user owned by the caller. Body fields are optional; omitted
+  fields stay unchanged. Body keys: :username, :mail_only. Returns 200
+  with the updated row, 400 on empty body / blank rename, 404 when the
+  target is not a machine user owned by the caller, 409 on duplicate
+  username, 403 for non-human callers."
+  [req]
+  (if-let [{:keys [user-id]} (human-caller req)]
+    (let [target-id (Integer/parseInt (get-in req [:params :id]))
+          ds (common/ensure-ds)
+          {:keys [username mail_only] :as body} (:body req)
+          rename? (contains? body :username)
+          flip-mail? (contains? body :mail_only)]
+      (cond
+        (nil? (owned-machine-user ds user-id target-id))
+        {:status 404 :body {:error "Machine user not found"}}
+
+        (not (or rename? flip-mail?))
+        {:status 400 :body {:error "Nothing to update"}}
+
+        (and rename? (str/blank? username))
+        {:status 400 :body {:error "Username cannot be blank"}}
+
+        (and rename? (= username "admin"))
+        {:status 400 :body {:error "Cannot rename to 'admin'"}}
+
+        :else
+        (try
+          (let [_ (when rename?
+                    (db.user/update-username ds target-id username))
+                _ (when flip-mail?
+                    (db.user/update-mail-only ds target-id (boolean mail_only)))
+                fresh (db.user/get-user-by-id ds target-id)]
+            (events/record! req {:entity-type :user
+                                 :entity-id target-id
+                                 :action :user-update
+                                 :payload (cond-> {}
+                                            rename?    (assoc :username username)
+                                            flip-mail? (assoc :mail_only (boolean mail_only)))})
+            {:status 200 :body (present-machine-user fresh)})
+          (catch Exception _
+            {:status 409 :body {:error "Username already exists"}}))))
+    {:status 403 :body {:error "Forbidden"}}))
+
+(defn update-my-machine-user-password-handler
+  "PUT /api/me/machine-users/:id/password — rotate the password on a
+  caller-owned machine user. Body: :password (required, non-blank).
+  Returns 200 {:success true}, 400 on blank password, 404 when target
+  not owned, 403 for non-human callers."
+  [req]
+  (if-let [{:keys [user-id]} (human-caller req)]
+    (let [target-id (Integer/parseInt (get-in req [:params :id]))
+          ds (common/ensure-ds)
+          {:keys [password]} (:body req)]
+      (cond
+        (nil? (owned-machine-user ds user-id target-id))
+        {:status 404 :body {:error "Machine user not found"}}
+
+        (str/blank? password)
+        {:status 400 :body {:error "Password is required"}}
+
+        :else
+        (do (db.user/update-password ds target-id password)
+            (events/record! req {:entity-type :user
+                                 :entity-id target-id
+                                 :action :user-password-reset
+                                 :payload {}})
+            {:status 200 :body {:success true}})))
+    {:status 403 :body {:error "Forbidden"}}))
+
+(defn delete-my-machine-user-handler
+  "DELETE /api/me/machine-users/:id — remove a caller-owned machine
+  user. Returns 200 {:success true}, 404 when target not owned, 403
+  for non-human callers. Records a :user-delete event."
+  [req]
+  (if-let [{:keys [user-id]} (human-caller req)]
+    (let [target-id (Integer/parseInt (get-in req [:params :id]))
+          ds (common/ensure-ds)
+          target (owned-machine-user ds user-id target-id)]
+      (if (nil? target)
+        {:status 404 :body {:error "Machine user not found"}}
+        (let [result (db.user/delete-user ds target-id)]
+          (if (:success result)
+            (do (events/record! req {:entity-type :user
+                                     :entity-id target-id
+                                     :action :user-delete
+                                     :payload {:username (:username target)
+                                               :is_machine true
+                                               :for_user_id user-id
+                                               :mail_only (= 1 (:mail_only target))}})
+                {:status 200 :body {:success true}})
+            {:status 404 :body {:error "Machine user not found"}}))))
+    {:status 403 :body {:error "Forbidden"}}))

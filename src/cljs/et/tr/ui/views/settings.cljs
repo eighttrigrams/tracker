@@ -1,6 +1,7 @@
 (ns et.tr.ui.views.settings
   (:require [reagent.core :as r]
             [cljs.pprint]
+            [clojure.string :as str]
             [et.tr.ui.state :as state]
             [et.tr.i18n :refer [t]]))
 
@@ -26,6 +27,128 @@
                :on-change #(state/update-vim-keys (not enabled))}]
       (str " " (t :settings/vim-keys))]]))
 
+(defn- add-machine-user-form []
+  (let [username   (r/atom "")
+        password   (r/atom "")
+        mail-only? (r/atom false)
+        reset-form (fn []
+                     (reset! username "")
+                     (reset! password "")
+                     (reset! mail-only? false))
+        submit (fn []
+                 (when (and (seq @username) (seq @password))
+                   (state/add-my-machine-user
+                     @username @password @mail-only? reset-form)))]
+    (fn []
+      [:div.add-machine-user-form
+       [:input {:type "text"
+                :auto-complete "off"
+                :placeholder (t :machine-users/username)
+                :value @username
+                :on-change #(reset! username (-> % .-target .-value))}]
+       [:input {:type "password"
+                :placeholder (t :machine-users/password)
+                :value @password
+                :on-change #(reset! password (-> % .-target .-value))
+                :on-key-down #(when (= (.-key %) "Enter") (submit))}]
+       [:label.mail-only-checkbox
+        [:input {:type "checkbox"
+                 :checked @mail-only?
+                 :on-change #(reset! mail-only? (-> % .-target .-checked))}]
+        (t :machine-users/mail-only)]
+       [:button {:on-click submit
+                 :disabled (or (empty? @username) (empty? @password))}
+        (t :machine-users/add-button)]])))
+
+(defn- machine-user-row [_user]
+  (let [mode         (r/atom :view)
+        edit-name    (r/atom "")
+        edit-mail?   (r/atom false)
+        new-pwd      (r/atom "")
+        reset-edit (fn []
+                     (reset! mode :view)
+                     (reset! edit-name "")
+                     (reset! edit-mail? false)
+                     (reset! new-pwd ""))
+        start-edit (fn [user]
+                     (reset! edit-name (:username user))
+                     (reset! edit-mail? (boolean (:mail_only user)))
+                     (reset! mode :edit))
+        start-pwd (fn []
+                    (reset! new-pwd "")
+                    (reset! mode :pwd))
+        save-edit (fn [user]
+                    (let [body (cond-> {}
+                                 (and (seq (str/trim @edit-name))
+                                      (not= @edit-name (:username user)))
+                                 (assoc :username (str/trim @edit-name))
+                                 (not= @edit-mail? (boolean (:mail_only user)))
+                                 (assoc :mail_only @edit-mail?))]
+                      (if (seq body)
+                        (state/update-my-machine-user (:id user) body reset-edit)
+                        (reset-edit))))
+        save-pwd (fn [user]
+                   (when (seq (str/trim @new-pwd))
+                     (state/change-my-machine-user-password
+                       (:id user) (str/trim @new-pwd) reset-edit)))]
+    (fn [user]
+      [:li.machine-user-row
+       (case @mode
+         :edit
+         [:div.machine-user-edit
+          [:input {:type "text"
+                   :auto-complete "off"
+                   :value @edit-name
+                   :on-change #(reset! edit-name (-> % .-target .-value))}]
+          [:label.mail-only-checkbox
+           [:input {:type "checkbox"
+                    :checked @edit-mail?
+                    :on-change #(reset! edit-mail? (-> % .-target .-checked))}]
+           (t :machine-users/mail-only)]
+          [:button {:on-click #(save-edit user)} (t :machine-users/save)]
+          [:button {:on-click reset-edit} (t :machine-users/cancel)]]
+
+         :pwd
+         [:div.machine-user-pwd
+          [:input {:type "password"
+                   :placeholder (t :machine-users/new-password)
+                   :value @new-pwd
+                   :on-change #(reset! new-pwd (-> % .-target .-value))
+                   :on-key-down #(when (= (.-key %) "Enter") (save-pwd user))}]
+          [:button {:on-click #(save-pwd user)
+                    :disabled (empty? (str/trim @new-pwd))}
+           (t :machine-users/save)]
+          [:button {:on-click reset-edit} (t :machine-users/cancel)]]
+
+         ;; :view
+         [:div.machine-user-view
+          [:span.username (:username user)]
+          (when (:mail_only user)
+            [:span.mail-only-badge (t :users/mail-only-badge)])
+          [:button {:on-click #(start-edit user)} (t :machine-users/rename)]
+          [:button {:on-click start-pwd} (t :machine-users/change-password)]
+          [:button.delete-user-btn
+           {:on-click #(when (js/confirm (t :machine-users/delete-confirm))
+                         (state/delete-my-machine-user (:id user)))}
+           (t :machine-users/delete)]])])))
+
+(defn- machine-users-section []
+  (r/create-class
+   {:component-did-mount (fn [] (state/fetch-my-machine-users))
+    :reagent-render
+    (fn []
+      (let [users (:my-machine-users @state/*app-state)]
+        [:div.manage-section.settings-section.machine-users-section
+         [:h3 (t :settings/machine-users)]
+         [:p.muted (t :settings/machine-users-help)]
+         [add-machine-user-form]
+         (if (empty? users)
+           [:p.muted (t :settings/machine-users-empty)]
+           [:ul.entity-list.machine-user-list
+            (doall
+              (for [u users]
+                ^{:key (:id u)} [machine-user-row u]))])]))}))
+
 (defn profile-tab []
   (let [current-user (:current-user @state/*app-state)
         is-admin (:is_admin current-user)]
@@ -45,7 +168,9 @@
          [vim-keys-toggle])
        [:div.settings-item
         [:button.export-btn {:on-click #(state/export-data)}
-         (t :settings/export-data)]]]]]))
+         (t :settings/export-data)]]]
+      (when-not is-admin
+        [machine-users-section])]]))
 
 (defn shortcuts-tab []
   [:div.settings-page

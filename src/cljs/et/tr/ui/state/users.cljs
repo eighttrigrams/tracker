@@ -3,6 +3,13 @@
             [et.tr.ui.api :as api]
             [et.tr.ui.state.auth :as auth]))
 
+(defn- replace-machine-user
+  "Swap the row with id `(:id user)` inside :my-machine-users, leaving
+  the rest in place. Used by every PUT path so renames/mail-only flips
+  update locally without a re-fetch."
+  [users user]
+  (mapv (fn [u] (if (= (:id u) (:id user)) user u)) users))
+
 (defn fetch-users [app-state auth-headers]
   (GET "/api/users"
     {:response-format :json
@@ -65,3 +72,50 @@
           :active-tab :today})
   (auth/apply-user-language user)
   (fetch-all-fn user))
+
+(defn fetch-my-machine-users [app-state auth-headers]
+  (GET "/api/me/machine-users"
+    {:response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler #(swap! app-state assoc :my-machine-users %)
+     :error-handler #(swap! app-state assoc :my-machine-users [])}))
+
+(defn add-my-machine-user [app-state auth-headers username password mail-only? on-success]
+  (api/post-json "/api/me/machine-users"
+    {:username username :password password :mail_only (boolean mail-only?)}
+    (auth-headers)
+    (fn [user]
+      (swap! app-state update :my-machine-users (fnil conj []) user)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error
+             (get-in resp [:response :error] "Failed to add machine user")))))
+
+(defn update-my-machine-user [app-state auth-headers user-id body on-success]
+  (api/put-json (str "/api/me/machine-users/" user-id) body (auth-headers)
+    (fn [user]
+      (swap! app-state update :my-machine-users replace-machine-user user)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error
+             (get-in resp [:response :error] "Failed to update machine user")))))
+
+(defn change-my-machine-user-password [app-state auth-headers user-id new-password on-success]
+  (api/put-json (str "/api/me/machine-users/" user-id "/password")
+    {:password new-password}
+    (auth-headers)
+    (fn [_] (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error
+             (get-in resp [:response :error] "Failed to change password")))))
+
+(defn delete-my-machine-user [app-state auth-headers user-id]
+  (api/delete-simple (str "/api/me/machine-users/" user-id)
+    (auth-headers)
+    (fn [_]
+      (swap! app-state update :my-machine-users
+             (fn [users] (filterv #(not= (:id %) user-id) users))))
+    (fn [resp]
+      (swap! app-state assoc :error
+             (get-in resp [:response :error] "Failed to delete machine user")))))

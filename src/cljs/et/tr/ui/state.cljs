@@ -1032,6 +1032,21 @@
 (defn delete-user [user-id]
   (users/delete-user *app-state auth-headers user-id))
 
+(defn fetch-my-machine-users []
+  (users/fetch-my-machine-users *app-state auth-headers))
+
+(defn add-my-machine-user [username password mail-only? on-success]
+  (users/add-my-machine-user *app-state auth-headers username password mail-only? on-success))
+
+(defn update-my-machine-user [user-id body on-success]
+  (users/update-my-machine-user *app-state auth-headers user-id body on-success))
+
+(defn change-my-machine-user-password [user-id new-password on-success]
+  (users/change-my-machine-user-password *app-state auth-headers user-id new-password on-success))
+
+(defn delete-my-machine-user [user-id]
+  (users/delete-my-machine-user *app-state auth-headers user-id))
+
 (defn toggle-user-switcher []
   (users/toggle-user-switcher *app-state))
 
