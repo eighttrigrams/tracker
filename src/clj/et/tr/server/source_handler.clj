@@ -3,7 +3,8 @@
             [et.tr.server.common :as common]
             [et.tr.db.youtube :as db.youtube]
             [et.tr.db.podcast :as db.podcast]
-            [et.tr.db.atom-feed :as db.atom]))
+            [et.tr.db.atom-feed :as db.atom]
+            [et.tr.youtube :as youtube]))
 
 (defn- mail-only-guard [req f]
   (if (common/has-mail? req)
@@ -83,41 +84,65 @@
       {:status 200 :body (mapv present-channel
                                (db.youtube/list-channels (common/ensure-ds) user-id))})))
 
+(defn- resolve-channel-input
+  "Accept either a YouTube channel id (e.g. UCxxxx) or a video URL and
+  return {:channel-id … :author …}. Returns nil when input is a URL we
+  cannot resolve. Author is only populated when derived via scrape."
+  [raw]
+  (cond
+    (str/blank? raw) nil
+    (re-find #"^https?://" raw) (youtube/get-channel-info-from-video-url raw)
+    :else {:channel-id raw}))
+
 (defn add-youtube-channel-handler
   "POST /api/sources/youtube/channels — track a new YouTube channel for the
-  caller. Body fields: :channel_id (required, non-blank), :name (optional),
-  :min_duration_minutes (optional int), :enabled (optional bool, defaults true).
-  Returns 400 on missing/invalid fields, 409 when already tracked, 403 without
-  mail access, else 201 with the created channel."
+  caller. Body fields: :channel_id (required, non-blank — accepts either
+  a YouTube channel id or a video URL, in which case the channel is
+  derived from the video page), :name (optional; auto-filled from the
+  video's owner channel name when a URL is supplied and :name is blank),
+  :min_duration_minutes (optional int), :enabled (optional bool, defaults
+  true). Returns 400 on missing/invalid fields (or when a URL cannot be
+  resolved), 409 when already tracked, 403 without mail access, else 201
+  with the created channel."
   [req]
   (mail-only-guard req
     (fn [user-id]
       (let [{:keys [channel_id name min_duration_minutes enabled]} (:body req)
-            channel-id (some-> channel_id str str/trim)
+            raw-input (some-> channel_id str str/trim)
             min-mins (when min_duration_minutes
                        (try (Integer/parseInt (str min_duration_minutes))
                             (catch Exception _ nil)))]
         (cond
-          (str/blank? channel-id)
+          (str/blank? raw-input)
           {:status 400 :body {:error "channel_id is required"}}
 
           (and (some? min_duration_minutes) (nil? min-mins))
           {:status 400 :body {:error "min_duration_minutes must be an integer"}}
 
           :else
-          (try
-            (db.youtube/ensure-settings! (common/ensure-ds) user-id)
-            (let [created (db.youtube/add-channel
-                            (common/ensure-ds) user-id
-                            {:channel-id channel-id
-                             :name (when-not (str/blank? name) (str/trim name))
-                             :min-duration-minutes min-mins
-                             :enabled (bool->int (if (nil? enabled) true enabled))})]
-              {:status 201 :body (present-channel created)})
-            (catch Exception e
-              (if (re-find #"UNIQUE" (or (.getMessage e) ""))
-                {:status 409 :body {:error "Channel already added for this user"}}
-                (throw e)))))))))
+          (let [{:keys [channel-id author]} (or (resolve-channel-input raw-input) {})]
+            (cond
+              (str/blank? channel-id)
+              {:status 400 :body {:error "Could not resolve a YouTube channel from the supplied input"}}
+
+              :else
+              (try
+                (db.youtube/ensure-settings! (common/ensure-ds) user-id)
+                (let [resolved-name (cond
+                                      (and (string? name) (not (str/blank? name))) (str/trim name)
+                                      (and author (not (str/blank? author))) author
+                                      :else nil)
+                      created (db.youtube/add-channel
+                                (common/ensure-ds) user-id
+                                {:channel-id channel-id
+                                 :name resolved-name
+                                 :min-duration-minutes min-mins
+                                 :enabled (bool->int (if (nil? enabled) true enabled))})]
+                  {:status 201 :body (present-channel created)})
+                (catch Exception e
+                  (if (re-find #"UNIQUE" (or (.getMessage e) ""))
+                    {:status 409 :body {:error "Channel already added for this user"}}
+                    (throw e)))))))))))
 
 (defn update-youtube-channel-handler
   "PUT /api/sources/youtube/channels/:id — update mutable fields on one of the

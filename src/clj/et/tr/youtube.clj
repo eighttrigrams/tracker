@@ -47,6 +47,29 @@
                 "Failed to fetch YouTube feed")
       nil)))
 
+(defn get-channel-info-from-video-url
+  "Scrape the YouTube watch page for the channel that owns the video.
+  Returns {:channel-id … :author …} or nil. Keyless."
+  [video-url]
+  (when video-url
+    (try
+      (let [resp (http/get video-url
+                   {:as :string
+                    :throw-exceptions false
+                    :socket-timeout 30000
+                    :connection-timeout 30000
+                    :headers {"User-Agent" "Mozilla/5.0"}})]
+        (when (= 200 (:status resp))
+          (let [body (:body resp)
+                channel-id (second (re-find #"\"channelId\":\"(UC[\w-]+)\"" body))
+                author (second (re-find #"\"ownerChannelName\":\"([^\"]+)\"" body))]
+            (when channel-id
+              {:channel-id channel-id :author author}))))
+      (catch Exception e
+        (tel/log! {:level :warn :data {:url video-url :error (.getMessage e)}}
+                  "Failed to fetch YouTube channel info from video URL")
+        nil))))
+
 (defn get-video-duration-minutes
   "Look up the duration (in minutes, decimal) of a video by scraping
   `lengthSeconds` from the public watch page. Keyless. Returns nil if
