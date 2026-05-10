@@ -151,18 +151,35 @@
         {:status 201 :body result}))
     {:status 403 :body {:error "Mail access required"}}))
 
+(defn- maybe-resolve-youtube-title!
+  "When a YouTube inbox message still carries the placeholder \"New … just
+  dropped\" title, fetch the actual video title via oEmbed and persist it.
+  No-op when the message isn't a YouTube placeholder, the URL can't be
+  extracted, or the fetch fails."
+  [ds user-id message-id]
+  (when-let [message (db.message/get-message ds user-id message-id)]
+    (when (common/youtube-message-not-yet-titled? message)
+      (when-let [url (common/extract-youtube-url (:description message))]
+        (when-let [resolved (common/fetch-youtube-title url)]
+          (db.message/update-message ds user-id message-id resolved (:description message)))))))
+
 (defn set-message-done-handler
   "PUT /api/messages/:id/done — mark a message done or undone. Body field:
   done (boolean, required; 400 if missing). Records an :update event with the
   before/after :done value. Requires Mail access (403 otherwise); 404 when the
-  message does not exist for the user."
+  message does not exist for the user. When marking a YouTube inbox item as
+  done (saved for later) and its title is still the \"New … just dropped\"
+  placeholder, resolves the actual video title first so the saved view shows
+  it."
   [req]
   (if-not (contains? (:body req) :done)
     {:status 400 :body {:error "Missing required field: done"}}
     (with-mail-message-context req user-id message-id
       (let [done? (boolean (get-in req [:body :done]))
+            ds (common/ensure-ds)
+            _ (when done? (maybe-resolve-youtube-title! ds user-id message-id))
             before (events/fetch-fields :messages message-id [:done])
-            result (db.message/set-message-done (common/ensure-ds) user-id message-id done?)]
+            result (db.message/set-message-done ds user-id message-id done?)]
         (if result
           (do (events/record-update! req :message message-id before
                                      (select-keys result [:done]))
@@ -267,8 +284,12 @@
     (let [link (get-in req [:body :link])]
       (if (or (str/blank? link) (not (re-matches #"https?://.*" link)))
         {:status 400 :body {:error "Invalid or missing link URL"}}
-        (let [title (cond
-                      (common/youtube-url? link) (common/fetch-youtube-title link)
+        (let [existing (db.message/get-message (common/ensure-ds) user-id message-id)
+              title (cond
+                      (common/youtube-url? link)
+                      (if (and existing (not (common/youtube-message-not-yet-titled? existing)))
+                        nil
+                        (common/fetch-youtube-title link))
                       (common/substack-url? link) (common/fetch-substack-title link))]
           (if-let [result (db.resource/convert-message-to-resource (common/ensure-ds) user-id message-id link :title title)]
             {:status 200 :body result}
