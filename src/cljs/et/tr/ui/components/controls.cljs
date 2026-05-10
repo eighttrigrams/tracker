@@ -122,8 +122,12 @@
            (t :nav/categories)])
         [dark-mode-toggle]
         [:button.settings-btn
-         {:class (when (= active-tab :settings) "active")
-          :on-click #(state/set-active-tab :settings)}
+         {:class (when (contains? #{:settings-profile :settings-shortcuts :settings-history} active-tab) "active")
+          :on-click #(state/set-active-tab
+                      (if (contains? #{:settings-profile :settings-shortcuts :settings-history}
+                                     (:active-tab @state/*app-state))
+                        :tasks
+                        :settings-profile))}
          "\u2699"]]
        (if auth-required?
          [:button.logout-btn {:on-click state/logout} [logout-icon]]

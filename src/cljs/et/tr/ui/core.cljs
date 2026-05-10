@@ -63,18 +63,28 @@
     (t translation-key)]))
 
 (def ^:private category-tabs #{:cat-people :cat-places :cat-projects :cat-goals})
+(def ^:private settings-tabs #{:settings-profile :settings-shortcuts :settings-history})
 
 (defn tabs []
   (let [active-tab (:active-tab @state/*app-state)]
     (if (state/is-admin?)
       [:div.tabs
        [tab-button active-tab :users :nav/users]]
-      (if (contains? category-tabs active-tab)
+      (cond
+        (contains? category-tabs active-tab)
         [:div.tabs
          [tab-button active-tab :cat-people :category/people]
          [tab-button active-tab :cat-places :category/places]
          [tab-button active-tab :cat-projects :category/projects]
          [tab-button active-tab :cat-goals :category/goals]]
+
+        (contains? settings-tabs active-tab)
+        [:div.tabs
+         [tab-button active-tab :settings-profile :settings/profile]
+         [tab-button active-tab :settings-shortcuts :settings/shortcuts]
+         [tab-button active-tab :settings-history :settings/history]]
+
+        :else
         [:div.tabs
          [tab-button active-tab :today :nav/today]
          [tab-button active-tab :tasks :nav/tasks]
@@ -160,7 +170,9 @@
           :reports [reports/reports-tab]
           :mail [mail/mail-page]
           :users [users/users-tab]
-          :settings [settings/settings-tab]
+          :settings-profile [settings/profile-tab]
+          :settings-shortcuts [settings/shortcuts-tab]
+          :settings-history [settings/history-tab]
           (let [recurring-mode (state/recurring-mode?)
                 recurring-filter (state/recurring-filter)]
             [:div.main-layout

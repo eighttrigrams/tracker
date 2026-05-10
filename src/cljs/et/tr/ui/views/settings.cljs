@@ -26,6 +26,56 @@
                :on-change #(state/update-vim-keys (not enabled))}]
       (str " " (t :settings/vim-keys))]]))
 
+(defn profile-tab []
+  (let [current-user (:current-user @state/*app-state)
+        is-admin (:is_admin current-user)]
+    [:div.settings-page
+     [:div.manage-tab
+      [:div.manage-section.settings-section
+       [:h3 (t :settings/profile)]
+       [:div.settings-item
+        [:span.settings-label (t :settings/username)]
+        [:span.settings-value (:username current-user)]]
+       [:div.settings-item
+        [:span.settings-label (t :settings/role)]
+        [:span.settings-value (if is-admin (t :settings/role-admin) (t :settings/role-user))]]
+       (when-not is-admin
+         [language-selector])
+       (when-not is-admin
+         [vim-keys-toggle])
+       [:div.settings-item
+        [:button.export-btn {:on-click #(state/export-data)}
+         (t :settings/export-data)]]]]]))
+
+(defn shortcuts-tab []
+  [:div.settings-page
+   [:div.shortcuts-section
+    [:h3 (t :settings/shortcuts)]
+    [:div.shortcuts-subsection
+     [:h4 (t :settings/shortcuts-navigation)]
+     [:div.shortcuts-list
+      [:div.shortcut-item
+       [:span.shortcut-key "Option+T"]
+       [:span.shortcut-desc (t :settings/shortcut-toggle-today-tasks)]]]]
+    [:div.shortcuts-subsection
+     [:h4 (t :settings/shortcuts-filters)]
+     [:div.shortcuts-list
+      [:div.shortcut-item
+       [:span.shortcut-key "Option+<n>"]
+       [:span.shortcut-desc (t :settings/shortcut-toggle-filter)]]
+      [:div.shortcut-item
+       [:span.shortcut-key "Option+Esc"]
+       [:span.shortcut-desc (t :settings/shortcut-clear-uncollapsed)]]
+      [:div.shortcut-item
+       [:span.shortcut-key "Enter"]
+       [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]]]
+    [:div.shortcuts-subsection
+     [:h4 (t :settings/shortcuts-tasks)]
+     [:div.shortcuts-list
+      [:div.shortcut-item
+       [:span.shortcut-key "Option+Enter"]
+       [:span.shortcut-desc (t :settings/shortcut-add-task)]]]]]])
+
 (defn- summary-line [ev]
   (let [actor (:actor_username ev)
         ent (or (:entity_type ev) "")
@@ -62,70 +112,19 @@
                                 :dropped :payload])
                   (assoc :payload (:payload ev)))))])])))
 
-(defn history-section []
+(defn history-tab []
   (r/create-class
    {:component-did-mount
     (fn [] (state/fetch-events))
     :reagent-render
     (fn []
       (let [events (:events @state/*app-state)]
-        [:div.history-page
-         [:h3.history-heading (t :settings/history)]
-         (if (empty? events)
-           [:div.history-empty (t :history/no-events)]
-           [:ul.items.history-list
-            (for [ev events]
-              ^{:key (:id ev)}
-              [event-row ev])])]))}))
-
-(defn settings-tab []
-  (let [current-user (:current-user @state/*app-state)
-        is-admin (:is_admin current-user)]
-    [:div.settings-page
-     [:div.manage-tab
-      [:div.manage-section.settings-section
-       [:h3 (t :settings/profile)]
-       [:div.settings-item
-        [:span.settings-label (t :settings/username)]
-        [:span.settings-value (:username current-user)]]
-       [:div.settings-item
-        [:span.settings-label (t :settings/role)]
-        [:span.settings-value (if is-admin (t :settings/role-admin) (t :settings/role-user))]]
-       (when-not is-admin
-         [language-selector])
-       (when-not is-admin
-         [vim-keys-toggle])]
-      [:div.manage-section.settings-section
-       [:h3 (t :settings/data)]
-       [:div.settings-item
-        [:button.export-btn {:on-click #(state/export-data)}
-         (t :settings/export-data)]]]]
-     [:hr.settings-separator]
-     [:div.shortcuts-section
-      [:h3 (t :settings/shortcuts)]
-      [:div.shortcuts-subsection
-       [:h4 (t :settings/shortcuts-navigation)]
-       [:div.shortcuts-list
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+T"]
-         [:span.shortcut-desc (t :settings/shortcut-toggle-today-tasks)]]]]
-      [:div.shortcuts-subsection
-       [:h4 (t :settings/shortcuts-filters)]
-       [:div.shortcuts-list
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+<n>"]
-         [:span.shortcut-desc (t :settings/shortcut-toggle-filter)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+Esc"]
-         [:span.shortcut-desc (t :settings/shortcut-clear-uncollapsed)]]
-        [:div.shortcut-item
-         [:span.shortcut-key "Enter"]
-         [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]]]
-      [:div.shortcuts-subsection
-       [:h4 (t :settings/shortcuts-tasks)]
-       [:div.shortcuts-list
-        [:div.shortcut-item
-         [:span.shortcut-key "Option+Enter"]
-         [:span.shortcut-desc (t :settings/shortcut-add-task)]]]]]
-     [:hr.settings-separator]
-     [history-section]]))
+        [:div.settings-page
+         [:div.history-page
+          [:h3.history-heading (t :settings/history)]
+          (if (empty? events)
+            [:div.history-empty (t :history/no-events)]
+            [:ul.items.history-list
+             (for [ev events]
+               ^{:key (:id ev)}
+               [event-row ev])])]]))}))
