@@ -41,26 +41,35 @@
 (defn add-goal [ds user-id name]
   (add-category ds user-id name "goals"))
 
-(defn- list-category [ds user-id table-name]
-  (validate-table-name! table-name)
-  (jdbc/execute! (db/get-conn ds)
-    (sql/format {:select [:id :name :description :tags :sort_order :badge_title :modified_at]
-                 :from [(keyword table-name)]
-                 :where (db/user-id-where-clause user-id)
-                 :order-by [[:modified_at :desc] [:name :asc]]})
-    db/jdbc-opts))
+(defn- list-category
+  ([ds user-id table-name] (list-category ds user-id table-name nil))
+  ([ds user-id table-name {:keys [search-term]}]
+   (validate-table-name! table-name)
+   (let [user-where (db/user-id-where-clause user-id)
+         search-clause (db/build-search-clause search-term [:name :badge_title :tags])
+         where-clause (if search-clause [:and user-where search-clause] user-where)]
+     (jdbc/execute! (db/get-conn ds)
+       (sql/format {:select [:id :name :description :tags :sort_order :badge_title :modified_at]
+                    :from [(keyword table-name)]
+                    :where where-clause
+                    :order-by [[:modified_at :desc] [:name :asc]]})
+       db/jdbc-opts))))
 
-(defn list-people [ds user-id]
-  (list-category ds user-id "people"))
+(defn list-people
+  ([ds user-id] (list-category ds user-id "people"))
+  ([ds user-id opts] (list-category ds user-id "people" opts)))
 
-(defn list-places [ds user-id]
-  (list-category ds user-id "places"))
+(defn list-places
+  ([ds user-id] (list-category ds user-id "places"))
+  ([ds user-id opts] (list-category ds user-id "places" opts)))
 
-(defn list-projects [ds user-id]
-  (list-category ds user-id "projects"))
+(defn list-projects
+  ([ds user-id] (list-category ds user-id "projects"))
+  ([ds user-id opts] (list-category ds user-id "projects" opts)))
 
-(defn list-goals [ds user-id]
-  (list-category ds user-id "goals"))
+(defn list-goals
+  ([ds user-id] (list-category ds user-id "goals"))
+  ([ds user-id opts] (list-category ds user-id "goals" opts)))
 
 (defn- update-category [ds user-id category-id name description tags badge-title table-name]
   (validate-table-name! table-name)

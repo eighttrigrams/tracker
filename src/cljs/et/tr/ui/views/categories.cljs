@@ -1,21 +1,31 @@
 (ns et.tr.ui.views.categories
-  (:require [reagent.core :as r]
-            [et.tr.ui.state :as state]
+  (:require [et.tr.ui.state :as state]
             [et.tr.ui.components.task-item :as task-item]
-            [et.tr.i18n :refer [t]]
-            [et.tr.filters :as filters]))
+            [et.tr.i18n :refer [t]]))
 
-(defn add-entity-form [placeholder add-fn name-atom]
-  [:div.add-entity-form
-   [:input {:type "text"
-            :auto-complete "off"
-            :placeholder placeholder
-            :value @name-atom
-            :on-change #(reset! name-atom (-> % .-target .-value))
-            :on-key-down #(when (= (.-key %) "Enter")
-                            (add-fn @name-atom (fn [] (reset! name-atom ""))))}]
-   [:button {:on-click #(add-fn @name-atom (fn [] (reset! name-atom "")))}
-    "+"]])
+(defn combined-search-add-form [category-type placeholder add-fn]
+  (let [input-value (or (get-in @state/*app-state [:categories-page/filter-search category-type]) "")
+        clear-search #(state/set-categories-filter-search category-type "")
+        do-add (fn []
+                 (when (seq input-value)
+                   (add-fn input-value clear-search)))]
+    [:div.combined-search-add-form
+     [:input {:type "text"
+              :auto-complete "off"
+              :placeholder placeholder
+              :value input-value
+              :on-change #(state/set-categories-filter-search category-type (-> % .-target .-value))
+              :on-key-down (fn [e]
+                             (cond
+                               (= (.-key e) "Enter")
+                               (do (.preventDefault e) (do-add))
+
+                               (= (.-key e) "Escape")
+                               (clear-search)))}]
+     [:button {:on-click do-add}
+      (t :tasks/add-button)]
+     (when (seq input-value)
+       [:button.clear-search {:on-click clear-search} "x"])]))
 
 (defn category-item [item category-type _update-fn state-key]
   (let [drag-cat (:drag-category @state/*app-state)
@@ -81,22 +91,19 @@
            "✎"])])]))
 
 (defn category-cards-page [category-type]
-  (let [name-atom (r/atom "")]
-    (fn [category-type]
-      (let [items (get @state/*app-state category-type)
-            [add-fn add-label category-type-str]
-            (case category-type
-              :people  [state/add-person  :category/add-person  state/CATEGORY-TYPE-PERSON]
-              :places  [state/add-place   :category/add-place   state/CATEGORY-TYPE-PLACE]
-              :projects [state/add-project :category/add-project state/CATEGORY-TYPE-PROJECT]
-              :goals   [state/add-goal    :category/add-goal    state/CATEGORY-TYPE-GOAL])]
-        [:div.category-cards-page {:key (name category-type)}
-         [:div.category-cards-toolbar
-          [add-entity-form (t add-label) add-fn name-atom]]
-         [:div.category-cards-grid
-          (if (empty? items)
-            [:div.category-cards-empty (t :category/no-results)]
-            (doall
-             (for [item items]
-               ^{:key (:id item)}
-               [category-card item category-type-str category-type])))]]))))
+  (let [items (get @state/*app-state category-type)
+        [add-fn add-label category-type-str]
+        (case category-type
+          :people  [state/add-person  :category/search-or-add-person  state/CATEGORY-TYPE-PERSON]
+          :places  [state/add-place   :category/search-or-add-place   state/CATEGORY-TYPE-PLACE]
+          :projects [state/add-project :category/search-or-add-project state/CATEGORY-TYPE-PROJECT]
+          :goals   [state/add-goal    :category/search-or-add-goal    state/CATEGORY-TYPE-GOAL])]
+    [:div.category-cards-page {:key (name category-type)}
+     [combined-search-add-form category-type (t add-label) add-fn]
+     [:div.category-cards-grid
+      (if (empty? items)
+        [:div.category-cards-empty (t :category/no-results)]
+        (doall
+         (for [item items]
+           ^{:key (:id item)}
+           [category-card item category-type-str category-type])))]]))

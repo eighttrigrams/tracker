@@ -119,3 +119,24 @@
           t (first tasks)
           p (first (:people t))]
       (is (= "AJ" (:badge_title p))))))
+
+(deftest list-people-search-test
+  (let [alice (db.category/add-person *ds* *user-id* "Alice Johnson")
+        bob   (db.category/add-person *ds* *user-id* "Bob")
+        carol (db.category/add-person *ds* *user-id* "Carol")]
+    (db.category/update-person *ds* *user-id* (:id alice) "Alice Johnson" "" "manager" "AJ")
+    (db.category/update-person *ds* *user-id* (:id bob)   "Bob"           "" ""        "BX")
+    (db.category/update-person *ds* *user-id* (:id carol) "Carol"         "" "manager" "")
+    (testing "search by name"
+      (is (= ["Alice Johnson"]
+             (map :name (db.category/list-people *ds* *user-id* {:search-term "alice"})))))
+    (testing "search by badge_title"
+      (is (= ["Bob"]
+             (map :name (db.category/list-people *ds* *user-id* {:search-term "BX"})))))
+    (testing "search by tags"
+      (is (= #{"Alice Johnson" "Carol"}
+             (set (map :name (db.category/list-people *ds* *user-id* {:search-term "manager"}))))))
+    (testing "blank search term returns all"
+      (is (= 3 (count (db.category/list-people *ds* *user-id* {:search-term ""})))))
+    (testing "no opts behaves like no filter (backward compatible)"
+      (is (= 3 (count (db.category/list-people *ds* *user-id*)))))))

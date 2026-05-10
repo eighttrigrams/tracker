@@ -2,24 +2,33 @@
   (:require [ajax.core :refer [GET]]
             [et.tr.ui.api :as api]))
 
-(defn- fetch-collection [auth-headers endpoint state-key app-state]
+(defn- fetch-collection [auth-headers endpoint state-key app-state search-term]
   (GET endpoint
     {:response-format :json
      :keywords? true
      :headers (auth-headers)
+     :params (when (seq search-term) {:q search-term})
      :handler #(swap! app-state assoc state-key %)}))
 
-(defn fetch-people [app-state auth-headers]
-  (fetch-collection auth-headers "/api/people" :people app-state))
+(defn fetch-people
+  ([app-state auth-headers] (fetch-people app-state auth-headers nil))
+  ([app-state auth-headers search-term]
+   (fetch-collection auth-headers "/api/people" :people app-state search-term)))
 
-(defn fetch-places [app-state auth-headers]
-  (fetch-collection auth-headers "/api/places" :places app-state))
+(defn fetch-places
+  ([app-state auth-headers] (fetch-places app-state auth-headers nil))
+  ([app-state auth-headers search-term]
+   (fetch-collection auth-headers "/api/places" :places app-state search-term)))
 
-(defn fetch-projects [app-state auth-headers]
-  (fetch-collection auth-headers "/api/projects" :projects app-state))
+(defn fetch-projects
+  ([app-state auth-headers] (fetch-projects app-state auth-headers nil))
+  ([app-state auth-headers search-term]
+   (fetch-collection auth-headers "/api/projects" :projects app-state search-term)))
 
-(defn fetch-goals [app-state auth-headers]
-  (fetch-collection auth-headers "/api/goals" :goals app-state))
+(defn fetch-goals
+  ([app-state auth-headers] (fetch-goals app-state auth-headers nil))
+  ([app-state auth-headers search-term]
+   (fetch-collection auth-headers "/api/goals" :goals app-state search-term)))
 
 (defn- sort-by-modified [items]
   (->> items (sort-by :modified_at #(compare %2 %1)) vec))

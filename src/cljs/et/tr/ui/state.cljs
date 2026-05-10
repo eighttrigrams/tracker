@@ -142,6 +142,7 @@
                             :drag-over-category nil
                             :category-page/editing nil
                             :categories-page/expanded nil
+                            :categories-page/filter-search {:people "" :places "" :projects "" :goals ""}
                             :show-user-switcher false
                             :work-private-mode :both
                             :strict-mode false
@@ -1040,17 +1041,31 @@
 (defn switch-user [user]
   (users/switch-user *app-state initial-collection-state fetch-all user))
 
+(defn- categories-search-term [category-type]
+  (get-in @*app-state [:categories-page/filter-search category-type]))
+
 (defn fetch-people []
-  (categories/fetch-people *app-state auth-headers))
+  (categories/fetch-people *app-state auth-headers (categories-search-term :people)))
 
 (defn fetch-places []
-  (categories/fetch-places *app-state auth-headers))
+  (categories/fetch-places *app-state auth-headers (categories-search-term :places)))
 
 (defn fetch-projects []
-  (categories/fetch-projects *app-state auth-headers))
+  (categories/fetch-projects *app-state auth-headers (categories-search-term :projects)))
 
 (defn fetch-goals []
-  (categories/fetch-goals *app-state auth-headers))
+  (categories/fetch-goals *app-state auth-headers (categories-search-term :goals)))
+
+(defn- fetch-category-fn [category-type]
+  (case category-type
+    :people fetch-people
+    :places fetch-places
+    :projects fetch-projects
+    :goals fetch-goals))
+
+(defn set-categories-filter-search [category-type search-term]
+  (swap! *app-state assoc-in [:categories-page/filter-search category-type] search-term)
+  ((fetch-category-fn category-type)))
 
 (defn add-person [name on-success]
   (categories/add-person *app-state auth-headers name on-success))

@@ -5,11 +5,13 @@
             [clojure.string :as str]))
 
 (defn list-people-handler
-  "GET /api/people — list all people for the authenticated user, ordered by
-  sort_order. Returns the rows as produced by db.category/list-people."
+  "GET /api/people?q= — list people for the authenticated user, ordered by
+  sort_order. Optional `q` filters across name/badge_title/tags. Returns the
+  rows as produced by db.category/list-people."
   [req]
-  (let [user-id (common/get-user-id req)]
-    {:status 200 :body (db.category/list-people (common/ensure-ds) user-id)}))
+  (let [user-id (common/get-user-id req)
+        search-term (get-in req [:params "q"])]
+    {:status 200 :body (db.category/list-people (common/ensure-ds) user-id {:search-term search-term})}))
 
 (defn add-person-handler
   "POST /api/people — create a new person. Body: {:name}. Rejects blank names
@@ -30,11 +32,13 @@
           {:status 409 :body {:success false :error "Person already exists"}})))))
 
 (defn list-places-handler
-  "GET /api/places — list all places for the authenticated user, ordered by
-  sort_order. Returns the rows as produced by db.category/list-places."
+  "GET /api/places?q= — list places for the authenticated user, ordered by
+  sort_order. Optional `q` filters across name/badge_title/tags. Returns the
+  rows as produced by db.category/list-places."
   [req]
-  (let [user-id (common/get-user-id req)]
-    {:status 200 :body (db.category/list-places (common/ensure-ds) user-id)}))
+  (let [user-id (common/get-user-id req)
+        search-term (get-in req [:params "q"])]
+    {:status 200 :body (db.category/list-places (common/ensure-ds) user-id {:search-term search-term})}))
 
 (defn add-place-handler
   "POST /api/places — create a new place. Body: {:name}. Rejects blank names
@@ -55,11 +59,13 @@
           {:status 409 :body {:success false :error "Place already exists"}})))))
 
 (defn list-projects-handler
-  "GET /api/projects — list all projects for the authenticated user, ordered
-  by sort_order. Returns the rows as produced by db.category/list-projects."
+  "GET /api/projects?q= — list projects for the authenticated user, ordered
+  by sort_order. Optional `q` filters across name/badge_title/tags. Returns
+  the rows as produced by db.category/list-projects."
   [req]
-  (let [user-id (common/get-user-id req)]
-    {:status 200 :body (db.category/list-projects (common/ensure-ds) user-id)}))
+  (let [user-id (common/get-user-id req)
+        search-term (get-in req [:params "q"])]
+    {:status 200 :body (db.category/list-projects (common/ensure-ds) user-id {:search-term search-term})}))
 
 (defn add-project-handler
   "POST /api/projects — create a new project. Body: {:name}. Rejects blank
@@ -80,11 +86,13 @@
           {:status 409 :body {:success false :error "Project already exists"}})))))
 
 (defn list-goals-handler
-  "GET /api/goals — list all goals for the authenticated user, ordered by
-  sort_order. Returns the rows as produced by db.category/list-goals."
+  "GET /api/goals?q= — list goals for the authenticated user, ordered by
+  sort_order. Optional `q` filters across name/badge_title/tags. Returns the
+  rows as produced by db.category/list-goals."
   [req]
-  (let [user-id (common/get-user-id req)]
-    {:status 200 :body (db.category/list-goals (common/ensure-ds) user-id)}))
+  (let [user-id (common/get-user-id req)
+        search-term (get-in req [:params "q"])]
+    {:status 200 :body (db.category/list-goals (common/ensure-ds) user-id {:search-term search-term})}))
 
 (defn add-goal-handler
   "POST /api/goals — create a new goal. Body: {:name}. Rejects blank names
