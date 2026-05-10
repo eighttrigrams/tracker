@@ -5,7 +5,7 @@
 target/
 node_modules/
 .shadow-cljs/
-resources/public/js/
+resources/public/tracker/js/
 config.edn
 config.edn.*
 !config.edn.template
