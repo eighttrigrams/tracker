@@ -21,7 +21,6 @@
             [et.tr.auth :as auth]
             [et.tr.server.recording-mode :as recording-mode]
             [et.tr.server.audit :as audit]
-            [et.tr.telegram :as telegram]
             [et.tr.export :as export]
             [et.tr.worker :as worker]
             [et.tr.source-worker :as source-worker]
@@ -361,7 +360,6 @@
 
 (defroutes app-routes
   api-routes
-  (POST "/webhook/telegram" [] (telegram/webhook-handler (common/ensure-ds)))
   (GET "/" [] serve-index)
   (GET "/item/*" [] serve-index)
   (route/resources "/" {:root "public/tracker"})

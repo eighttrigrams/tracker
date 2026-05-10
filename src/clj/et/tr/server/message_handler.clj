@@ -63,19 +63,52 @@
          (not (db/valid-urgencies urgency)))
     "Urgency must be 'default', 'urgent', or 'superurgent'"))
 
+(defn- task-prefix-match
+  "If `title` begins with a `t` or `tt` shortcut prefix (case-insensitive,
+  separated from the body by one or more whitespace), returns
+  {:today? bool :stripped stripped-title}. Otherwise nil. Lets a caller post
+  a plain message and have it land directly as a task — `t` for any task,
+  `tt` for one immediately on the today board. Recognised regardless of
+  recording mode because POST /api/messages is gate-exempt."
+  [title]
+  (when (string? title)
+    (or (when-let [[_ body] (re-matches #"(?si)tt\s+(.+)" title)]
+          {:today? true :stripped (str/trim body)})
+        (when-let [[_ body] (re-matches #"(?si)t\s+(.+)" title)]
+          {:today? false :stripped (str/trim body)}))))
+
+(defn- create-task-from-prefix!
+  [ds user-id {:keys [today? stripped]} {:keys [description scope]}]
+  (let [task (db.task/add-task ds user-id stripped (or scope "both"))]
+    (when (and (some? description) (not (str/blank? description)))
+      (db.task/update-task ds user-id (:id task)
+                           {:title stripped :description description :tags ""}))
+    (when today?
+      (db.task/set-task-today ds user-id (:id task) true))
+    task))
+
 (defn add-message!
   "Service-level function for adding a message. Validates inputs, persists
   via db.message/add-message, and records a :create event using `actor`.
   Returns either {:error msg} on validation failure or the created
   message map on success. Called by both the HTTP handler and the
-  in-process source worker."
+  in-process source worker.
+
+  When `title` carries the shortcut prefix `t` or `tt` (see
+  `task-prefix-match`), creates a task directly instead of a message and
+  records a :task :create event. The task is returned in place of a
+  message map; callers should treat the response as opaque."
   [ds actor user-id {:keys [sender title description type scope importance urgency] :as fields}]
   (if-let [error (validate-message-fields fields)]
     {:error error}
-    (let [message (db.message/add-message ds user-id sender title description
-                                          type scope importance urgency)]
-      (events/record-create-with-actor! ds actor user-id :message (:id message) message)
-      message)))
+    (if-let [match (task-prefix-match title)]
+      (let [task (create-task-from-prefix! ds user-id match fields)]
+        (events/record-create-with-actor! ds actor user-id :task (:id task) task)
+        task)
+      (let [message (db.message/add-message ds user-id sender title description
+                                            type scope importance urgency)]
+        (events/record-create-with-actor! ds actor user-id :message (:id message) message)
+        message))))
 
 (defn add-message-handler
   "POST /api/messages — create a new message. Body fields: sender (required),
