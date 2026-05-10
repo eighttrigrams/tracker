@@ -42,16 +42,5 @@ deploy-preflight:
 	  echo "deploy: refusing — local main has unpushed commits" >&2; exit 1; \
 	fi
 
-deploy: deploy-preflight e2e-docker backup
-	fly deploy --build-arg CACHE_BUST=$$(git rev-parse --short HEAD)
-
 clean:
 	rm -rf target node_modules .shadow-cljs resources/public/js
-
-backup:
-	@mkdir -p .backups
-	fly ssh console -C "tar -czf - /app/data" > .backups/volume-backup.$$(date +%Y-%m-%d.%H-%M).tar.gz
-
-backup-replay:
-	@if [ -d data ]; then echo "Error: data/ directory already exists. Remove it first." && exit 1; fi
-	tar -xzf $$(ls -t .backups/volume-backup.*.tar.gz | head -1) --strip-components=1
