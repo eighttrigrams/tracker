@@ -451,7 +451,10 @@
   (let [series-filter (state/series-filter)
         summary-mode? (:meets-page/meet-summary-mode @state/*app-state)]
     [:div.series-filter-bar
-     [:span.series-filter-label (:title series-filter)]
+     [:span.series-filter-label
+      {:on-click #(state/open-filter-target-edit-modal :meeting-series "/api/meeting-series/" (:id series-filter))
+       :style {:cursor "pointer"}}
+      (:title series-filter)]
      [:button.journal-summary-btn
       {:class (when summary-mode? "active")
        :on-click #(state/toggle-meet-summary-mode)}

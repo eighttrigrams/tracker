@@ -585,7 +585,11 @@
     (meeting-series-state/add-meeting-series *app-state auth-headers current-scope title on-success fetch-meeting-series)))
 
 (defn update-meeting-series [series-id title description tags on-success]
-  (meeting-series-state/update-meeting-series *app-state auth-headers series-id title description tags on-success))
+  (meeting-series-state/update-meeting-series *app-state auth-headers series-id title description tags
+    (fn []
+      (when (= series-id (:id (:meets-page/filter-series @*app-state)))
+        (swap! *app-state assoc-in [:meets-page/filter-series :title] title))
+      (when on-success (on-success)))))
 
 (defn delete-meeting-series [series-id]
   (meeting-series-state/delete-meeting-series *app-state auth-headers series-id))
@@ -669,7 +673,11 @@
     (recurring-tasks-state/add-recurring-task *app-state auth-headers current-scope title on-success fetch-recurring-tasks)))
 
 (defn update-recurring-task [rtask-id title description tags on-success]
-  (recurring-tasks-state/update-recurring-task *app-state auth-headers rtask-id title description tags on-success))
+  (recurring-tasks-state/update-recurring-task *app-state auth-headers rtask-id title description tags
+    (fn []
+      (when (= rtask-id (:id (:tasks-page/filter-recurring @*app-state)))
+        (swap! *app-state assoc-in [:tasks-page/filter-recurring :title] title))
+      (when on-success (on-success)))))
 
 (defn delete-recurring-task [rtask-id]
   (recurring-tasks-state/delete-recurring-task *app-state auth-headers rtask-id))
@@ -726,7 +734,11 @@
   (journals-state/add-journal *app-state auth-headers current-scope title schedule-type on-success fetch-journals))
 
 (defn update-journal [journal-id title description tags on-success]
-  (journals-state/update-journal *app-state auth-headers journal-id title description tags on-success))
+  (journals-state/update-journal *app-state auth-headers journal-id title description tags
+    (fn []
+      (when (= journal-id (:id (:resources-page/filter-journal @*app-state)))
+        (swap! *app-state assoc-in [:resources-page/filter-journal :title] title))
+      (when on-success (on-success)))))
 
 (defn delete-journal [journal-id]
   (journals-state/delete-journal *app-state auth-headers journal-id))
@@ -1589,6 +1601,12 @@
      (swap! *app-state assoc :editing-modal modal)
      (when-let [path (url/entity->path modal)]
        (url/push-state! (str path (when (= tab :edit) "?section=edit")))))))
+
+(defn open-filter-target-edit-modal [entity-type api-path id]
+  (api/fetch-json (str api-path id) (auth-headers)
+    (fn [entity]
+      (when entity
+        (set-editing-modal entity-type entity)))))
 
 (defn clear-editing-modal []
   (swap! *app-state assoc :editing-modal nil)

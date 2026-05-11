@@ -494,7 +494,10 @@
 (defn recurring-filter-bar []
   (let [recurring-filter (state/recurring-filter)]
     [:div.series-filter-bar
-     [:span.series-filter-label (:title recurring-filter)]
+     [:span.series-filter-label
+      {:on-click #(state/open-filter-target-edit-modal :recurring-task "/api/recurring-tasks/" (:id recurring-filter))
+       :style {:cursor "pointer"}}
+      (:title recurring-filter)]
      [:button.clear-search {:on-click #(state/clear-recurring-filter)} "x"]]))
 
 (defn- recurring-search-add-form []
