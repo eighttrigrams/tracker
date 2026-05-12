@@ -32,8 +32,8 @@
       :else
       (if-let [result (db.relation/add-relation (common/ensure-ds) user-id source-type source-id target-type target-id)]
         (let [conn (db/get-conn (common/ensure-ds))
-              src-title (db.relation/fetch-title-for-relation conn source-type source-id)
-              tgt-title (db.relation/fetch-title-for-relation conn target-type target-id)]
+              src-title (:title (db.relation/fetch-title-for-relation conn source-type source-id))
+              tgt-title (:title (db.relation/fetch-title-for-relation conn target-type target-id))]
           (events/record! req {:entity-type :relation
                                :entity-id nil
                                :action :relation-add
@@ -68,8 +68,8 @@
       :else
       (if-let [result (db.relation/delete-relation (common/ensure-ds) user-id source-type source-id target-type target-id)]
         (let [conn (db/get-conn (common/ensure-ds))
-              src-title (db.relation/fetch-title-for-relation conn source-type source-id)
-              tgt-title (db.relation/fetch-title-for-relation conn target-type target-id)]
+              src-title (:title (db.relation/fetch-title-for-relation conn source-type source-id))
+              tgt-title (:title (db.relation/fetch-title-for-relation conn target-type target-id))]
           (events/record! req {:entity-type :relation
                                :entity-id nil
                                :action :relation-delete

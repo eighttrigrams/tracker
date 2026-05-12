@@ -26,7 +26,7 @@ fi
 # networking. Conversely, stopping from inside the container while the server
 # was started on the host would miss the real PID entirely.
 if [ -f /.dockerenv ]; then
-  echo proxy > .dev-server.lock
+  echo container > .dev-server.lock
 else
   echo host > .dev-server.lock
 fi

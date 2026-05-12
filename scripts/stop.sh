@@ -9,7 +9,7 @@ PORT=${PORT:-3027}
 # collapsing the container's networking. The reverse mismatch silently misses
 # the real PID. The lockfile is written by start.sh.
 if [ -f /.dockerenv ]; then
-  CURRENT=proxy
+  CURRENT=container
 else
   CURRENT=host
 fi

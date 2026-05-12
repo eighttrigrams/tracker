@@ -30,3 +30,4 @@ playwright-report/
 .features-gen/
 .DS_Store
 *.db
+.dev-server.lock
