@@ -97,7 +97,7 @@
   (resources-state/reset-resources-page-view-state!)
   (meets-state/reset-meets-page-view-state!)
   (reports-state/reset-reports-page-view-state!)
-  (when-not (contains? #{:tasks :resources :meets :reports} tab)
+  (when-not (contains? #{:today :tasks :resources :meets :reports} tab)
     (relations-state/abort-relation-mode))
   (when-let [init-fn (get tab-initializers tab)]
     (init-fn)))

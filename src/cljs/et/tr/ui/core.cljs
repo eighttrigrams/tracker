@@ -154,7 +154,7 @@
         [:div.top-bar
          [tabs]
          [:div.top-bar-right
-          (when (contains? #{:tasks :resources :meets :reports} active-tab)
+          (when (contains? #{:today :tasks :resources :meets :reports} active-tab)
             [controls/relation-mode-toggle])
           (when (contains? #{:today :tasks :resources :meets :mail :reports} active-tab)
             [controls/work-private-toggle])
