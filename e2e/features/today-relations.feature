@@ -26,3 +26,13 @@ Feature: Today page relations
     And I navigate to the "Today" tab
     And I click the link button on the today item "Today task gamma"
     Then today item "Today task gamma" should show a relation badge for "Source resource"
+
+  Scenario: Relation badge title overrides the target's title in the badge
+    Given I am on the app
+    And a task "Override target" with due date today exists
+    And a task "Override source" with due date today exists
+    And task "Override target" has relation badge title "OT"
+    And a relation links task "Override source" to task "Override target"
+    When I navigate to the "Today" tab
+    Then today item "Override source" should show a relation badge for "OT"
+    And today item "Override source" should not show a relation badge for "Override target"

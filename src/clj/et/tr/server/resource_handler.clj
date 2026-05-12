@@ -94,6 +94,24 @@
                                (select-keys resource [:title :link :description :tags]))
         {:status 200 :body resource}))))
 
+(defn set-resource-relation-badge-title-handler
+  "PUT /api/resources/:id/relation-badge-title — set or clear the override
+  badge title shown when this resource appears as a relation badge on another
+  item. Body: {:relation-badge-title} (string; empty string clears). Returns
+  the updated resource on 200, 404 if not found. Logs an :update event for
+  :relation_badge_title."
+  [req]
+  (let [user-id (common/get-user-id req)
+        resource-id (Integer/parseInt (get-in req [:params :id]))
+        value (or (get-in req [:body :relation-badge-title]) "")
+        before (events/fetch-fields :resources resource-id [:relation_badge_title])
+        result (db.resource/set-resource-field (common/ensure-ds) user-id resource-id :relation_badge_title value)]
+    (if result
+      (do (events/record-update! req :resource resource-id before
+                                 (select-keys result [:relation_badge_title]))
+          {:status 200 :body result})
+      {:status 404 :body {:error "Resource not found"}})))
+
 (defn delete-resource-handler
   "DELETE /api/resources/:id — delete the caller's resource. Snapshots the
   row first so the audit log retains its contents. Returns 200 {:success

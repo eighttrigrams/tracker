@@ -59,11 +59,11 @@
    :importance normalize-importance
    :urgency normalize-urgency})
 
-(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :done_at :scope :importance :urgency :today :lined_up_for :recurring_task_id :reminder :reminder_date])
+(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :done_at :scope :importance :urgency :today :lined_up_for :recurring_task_id :reminder :reminder_date :relation_badge_title])
 
-(def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance])
+(def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance :relation_badge_title])
 
-(def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time :meeting_series_id :archived])
+(def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time :meeting_series_id :archived :relation_badge_title])
 
 (def meeting-series-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_days :schedule_time :schedule_mode :biweekly_offset])
 
@@ -71,7 +71,7 @@
 
 (def journal-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_type])
 
-(def journal-entry-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :entry_date :journal_id])
+(def journal-entry-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :entry_date :journal_id :relation_badge_title])
 
 (defn user-id-where-clause [user-id]
   (if user-id

@@ -208,7 +208,8 @@
       (PUT "/:id/today" [] task-handler/set-task-today-handler)
       (PUT "/:id/lined-up-for" [] task-handler/set-task-lined-up-for-handler)
       (PUT "/:id/reminder" [] task-handler/set-reminder-handler)
-      (PUT "/:id/acknowledge-reminder" [] task-handler/acknowledge-reminder-handler))
+      (PUT "/:id/acknowledge-reminder" [] task-handler/acknowledge-reminder-handler)
+      (PUT "/:id/relation-badge-title" [] task-handler/set-task-relation-badge-title-handler))
 
     (context "/people" []
       (GET "/" [] category-handler/list-people-handler)
@@ -257,7 +258,8 @@
       (DELETE "/:id/categorize" [] resource-handler/uncategorize-resource-handler)
       (POST "/:id/reorder" [] resource-handler/reorder-resource-handler)
       (PUT "/:id/scope" [] resource-handler/set-resource-scope-handler)
-      (PUT "/:id/importance" [] resource-handler/set-resource-importance-handler))
+      (PUT "/:id/importance" [] resource-handler/set-resource-importance-handler)
+      (PUT "/:id/relation-badge-title" [] resource-handler/set-resource-relation-badge-title-handler))
 
     (context "/meets" []
       (GET "/" [] meet-handler/list-meets-handler)
@@ -271,7 +273,8 @@
       (PUT "/:id/start-time" [] meet-handler/set-meet-start-time-handler)
       (PUT "/:id/scope" [] meet-handler/set-meet-scope-handler)
       (PUT "/:id/importance" [] meet-handler/set-meet-importance-handler)
-      (PUT "/:id/archive" [] meet-handler/archive-meet-handler))
+      (PUT "/:id/archive" [] meet-handler/archive-meet-handler)
+      (PUT "/:id/relation-badge-title" [] meet-handler/set-meet-relation-badge-title-handler))
 
     (context "/meeting-series" []
       (GET "/" [] meeting-series-handler/list-meeting-series-handler)
@@ -321,7 +324,8 @@
       (DELETE "/:id/categorize" [] journal-entry-handler/uncategorize-journal-entry-handler)
       (POST "/:id/reorder" [] journal-entry-handler/reorder-journal-entry-handler)
       (PUT "/:id/scope" [] journal-entry-handler/set-journal-entry-scope-handler)
-      (PUT "/:id/importance" [] journal-entry-handler/set-journal-entry-importance-handler))
+      (PUT "/:id/importance" [] journal-entry-handler/set-journal-entry-importance-handler)
+      (PUT "/:id/relation-badge-title" [] journal-entry-handler/set-journal-entry-relation-badge-title-handler))
 
     (context "/relations" []
       (POST "/" [] relation-handler/add-relation-handler)

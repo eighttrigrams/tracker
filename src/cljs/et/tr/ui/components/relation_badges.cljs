@@ -1,7 +1,8 @@
 (ns et.tr.ui.components.relation-badges
-  (:require [et.tr.ui.state :as state]))
+  (:require [clojure.string :as str]
+            [et.tr.ui.state :as state]))
 
-(defn- relation-type-label [type]
+(defn relation-type-label [type]
   (case type
     "tsk" "T"
     "res" "R"
@@ -12,13 +13,17 @@
 (defn- relation-key [relation]
   (str (:type relation) "-" (:id relation)))
 
+(defn- relation-display-title [relation]
+  (let [bt (:badge_title relation)]
+    (if (and bt (not (str/blank? bt))) bt (:title relation))))
+
 (defn relation-badge-collapsed [relation]
   [:span.tag.relation.clickable
    {:key (relation-key relation)
     :on-click (fn [e]
                 (.stopPropagation e)
                 (state/open-relation-in-modal (:type relation) (:id relation)))}
-   (str (relation-type-label (:type relation)) ": " (:title relation))])
+   (str (relation-type-label (:type relation)) ": " (relation-display-title relation))])
 
 (defn relation-badges-collapsed [relations source-type source-id]
   (when (seq relations)
@@ -30,7 +35,7 @@
 (defn relation-badge-expanded [relation source-type source-id]
   [:span.tag.relation
    {:key (relation-key relation)}
-   (str (relation-type-label (:type relation)) ": " (:title relation))
+   (str (relation-type-label (:type relation)) ": " (relation-display-title relation))
    [:button.remove-tag
     {:on-click (fn [e]
                  (.stopPropagation e)

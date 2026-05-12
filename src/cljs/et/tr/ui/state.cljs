@@ -178,6 +178,7 @@
 
 (declare fetch-tasks)
 (declare fetch-today-meets)
+(declare fetch-today-journal-entries)
 (declare fetch-messages)
 (declare fetch-resources)
 (declare fetch-resources-or-journals)
@@ -196,6 +197,8 @@
     (do
       (swap! *app-state assoc :active-tab :today)
       (fetch-tasks)
+      (fetch-today-meets)
+      (fetch-today-journal-entries)
       (fetch-people)
       (fetch-places)
       (fetch-projects)
@@ -1192,7 +1195,8 @@
 
 (defn fetch-today-all [opts]
   (fetch-tasks opts)
-  (fetch-today-meets opts))
+  (fetch-today-meets opts)
+  (fetch-today-journal-entries opts))
 
 (declare add-task-with-categories)
 (declare add-resource-with-categories)
@@ -1667,6 +1671,19 @@
                                    source-type source-id
                                    target-type target-id
                                    refetch-for-active-tab))
+
+(defn set-relation-badge-title [item-type item-id value]
+  (let [path (case item-type
+               :task (str "/api/tasks/" item-id "/relation-badge-title")
+               :meet (str "/api/meets/" item-id "/relation-badge-title")
+               :resource (str "/api/resources/" item-id "/relation-badge-title")
+               :journal-entry (str "/api/journal-entries/" item-id "/relation-badge-title"))]
+    (api/put-json path
+      {:relation-badge-title (or value "")}
+      (auth-headers)
+      (fn [_] (refetch-for-active-tab))
+      (fn [resp] (swap! *app-state assoc :error
+                        (get-in resp [:response :error] "Failed to set relation badge title"))))))
 
 (defn open-create-date-modal [entity-type entity]
   (swap! *app-state assoc :create-date-modal {:type entity-type :entity entity :taken-dates nil :loading? true})

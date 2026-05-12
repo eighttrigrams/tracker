@@ -92,6 +92,24 @@
           {:status 200 :body {:success true}})
       {:status 404 :body {:success false :error "Meet not found"}})))
 
+(defn set-meet-relation-badge-title-handler
+  "PUT /api/meets/:id/relation-badge-title — set or clear the override badge
+  title shown when this meet appears as a relation badge on another item.
+  Body: {:relation-badge-title} (string; empty string clears). Returns the
+  updated meet on 200, 404 if not found. Logs an :update event for
+  :relation_badge_title."
+  [req]
+  (let [user-id (common/get-user-id req)
+        meet-id (Integer/parseInt (get-in req [:params :id]))
+        value (or (get-in req [:body :relation-badge-title]) "")
+        before (events/fetch-fields :meets meet-id [:relation_badge_title])
+        result (db.meet/set-meet-field (common/ensure-ds) user-id meet-id :relation_badge_title value)]
+    (if result
+      (do (events/record-update! req :meet meet-id before
+                                 (select-keys result [:relation_badge_title]))
+          {:status 200 :body result})
+      {:status 404 :body {:error "Meet not found"}})))
+
 (defn archive-meet-handler
   "PUT /api/meets/:id/archive — flip the archived flag on a meet. No body is
   read; the underlying db.meet/archive-meet decides the new value. Returns 200

@@ -86,6 +86,24 @@
                                (select-keys result [:title :description :tags]))
         {:status 200 :body result}))))
 
+(defn set-journal-entry-relation-badge-title-handler
+  "PUT /api/journal-entries/:id/relation-badge-title — set or clear the
+  override badge title shown when this entry appears as a relation badge on
+  another item. Body: {:relation-badge-title} (string; empty string clears).
+  Returns the updated entry on 200, 404 if not found. Logs an :update event
+  for :relation_badge_title."
+  [req]
+  (let [user-id (common/get-user-id req)
+        entry-id (Integer/parseInt (get-in req [:params :id]))
+        value (or (get-in req [:body :relation-badge-title]) "")
+        before (events/fetch-fields :journal_entries entry-id [:relation_badge_title])
+        result (db.journal-entry/set-journal-entry-field (common/ensure-ds) user-id entry-id :relation_badge_title value)]
+    (if result
+      (do (events/record-update! req :journal-entry entry-id before
+                                 (select-keys result [:relation_badge_title]))
+          {:status 200 :body result})
+      {:status 404 :body {:error "Journal entry not found"}})))
+
 (defn delete-journal-entry-handler
   "DELETE /api/journal-entries/:id — delete a journal entry owned by the
   current user. Snapshots the row first, then on success records a

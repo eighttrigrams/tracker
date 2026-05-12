@@ -86,20 +86,24 @@
       db/jdbc-opts)))
 
 (defn fetch-title-for-relation [conn type id]
-  (let [table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)]
-    (:title (jdbc/execute-one! conn
-              (sql/format {:select [:title]
+  (let [table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)
+        row (jdbc/execute-one! conn
+              (sql/format {:select [:title :relation_badge_title]
                            :from [table]
                            :where [:= :id id]})
-              db/jdbc-opts))))
+              db/jdbc-opts)]
+    {:title (:title row)
+     :badge_title (:relation_badge_title row)}))
 
 (defn get-relations-with-titles [ds user-id source-type source-id]
   (when-let [relations (get-relations-for-item ds user-id source-type source-id)]
     (let [conn (db/get-conn ds)]
       (mapv (fn [{:keys [target_type target_id]}]
-              {:type target_type
-               :id target_id
-               :title (fetch-title-for-relation conn target_type target_id)})
+              (let [{:keys [title badge_title]} (fetch-title-for-relation conn target_type target_id)]
+                {:type target_type
+                 :id target_id
+                 :title title
+                 :badge_title badge_title}))
             relations))))
 
 (defn- fetch-relations-batch [conn source-type source-ids]
@@ -119,13 +123,14 @@
                                :let [ids (mapv :target_id rels)
                                      table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)
                                      items (jdbc/execute! conn
-                                             (sql/format {:select [:id :title]
+                                             (sql/format {:select [:id :title :relation_badge_title]
                                                           :from [table]
                                                           :where [:in :id ids]})
                                              db/jdbc-opts)]]
-                           [type (into {} (map (juxt :id :title) items))]))]
+                           [type (into {} (map (juxt :id #(select-keys % [:title :relation_badge_title])) items))]))]
     (mapv (fn [{:keys [target_type target_id] :as rel}]
-            (assoc rel :title (get-in title-maps [target_type target_id])))
+            (let [{:keys [title relation_badge_title]} (get-in title-maps [target_type target_id])]
+              (assoc rel :title title :badge_title relation_badge_title)))
           relations)))
 
 (defn associate-relations-with-items [items source-type conn]
@@ -136,8 +141,8 @@
     (mapv (fn [item]
             (let [item-relations (get relations-by-source (:id item) [])]
               (assoc item :relations
-                     (mapv (fn [{:keys [target_type target_id title]}]
-                             {:type target_type :id target_id :title title})
+                     (mapv (fn [{:keys [target_type target_id title badge_title]}]
+                             {:type target_type :id target_id :title title :badge_title badge_title})
                            item-relations))))
           items)))
 

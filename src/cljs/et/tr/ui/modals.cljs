@@ -11,6 +11,7 @@
             [et.tr.ui.state.journals :as journals-state]
             [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.components.cm-textarea :refer [cm-textarea]]
+            [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t tf]]
             [et.tr.ui.date :as date]
             ["marked" :refer [marked]]))
@@ -279,15 +280,18 @@
                              :description (r/atom (or (:description entity) ""))
                              :tags (r/atom (or (:tags entity) ""))
                              :due-date (r/atom (or (:due_date entity) ""))
-                             :due-time (r/atom (or (:due_time entity) ""))}
+                             :due-time (r/atom (or (:due_time entity) ""))
+                             :relation-badge-title (r/atom (or (:relation_badge_title entity) ""))}
                       :meet {:title (r/atom (:title entity))
                              :description (r/atom (or (:description entity) ""))
                              :tags (r/atom (or (:tags entity) ""))
                              :start-date (r/atom (or (:start_date entity) ""))
-                             :start-time (r/atom (or (:start_time entity) ""))}
+                             :start-time (r/atom (or (:start_time entity) ""))
+                             :relation-badge-title (r/atom (or (:relation_badge_title entity) ""))}
                       :journal-entry {:title (r/atom (:title entity))
                                       :description (r/atom (or (:description entity) ""))
-                                      :tags (r/atom (or (:tags entity) ""))}
+                                      :tags (r/atom (or (:tags entity) ""))
+                                      :relation-badge-title (r/atom (or (:relation_badge_title entity) ""))}
                       :message {:title (r/atom (:title entity))
                                 :description (r/atom (or (:description entity) ""))}
                       (:meeting-series :recurring-task) {:title (r/atom (:title entity))
@@ -302,8 +306,9 @@
                                 :description (r/atom (or (:description entity) ""))
                                 :tags (r/atom (or (:tags entity) ""))}
                       :resource (cond-> {:title (r/atom (:title entity))
-                                        :description (r/atom (or (:description entity) ""))
-                                        :tags (r/atom (or (:tags entity) ""))}
+                                         :description (r/atom (or (:description entity) ""))
+                                         :tags (r/atom (or (:tags entity) ""))
+                                         :relation-badge-title (r/atom (or (:relation_badge_title entity) ""))}
                                  (seq (:link entity)) (assoc :link (r/atom (:link entity))))
                       {:title (r/atom (:name entity))
                        :description (r/atom (or (:description entity) ""))
@@ -311,7 +316,7 @@
                        :badge-title (r/atom (or (:badge_title entity) ""))})]
     (assoc field-atoms :type type :entity entity)))
 
-(defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
+(defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
   (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry :message} type))
         title-orig (if is-category (:name entity) (:title entity))
         base-dirty (or (not= @title title-orig)
@@ -321,6 +326,7 @@
       base-dirty true
       (and link (not= @link (:link entity))) true
       (and badge-title (not= @badge-title (or (:badge_title entity) ""))) true
+      (and relation-badge-title (not= @relation-badge-title (or (:relation_badge_title entity) ""))) true
       (and schedule-days (not= @schedule-days (or (:schedule_days entity) ""))) true
       (and schedule-time (not= @schedule-time (or (:schedule_time entity) ""))) true
       (and schedule-mode (not= @schedule-mode (or (:schedule_mode entity) "weekly"))) true
@@ -332,8 +338,11 @@
       (and start-time (not= @start-time (or (:start_time entity) ""))) true
       :else false)))
 
-(defn- edit-modal-save [{:keys [type entity title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
+(defn- edit-modal-save [{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
   (let [id (:id entity)]
+    (when (and relation-badge-title
+               (not= @relation-badge-title (or (:relation_badge_title entity) "")))
+      (state/set-relation-badge-title type id @relation-badge-title))
     (case type
       :task (do
               (when (and due-date (not= @due-date (or (:due_date entity) "")))
@@ -682,7 +691,7 @@
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
             (reset! active-tab (or tab :edit))
             (reset! confirm-discard? false))
-          (when-let [{:keys [title description tags link badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]} @fields-state]
+          (when-let [{:keys [title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]} @fields-state]
             (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry :message} type))
                   preview-tab-key (case type
                                     (:task :recurring-task) :modal/tab-task
@@ -721,7 +730,11 @@
                     (when (#{:task :meet} type)
                       [:button {:class (when (= @active-tab :time) "active")
                                 :on-click #(reset! active-tab :time)}
-                       (t :modal/tab-time)])]
+                       (t :modal/tab-time)])
+                    (when (#{:task :meet :resource :journal-entry} type)
+                      [:button {:class (when (= @active-tab :relations) "active")
+                                :on-click #(reset! active-tab :relations)}
+                       (t :modal/tab-relations)])]
                    (case @active-tab
                      :scheduling
                      [scheduling-tab-content entity schedule-days schedule-time schedule-mode biweekly-offset
@@ -731,6 +744,24 @@
                      (case type
                        :task [time-tab-content due-date due-time]
                        :meet [time-tab-content start-date start-time :show-time-clear? false])
+
+                     :relations
+                     [:div.edit-modal-relations
+                      [:h2.preview-title @title]
+                      [:input.relation-badge-title-input
+                       {:type "text"
+                        :auto-complete "off"
+                        :value @relation-badge-title
+                        :on-change #(reset! relation-badge-title (-> % .-target .-value))
+                        :placeholder (t :modal/relation-badge-title-placeholder)}]
+                      [:h4.relations-list-title (t :modal/relations-list-title)]
+                      (let [relations (:relations entity)]
+                        (if (seq relations)
+                          [:ul.relations-list
+                           (for [r relations]
+                             ^{:key (str (:type r) "-" (:id r))}
+                             [:li (str (relation-badges/relation-type-label (:type r)) ": " (:title r))])]
+                          [:p.relations-list-empty (t :modal/relations-list-empty)]))]
 
                      :preview
                      [:div.edit-modal-preview

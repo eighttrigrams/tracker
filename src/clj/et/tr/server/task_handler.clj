@@ -316,6 +316,24 @@
           {:status 200 :body result})
       {:status 404 :body {:error "Task not found"}})))
 
+(defn set-task-relation-badge-title-handler
+  "PUT /api/tasks/:id/relation-badge-title — set or clear the override badge
+  title shown when this task appears as a relation badge on another item.
+  Body: {:relation-badge-title} (string; empty string clears). Returns the
+  updated task on 200, 404 if not found. Logs an :update event for
+  :relation_badge_title."
+  [req]
+  (let [user-id (common/get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
+        value (or (get-in req [:body :relation-badge-title]) "")
+        before (events/fetch-fields :tasks task-id [:relation_badge_title])
+        result (db.task/set-task-field (common/ensure-ds) user-id task-id :relation_badge_title value)]
+    (if result
+      (do (events/record-update! req :task task-id before
+                                 (select-keys result [:relation_badge_title]))
+          {:status 200 :body result})
+      {:status 404 :body {:error "Task not found"}})))
+
 (defn delete-task-handler
   "DELETE /api/tasks/:id — delete a task owned by the current user. Returns
   {:success true} on 200, or {:success false :error \"Task not found\"} with

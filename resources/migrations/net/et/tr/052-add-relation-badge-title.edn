@@ -1,0 +1,9 @@
+{:id "052-add-relation-badge-title"
+ :up ["ALTER TABLE tasks ADD COLUMN relation_badge_title TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE meets ADD COLUMN relation_badge_title TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE resources ADD COLUMN relation_badge_title TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE journal_entries ADD COLUMN relation_badge_title TEXT NOT NULL DEFAULT ''"]
+ :down ["ALTER TABLE journal_entries DROP COLUMN relation_badge_title"
+        "ALTER TABLE resources DROP COLUMN relation_badge_title"
+        "ALTER TABLE meets DROP COLUMN relation_badge_title"
+        "ALTER TABLE tasks DROP COLUMN relation_badge_title"]}
