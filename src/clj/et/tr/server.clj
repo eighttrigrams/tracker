@@ -207,6 +207,7 @@
       (PUT "/:id/urgency" [] task-handler/set-task-urgency-handler)
       (PUT "/:id/today" [] task-handler/set-task-today-handler)
       (PUT "/:id/lined-up-for" [] task-handler/set-task-lined-up-for-handler)
+      (PUT "/:id/maybe" [] task-handler/set-task-maybe-handler)
       (PUT "/:id/reminder" [] task-handler/set-reminder-handler)
       (PUT "/:id/acknowledge-reminder" [] task-handler/acknowledge-reminder-handler)
       (PUT "/:id/relation-badge-title" [] task-handler/set-task-relation-badge-title-handler))

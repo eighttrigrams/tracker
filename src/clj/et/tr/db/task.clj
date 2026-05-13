@@ -190,13 +190,14 @@
                   {:due_date due-date
                    :today 0
                    :lined_up_for nil
+                   :maybe 0
                    :urgency "default"
                    :modified_at [:raw "datetime('now')"]})]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set set-map
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :due_date :due_time :today :lined_up_for :urgency :modified_at]})
+                   :returning [:id :due_date :due_time :today :lined_up_for :maybe :urgency :modified_at]})
       db/jdbc-opts)))
 
 (defn set-task-due-time [ds user-id task-id due-time]
@@ -242,7 +243,7 @@
       (sql/format {:update :tasks
                    :set (cond-> {:done done-val
                                  :modified_at [:raw "datetime('now')"]}
-                          done? (assoc :today 0 :lined_up_for nil
+                          done? (assoc :today 0 :lined_up_for nil :maybe 0
                                        :done_at [:raw "datetime('now')"])
                           (not done?) (assoc :done_at nil))
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
@@ -250,25 +251,39 @@
       db/jdbc-opts)))
 
 (defn set-task-today [ds user-id task-id today?]
-  (let [today-val (if today? 1 0)]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :tasks
-                   :set {:today today-val
+  (let [today-val (if today? 1 0)
+        set-map (cond-> {:today today-val
                          :lined_up_for nil
                          :modified_at [:raw "datetime('now')"]}
+                  (not today?) (assoc :maybe 0))]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :tasks
+                   :set set-map
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :today :lined_up_for :modified_at]})
+                   :returning [:id :today :lined_up_for :maybe :modified_at]})
       db/jdbc-opts)))
 
 (defn set-task-lined-up-for [ds user-id task-id date]
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update :tasks
-                 :set {:lined_up_for date
-                       :today 0
-                       :modified_at [:raw "datetime('now')"]}
-                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                 :returning [:id :lined_up_for :today :modified_at]})
-    db/jdbc-opts))
+  (let [set-map (cond-> {:lined_up_for date
+                         :today 0
+                         :modified_at [:raw "datetime('now')"]}
+                  (nil? date) (assoc :maybe 0))]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :tasks
+                   :set set-map
+                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                   :returning [:id :lined_up_for :today :maybe :modified_at]})
+      db/jdbc-opts)))
+
+(defn set-task-maybe [ds user-id task-id maybe?]
+  (let [maybe-val (if maybe? 1 0)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :tasks
+                   :set {:maybe maybe-val
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                   :returning [:id :maybe :modified_at]})
+      db/jdbc-opts)))
 
 (defn promote-lined-up-tasks! [ds user-id]
   (jdbc/execute! (db/get-conn ds)

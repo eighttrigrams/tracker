@@ -24,7 +24,8 @@
   today-category-shortcut-keys)
 
 (defn- today-task-expanded-details [task & {:keys [show-unlink?]}]
-  (let [{:keys [people places projects goals]} @state/*app-state]
+  (let [{:keys [people places projects goals]} @state/*app-state
+        maybe? (= 1 (:maybe task))]
     [:div.today-task-details
      (if (seq (:description task))
        [task-item/clampable-description
@@ -46,13 +47,19 @@
       [task-item/task-combined-action-button task
        :extra-dropdown-items
        (when show-unlink?
-         [:button.dropdown-item.unlink-today
-          {:on-click #(let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
-                        (state/set-task-dropdown-open nil)
-                        (if (zero? selected-day)
-                          (state/set-task-today (:id task) false)
-                          (state/set-task-lined-up-for (:id task) nil)))}
-          (t :task/unlink-today)])]]]))
+         [:<>
+          [:button.dropdown-item.toggle-maybe
+           {:on-click #(do
+                         (state/set-task-dropdown-open nil)
+                         (state/set-task-maybe (:id task) (not maybe?)))}
+           (if maybe? (t :task/unset-maybe) (t :task/set-maybe))]
+          [:button.dropdown-item.unlink-today
+           {:on-click #(let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
+                         (state/set-task-dropdown-open nil)
+                         (if (zero? selected-day)
+                           (state/set-task-today (:id task) false)
+                           (state/set-task-lined-up-for (:id task) nil)))}
+           (t :task/unlink-today)]])]]]))
 
 (defn- today-task-title-content [task is-expanded]
   (let [inline-editing? (= (:today-page/inline-edit-task @state/*app-state) (:id task))]
@@ -78,8 +85,12 @@
   (let [show-prefix? (and show-day-prefix (date/within-days? (:due_date task) 6))
         expanded-task (:today-page/expanded-task @state/*app-state)
         is-expanded (= expanded-task (:id task))
-        inline-editing? (= (:today-page/inline-edit-task @state/*app-state) (:id task))]
-    [:div.today-task-item {:class (when is-expanded "expanded")}
+        inline-editing? (= (:today-page/inline-edit-task @state/*app-state) (:id task))
+        maybe? (= 1 (:maybe task))]
+    [:div.today-task-item {:class (clojure.string/join " "
+                                    (filter some?
+                                      [(when is-expanded "expanded")
+                                       (when maybe? "maybe")]))}
      [:div.today-task-header
       {:on-click (fn [_]
                    (when-not (or inline-editing?

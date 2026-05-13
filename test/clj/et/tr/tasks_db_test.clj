@@ -697,3 +697,68 @@
       (db.task/activate-reminders! *ds* *user-id*)
       (let [tasks (db.task/list-tasks *ds* *user-id* :today)]
         (is (some #(= "Reminder task" (:title %)) tasks))))))
+
+(deftest set-task-maybe-test
+  (testing "sets and unsets the maybe flag"
+    (let [task (db.task/add-task *ds* *user-id* "Maybe task")
+          set-result (db.task/set-task-maybe *ds* *user-id* (:id task) true)]
+      (is (= 1 (:maybe set-result)))
+      (let [unset-result (db.task/set-task-maybe *ds* *user-id* (:id task) false)]
+        (is (= 0 (:maybe unset-result))))))
+
+  (testing "newly created tasks default to maybe=0"
+    (let [task (db.task/add-task *ds* *user-id* "Fresh task")
+          fetched (db.task/get-task *ds* *user-id* (:id task))]
+      (is (= 0 (:maybe fetched))))))
+
+(deftest maybe-cleared-on-unlink-from-today-test
+  (testing "clearing today flag clears maybe"
+    (let [task (db.task/add-task *ds* *user-id* "Today maybe")]
+      (db.task/set-task-today *ds* *user-id* (:id task) true)
+      (db.task/set-task-maybe *ds* *user-id* (:id task) true)
+      (let [result (db.task/set-task-today *ds* *user-id* (:id task) false)]
+        (is (= 0 (:today result)))
+        (is (= 0 (:maybe result))))))
+
+  (testing "setting today=true preserves maybe (switching between days)"
+    (let [task (db.task/add-task *ds* *user-id* "Switch from day")]
+      (db.task/set-task-lined-up-for *ds* *user-id* (:id task) "2030-01-02")
+      (db.task/set-task-maybe *ds* *user-id* (:id task) true)
+      (let [result (db.task/set-task-today *ds* *user-id* (:id task) true)]
+        (is (= 1 (:today result)))
+        (is (= 1 (:maybe result))))))
+
+  (testing "clearing lined_up_for clears maybe"
+    (let [task (db.task/add-task *ds* *user-id* "Lined up maybe")]
+      (db.task/set-task-lined-up-for *ds* *user-id* (:id task) "2030-01-02")
+      (db.task/set-task-maybe *ds* *user-id* (:id task) true)
+      (let [result (db.task/set-task-lined-up-for *ds* *user-id* (:id task) nil)]
+        (is (nil? (:lined_up_for result)))
+        (is (= 0 (:maybe result))))))
+
+  (testing "setting lined_up_for to a date preserves maybe (switching between days)"
+    (let [task (db.task/add-task *ds* *user-id* "Move to other day")]
+      (db.task/set-task-today *ds* *user-id* (:id task) true)
+      (db.task/set-task-maybe *ds* *user-id* (:id task) true)
+      (let [result (db.task/set-task-lined-up-for *ds* *user-id* (:id task) "2030-01-02")]
+        (is (= "2030-01-02" (:lined_up_for result)))
+        (is (= 1 (:maybe result)))))))
+
+(deftest maybe-cleared-on-due-date-test
+  (testing "setting a due date clears maybe"
+    (let [task (db.task/add-task *ds* *user-id* "Will get a date")]
+      (db.task/set-task-today *ds* *user-id* (:id task) true)
+      (db.task/set-task-maybe *ds* *user-id* (:id task) true)
+      (let [result (db.task/set-task-due-date *ds* *user-id* (:id task) "2030-02-01")]
+        (is (= "2030-02-01" (:due_date result)))
+        (is (= 0 (:maybe result)))))))
+
+(deftest maybe-cleared-on-done-test
+  (testing "marking task done clears maybe"
+    (let [task (db.task/add-task *ds* *user-id* "Will be done")]
+      (db.task/set-task-today *ds* *user-id* (:id task) true)
+      (db.task/set-task-maybe *ds* *user-id* (:id task) true)
+      (db.task/set-task-done *ds* *user-id* (:id task) true)
+      (let [fetched (db.task/get-task *ds* *user-id* (:id task))]
+        (is (= 1 (:done fetched)))
+        (is (= 0 (:maybe fetched)))))))

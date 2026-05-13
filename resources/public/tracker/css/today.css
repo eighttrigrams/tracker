@@ -11,6 +11,8 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--glass-radius);
   box-shadow: var(--glass-shadow);
+  position: relative;
+  z-index: 1;
 }
 .today-section h3 {
   margin: 0 0 12px 0;
@@ -175,6 +177,15 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.today-task-item.maybe .task-title {
+  color: #a1a1a6;
+  font-weight: 400;
+}
+@media (prefers-color-scheme: dark) {
+  .today-task-item.maybe .task-title {
+    color: #6c6c70;
+  }
 }
 .task-time {
   color: var(--accent);

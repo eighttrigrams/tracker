@@ -480,7 +480,8 @@
 .task-dropdown-menu .dropdown-item.convert-to-resource,
 .task-dropdown-menu .dropdown-item.convert-to-task,
 .task-dropdown-menu .dropdown-item.unlink-today,
-.task-dropdown-menu .dropdown-item.set-reminder {
+.task-dropdown-menu .dropdown-item.set-reminder,
+.task-dropdown-menu .dropdown-item.toggle-maybe {
   color: #007aff;
 }
 @media (prefers-color-scheme: dark) {

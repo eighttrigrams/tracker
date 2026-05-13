@@ -268,6 +268,25 @@
           {:status 200 :body result})
       {:status 404 :body {:error "Task not found"}})))
 
+(defn set-task-maybe-handler
+  "PUT /api/tasks/:id/maybe — toggle the maybe flag used by the today page
+  to render the task title in a lighter color. Body: {:maybe} as a boolean
+  (required; 400 if absent). Returns the updated task on 200, 404 if not
+  found. Logs an :update event for :maybe."
+  [req]
+  (if-not (contains? (:body req) :maybe)
+    {:status 400 :body {:error "Missing required field: maybe"}}
+    (let [user-id (common/get-user-id req)
+          task-id (Integer/parseInt (get-in req [:params :id]))
+          maybe? (boolean (get-in req [:body :maybe]))
+          before (events/fetch-fields :tasks task-id [:maybe])
+          result (db.task/set-task-maybe (common/ensure-ds) user-id task-id maybe?)]
+      (if result
+        (do (events/record-update! req :task task-id before
+                                   (select-keys result [:maybe]))
+            {:status 200 :body result})
+        {:status 404 :body {:error "Task not found"}}))))
+
 (defn set-task-done-at-handler
   "PUT /api/tasks/:id/done-at — back-date when an already-done task was
   completed. Body: {:done-date} as YYYY-MM-DD (required; 400 on missing or

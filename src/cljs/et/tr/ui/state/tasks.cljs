@@ -133,7 +133,7 @@
       (swap! app-state update :tasks
              (fn [tasks]
                (mapv #(if (= (:id %) task-id)
-                        (merge % (select-keys result [:due_date :due_time :today :modified_at]))
+                        (merge % (select-keys result [:due_date :due_time :today :lined_up_for :maybe :modified_at]))
                         %)
                      tasks))))
     (fn [resp]
@@ -248,7 +248,7 @@
           (swap! app-state update :tasks
                  (fn [tasks]
                    (mapv #(if (= (:id %) task-id)
-                            (merge % (select-keys result [:today :lined_up_for :modified_at]))
+                            (merge % (select-keys result [:today :lined_up_for :maybe :modified_at]))
                             %)
                          tasks)))
           (fetch-tasks-fn))))
@@ -265,12 +265,26 @@
           (swap! app-state update :tasks
                  (fn [tasks]
                    (mapv #(if (= (:id %) task-id)
-                            (merge % (select-keys result [:today :lined_up_for :modified_at]))
+                            (merge % (select-keys result [:today :lined_up_for :maybe :modified_at]))
                             %)
                          tasks)))
           (fetch-tasks-fn))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update lined-up-for")))))
+
+(defn set-task-maybe [app-state auth-headers task-id maybe?]
+  (api/put-json (str "/api/tasks/" task-id "/maybe")
+    {:maybe maybe?}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (merge % (select-keys result [:maybe :modified_at]))
+                        %)
+                     tasks))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update maybe flag")))))
 
 (defn set-task-done-at [app-state auth-headers task-id done-date]
   (api/put-json (str "/api/tasks/" task-id "/done-at")

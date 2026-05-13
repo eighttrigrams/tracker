@@ -1270,6 +1270,9 @@
 (defn set-task-lined-up-for [task-id date]
   (tasks/set-task-lined-up-for *app-state auth-headers fetch-tasks task-id date))
 
+(defn set-task-maybe [task-id maybe?]
+  (tasks/set-task-maybe *app-state auth-headers task-id maybe?))
+
 (defn set-task-reminder [task-id reminder-date]
   (tasks/set-task-reminder *app-state auth-headers task-id reminder-date))
 
