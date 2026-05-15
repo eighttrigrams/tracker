@@ -1,7 +1,6 @@
 (ns et.tr.atom-feed
   "Atom/RSS feed parsing for blog-style sources. Mirrors automator/atom.clj."
-  (:require [clojure.string :as str]
-            [clojure.xml :as xml]
+  (:require [clojure.xml :as xml]
             [clj-http.client :as http]
             [taoensso.telemere :as tel])
   (:import [java.io ByteArrayInputStream]))
@@ -23,35 +22,28 @@
            first :attrs :href)
       (get-in (find-child entry :link) [:attrs :href])))
 
-(defn- html->markdown [html]
-  (when html
-    (-> html
-        (str/replace #"<h([1-6])[^>]*>(.*?)</h[1-6]>"
-                     (fn [[_ level text]]
-                       (str (apply str (repeat (Integer/parseInt level) "#")) " " text)))
-        (str/replace #"<a\s+href=\"([^\"]+)\"[^>]*>(.*?)</a>" "[$2]($1)")
-        (str/replace #"<strong>(.*?)</strong>" "**$1**")
-        (str/replace #"<b>(.*?)</b>" "**$1**")
-        (str/replace #"<em>(.*?)</em>" "*$1*")
-        (str/replace #"<i>(.*?)</i>" "*$1*")
-        (str/replace #"<br\s*/?>" "\n")
-        (str/replace #"<blockquote>(.*?)</blockquote>" "> $1")
-        (str/replace #"<p>(.*?)</p>" "$1\n\n")
-        (str/replace #"<[^>]+>" "")
-        str/trim)))
+(defn- typed-payload
+  "Returns {:type \"text\"|\"html\"|\"xhtml\" :value str} for the named
+  child of an atom entry, or nil when the child is absent. The atom RFC
+  defines this `type` attribute; we default to \"text\" when omitted."
+  [entry tag]
+  (when-let [el (find-child entry tag)]
+    (when-let [value (first (:content el))]
+      {:type  (or (get-in el [:attrs :type]) "text")
+       :value value})))
 
 (defn- parse-entries [xml-str]
   (let [parsed (xml/parse (ByteArrayInputStream. (.getBytes xml-str "UTF-8")))]
     (->> (find-children parsed :entry)
          (mapv (fn [entry]
-                 {:entry-id (text-content entry :id)
-                  :title (text-content entry :title)
+                 {:entry-id  (text-content entry :id)
+                  :title     (text-content entry :title)
                   :published (or (text-content entry :published)
                                  (text-content entry :updated))
-                  :link (link-href entry)
-                  :author (text-content (find-child entry :author) :name)
-                  :summary (text-content entry :summary)
-                  :content (html->markdown (text-content entry :content))})))))
+                  :link      (link-href entry)
+                  :author    (text-content (find-child entry :author) :name)
+                  :summary   (typed-payload entry :summary)
+                  :content   (typed-payload entry :content)})))))
 
 (defn get-latest-entries
   "Fetch and parse an atom feed. Returns a vector of entry maps, or nil

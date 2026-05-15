@@ -217,7 +217,7 @@
          [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
           (t :task/delete)])])))
 
-(defn- mail-message-expanded-content [{:keys [title description] :as message} next-message-id]
+(defn- mail-message-expanded-content [{:keys [title description type] :as message} next-message-id]
   [:div.item-details
    (when-let [video-id (first-youtube-video-id title description)]
      [youtube-embed video-id])
@@ -225,6 +225,7 @@
      [:div.description-wrapper
       [clampable-description
        {:text description
+        :content-type type
         :on-click #(state/set-editing-modal :message message)}]
       [:button.copy-icon {:on-click #(.writeText js/navigator.clipboard description)} "⧉"]]
      [:button.edit-icon.description-placeholder

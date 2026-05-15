@@ -12,14 +12,23 @@
   [:div.markdown-content
    {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
 
+(defn html [text]
+  [:div.markdown-content.html-content
+   {:dangerouslySetInnerHTML {:__html (or text "")}}])
+
+(defn- body-renderer [content-type]
+  (if (= content-type "html") html markdown))
+
 (defn- markdown-blocks [text]
   (str/split (or text "") #"\r?\n\r?\n+"))
 
 (defn clampable-description [_]
   (let [expanded? (r/atom false)]
-    (fn [{:keys [text on-click]}]
-      (let [blocks (markdown-blocks text)
-            needs-clamp? (> (count blocks) 10)
+    (fn [{:keys [text on-click content-type]}]
+      (let [render (body-renderer content-type)
+            blocks (markdown-blocks text)
+            html? (= content-type "html")
+            needs-clamp? (and (not html?) (> (count blocks) 10))
             visible (if (and needs-clamp? (not @expanded?))
                       (str/join "\n\n" (take 10 blocks))
                       text)]
@@ -29,7 +38,7 @@
                        (when (.. js/window getSelection -isCollapsed)
                          (.stopPropagation e)
                          (when on-click (on-click))))}
-          [markdown visible]]
+          [render visible]]
          (when (and needs-clamp? (not @expanded?))
            [:span.see-more
             {:on-click (fn [e]

@@ -163,6 +163,16 @@
         (when-let [resolved (common/fetch-youtube-title url)]
           (db.message/update-message ds user-id message-id resolved (:description message)))))))
 
+(defn- maybe-resolve-atom-title!
+  "When an atom-feed inbox message still carries the placeholder
+  'New post from \"X\"' title, replace it with the article title that
+  the source worker parked at the top of the body."
+  [ds user-id message-id]
+  (when-let [message (db.message/get-message ds user-id message-id)]
+    (when (common/atom-message-not-yet-titled? message)
+      (when-let [resolved (common/extract-atom-entry-title (:description message))]
+        (db.message/update-message ds user-id message-id resolved (:description message))))))
+
 (defn set-message-done-handler
   "PUT /api/messages/:id/done — mark a message done or undone. Body field:
   done (boolean, required; 400 if missing). Records an :update event with the
@@ -177,7 +187,9 @@
     (with-mail-message-context req user-id message-id
       (let [done? (boolean (get-in req [:body :done]))
             ds (common/ensure-ds)
-            _ (when done? (maybe-resolve-youtube-title! ds user-id message-id))
+            _ (when done?
+                (maybe-resolve-youtube-title! ds user-id message-id)
+                (maybe-resolve-atom-title! ds user-id message-id))
             before (events/fetch-fields :messages message-id [:done])
             result (db.message/set-message-done ds user-id message-id done?)]
         (if result
@@ -290,7 +302,9 @@
                       (if (and existing (not (common/youtube-message-not-yet-titled? existing)))
                         nil
                         (common/fetch-youtube-title link))
-                      (common/substack-url? link) (common/fetch-substack-title link))]
+                      (common/substack-url? link) (common/fetch-substack-title link)
+                      (and existing (common/atom-message-not-yet-titled? existing))
+                      (common/extract-atom-entry-title (:description existing)))]
           (if-let [result (db.resource/convert-message-to-resource (common/ensure-ds) user-id message-id link :title title)]
             {:status 200 :body result}
             {:status 404 :body {:error "Message not found"}}))))))

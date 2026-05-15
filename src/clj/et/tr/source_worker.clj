@@ -12,6 +12,8 @@
             [et.tr.youtube :as youtube]
             [et.tr.podcast :as podcast]
             [et.tr.atom-feed :as atom-feed]
+            [et.tr.html-sanitize :as html-sanitize]
+            [clojure.string :as str]
             [taoensso.telemere :as tel])
   (:import [java.util.concurrent Executors TimeUnit]))
 
@@ -26,20 +28,24 @@
   (and a b (neg? (compare a b))))
 
 (defn- forward!
-  "Push a message into the user's inbox via the message-handler service."
-  [ds actor user-id sender title description]
-  (let [result (message-handler/add-message!
-                 ds actor user-id
-                 {:sender sender
-                  :title title
-                  :description description
-                  :type "markdown"
-                  :scope "private"})]
-    (when (:error result)
-      (tel/log! {:level :warn :data {:user-id user-id :sender sender
-                                     :error (:error result)}}
-                "Source worker: failed to add inbox message"))
-    result))
+  "Push a message into the user's inbox via the message-handler service.
+  Accepts an optional :type (\"markdown\" by default, \"html\" for
+  sanitized HTML payloads from feeds that declare type=\"html\")."
+  ([ds actor user-id sender title description]
+   (forward! ds actor user-id sender title description "markdown"))
+  ([ds actor user-id sender title description type]
+   (let [result (message-handler/add-message!
+                  ds actor user-id
+                  {:sender sender
+                   :title title
+                   :description description
+                   :type type
+                   :scope "private"})]
+     (when (:error result)
+       (tel/log! {:level :warn :data {:user-id user-id :sender sender
+                                      :error (:error result)}}
+                 "Source worker: failed to add inbox message"))
+     result)))
 
 ;; ── YouTube ────────────────────────────────────────────────────────────
 
@@ -167,18 +173,43 @@
 
 (def ^:private atom-actor (worker-actor "atom"))
 
+(defn- html-payload?
+  "Atom entries carry summary/content as typed-payload maps. Treat
+  type=\"html\" or type=\"xhtml\" as HTML; everything else as plain text."
+  [payload]
+  (contains? #{"html" "xhtml"} (:type payload)))
+
+(defn- atom-body
+  "Returns [body-string :markdown|:html]. Prefers content when both are
+  present. When the chosen payload is HTML, builds a sanitized HTML
+  document; otherwise concatenates plain text under a markdown header."
+  [{:keys [title link summary content]}]
+  (let [payload (or content summary)]
+    (cond
+      (html-payload? payload)
+      [(str "<h2><a href=\"" link "\">" title "</a></h2>\n"
+            (html-sanitize/sanitize (:value payload)))
+       :html]
+
+      payload
+      [(cond-> (str "# " title "\n\n" link)
+         (:value payload) (str "\n\n" (str/trim (:value payload))))
+       :markdown]
+
+      :else
+      [(str "# " title "\n\n" link) :markdown])))
+
 (defn- forward-atom-entry! [ds user-id feed entry]
-  (let [{:keys [title link summary content]} entry
+  (let [{:keys [title]} entry
         display-name (or (:name feed) (:author entry) (:feed_url feed))
         sender (or (:name feed) display-name)
-        body (cond-> (str "# " title "\n\n" link)
-               summary (str "\n\n" summary)
-               content (str "\n\n" content))]
+        [body kind] (atom-body entry)]
     (forward! ds atom-actor user-id sender
               (str "New post from \"" display-name "\"")
-              body)
+              body
+              (name kind))
     (tel/log! {:level :info :data {:user-id user-id :entry-id (:entry-id entry)
-                                   :title title :feed display-name}}
+                                   :title title :feed display-name :kind kind}}
               "Atom worker: forwarded entry to inbox")))
 
 (defn- process-atom-feed! [ds user-id feed]

@@ -194,6 +194,32 @@
     (str "New YouTube video from \"" author "\" just dropped.")
     "New YouTube video just dropped."))
 
+(def ^:private atom-placeholder-title-re #"(?i)^New post from \".+\"\s*$")
+
+(defn atom-message-not-yet-titled?
+  "True for an atom-feed inbox message whose title is still the generic
+  'New post from \"X\"' placeholder set by the source worker."
+  [{:keys [title]}]
+  (and (string? title)
+       (boolean (re-matches atom-placeholder-title-re title))))
+
+(defn extract-atom-entry-title
+  "Pull the entry title out of an atom inbox message body. The source
+  worker parks it as the first <h2><a>TITLE</a></h2> (html payload) or
+  `# TITLE` line (markdown payload). Returns nil when neither is
+  present."
+  [body]
+  (when (string? body)
+    (let [t (or (some-> (re-find #"(?is)<h2>\s*<a[^>]*>(.+?)</a>\s*</h2>" body)
+                        second)
+                (some-> (re-find #"(?is)<h2>(.+?)</h2>" body)
+                        second)
+                (some-> (re-find #"(?m)^#\s+(.+)$" body)
+                        second))]
+      (when t
+        (let [trimmed (str/trim t)]
+          (when-not (str/blank? trimmed) trimmed))))))
+
 (defn substack-url? [url]
   (some? (re-find #"\.substack\.com/" url)))
 

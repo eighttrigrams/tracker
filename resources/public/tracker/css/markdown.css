@@ -1,6 +1,24 @@
 .markdown-content {
   line-height: 1.5;
   white-space: normal;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.markdown-content img,
+.markdown-content video,
+.markdown-content iframe {
+  max-width: 100%;
+  height: auto;
+}
+.markdown-content pre,
+.markdown-content table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.markdown-content a {
+  overflow-wrap: anywhere;
 }
 .markdown-content p {
   margin: 0 0 0.5em 0;
