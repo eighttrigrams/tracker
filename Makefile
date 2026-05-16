@@ -1,13 +1,10 @@
-.PHONY: start stop start-prod build test e2e e2e-docker lint clean backup backup-replay
+.PHONY: start stop build test e2e e2e-docker lint clean backup backup-replay
 
 start:
 	@if [ -f .env ]; then set -a && . ./.env && set +a; fi && ./scripts/start.sh
 
 stop:
 	./scripts/stop.sh
-
-start-prod:
-	./scripts/start.sh prod
 
 build:
 	npm install

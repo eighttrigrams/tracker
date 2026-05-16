@@ -49,12 +49,6 @@ $ make start
 
 With `scripts/start.sh`, you can use `PORT=<port>` for a custom port (default: 3027).
 
-### Test production build locally
-
-```bash
-$ make start-prod
-```
-
 ## Testing
 
 See [docs/TESTING.md](docs/TESTING.md).
