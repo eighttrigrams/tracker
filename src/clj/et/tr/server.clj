@@ -453,10 +453,8 @@
   (let [prod? (common/prod-mode?)
         cli-opts (if (map? (first args)) (first args) {})
         e2e? (:e2e cli-opts)]
-    (when e2e?
-      (if prod?
-        (throw (ex-info "Cannot use --e2e in production mode" {}))
-        (swap! common/*config merge {:db {:type :sqlite-memory} :dangerously-skip-logins? true})))
+    (when (and e2e? prod?)
+      (throw (ex-info "Cannot use --e2e in production mode" {})))
     (when-let [logfile (and (not prod?) (:logfile @common/*config))]
       (setup-file-logging logfile))
     (when (and (true? (:dangerously-skip-logins? @common/*config)) prod?)

@@ -1,23 +1,19 @@
-import { execSync } from "child_process";
+import * as path from "path";
 import { defineConfig } from "@playwright/test";
 import { defineBddConfig } from "playwright-bdd";
 
-// Single source of truth for the port lives in config.edn (so the clojure
-// server and the playwright config can't drift). We shell out to babashka
-// to read it; if PORT is set explicitly that wins.
-let port = process.env.PORT;
-if (!port) {
-  try {
-    port = execSync(`bb -e '(:port (read-string (slurp "config.edn")))' 2>/dev/null`, { encoding: "utf-8" }).trim();
-  } catch {}
-}
-if (!port) throw new Error("PORT env var not set and could not read :port from config.edn");
+// Single source of truth for the port is the PORT env var (with the
+// canonical default of 3110 — same port the dev server uses, since we
+// never run e2e and dev concurrently). The clojure server reads it via
+// config.edn's `#env PORT` reader tag; playwright just uses the same
+// env-derived value here.
+const port = process.env.PORT || "3110";
 
 const command = `DEV=true clojure -X:run :e2e true`;
 
 const testDir = defineBddConfig({
-  features: "./e2e/features",
-  steps: "./e2e/steps/*.ts",
+  features: path.resolve(__dirname, "e2e/features"),
+  steps: path.resolve(__dirname, "e2e/steps/*.ts"),
 });
 
 export default defineConfig({
@@ -27,7 +23,7 @@ export default defineConfig({
   workers: 1,
   expect: { timeout: 10_000 },
   use: {
-    baseURL: `http://localhost:${port}`,
+    baseURL: `http://127.0.0.1:${port}`,
     headless: true,
     actionTimeout: 10_000,
   },
@@ -56,7 +52,8 @@ export default defineConfig({
   }],
   webServer: {
     command,
-    url: `http://localhost:${port}`,
+    cwd: path.resolve(__dirname, ".."),
+    url: `http://127.0.0.1:${port}`,
     timeout: 120_000,
     reuseExistingServer: false,
     // The dev rate limit (720 req/60s) is tight for a sequential SPA e2e

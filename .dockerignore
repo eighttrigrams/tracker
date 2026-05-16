@@ -13,10 +13,15 @@ logs/
 nohup.out
 hooks.log
 
-# Local & dev config (only config.prod.edn is COPYed)
+# Local & dev config. config.edn is gitignored and user-local; the
+# canonical defaults live in config.edn.template (allowlisted below,
+# COPYed as config.edn by Dockerfile.e2e). config.prod.edn is COPYed
+# by the production Dockerfile.
 .env
 config.edn
 config.edn.*
+!config.edn.template
+!config.prod.edn
 .credentials
 .editor-layouts.json
 .lsp/
@@ -28,8 +33,8 @@ config.edn.*
 .server.port
 .shadow-cljs.pid
 
-# Tests & test outputs (e2e/ kept — needed by Dockerfile.e2e)
-test/
+# Test outputs (test/ itself is COPYed by Dockerfile.e2e — it contains
+# the e2e features/steps, playwright.config.ts, and e2e_config.edn).
 test-resources/
 test-results/
 playwright-report/

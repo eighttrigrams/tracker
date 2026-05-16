@@ -13,12 +13,15 @@ RUN npx playwright install --with-deps chromium
 
 COPY src ./src
 COPY resources ./resources
-COPY e2e ./e2e
-COPY playwright.config.ts ./
+COPY test ./test
+# config.edn is gitignored (user-local), but config.edn.template carries
+# the canonical e2e-friendly defaults (sqlite-memory db, skip-logins,
+# port 3110). Use it as the in-container config — the same code path
+# host `make e2e` exercises against the developer's config.edn.
+COPY config.edn.template ./config.edn
 
 RUN npx shadow-cljs release app
 
 ENV CI=1
-ENV PORT=3027
 
-CMD ["sh", "-c", "npx bddgen && npx playwright test"]
+CMD ["sh", "-c", "npx bddgen -c test/playwright.config.ts && npx playwright test -c test/playwright.config.ts"]

@@ -1,4 +1,4 @@
-.PHONY: start stop start-prod build test e2e e2e-docker lint deploy deploy-preflight clean backup backup-replay
+.PHONY: start stop start-prod build test e2e e2e-docker lint clean backup backup-replay
 
 start:
 	@if [ -f .env ]; then set -a && . ./.env && set +a; fi && ./scripts/start.sh
@@ -22,25 +22,13 @@ else
 endif
 
 e2e:
-	./scripts/stop.sh && npx shadow-cljs release app && npx bddgen && npx playwright test
+	./scripts/stop.sh check && npx shadow-cljs release app && npx bddgen -c test/playwright.config.ts && npx playwright test -c test/playwright.config.ts
 
 e2e-docker:
 	./scripts/run-e2e-docker.sh
 
 lint:
-	clj-kondo --lint src/clj src/cljc test/clj
-
-deploy-preflight:
-	@branch=$$(git rev-parse --abbrev-ref HEAD); \
-	if [ "$$branch" != "main" ]; then \
-	  echo "deploy: refusing — current branch is '$$branch', not main" >&2; exit 1; \
-	fi
-	@if ! git diff-index --quiet HEAD -- || [ -n "$$(git ls-files --others --exclude-standard)" ]; then \
-	  echo "deploy: refusing — working tree is not clean" >&2; exit 1; \
-	fi
-	@if [ -n "$$(git log @{u}..HEAD 2>/dev/null)" ]; then \
-	  echo "deploy: refusing — local main has unpushed commits" >&2; exit 1; \
-	fi
+	clj-kondo --lint src/clj src/cljc test/unit
 
 clean:
 	rm -rf target node_modules .shadow-cljs resources/public/js

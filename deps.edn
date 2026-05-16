@@ -17,11 +17,14 @@
         org.jsoup/jsoup {:mvn/version "1.18.3"}
         aero/aero {:mvn/version "1.1.6"}}
  :aliases {:run {:exec-fn et.tr.server/-main}
-           :test {:extra-paths ["test/clj"]
+           :test {:extra-paths ["test/unit" "test/integration"]
                   :extra-deps {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1"
                                                                      :git/sha "dfb30dd"}
                                ring/ring-mock {:mvn/version "0.4.0"}}
-                  :main-opts ["-m" "cognitect.test-runner"]
-                  :exec-fn cognitect.test-runner.api/test}
+                  :main-opts ["-m" "cognitect.test-runner"
+                              "-d" "test/unit"
+                              "-d" "test/integration"]
+                  :exec-fn cognitect.test-runner.api/test
+                  :exec-args {:dirs ["test/unit" "test/integration"]}}
            :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.5" :git/sha "2a21b7a"}}
                    :ns-default build}}}
