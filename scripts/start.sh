@@ -8,16 +8,9 @@ if [ ! -f config.edn ]; then
   cat > config.edn << 'EOF'
 {:db {:type :sqlite-file
       :path "data/tracker.db"}
- :nrepl-port 7898
- :port 3027
+ :port #long #or [#env PORT 3110]
  :dangerously-skip-logins? true}
 EOF
-fi
-
-PORT=$(bb -e '(:port (read-string (slurp "config.edn")))')
-if [ -z "$PORT" ]; then
-  echo "ERROR: Could not read :port from config.edn"
-  exit 1
 fi
 
 # Mark which environment owns the dev server. stop.sh reads this to refuse a
@@ -31,18 +24,11 @@ else
   echo host > .dev-server.lock
 fi
 
-SKIP_LOGINS=$(bb -e '(:dangerously-skip-logins? (read-string (slurp "config.edn")))')
-
 if [ "$MODE" = "prod" ]; then
-  if [ "$SKIP_LOGINS" = "true" ]; then
-    echo "ERROR: Cannot start in prod mode with :dangerously-skip-logins? true"
-    exit 1
-  fi
-
   echo "Building uberjar..."
   clj -T:build uber
 
-  echo "Starting in production mode on port $PORT..."
+  echo "Starting in production mode..."
   java -jar target/tracker-0.0.1-standalone.jar
 else
   if [ ! -d node_modules ]; then
@@ -50,9 +36,8 @@ else
     npm install
   fi
 
-  SHADOW=$(bb -e '(:shadow? (read-string (slurp "config.edn")))')
-
-  if [ "$SHADOW" = "true" ]; then
+  # SHADOW=false to skip hot reload and run a release build instead.
+  if [ "${SHADOW:-true}" = "true" ]; then
     echo "Starting shadow-cljs watch..."
     npx shadow-cljs watch app &
     echo $! > .shadow-cljs.pid
@@ -62,6 +47,6 @@ else
     npx shadow-cljs release app
   fi
 
-  echo "Starting server in development mode on port $PORT..."
+  echo "Starting server in development mode..."
   DEV=true clojure -X:run
 fi

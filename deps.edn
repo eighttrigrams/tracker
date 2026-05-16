@@ -14,7 +14,8 @@
         nrepl/nrepl {:mvn/version "1.5.1"}
         com.taoensso/telemere {:mvn/version "1.2.1"}
         clj-http/clj-http {:mvn/version "3.12.3"}
-        org.jsoup/jsoup {:mvn/version "1.18.3"}}
+        org.jsoup/jsoup {:mvn/version "1.18.3"}
+        aero/aero {:mvn/version "1.1.6"}}
  :aliases {:run {:exec-fn et.tr.server/-main}
            :test {:extra-paths ["test/clj"]
                   :extra-deps {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1"

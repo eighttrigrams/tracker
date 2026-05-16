@@ -69,16 +69,14 @@ $ make deploy
 
 See [docs/MESSAGING.md](docs/MESSAGING.md).
 
-## Automated Feature Building
+## Configuration
 
-Requires [builder](https://github.com/eighttrigrams/builder) installed via bbin:
+Main config file is `config.edn`
 
-```bash
-bbin install io.github.eighttrigrams/builder
-```
+- `:shadow?` whether hot code reload will be active when the application is started via `make start`
+- `:nrepl-port`
 
-Then run:
+## Environment variables
 
-```bash
-bb scripts/bb/build_next_feature.clj <feature-name>
-```
+- `PORT`: Tracker's main port, default to `3110`
+- `SHADOW_PORT`: Shadow CLJS primary HTTP; default to `9801`

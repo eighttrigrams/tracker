@@ -471,7 +471,7 @@
     (when prod?
       (worker/start-scheduler (common/ensure-ds))
       (source-worker/start-scheduler (common/ensure-ds)))
-    (if-let [port (env-int "PORT" (:port @common/*config))]
+    (if-let [port (:port @common/*config)]
       (do
         (tel/log! :info (str "Starting server on port " port))
         (run-server port prod?)

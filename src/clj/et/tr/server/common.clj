@@ -3,8 +3,8 @@
             [et.tr.db.event :as db.event]
             [et.tr.auth :as auth]
             [clojure.java.io :as io]
-            [clojure.edn :as edn]
             [clojure.string :as str]
+            [aero.core :as aero]
             [clj-http.client :as http]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
@@ -18,7 +18,7 @@
     (if (.exists config-file)
       (do
         (tel/log! :info "Loading configuration from config.edn")
-        (edn/read-string (slurp config-file)))
+        (aero/read-config config-file))
       (do
         (tel/log! :info "config.edn not found, using defaults")
         {}))))
