@@ -18,8 +18,17 @@ else
 	DEV=true clj -X:test
 endif
 
+# Usage:
+#   make e2e                          full run
+#   make e2e T="scenario substring"   filter via playwright -g
+#   make e2e NO_BUILD=1               skip `shadow-cljs release` (reuses
+#                                     the previously built main.js — fine
+#                                     when no cljs changed since last run)
 e2e:
-	./scripts/stop.sh check && npx shadow-cljs release app && npx bddgen -c test/playwright.config.ts && npx playwright test -c test/playwright.config.ts
+	./scripts/stop.sh check && \
+	$(if $(NO_BUILD),true,npx shadow-cljs release app) && \
+	npx bddgen -c test/playwright.config.ts && \
+	npx playwright test -c test/playwright.config.ts $(if $(T),-g "$(T)")
 
 e2e-docker:
 	./scripts/run-e2e-docker.sh
