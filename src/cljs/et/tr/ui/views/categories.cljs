@@ -1,7 +1,18 @@
 (ns et.tr.ui.views.categories
-  (:require [et.tr.ui.state :as state]
+  (:require [clojure.string :as str]
+            [et.tr.ui.state :as state]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.i18n :refer [t]]))
+
+(defn- matches-search? [item search-term]
+  (if (str/blank? search-term)
+    true
+    (let [haystack (str/lower-case
+                    (str (:name item) " " (:badge_title item) " " (:tags item)))
+          terms (->> (str/split (str/trim search-term) #"\s+")
+                     (map str/lower-case)
+                     (remove str/blank?))]
+      (every? #(str/includes? haystack %) terms))))
 
 ;; Handlers derive category-type from live app-state instead of closure
 ;; capture: Reagent re-renders on rAF, so a fast click after a tab switch
@@ -114,7 +125,9 @@
            "✎"])])]))
 
 (defn category-cards-page [category-type]
-  (let [items (get @state/*app-state category-type)
+  (let [search-term (get-in @state/*app-state [:categories-page/filter-search category-type])
+        items (filter #(matches-search? % search-term)
+                      (get @state/*app-state category-type))
         [add-label category-type-str]
         (case category-type
           :people  [:category/search-or-add-person  state/CATEGORY-TYPE-PERSON]

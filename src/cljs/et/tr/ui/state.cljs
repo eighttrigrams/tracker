@@ -1071,31 +1071,20 @@
 (defn switch-user [user]
   (users/switch-user *app-state initial-collection-state fetch-all user))
 
-(defn- categories-search-term [category-type]
-  (get-in @*app-state [:categories-page/filter-search category-type]))
-
 (defn fetch-people []
-  (categories/fetch-people *app-state auth-headers (categories-search-term :people)))
+  (categories/fetch-people *app-state auth-headers))
 
 (defn fetch-places []
-  (categories/fetch-places *app-state auth-headers (categories-search-term :places)))
+  (categories/fetch-places *app-state auth-headers))
 
 (defn fetch-projects []
-  (categories/fetch-projects *app-state auth-headers (categories-search-term :projects)))
+  (categories/fetch-projects *app-state auth-headers))
 
 (defn fetch-goals []
-  (categories/fetch-goals *app-state auth-headers (categories-search-term :goals)))
-
-(defn- fetch-category-fn [category-type]
-  (case category-type
-    :people fetch-people
-    :places fetch-places
-    :projects fetch-projects
-    :goals fetch-goals))
+  (categories/fetch-goals *app-state auth-headers))
 
 (defn set-categories-filter-search [category-type search-term]
-  (swap! *app-state assoc-in [:categories-page/filter-search category-type] search-term)
-  ((fetch-category-fn category-type)))
+  (swap! *app-state assoc-in [:categories-page/filter-search category-type] search-term))
 
 (defn add-person [name on-success]
   (categories/add-person *app-state auth-headers name on-success))
