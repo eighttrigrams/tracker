@@ -377,3 +377,27 @@
         :open-selector-fn state/open-category-selector
         :close-selector-fn state/close-category-selector
         :set-search-fn state/set-category-selector-search}])))
+
+(defn journal-entry-category-selector [_entry _category-type _entities _label]
+  (fn [entry* category-type* entities* label*]
+    (let [current (case category-type*
+                    state/CATEGORY-TYPE-PERSON (:people entry*)
+                    state/CATEGORY-TYPE-PLACE (:places entry*)
+                    state/CATEGORY-TYPE-PROJECT (:projects entry*)
+                    state/CATEGORY-TYPE-GOAL (:goals entry*)
+                    [])]
+      [category-selector/category-selector
+       {:entity entry*
+        :entity-id-key :id
+        :category-type category-type*
+        :entities entities*
+        :label label*
+        :current-categories current
+        :on-categorize #(state/categorize-journal-entry (:id entry*) category-type* %)
+        :on-uncategorize #(state/uncategorize-journal-entry (:id entry*) category-type* %)
+        :on-close-focus-fn nil
+        :open-selector-state (:category-selector/open @state/*app-state)
+        :search-state (:category-selector/search @state/*app-state)
+        :open-selector-fn state/open-category-selector
+        :close-selector-fn state/close-category-selector
+        :set-search-fn state/set-category-selector-search}])))

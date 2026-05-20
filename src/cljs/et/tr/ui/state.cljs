@@ -522,7 +522,9 @@
 
 (defn- fetch-meets-and-today-meets []
   (fetch-meets)
-  (fetch-today-meets))
+  (fetch-today-meets)
+  (when (= :reports (:active-tab @*app-state))
+    (fetch-reports)))
 
 (defn set-meet-start-date [meet-id start-date]
   (meets-state/set-meet-start-date *app-state auth-headers fetch-meets-and-today-meets meet-id start-date))
@@ -824,11 +826,16 @@
   (swap! *app-state update :resources-page/journal-with-description-only not)
   (fetch-journal-entries))
 
+(defn- fetch-journal-entries-and-maybe-reports []
+  (fetch-journal-entries)
+  (when (= :reports (:active-tab @*app-state))
+    (fetch-reports)))
+
 (defn categorize-journal-entry [entry-id category-type category-id]
-  (journal-entries-state/categorize-journal-entry *app-state auth-headers fetch-journal-entries entry-id category-type category-id))
+  (journal-entries-state/categorize-journal-entry *app-state auth-headers fetch-journal-entries-and-maybe-reports entry-id category-type category-id))
 
 (defn uncategorize-journal-entry [entry-id category-type category-id]
-  (journal-entries-state/uncategorize-journal-entry *app-state auth-headers fetch-journal-entries entry-id category-type category-id))
+  (journal-entries-state/uncategorize-journal-entry *app-state auth-headers fetch-journal-entries-and-maybe-reports entry-id category-type category-id))
 
 (defn toggle-journals-mode []
   (swap! *app-state (fn [s] (-> s
@@ -1207,11 +1214,16 @@
 (defn update-task [task-id title description tags on-success]
   (tasks/update-task *app-state auth-headers task-id title description tags on-success))
 
+(defn- fetch-tasks-and-maybe-reports []
+  (fetch-tasks)
+  (when (= :reports (:active-tab @*app-state))
+    (fetch-reports)))
+
 (defn categorize-task [task-id category-type category-id]
-  (tasks/categorize-task *app-state auth-headers fetch-tasks task-id category-type category-id))
+  (tasks/categorize-task *app-state auth-headers fetch-tasks-and-maybe-reports task-id category-type category-id))
 
 (defn uncategorize-task [task-id category-type category-id]
-  (tasks/uncategorize-task *app-state auth-headers fetch-tasks task-id category-type category-id))
+  (tasks/uncategorize-task *app-state auth-headers fetch-tasks-and-maybe-reports task-id category-type category-id))
 
 (defn set-task-due-date [task-id due-date]
   (tasks/set-task-due-date *app-state auth-headers task-id due-date))
