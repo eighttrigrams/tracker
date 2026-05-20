@@ -87,23 +87,27 @@
 
 (defn fetch-title-for-relation [conn type id]
   (let [table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)
+        select (cond-> [:title :relation_badge_title]
+                 (= type "tsk") (conj :done))
         row (jdbc/execute-one! conn
-              (sql/format {:select [:title :relation_badge_title]
+              (sql/format {:select select
                            :from [table]
                            :where [:= :id id]})
               db/jdbc-opts)]
-    {:title (:title row)
-     :badge_title (:relation_badge_title row)}))
+    (cond-> {:title (:title row)
+             :badge_title (:relation_badge_title row)}
+      (= type "tsk") (assoc :done (:done row)))))
 
 (defn get-relations-with-titles [ds user-id source-type source-id]
   (when-let [relations (get-relations-for-item ds user-id source-type source-id)]
     (let [conn (db/get-conn ds)]
       (mapv (fn [{:keys [target_type target_id]}]
-              (let [{:keys [title badge_title]} (fetch-title-for-relation conn target_type target_id)]
-                {:type target_type
-                 :id target_id
-                 :title title
-                 :badge_title badge_title}))
+              (let [{:keys [title badge_title done]} (fetch-title-for-relation conn target_type target_id)]
+                (cond-> {:type target_type
+                         :id target_id
+                         :title title
+                         :badge_title badge_title}
+                  (= target_type "tsk") (assoc :done done))))
             relations))))
 
 (defn- fetch-relations-batch [conn source-type source-ids]
@@ -122,15 +126,20 @@
                          (for [[type rels] grouped
                                :let [ids (mapv :target_id rels)
                                      table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)
+                                     select (cond-> [:id :title :relation_badge_title]
+                                              (= type "tsk") (conj :done))
+                                     keep-keys (cond-> [:title :relation_badge_title]
+                                                 (= type "tsk") (conj :done))
                                      items (jdbc/execute! conn
-                                             (sql/format {:select [:id :title :relation_badge_title]
+                                             (sql/format {:select select
                                                           :from [table]
                                                           :where [:in :id ids]})
                                              db/jdbc-opts)]]
-                           [type (into {} (map (juxt :id #(select-keys % [:title :relation_badge_title])) items))]))]
+                           [type (into {} (map (juxt :id #(select-keys % keep-keys)) items))]))]
     (mapv (fn [{:keys [target_type target_id] :as rel}]
-            (let [{:keys [title relation_badge_title]} (get-in title-maps [target_type target_id])]
-              (assoc rel :title title :badge_title relation_badge_title)))
+            (let [{:keys [title relation_badge_title done]} (get-in title-maps [target_type target_id])]
+              (cond-> (assoc rel :title title :badge_title relation_badge_title)
+                (= target_type "tsk") (assoc :done done))))
           relations)))
 
 (defn associate-relations-with-items [items source-type conn]
@@ -141,8 +150,9 @@
     (mapv (fn [item]
             (let [item-relations (get relations-by-source (:id item) [])]
               (assoc item :relations
-                     (mapv (fn [{:keys [target_type target_id title badge_title]}]
-                             {:type target_type :id target_id :title title :badge_title badge_title})
+                     (mapv (fn [{:keys [target_type target_id title badge_title done]}]
+                             (cond-> {:type target_type :id target_id :title title :badge_title badge_title}
+                               (= target_type "tsk") (assoc :done done)))
                            item-relations))))
           items)))
 
