@@ -6,6 +6,8 @@
             [et.tr.ui.recording-mode :as recording-mode]
             [et.tr.ui.mail :as mail]
             [et.tr.ui.views.settings :as settings]
+            [et.tr.ui.views.mottos :as mottos]
+            [et.tr.ui.screensaver :as screensaver]
             [et.tr.ui.views.users :as users]
             [et.tr.ui.views.today :as today]
             [et.tr.ui.views.tasks :as tasks]
@@ -63,7 +65,7 @@
     (t translation-key)]))
 
 (def ^:private category-tabs #{:cat-people :cat-places :cat-projects :cat-goals})
-(def ^:private settings-tabs #{:settings-profile :settings-shortcuts :settings-history})
+(def ^:private settings-tabs #{:settings-profile :settings-mottos :settings-shortcuts :settings-history})
 
 (defn tabs []
   (let [active-tab (:active-tab @state/*app-state)]
@@ -81,6 +83,7 @@
         (contains? settings-tabs active-tab)
         [:div.tabs
          [tab-button active-tab :settings-profile :settings/profile]
+         [tab-button active-tab :settings-mottos :settings/mottos]
          [tab-button active-tab :settings-shortcuts :settings/shortcuts]
          [tab-button active-tab :settings-history :settings/history]]
 
@@ -149,6 +152,7 @@
 
        :else
        [:div
+        [screensaver/watcher]
         (when-let [error (:error @state/*app-state)]
           [:div.error error [:button.error-dismiss {:on-click state/clear-error} "×"]])
         [:div.top-bar
@@ -171,6 +175,7 @@
           :mail [mail/mail-page]
           :users [users/users-tab]
           :settings-profile [settings/profile-tab]
+          :settings-mottos [mottos/mottos-tab]
           :settings-shortcuts [settings/shortcuts-tab]
           :settings-history [settings/history-tab]
           (let [recurring-mode (state/recurring-mode?)

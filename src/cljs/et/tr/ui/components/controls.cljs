@@ -123,10 +123,10 @@
            (t :nav/categories)])
         [dark-mode-toggle]
         [:button.settings-btn
-         {:class (when (contains? #{:settings-profile :settings-shortcuts :settings-history} active-tab) "active")
+         {:class (when (contains? #{:settings-profile :settings-mottos :settings-shortcuts :settings-history} active-tab) "active")
           :on-click #(let [s @state/*app-state]
                        (state/set-active-tab
-                         (if (contains? #{:settings-profile :settings-shortcuts :settings-history}
+                         (if (contains? #{:settings-profile :settings-mottos :settings-shortcuts :settings-history}
                                         (:active-tab s))
                            (or (:last-global-tab s) :tasks)
                            (or (:last-settings-tab s) :settings-profile))))}

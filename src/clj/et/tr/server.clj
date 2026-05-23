@@ -18,6 +18,7 @@
             [et.tr.server.today-board-handler :as today-board-handler]
             [et.tr.server.category-handler :as category-handler]
             [et.tr.server.source-handler :as source-handler]
+            [et.tr.server.motto-handler :as motto-handler]
             [et.tr.auth :as auth]
             [et.tr.server.recording-mode :as recording-mode]
             [et.tr.server.audit :as audit]
@@ -143,7 +144,8 @@
     et.tr.server.user-handler
     et.tr.server.event-handler
     et.tr.server.today-board-handler
-    et.tr.server.source-handler])
+    et.tr.server.source-handler
+    et.tr.server.motto-handler])
 
 (defn describe-handler [_req]
   {:status 200
@@ -175,7 +177,9 @@
 
     (context "/user" []
       (PUT "/language" [] user-handler/update-language-handler)
-      (PUT "/vim-keys" [] user-handler/update-vim-keys-handler))
+      (PUT "/vim-keys" [] user-handler/update-vim-keys-handler)
+      (PUT "/screensaver-enabled" [] user-handler/update-screensaver-enabled-handler)
+      (PUT "/screensaver-timeout" [] user-handler/update-screensaver-timeout-handler))
 
     (context "/users" []
       (GET "/" [] user-handler/list-users-handler)
@@ -327,6 +331,15 @@
       (PUT "/:id/scope" [] journal-entry-handler/set-journal-entry-scope-handler)
       (PUT "/:id/importance" [] journal-entry-handler/set-journal-entry-importance-handler)
       (PUT "/:id/relation-badge-title" [] journal-entry-handler/set-journal-entry-relation-badge-title-handler))
+
+    (context "/mottos" []
+      (GET "/" [] motto-handler/list-mottos-handler)
+      (GET "/:id" [] motto-handler/get-motto-handler)
+      (POST "/" [] motto-handler/add-motto-handler)
+      (PUT "/:id" [] motto-handler/update-motto-handler)
+      (DELETE "/:id" [] motto-handler/delete-motto-handler)
+      (PUT "/:id/scope" [] motto-handler/set-motto-scope-handler)
+      (PUT "/:id/time-window" [] motto-handler/set-motto-time-window-handler))
 
     (context "/relations" []
       (POST "/" [] relation-handler/add-relation-handler)

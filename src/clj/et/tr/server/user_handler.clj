@@ -211,6 +211,47 @@
         {:status 200 :body result}
         {:status 404 :body {:error "User not found"}}))))
 
+(defn update-screensaver-enabled-handler
+  "PUT /api/user/screensaver-enabled — toggle the caller's motto
+  screensaver preference. Body :screensaver_enabled must be 0 or 1.
+  Requires a resolvable user-id (the synthetic admin without a row is
+  rejected). Returns 200 with the updated row."
+  [req]
+  (let [user-info (common/get-user-from-request req)
+        user-id (:user-id user-info)
+        enabled (:screensaver_enabled (:body req))]
+    (cond
+      (nil? user-id)
+      {:status 400 :body {:error "User not found"}}
+
+      (not (contains? #{0 1} enabled))
+      {:status 400 :body {:error "Invalid value"}}
+
+      :else
+      (if-let [result (db.user/set-screensaver-enabled (common/ensure-ds) user-id (= 1 enabled))]
+        {:status 200 :body result}
+        {:status 404 :body {:error "User not found"}}))))
+
+(defn update-screensaver-timeout-handler
+  "PUT /api/user/screensaver-timeout — set the motto screensaver
+  inactivity timeout (in whole seconds, must be a positive integer).
+  Requires a resolvable user-id. Returns 200 with the updated row."
+  [req]
+  (let [user-info (common/get-user-from-request req)
+        user-id (:user-id user-info)
+        seconds (:screensaver_timeout_seconds (:body req))]
+    (cond
+      (nil? user-id)
+      {:status 400 :body {:error "User not found"}}
+
+      (not (and (integer? seconds) (pos? seconds)))
+      {:status 400 :body {:error "Timeout must be a positive integer (seconds)"}}
+
+      :else
+      (if-let [result (db.user/set-screensaver-timeout (common/ensure-ds) user-id seconds)]
+        {:status 200 :body result}
+        {:status 404 :body {:error "User not found"}}))))
+
 (defn- human-caller
   "Return the caller's user-info map only if the request is from a
   logged-in non-admin human. Machine-user tokens, the synthetic admin,

@@ -45,7 +45,7 @@
   (focus-tasks-search)
   (fetch-tasks-fn (tasks-fetch-opts app-state)))
 
-(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-meets fetch-reports fetch-people fetch-places fetch-projects fetch-goals is-admin has-mail]}]
+(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-meets fetch-reports fetch-people fetch-places fetch-projects fetch-goals fetch-mottos is-admin has-mail]}]
   {:tasks (fn []
             (initialize-tasks-page app-state fetch-tasks))
    :today (fn []
@@ -67,11 +67,12 @@
    :cat-people   (fn [] (fetch-people))
    :cat-places   (fn [] (fetch-places))
    :cat-projects (fn [] (fetch-projects))
-   :cat-goals    (fn [] (fetch-goals))})
+   :cat-goals    (fn [] (fetch-goals))
+   :settings-mottos (fn [] (fetch-mottos))})
 
 (def ^:private global-tabs #{:today :tasks :meets :resources :reports :mail})
 (def ^:private category-tabs #{:cat-people :cat-places :cat-projects :cat-goals})
-(def ^:private settings-tabs #{:settings-profile :settings-shortcuts :settings-history})
+(def ^:private settings-tabs #{:settings-profile :settings-mottos :settings-shortcuts :settings-history})
 
 (defn- supersection-key [tab]
   (cond
