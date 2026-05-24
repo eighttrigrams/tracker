@@ -3,6 +3,12 @@
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.i18n :refer [t]]))
 
+(def ^:private filter-key->entity-type
+  {:people   :category-person
+   :places   :category-place
+   :projects :category-project
+   :goals    :category-goal})
+
 (defn- handle-filter-badge-click [toggle-fn input-id item-id]
   (toggle-fn item-id)
   (js/setTimeout #(when-let [el (.getElementById js/document input-id)]
@@ -48,13 +54,18 @@
         [:button.clear-filter {:on-click clear-fn} "x"])]
      (if collapsed?
        (when (seq marked-items)
-         [:div.filter-items.collapsed
-          (doall
-           (for [item marked-items]
-             ^{:key (:id item)}
-             [:span.filter-item-label {:class label-class}
-              (:name item)
-              [:button.remove-item {:on-click #(toggle-fn (:id item))} "x"]]))])
+         (let [entity-type (filter-key->entity-type filter-key)]
+           [:div.filter-items.collapsed
+            (doall
+             (for [item marked-items]
+               ^{:key (:id item)}
+               [:span.filter-item-label {:class label-class}
+                (if entity-type
+                  [:span.filter-item-name
+                   {:on-click #(state/set-editing-modal entity-type item)}
+                   (:name item)]
+                  (:name item))
+                [:button.remove-item {:on-click #(toggle-fn (:id item))} "x"]]))]))
        [:div.filter-items
         [:input.category-search
          {:id input-id

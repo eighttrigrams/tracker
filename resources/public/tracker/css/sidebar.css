@@ -55,18 +55,23 @@
   flex-wrap: wrap;
   gap: 6px;
 }
-.filter-item-label {
+.filter-section .filter-item-label {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   padding: 4px 10px;
   background: var(--accent);
   color: white;
   border-radius: 20px;
   font-size: 0.8em;
   font-weight: 500;
+  -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 22px), transparent calc(100% - 22px), transparent calc(100% - 20px), black calc(100% - 20px), black 100%);
+  mask-image: linear-gradient(to right, black 0, black calc(100% - 22px), transparent calc(100% - 22px), transparent calc(100% - 20px), black calc(100% - 20px), black 100%);
 }
-.filter-item-label .remove-item {
+.filter-section .filter-item-name {
+  cursor: pointer;
+}
+.filter-section .filter-item-label .remove-item {
   background: none;
   border: none;
   padding: 0;
@@ -75,7 +80,7 @@
   font-size: 0.9em;
   cursor: pointer;
 }
-.filter-item-label .remove-item:hover { opacity: 1; transform: none; }
+.filter-section .filter-item-label .remove-item:hover { opacity: 1; transform: none; }
 
 /* Category-specific highlight colors for filter sections */
 .filter-section.people .filter-item.active {

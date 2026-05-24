@@ -99,22 +99,31 @@
         (rate-limit/reset-rate-limit!)
         {:status 200 :body {:success true}})))
 
+;; Prod uses a constant captured at JVM start. Containers restart on each
+;; deploy (fly.io etc.), so startup time is a deploy-keyed cache buster.
+(def ^:private prod-cache-bust (System/currentTimeMillis))
+
+(defn- cache-bust []
+  (if (common/prod-mode?)
+    prod-cache-bust
+    (let [js-file (io/file (io/resource "public/tracker/js/main.js"))]
+      (if (and js-file (.exists js-file))
+        (.lastModified js-file)
+        (System/currentTimeMillis)))))
+
 (defn- serve-index [_]
-  (let [html (if (common/prod-mode?)
-               ;; In prod, __CACHE_BUST__ is replaced at Docker build time by sed
-               ;; (see Dockerfile). Resources live inside the jar, so io/file on a
-               ;; jar:file: URL would throw — slurp the resource as-is.
-               (slurp (io/resource "public/tracker/index.html"))
-               ;; In dev, resources are on disk; substitute __CACHE_BUST__ at request
-               ;; time using main.js mtime so reloads pick up fresh shadow-cljs builds.
-               (let [js-file (io/file (io/resource "public/tracker/js/main.js"))
-                     bust (if (.exists js-file) (.lastModified js-file) (System/currentTimeMillis))]
-                 (-> (io/resource "public/tracker/index.html")
-                     slurp
-                     (str/replace "__CACHE_BUST__" (str bust)))))]
-    {:status 200
-     :headers {"Content-Type" "text/html"}
-     :body html}))
+  {:status 200
+   :headers {"Content-Type" "text/html"}
+   :body (-> (io/resource "public/tracker/index.html")
+             slurp
+             (str/replace "__CACHE_BUST__" (str (cache-bust))))})
+
+(defn- serve-styles [_]
+  {:status 200
+   :headers {"Content-Type" "text/css"}
+   :body (-> (io/resource "public/tracker/styles.css")
+             slurp
+             (str/replace "__CACHE_BUST__" (str (cache-bust))))})
 
 (defn toggle-recording-mode-handler [req]
   (let [now (recording-mode/toggle!)]
@@ -387,6 +396,7 @@
   api-routes
   (GET "/" [] serve-index)
   (GET "/item/*" [] serve-index)
+  (GET "/styles.css" [] serve-styles)
   (route/resources "/" {:root "public/tracker"})
   (route/not-found {:status 404 :body {:error "Not found"}}))
 
