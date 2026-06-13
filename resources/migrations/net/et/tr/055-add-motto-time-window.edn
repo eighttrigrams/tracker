@@ -1,0 +1,2 @@
+{:up ["ALTER TABLE mottos ADD COLUMN time_window TEXT NOT NULL DEFAULT 'both' CHECK (time_window IN ('both', 'daytime', 'nighttime'))"]
+ :down ["ALTER TABLE mottos DROP COLUMN time_window"]}

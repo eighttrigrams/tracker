@@ -8,6 +8,14 @@
             [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :as i18n :refer [t]]))
 
+(defn- category-selectors [item selector-fn]
+  (let [{:keys [people places projects goals]} @state/*app-state]
+    [:<>
+     [selector-fn item state/CATEGORY-TYPE-PERSON people (t :category/person)]
+     [selector-fn item state/CATEGORY-TYPE-PLACE places (t :category/place)]
+     [selector-fn item state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+     [selector-fn item state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]))
+
 (def ^:private reports-category-shortcut-keys
   {"Digit1" :people
    "Digit2" :places
@@ -162,7 +170,9 @@
                         (.stopPropagation e)
                         (state/set-editing-modal :task task))}
            "✎"])
-        [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]
+        [:div.item-tags
+         [category-selectors task task-item/category-selector]
+         [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]]
         [:div.item-actions
          [scope-selector task state/set-task-scope]
          [task-actions task]]]
@@ -194,7 +204,9 @@
                         (.stopPropagation e)
                         (state/set-editing-modal :meet meet))}
            "✎"])
-        [relation-badges/relation-badges-expanded (:relations meet) "met" (:id meet)]
+        [:div.item-tags
+         [category-selectors meet task-item/meet-category-selector]
+         [relation-badges/relation-badges-expanded (:relations meet) "met" (:id meet)]]
         [:div.item-actions
          [scope-selector meet state/set-meet-scope]
          [delete-button #(state/set-confirm-delete-meet meet)]]]
@@ -224,7 +236,7 @@
                                              (state/set-journal-filter {:id (:journal_id entry) :title (:title entry)})
                                              (state/set-active-tab :resources))}
           "🔁"]])]
-     (when is-expanded
+     (if is-expanded
        [:div.item-details
         (if (seq (:description entry))
           [task-item/clampable-description
@@ -235,10 +247,21 @@
                         (.stopPropagation e)
                         (state/set-editing-modal :journal-entry entry))}
            "✎"])
-        [relation-badges/relation-badges-expanded (:relations entry) "jen" (:id entry)]
+        [:div.item-tags
+         [category-selectors entry task-item/journal-entry-category-selector]
+         [relation-badges/relation-badges-expanded (:relations entry) "jen" (:id entry)]]
         [:div.item-actions
          [scope-selector entry state/set-journal-entry-scope]
-         [delete-button #(state/set-confirm-delete-journal-entry entry)]]])]))
+         [delete-button #(state/set-confirm-delete-journal-entry entry)]]]
+       [:div.item-tags-readonly
+        [task-item/category-badges
+         {:item entry
+          :category-types [[state/CATEGORY-TYPE-PERSON :people]
+                           [state/CATEGORY-TYPE-PLACE :places]
+                           [state/CATEGORY-TYPE-PROJECT :projects]
+                           [state/CATEGORY-TYPE-GOAL :goals]]
+          :toggle-fn state/toggle-shared-filter
+          :has-filter-fn state/has-filter-for-type?}]])]))
 
 (defn- day-section [day-date day-tasks day-meets day-entries]
   [:div.report-day-group {:key day-date}

@@ -1,0 +1,17 @@
+{:up ["CREATE TABLE mottos (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         title TEXT NOT NULL,
+         description TEXT NOT NULL DEFAULT '',
+         scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+         created_at TEXT NOT NULL DEFAULT (datetime('now')),
+         modified_at TEXT NOT NULL DEFAULT (datetime('now')),
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE
+       )"
+      "CREATE INDEX idx_mottos_user_scope ON mottos (user_id, scope)"
+      "ALTER TABLE users ADD COLUMN screensaver_enabled INTEGER NOT NULL DEFAULT 0"
+      "ALTER TABLE users ADD COLUMN screensaver_timeout_seconds INTEGER NOT NULL DEFAULT 300"]
+ :down ["ALTER TABLE users DROP COLUMN screensaver_timeout_seconds"
+        "ALTER TABLE users DROP COLUMN screensaver_enabled"
+        "DROP INDEX IF EXISTS idx_mottos_user_scope"
+        "DROP TABLE mottos"]
+ :transactions false}

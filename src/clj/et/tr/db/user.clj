@@ -28,7 +28,8 @@
 (defn get-user-by-username [ds username]
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:select [:id :username :password_hash :language :has_mail :vim_keys :created_at
-                          :is_machine_user :for_user_id :mail_only]
+                          :is_machine_user :for_user_id :mail_only
+                          :screensaver_enabled :screensaver_timeout_seconds]
                  :from [:users]
                  :where [:= :username username]})
     db/jdbc-opts))
@@ -48,7 +49,8 @@
 (defn list-users [ds]
   (jdbc/execute! (db/get-conn ds)
     (sql/format {:select [:id :username :language :has_mail :vim_keys :created_at
-                          :is_machine_user :for_user_id :mail_only]
+                          :is_machine_user :for_user_id :mail_only
+                          :screensaver_enabled :screensaver_timeout_seconds]
                  :from [:users]
                  :where [:not= :username "admin"]
                  :order-by [[:created_at :asc]]})
@@ -79,6 +81,7 @@
         (jdbc/execute-one! tx (sql/format {:delete-from :places :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :projects :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :goals :where [:= :user_id user-id]}))
+        (jdbc/execute-one! tx (sql/format {:delete-from :mottos :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :users
                                            :where [:and [:= :is_machine_user 1] [:= :for_user_id user-id]]}))
         (let [result (jdbc/execute-one! tx (sql/format {:delete-from :users :where [:= :id user-id]}))]
@@ -111,6 +114,24 @@
                    :set {:vim_keys (if enabled 1 0)}
                    :where [:= :id user-id]
                    :returning [:id :vim_keys]})
+      db/jdbc-opts)))
+
+(defn set-screensaver-enabled [ds user-id enabled]
+  (when user-id
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :users
+                   :set {:screensaver_enabled (if enabled 1 0)}
+                   :where [:= :id user-id]
+                   :returning [:id :screensaver_enabled]})
+      db/jdbc-opts)))
+
+(defn set-screensaver-timeout [ds user-id seconds]
+  (when (and user-id (integer? seconds) (pos? seconds))
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :users
+                   :set {:screensaver_timeout_seconds seconds}
+                   :where [:= :id user-id]
+                   :returning [:id :screensaver_timeout_seconds]})
       db/jdbc-opts)))
 
 (defn list-machine-users-for-user

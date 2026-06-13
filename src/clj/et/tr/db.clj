@@ -54,10 +54,16 @@
 (defn- normalize-urgency [urgency]
   (if (contains? valid-urgencies urgency) urgency "default"))
 
+(def valid-time-windows #{"both" "daytime" "nighttime"})
+
+(defn- normalize-time-window [v]
+  (if (contains? valid-time-windows v) v "both"))
+
 (def field-normalizers
   {:scope normalize-scope
    :importance normalize-importance
-   :urgency normalize-urgency})
+   :urgency normalize-urgency
+   :time_window normalize-time-window})
 
 (def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :done_at :scope :importance :urgency :today :lined_up_for :maybe :recurring_task_id :reminder :reminder_date :relation_badge_title])
 
@@ -72,6 +78,8 @@
 (def journal-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_type])
 
 (def journal-entry-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :entry_date :journal_id :relation_badge_title])
+
+(def motto-select-columns [:id :title :description :scope :time_window :created_at :modified_at])
 
 (defn user-id-where-clause [user-id]
   (if user-id
@@ -322,7 +330,7 @@
 
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
-    (doseq [table [:relations :task_categories :resource_categories :meet_categories :meeting_series_categories :recurring_task_categories :journal_entry_categories :journal_categories :tasks :messages :resources :meets :meeting_series :recurring_tasks :journal_entries :journals :people :places :projects :goals :users]]
+    (doseq [table [:relations :task_categories :resource_categories :meet_categories :meeting_series_categories :recurring_task_categories :journal_entry_categories :journal_categories :tasks :messages :resources :meets :meeting_series :recurring_tasks :journal_entries :journals :mottos :people :places :projects :goals :users]]
       (jdbc/execute-one! conn (sql/format {:delete-from table})))
     (jdbc/execute-one! conn
       (sql/format {:insert-into :users

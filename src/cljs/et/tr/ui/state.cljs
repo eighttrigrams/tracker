@@ -23,6 +23,7 @@
             [et.tr.ui.state.relations :as relations-state]
             [et.tr.ui.state.reports :as reports-state]
             [et.tr.ui.state.events :as events-state]
+            [et.tr.ui.state.mottos :as mottos-state]
             [et.tr.ui.state.ui :as ui]))
 
 (def ^:const CATEGORY-TYPE-PERSON constants/CATEGORY-TYPE-PERSON)
@@ -43,6 +44,7 @@
    :recurring-tasks []
    :journals []
    :journal-entries []
+   :mottos []
    :today-meets []
    :today-journal-entries []
    :upcoming-horizon nil})
@@ -60,6 +62,7 @@
                             :recurring-tasks []
                             :journals []
                             :journal-entries []
+                            :mottos []
                             :today-journal-entries []
                             :users []
                             :available-users []
@@ -523,7 +526,9 @@
 
 (defn- fetch-meets-and-today-meets []
   (fetch-meets)
-  (fetch-today-meets))
+  (fetch-today-meets)
+  (when (= :reports (:active-tab @*app-state))
+    (fetch-reports)))
 
 (defn set-meet-start-date [meet-id start-date]
   (meets-state/set-meet-start-date *app-state auth-headers fetch-meets-and-today-meets meet-id start-date))
@@ -825,11 +830,16 @@
   (swap! *app-state update :resources-page/journal-with-description-only not)
   (fetch-journal-entries))
 
+(defn- fetch-journal-entries-and-maybe-reports []
+  (fetch-journal-entries)
+  (when (= :reports (:active-tab @*app-state))
+    (fetch-reports)))
+
 (defn categorize-journal-entry [entry-id category-type category-id]
-  (journal-entries-state/categorize-journal-entry *app-state auth-headers fetch-journal-entries entry-id category-type category-id))
+  (journal-entries-state/categorize-journal-entry *app-state auth-headers fetch-journal-entries-and-maybe-reports entry-id category-type category-id))
 
 (defn uncategorize-journal-entry [entry-id category-type category-id]
-  (journal-entries-state/uncategorize-journal-entry *app-state auth-headers fetch-journal-entries entry-id category-type category-id))
+  (journal-entries-state/uncategorize-journal-entry *app-state auth-headers fetch-journal-entries-and-maybe-reports entry-id category-type category-id))
 
 (defn toggle-journals-mode []
   (swap! *app-state (fn [s] (-> s
@@ -1039,6 +1049,56 @@
 (defn fetch-events []
   (events-state/fetch-events *app-state auth-headers))
 
+;; --- Mottos -----------------------------------------------------------------
+
+(defn- mottos-fetch-opts []
+  ;; The mottos management page always shows ALL the user's mottos
+  ;; regardless of the global scope toggle — the toggle only affects
+  ;; which mottos the screensaver picks from.
+  {:search-term (:filter-search @mottos-state/*mottos-page-state)})
+
+(defn fetch-mottos
+  ([] (fetch-mottos (mottos-fetch-opts)))
+  ([opts]
+   (mottos-state/fetch-mottos *app-state auth-headers opts)))
+
+(defn add-motto [title description on-success]
+  (mottos-state/add-motto *app-state auth-headers current-scope title description on-success fetch-mottos))
+
+(defn update-motto [motto-id title description on-success]
+  (mottos-state/update-motto *app-state auth-headers motto-id title description on-success))
+
+(defn delete-motto [motto-id]
+  (mottos-state/delete-motto *app-state auth-headers motto-id))
+
+(defn set-motto-scope [motto-id scope]
+  (mottos-state/set-motto-scope *app-state auth-headers motto-id scope))
+
+(defn set-motto-time-window [motto-id time-window]
+  (mottos-state/set-motto-time-window *app-state auth-headers motto-id time-window))
+
+(defn set-motto-filter-search [search-term]
+  (mottos-state/set-filter-search fetch-mottos search-term))
+
+(defn set-editing-motto [id]
+  (mottos-state/set-editing-motto id))
+
+(defn clear-editing-motto []
+  (mottos-state/clear-editing-motto))
+
+(defn set-confirm-delete-motto [motto]
+  (mottos-state/set-confirm-delete-motto motto))
+
+(defn clear-confirm-delete-motto []
+  (mottos-state/clear-confirm-delete-motto))
+
+(defn update-screensaver-enabled [enabled]
+  (mottos-state/update-screensaver-enabled *app-state auth-headers enabled))
+
+(defn update-screensaver-timeout [seconds]
+  (mottos-state/update-screensaver-timeout *app-state auth-headers seconds))
+
+
 (defn set-confirm-delete-user [user]
   (users/set-confirm-delete-user *app-state user))
 
@@ -1208,11 +1268,16 @@
 (defn update-task [task-id title description tags on-success]
   (tasks/update-task *app-state auth-headers task-id title description tags on-success))
 
+(defn- fetch-tasks-and-maybe-reports []
+  (fetch-tasks)
+  (when (= :reports (:active-tab @*app-state))
+    (fetch-reports)))
+
 (defn categorize-task [task-id category-type category-id]
-  (tasks/categorize-task *app-state auth-headers fetch-tasks task-id category-type category-id))
+  (tasks/categorize-task *app-state auth-headers fetch-tasks-and-maybe-reports task-id category-type category-id))
 
 (defn uncategorize-task [task-id category-type category-id]
-  (tasks/uncategorize-task *app-state auth-headers fetch-tasks task-id category-type category-id))
+  (tasks/uncategorize-task *app-state auth-headers fetch-tasks-and-maybe-reports task-id category-type category-id))
 
 (defn set-task-due-date [task-id due-date]
   (tasks/set-task-due-date *app-state auth-headers task-id due-date))
@@ -1557,6 +1622,7 @@
                                         :fetch-places fetch-places
                                         :fetch-projects fetch-projects
                                         :fetch-goals fetch-goals
+                                        :fetch-mottos fetch-mottos
                                         :is-admin is-admin?
                                         :has-mail has-mail?}))
 

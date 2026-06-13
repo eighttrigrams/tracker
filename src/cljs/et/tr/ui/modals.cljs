@@ -759,8 +759,14 @@
                         (if (seq relations)
                           [:ul.relations-list
                            (for [r relations]
-                             ^{:key (str (:type r) "-" (:id r))}
-                             [:li (str (relation-badges/relation-type-label (:type r)) ": " (:title r))])]
+                             (let [is-task? (= "tsk" (:type r))
+                                   done? (and is-task? (= 1 (:done r)))]
+                               ^{:key (str (:type r) "-" (:id r))}
+                               [:li {:class (when done? "relation-task-done")}
+                                (when is-task?
+                                  [:span.relation-task-checkmark
+                                   (if done? "☑ " "☐ ")])
+                                (str (relation-badges/relation-type-label (:type r)) ": " (:title r))]))]
                           [:p.relations-list-empty (t :modal/relations-list-empty)]))]
 
                      :preview

@@ -54,7 +54,8 @@
                               'et.tr.server.user-handler
                               'et.tr.server.event-handler
                               'et.tr.server.today-board-handler
-                              'et.tr.server.source-handler]
+                              'et.tr.server.source-handler
+                              'et.tr.server.motto-handler]
             handler-publics (for [ns-sym route-namespaces
                                   [sym _] (ns-publics (find-ns ns-sym))
                                   :when (str/ends-with? (name sym) "-handler")]
