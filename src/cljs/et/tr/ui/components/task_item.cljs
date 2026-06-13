@@ -63,7 +63,7 @@
 
 (defn category-badges [{:keys [item category-types toggle-fn has-filter-fn]}]
   (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]
-    (when (seq all-categories)
+    (when (and (state/show-collapsed-categories?) (seq all-categories))
       (into [:div.task-badges]
             (for [category all-categories]
               (let [type-has-filter? (has-filter-fn (:type category))
@@ -88,12 +88,13 @@
                    [state/CATEGORY-TYPE-PROJECT :projects]
                    [state/CATEGORY-TYPE-GOAL :goals]]
         has-categories? (some #(seq (get task (second %))) all-types)
+        show-categories? (and (state/show-collapsed-categories?) has-categories?)
         has-relations? (seq (:relations task))]
-    (when (or importance-stars has-categories? has-relations?)
+    (when (or importance-stars show-categories? has-relations?)
       [:div.task-badges
        (when importance-stars
          [:span.importance-badge {:class importance} importance-stars])
-       (when has-categories?
+       (when show-categories?
          (into [:<>]
                (for [category (mapcat (fn [[type k]] (map #(assoc % :type type) (get task k))) all-types)]
                  (let [type-has-filter? (state/has-filter-for-type? (:type category))

@@ -3,6 +3,21 @@
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.i18n :refer [t]]))
 
+(defn category-badge-toggle []
+  (let [showing? (state/show-collapsed-categories?)]
+    [:button.category-badge-toggle
+     {:class (when-not showing? "struck")
+      :title (if showing?
+               "Hide category badges on collapsed cards"
+               "Show category badges on collapsed cards")
+      :on-click #(state/toggle-show-collapsed-categories)}
+     [:span.eye-icon
+      [:svg {:viewBox "0 0 24 24" :fill "none" :stroke "currentColor"
+             :stroke-width "2" :stroke-linecap "round" :stroke-linejoin "round"
+             :width "20" :height "20"}
+       [:path {:d "M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"}]
+       [:circle {:cx "12" :cy "12" :r "3"}]]]]))
+
 (defn- handle-filter-badge-click [toggle-fn input-id item-id]
   (toggle-fn item-id)
   (js/setTimeout #(when-let [el (.getElementById js/document input-id)]

@@ -1,3 +1,34 @@
+.category-badge-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  margin-bottom: 20px;
+  background: var(--surface-subtle);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+.category-badge-toggle:hover { background: rgba(0, 0, 0, 0.06); transform: none; }
+.category-badge-toggle .eye-icon {
+  position: relative;
+  display: inline-block;
+  line-height: 1;
+}
+.category-badge-toggle .eye-icon svg { display: block; }
+.category-badge-toggle.struck .eye-icon::after {
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: 50%;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+  transform: translateY(-50%) rotate(-25deg);
+}
+
 .filter-section { margin-bottom: 20px; }
 .filter-section:last-child { margin-bottom: 0; }
 .filter-header {

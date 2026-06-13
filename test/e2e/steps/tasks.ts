@@ -43,6 +43,32 @@ When("I click the {string} tab", async ({ page }, name: string) => {
   await page.waitForLoadState("networkidle");
 });
 
+When("I click the category badges toggle", async ({ page }) => {
+  await page.locator(".sidebar .category-badge-toggle").first().click();
+});
+
+Then(
+  "the {string} badge on task {string} should be visible",
+  async ({ page }, badge: string, task: string) => {
+    const tag = page
+      .locator(".items li")
+      .filter({ hasText: task })
+      .locator(".tag", { hasText: badge });
+    await expect(tag).toBeVisible();
+  },
+);
+
+Then(
+  "the {string} badge on task {string} should not be visible",
+  async ({ page }, badge: string, task: string) => {
+    const tag = page
+      .locator(".items li")
+      .filter({ hasText: task })
+      .locator(".tag", { hasText: badge });
+    await expect(tag).toHaveCount(0);
+  },
+);
+
 When("I type {string} in the search field", async ({ page }, text: string) => {
   await page.locator("#tasks-filter-search").fill(text);
 });

@@ -138,7 +138,7 @@
 (defn sidebar-filters []
   (let [app-state @state/*app-state
         collapsed-filters (:tasks-page/collapsed-filters app-state)]
-    (into [:div.sidebar]
+    (into [:div.sidebar [filter-section/category-badge-toggle]]
           (for [{:keys [filter-key title-key items-key filter-state-key category-type]} sidebar-filter-configs]
             [filter-section {:title (t title-key)
                              :filter-key filter-key

@@ -144,6 +144,7 @@
                             :categories-page/expanded nil
                             :categories-page/filter-search {:people "" :places "" :projects "" :goals ""}
                             :show-user-switcher false
+                            :show-collapsed-categories? true
                             :work-private-mode :both
                             :strict-mode false
                             :dark-mode false
@@ -1616,6 +1617,12 @@
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))
+
+(defn show-collapsed-categories? []
+  (:show-collapsed-categories? @*app-state))
+
+(defn toggle-show-collapsed-categories []
+  (swap! *app-state update :show-collapsed-categories? not))
 
 (ui/setup-dark-mode-watcher *app-state)
 
