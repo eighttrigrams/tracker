@@ -4,10 +4,9 @@
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
+            [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
-            [et.tr.ui.components.relation-link :as relation-link]
-            [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private tasks-category-shortcut-keys
@@ -200,109 +199,63 @@
        (when is-open
          [send-to-day-dropdown task assigned?])])))
 
-(defn- task-expanded-details [task people places projects goals]
-  [:div.item-details
-   (if (seq (:description task))
-     [task-item/clampable-description
-      {:text (:description task)
-       :on-click #(state/set-editing-modal :task task)}]
-     [:button.edit-icon.description-placeholder
-      {:on-click (fn [e]
-                   (.stopPropagation e)
-                   (state/set-editing-modal :task task))}
-      "✎"])
-   [:div.item-tags
-    [task-item/category-selector task state/CATEGORY-TYPE-PERSON people (t :category/person)]
-    [task-item/category-selector task state/CATEGORY-TYPE-PLACE places (t :category/place)]
-    [task-item/category-selector task state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-    [task-item/category-selector task state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
-    [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]]
-   [:div.item-actions
-    [send-to-day-selector task]
-    [task-item/task-attribute-selectors task]
-    [task-item/task-combined-action-button task]]])
+(defn- task-date-render [is-expanded done-mode?]
+  (fn [task]
+    [:<>
+     (cond
+       (and (:due_date task) done-mode?)
+       [:span.due-date (str (date/format-date-localized (:due_date task))
+                            (when (seq (:due_time task))
+                              (str " - " (:due_time task))))]
 
-(defn- task-inline-title-edit [task]
-  (let [value (or (:tasks-page/inline-edit-title @state/*app-state) "")]
-    [:input.inline-title-edit
-     {:type "text"
-      :auto-complete "off"
-      :auto-focus true
-      :value value
-      :on-click #(.stopPropagation %)
-      :on-change #(swap! state/*app-state assoc :tasks-page/inline-edit-title (.. % -target -value))
-      :on-key-down (fn [e]
-                     (case (.-key e)
-                       "Enter" (do (.stopPropagation e)
-                                   (state/update-task (:id task) value (:description task) (:tags task)
-                                     #(swap! state/*app-state dissoc :tasks-page/inline-edit-task :tasks-page/inline-edit-title)))
-                       "Escape" (do (.stopPropagation e)
-                                    (swap! state/*app-state dissoc :tasks-page/inline-edit-task :tasks-page/inline-edit-title))
-                       nil))
-      :on-blur (fn [_]
-                 (state/update-task (:id task) value (:description task) (:tags task)
-                   #(swap! state/*app-state dissoc :tasks-page/inline-edit-task :tasks-page/inline-edit-title)))}]))
+       (and (:due_date task) (not done-mode?))
+       (let [today (date/today-str)
+             overdue? (< (:due_date task) today)]
+         [:span.due-date {:class (when overdue? "overdue")
+                          :data-tooltip (date/get-day-name (:due_date task))}
+          (str (date/format-date-localized (:due_date task))
+               (when (seq (:due_time task))
+                 (str " - " (:due_time task))))])
 
-(defn- task-header [task is-expanded done-mode? due-date-mode? manual-mode?]
-  (let [inline-editing? (= (:tasks-page/inline-edit-task @state/*app-state) (:id task))]
-    [:div.item-header
-     {:on-click (fn [e]
-                  (when-not (or inline-editing?
-                                (and is-expanded (not (.. js/window getSelection -isCollapsed))))
-                    (state/toggle-expanded :tasks-page/expanded-task (:id task))))}
-     [:div.item-title
-      [relation-link/relation-link-button :task (:id task)]
-      (if inline-editing?
-        [task-inline-title-edit task]
-        [:span.item-title-text
-         {:on-click (fn [e]
-                      (when (and is-expanded (.-altKey e))
-                        (.stopPropagation e)
-                        (swap! state/*app-state assoc
-                          :tasks-page/inline-edit-task (:id task)
-                          :tasks-page/inline-edit-title (:title task))))}
-         (:title task)])]
-   (when is-expanded
-     [:div.item-toolbar
-      [:button.calendar-icon {:on-click (fn [e]
-                                          (.stopPropagation e)
-                                          (state/set-editing-modal :task task :time))}
-       "📅"]])
-   [:div.item-date
-    (cond
-      (and (:due_date task) done-mode?)
-      [:span.due-date (str (date/format-date-localized (:due_date task))
-                           (when (seq (:due_time task))
-                             (str " - " (:due_time task))))]
+       (and (not done-mode?) (not is-expanded) (= 1 (:today task)))
+       [:span.assigned-day (t :today/today)]
 
-      (and (:due_date task) (not done-mode?))
-      (let [today (date/today-str)
-            overdue? (< (:due_date task) today)]
-        [:span.due-date {:class (when overdue? "overdue")
-                         :data-tooltip (date/get-day-name (:due_date task))}
-         (str (date/format-date-localized (:due_date task))
-              (when (seq (:due_time task))
-                (str " - " (:due_time task))))])
+       (and (not done-mode?) (not is-expanded) (:lined_up_for task))
+       [:span.assigned-day (date/get-day-label (:lined_up_for task))])
+     (when (and (:recurring_task_id task) (not= (:id (state/recurring-filter)) (:recurring_task_id task)))
+       [:span.recurrence-icon {:on-click (fn [e]
+                                           (.stopPropagation e)
+                                           (state/set-recurring-filter {:id (:recurring_task_id task) :title (:title task)}))}
+        "🔁"])
+     (when (or (:reminder_date task) (= "active" (:reminder task)))
+       [:span.reminder-icon "🔔"])]))
 
-      (and (not done-mode?) (not is-expanded) (= 1 (:today task)))
-      [:span.assigned-day (t :today/today)]
-
-      (and (not done-mode?) (not is-expanded) (:lined_up_for task))
-      [:span.assigned-day (date/get-day-label (:lined_up_for task))])
-    (when (and (:recurring_task_id task) (not= (:id (state/recurring-filter)) (:recurring_task_id task)))
-      [:span.recurrence-icon {:on-click (fn [e]
-                                          (.stopPropagation e)
-                                          (state/set-recurring-filter {:id (:recurring_task_id task) :title (:title task)}))}
-       "🔁"])
-    (when (or (:reminder_date task) (= "active" (:reminder task)))
-      [:span.reminder-icon "🔔"])]]))
-
-(defn- task-item-content [task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?]
-  [:div
-   [task-header task is-expanded done-mode? due-date-mode? manual-mode?]
-   (if is-expanded
-     [task-expanded-details task people places projects goals]
-     [task-item/task-categories-readonly task])])
+(defn- task-item-content [task is-expanded done-mode? container]
+  [item-card/item-card
+   {:item task
+    :expanded? is-expanded
+    :on-toggle #(state/toggle-expanded :tasks-page/expanded-task (:id task))
+    :container (merge {:tag :li} container)
+    :relation-link [:task (:id task)]
+    :inline-edit (item-card/make-inline-edit
+                   {:edit-id-path :tasks-page/inline-edit-task
+                    :title-path :tasks-page/inline-edit-title
+                    :update-fn state/update-task})
+    :toolbar {:calendar {:on-click #(state/set-editing-modal :task task :time)}}
+    :date {:render (task-date-render is-expanded done-mode?)}
+    :description {:edit-type :task}
+    :categories {:selector-fn task-item/category-selector
+                 :relations-prefix "tsk"
+                 :readonly-fn (fn [t] [task-item/task-categories-readonly t])}
+    :footer {:left (into [{:type :custom :render [send-to-day-selector task]}
+                          {:type :scope :value (:scope task)
+                           :on-set #(state/set-task-scope (:id task) %)}
+                          {:type :importance :value (:importance task)
+                           :on-set #(state/set-task-importance (:id task) %)}]
+                         (when-not (:due_date task)
+                           [{:type :urgency :value (:urgency task)
+                             :on-set #(state/set-task-urgency (:id task) %)}]))
+             :right [{:type :done :item task}]}}])
 
 (defn- extract-date [modified-at]
   (when modified-at
@@ -321,17 +274,16 @@
                             is-dragging (= drag-task (:id task))
                             is-drag-over (= drag-over-task (:id task))]
                         ^{:key (:id task)}
-                        [:li {:class (str (when is-expanded "expanded")
-                                          (when is-dragging " dragging")
-                                          (when is-drag-over " drag-over")
-                                          (when-not drag-enabled? " drag-disabled"))
-                              :draggable drag-enabled?
-                              :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task drag-enabled?)
-                              :on-drag-end (fn [_] (state/clear-drag-state))
-                              :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task drag-enabled?)
-                              :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
-                              :on-drop (drag-drop/make-drop-handler drag-task task state/reorder-task drag-enabled?)}
-                         [task-item-content task is-expanded people places projects goals done-mode? due-date-mode? manual-mode?]]))]
+                        [task-item-content task is-expanded done-mode?
+                         {:class (str (when is-dragging "dragging")
+                                      (when is-drag-over " drag-over")
+                                      (when-not drag-enabled? " drag-disabled"))
+                          :attrs {:draggable drag-enabled?
+                                  :on-drag-start (drag-drop/make-drag-start-handler task state/set-drag-task drag-enabled?)
+                                  :on-drag-end (fn [_] (state/clear-drag-state))
+                                  :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task drag-enabled?)
+                                  :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
+                                  :on-drop (drag-drop/make-drop-handler drag-task task state/reorder-task drag-enabled?)}}]))]
     (if done-mode?
       (let [grouped (group-by #(extract-date (or (:done_at %) (:modified_at %))) tasks)
             sorted-dates (->> (keys grouped) (sort #(compare %2 %1)))]

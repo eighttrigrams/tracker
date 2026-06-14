@@ -3,18 +3,9 @@
             [et.tr.ui.state.reports :as reports-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.task-item :as task-item]
+            [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.components.filter-section :as filter-section]
-            [et.tr.ui.components.relation-link :as relation-link]
-            [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :as i18n :refer [t]]))
-
-(defn- category-selectors [item selector-fn]
-  (let [{:keys [people places projects goals]} @state/*app-state]
-    [:<>
-     [selector-fn item state/CATEGORY-TYPE-PERSON people (t :category/person)]
-     [selector-fn item state/CATEGORY-TYPE-PLACE places (t :category/place)]
-     [selector-fn item state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-     [selector-fn item state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]))
 
 (def ^:private reports-category-shortcut-keys
   {"Digit1" :people
@@ -118,23 +109,6 @@
   (when date-str
     (.substring date-str 0 10)))
 
-(defn- scope-selector [entity set-fn]
-  (let [scope (or (:scope entity) "both")]
-    [:div.task-scope-selector.toggle-group.compact
-     (for [s ["private" "both" "work"]]
-       ^{:key s}
-       [:button.toggle-option
-        {:class (when (= scope s) "active")
-         :on-click (fn [e]
-                     (.stopPropagation e)
-                     (set-fn (:id entity) s))}
-        s])]))
-
-(defn- delete-button [on-click]
-  [:div.combined-button-wrapper
-   [:button.delete-btn {:on-click on-click}
-    (t :task/delete)]])
-
 (defn- task-actions [task]
   [:div.combined-button-wrapper
    [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)}
@@ -152,116 +126,77 @@
 
 (defn- report-task-item [task]
   (let [is-expanded (= (:expanded-task @reports-state/*reports-page-state) (:id task))]
-    [:li {:class (str "report-item report-task" (when is-expanded " expanded"))}
-     [:div.item-header
-      {:on-click #(swap! reports-state/*reports-page-state assoc :expanded-task
-                         (when-not is-expanded (:id task)))}
-      [:div.item-title
-       [relation-link/relation-link-button :task (:id task)]
-       [:span.item-title-text (:title task)]]]
-     (if is-expanded
-       [:div.item-details
-        (if (seq (:description task))
-          [task-item/clampable-description
-           {:text (:description task)
-            :on-click #(state/set-editing-modal :task task)}]
-          [:button.edit-icon.description-placeholder
-           {:on-click (fn [e]
-                        (.stopPropagation e)
-                        (state/set-editing-modal :task task))}
-           "✎"])
-        [:div.item-tags
-         [category-selectors task task-item/category-selector]
-         [relation-badges/relation-badges-expanded (:relations task) "tsk" (:id task)]]
-        [:div.item-actions
-         [scope-selector task state/set-task-scope]
-         [task-actions task]]]
-       [task-item/task-categories-readonly task])]))
+    [item-card/item-card
+     {:item task
+      :expanded? is-expanded
+      :on-toggle #(swap! reports-state/*reports-page-state assoc :expanded-task
+                         (when-not is-expanded (:id task)))
+      :container {:tag :li :class "report-item report-task"}
+      :relation-link [:task (:id task)]
+      :inline-edit (item-card/make-inline-edit
+                     {:edit-id-path :reports-page/inline-edit-task
+                      :title-path :reports-page/inline-edit-title
+                      :update-fn state/update-task})
+      :description {:edit-type :task}
+      :categories {:selector-fn task-item/category-selector
+                   :relations-prefix "tsk"
+                   :readonly-fn (fn [t] [task-item/task-categories-readonly t])}
+      :footer {:left [{:type :scope :value (:scope task)
+                       :on-set #(state/set-task-scope (:id task) %)}]
+               :right [{:type :custom :render [task-actions task]}]}}]))
 
 (defn- report-meet-item [meet]
   (let [is-expanded (= (:expanded-meet @reports-state/*reports-page-state) (:id meet))]
-    [:li {:class (str "report-item report-meet" (when is-expanded " expanded"))}
-     [:div.item-header
-      {:on-click #(swap! reports-state/*reports-page-state assoc :expanded-meet
-                         (when-not is-expanded (:id meet)))}
-      [:div.item-title
-       [relation-link/relation-link-button :meet (:id meet)]
-       (when (and (:importance meet) (not= (:importance meet) "normal"))
-         [:span.importance-badge {:class (:importance meet)}
-          (case (:importance meet) "important" "★" "critical" "★★" nil)])
-       [:span.item-title-text (:title meet)]]
-      [:div.item-date
-       (when (seq (:start_time meet))
-         [:span.due-date (:start_time meet)])]]
-     (if is-expanded
-       [:div.item-details
-        (if (seq (:description meet))
-          [task-item/clampable-description
-           {:text (:description meet)
-            :on-click #(state/set-editing-modal :meet meet)}]
-          [:button.edit-icon.description-placeholder
-           {:on-click (fn [e]
-                        (.stopPropagation e)
-                        (state/set-editing-modal :meet meet))}
-           "✎"])
-        [:div.item-tags
-         [category-selectors meet task-item/meet-category-selector]
-         [relation-badges/relation-badges-expanded (:relations meet) "met" (:id meet)]]
-        [:div.item-actions
-         [scope-selector meet state/set-meet-scope]
-         [delete-button #(state/set-confirm-delete-meet meet)]]]
-       [:div.item-tags-readonly
-        [task-item/category-badges
-         {:item meet
-          :category-types [[state/CATEGORY-TYPE-PERSON :people]
-                           [state/CATEGORY-TYPE-PLACE :places]
-                           [state/CATEGORY-TYPE-PROJECT :projects]
-                           [state/CATEGORY-TYPE-GOAL :goals]]
-          :toggle-fn state/toggle-shared-filter
-          :has-filter-fn state/has-filter-for-type?}]])]))
+    [item-card/item-card
+     {:item meet
+      :expanded? is-expanded
+      :on-toggle #(swap! reports-state/*reports-page-state assoc :expanded-meet
+                         (when-not is-expanded (:id meet)))
+      :container {:tag :li :class "report-item report-meet"}
+      :relation-link [:meet (:id meet)]
+      :inline-edit (item-card/make-inline-edit
+                     {:edit-id-path :reports-page/inline-edit-meet
+                      :title-path :reports-page/inline-edit-meet-title
+                      :update-fn state/update-meet})
+      :badges {:importance? true}
+      :date {:render (fn [m]
+                       (when (seq (:start_time m))
+                         [:span.due-date (:start_time m)]))}
+      :description {:edit-type :meet}
+      :categories {:selector-fn task-item/meet-category-selector
+                   :relations-prefix "met"
+                   :readonly-relations? false}
+      :footer {:left [{:type :scope :value (:scope meet)
+                       :on-set #(state/set-meet-scope (:id meet) %)}]
+               :right [{:type :delete :on-click #(state/set-confirm-delete-meet meet)}]}}]))
 
 (defn- report-journal-entry-item [entry]
   (let [is-expanded (= (:expanded-journal-entry @reports-state/*reports-page-state) (:id entry))]
-    [:li {:class (str "report-item report-journal-entry" (when is-expanded " expanded"))}
-     [:div.item-header
-      {:on-click #(swap! reports-state/*reports-page-state assoc :expanded-journal-entry
-                         (when-not is-expanded (:id entry)))}
-      [:div.item-title
-       [relation-link/relation-link-button :journal-entry (:id entry)]
-       [:span.item-title-text (:title entry)]]
-      (when (:journal_id entry)
-        [:div.item-date
-         [:span.recurrence-icon {:on-click (fn [e]
-                                             (.stopPropagation e)
-                                             (state/set-journal-filter {:id (:journal_id entry) :title (:title entry)})
-                                             (state/set-active-tab :resources))}
-          "🔁"]])]
-     (if is-expanded
-       [:div.item-details
-        (if (seq (:description entry))
-          [task-item/clampable-description
-           {:text (:description entry)
-            :on-click #(state/set-editing-modal :journal-entry entry)}]
-          [:button.edit-icon.description-placeholder
-           {:on-click (fn [e]
-                        (.stopPropagation e)
-                        (state/set-editing-modal :journal-entry entry))}
-           "✎"])
-        [:div.item-tags
-         [category-selectors entry task-item/journal-entry-category-selector]
-         [relation-badges/relation-badges-expanded (:relations entry) "jen" (:id entry)]]
-        [:div.item-actions
-         [scope-selector entry state/set-journal-entry-scope]
-         [delete-button #(state/set-confirm-delete-journal-entry entry)]]]
-       [:div.item-tags-readonly
-        [task-item/category-badges
-         {:item entry
-          :category-types [[state/CATEGORY-TYPE-PERSON :people]
-                           [state/CATEGORY-TYPE-PLACE :places]
-                           [state/CATEGORY-TYPE-PROJECT :projects]
-                           [state/CATEGORY-TYPE-GOAL :goals]]
-          :toggle-fn state/toggle-shared-filter
-          :has-filter-fn state/has-filter-for-type?}]])]))
+    [item-card/item-card
+     {:item entry
+      :expanded? is-expanded
+      :on-toggle #(swap! reports-state/*reports-page-state assoc :expanded-journal-entry
+                         (when-not is-expanded (:id entry)))
+      :container {:tag :li :class "report-item report-journal-entry"}
+      :relation-link [:journal-entry (:id entry)]
+      :inline-edit (item-card/make-inline-edit
+                     {:edit-id-path :reports-page/inline-edit-journal-entry
+                      :title-path :reports-page/inline-edit-journal-entry-title
+                      :update-fn state/update-journal-entry})
+      :date (when (:journal_id entry)
+              {:render (fn [e]
+                         [:span.recurrence-icon {:on-click (fn [ev]
+                                                             (.stopPropagation ev)
+                                                             (state/set-journal-filter {:id (:journal_id e) :title (:title e)})
+                                                             (state/set-active-tab :resources))}
+                          "🔁"])})
+      :description {:edit-type :journal-entry}
+      :categories {:selector-fn task-item/journal-entry-category-selector
+                   :relations-prefix "jen"
+                   :readonly-relations? false}
+      :footer {:left [{:type :scope :value (:scope entry)
+                       :on-set #(state/set-journal-entry-scope (:id entry) %)}]
+               :right [{:type :delete :on-click #(state/set-confirm-delete-journal-entry entry)}]}}]))
 
 (defn- day-section [day-date day-tasks day-meets day-entries]
   [:div.report-day-group {:key day-date}

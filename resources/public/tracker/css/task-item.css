@@ -355,6 +355,15 @@
   align-items: center;
   justify-content: space-between;
 }
+.item-actions-left,
+.item-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.item-actions-left .combined-button-wrapper {
+  margin-left: 0;
+}
 .delete-btn {
   background: transparent;
   color: #ff3b30;
