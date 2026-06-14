@@ -1,7 +1,8 @@
 (ns et.tr.ui.state.mottos
   (:require [ajax.core :refer [GET]]
             [reagent.core :as r]
-            [et.tr.ui.api :as api]))
+            [et.tr.ui.api :as api]
+            [et.tr.ui.state.auth :as auth]))
 
 (defonce *mottos-page-state (r/atom {:filter-search ""
                                      :editing-motto nil
@@ -113,7 +114,8 @@
     {:screensaver_enabled (if enabled 1 0)}
     (auth-headers)
     (fn [_]
-      (swap! app-state update :current-user assoc :screensaver_enabled (if enabled 1 0)))
+      (swap! app-state update :current-user assoc :screensaver_enabled (if enabled 1 0))
+      (auth/save-auth-to-storage (:token @app-state) (:current-user @app-state)))
     (fn [resp]
       (swap! app-state assoc :error
              (get-in resp [:response :error] "Failed to update screensaver setting")))))
@@ -123,7 +125,8 @@
     {:screensaver_timeout_seconds seconds}
     (auth-headers)
     (fn [_]
-      (swap! app-state update :current-user assoc :screensaver_timeout_seconds seconds))
+      (swap! app-state update :current-user assoc :screensaver_timeout_seconds seconds)
+      (auth/save-auth-to-storage (:token @app-state) (:current-user @app-state)))
     (fn [resp]
       (swap! app-state assoc :error
              (get-in resp [:response :error] "Failed to update screensaver timeout")))))
