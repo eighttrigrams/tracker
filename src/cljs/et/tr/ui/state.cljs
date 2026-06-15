@@ -80,7 +80,6 @@
                             :tasks-page/collapsed-filters #{:people :places :projects :goals}
                             :tasks-page/expanded-task nil
                             :editing-task nil
-                            :pending-new-item nil
                             :editing-modal nil
                             :confirm-delete-task nil
                             :confirm-undone-task nil
@@ -390,10 +389,19 @@
   (sources/delete-atom-feed auth-headers feed-id))
 
 (declare has-active-shared-filters?)
-(declare set-pending-new-item)
+(declare add-resource-with-categories)
+(declare add-meet-with-categories)
+(declare add-meeting-series-with-categories)
+(declare add-recurring-task-with-categories)
 (declare fetch-reports)
 (declare fetch-today-all)
 (declare today-fetch-opts)
+
+(defn active-filter-categories []
+  {:people (:shared/filter-people @*app-state)
+   :places (:shared/filter-places @*app-state)
+   :projects (:shared/filter-projects @*app-state)
+   :goals (:shared/filter-goals @*app-state)})
 
 (defn- resources-fetch-opts []
   {:search-term (:filter-search @resources-state/*resources-page-state)
@@ -415,7 +423,7 @@
 
 (defn add-resource [title link on-success]
   (if (has-active-shared-filters?)
-    (set-pending-new-item :resource title on-success {:link link})
+    (add-resource-with-categories title link (active-filter-categories) on-success)
     (resources-state/add-resource *app-state auth-headers current-scope title link on-success fetch-resources)))
 
 (defn update-resource [resource-id title link description tags on-success]
@@ -510,7 +518,7 @@
 
 (defn add-meet [title on-success]
   (if (has-active-shared-filters?)
-    (set-pending-new-item :meet title on-success)
+    (add-meet-with-categories title (active-filter-categories) on-success)
     (meets-state/add-meet *app-state auth-headers current-scope title on-success fetch-meets)))
 
 (defn update-meet [meet-id title description tags on-success]
@@ -591,7 +599,7 @@
 
 (defn add-meeting-series [title on-success]
   (if (has-active-shared-filters?)
-    (set-pending-new-item :meeting-series title on-success)
+    (add-meeting-series-with-categories title (active-filter-categories) on-success)
     (meeting-series-state/add-meeting-series *app-state auth-headers current-scope title on-success fetch-meeting-series)))
 
 (defn update-meeting-series [series-id title description tags on-success]
@@ -679,7 +687,7 @@
 
 (defn add-recurring-task [title on-success]
   (if (has-active-shared-filters?)
-    (set-pending-new-item :recurring-task title on-success)
+    (add-recurring-task-with-categories title (active-filter-categories) on-success)
     (recurring-tasks-state/add-recurring-task *app-state auth-headers current-scope title on-success fetch-recurring-tasks)))
 
 (defn update-recurring-task [rtask-id title description tags on-success]
@@ -1264,7 +1272,8 @@
   (meets-state/add-meet-with-categories *app-state auth-headers fetch-meets current-scope title categories on-success))
 
 (defn add-task [title on-success]
-  (tasks/add-task *app-state auth-headers current-scope has-active-filters? #(set-pending-new-item :task %1 %2) title on-success))
+  (tasks/add-task *app-state auth-headers current-scope has-active-filters?
+                  #(add-task-with-categories %1 (active-filter-categories) %2) title on-success))
 
 (defn update-task [task-id title description tags on-success]
   (tasks/update-task *app-state auth-headers task-id title description tags on-success))
@@ -1356,7 +1365,7 @@
 
 (defn add-task-to-today [title on-success]
   (tasks/add-task *app-state auth-headers current-scope has-active-filters?
-                  #(set-pending-new-item :task %1 %2) title
+                  #(add-task-with-categories %1 (active-filter-categories) %2) title
                   (fn []
                     (let [task (first (:tasks @*app-state))]
                       (when task
@@ -1365,7 +1374,7 @@
 
 (defn add-task-lined-up-for [title date on-success]
   (tasks/add-task *app-state auth-headers current-scope has-active-filters?
-                  #(set-pending-new-item :task %1 %2) title
+                  #(add-task-with-categories %1 (active-filter-categories) %2) title
                   (fn []
                     (let [task (first (:tasks @*app-state))]
                       (when task
@@ -1458,23 +1467,6 @@
 
 (defn filtered-tasks []
   (tasks-page/filtered-tasks *app-state))
-
-(defn set-pending-new-item [type title on-success & [extra]]
-  (tasks-page/set-pending-new-item *app-state type title on-success extra))
-
-(defn clear-pending-new-item []
-  (tasks-page/clear-pending-new-item *app-state))
-
-(defn update-pending-category [category-type id]
-  (tasks-page/update-pending-category *app-state category-type id))
-
-(defn confirm-pending-new-item []
-  (tasks-page/confirm-pending-new-item *app-state
-    {:task add-task-with-categories
-     :resource add-resource-with-categories
-     :meet add-meet-with-categories
-     :meeting-series add-meeting-series-with-categories
-     :recurring-task add-recurring-task-with-categories}))
 
 (defn set-upcoming-horizon [horizon]
   (today-page/set-upcoming-horizon *app-state horizon))

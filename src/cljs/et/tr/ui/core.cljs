@@ -98,8 +98,7 @@
            [tab-button active-tab :mail :nav/mail])]))))
 
 (defn- any-modal-open? []
-  (or (:pending-new-item @state/*app-state)
-      (:editing-modal @state/*app-state)
+  (or (:editing-modal @state/*app-state)
       (:confirm-undone-task @state/*app-state)
       (:confirm-delete-task @state/*app-state)
       (:confirm-delete-user @state/*app-state)
@@ -138,7 +137,6 @@
      [modals/confirm-delete-recurring-task-modal]
      [modals/confirm-delete-journal-modal]
      [modals/confirm-delete-journal-entry-modal]
-     [modals/pending-item-modal]
      [modals/edit-item-modal]
      [modals/create-date-modal]
      [modals/reminder-date-modal]

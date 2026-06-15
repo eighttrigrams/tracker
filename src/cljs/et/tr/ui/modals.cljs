@@ -225,51 +225,6 @@
     :clear-fn state/clear-confirm-delete-journal-entry
     :delete-fn state/delete-journal-entry}))
 
-(defn category-tag-item [category-type id name selected? toggle-fn]
-  [:span.tag.selectable
-   {:class (str category-type (when selected? " selected"))
-    :on-click #(toggle-fn category-type id)}
-   name
-   (when selected? [:span.check " ✓"])])
-
-(defn- category-group [state-key category-type selected-set i18n-label-key]
-  (when (seq selected-set)
-    (let [items (filter #(contains? selected-set (:id %)) (state-key @state/*app-state))]
-      [:div.category-group
-       [:label (str (t i18n-label-key) ":")]
-       [:div.category-tags
-        (doall
-         (for [item items]
-           ^{:key (:id item)}
-           [category-tag-item category-type (:id item) (:name item)
-            true
-            state/update-pending-category]))]])))
-
-(defn pending-item-modal []
-  (when-let [{:keys [type title categories]} (:pending-new-item @state/*app-state)]
-    (let [{:keys [people places projects goals]} categories
-          selected-people (or people #{})
-          selected-places (or places #{})
-          selected-projects (or projects #{})
-          selected-goals (or goals #{})
-          header-key (case type :task :modal/add-task-categories :resource :modal/add-resource-categories :recurring-task :modal/add-recurring-task-categories (:meet :meeting-series) :modal/add-meet-categories)
-          confirm-key (case type :task :modal/add-task :resource :modal/add-resource :recurring-task :modal/add-recurring-task (:meet :meeting-series) :modal/add-meet)]
-      [:div.modal-overlay {:on-click #(state/clear-pending-new-item)}
-       [modal-keyboard-shortcut {:on-confirm #(state/confirm-pending-new-item) :on-escape #(state/clear-pending-new-item) :enabled? true :enter-confirms? true}]
-       [:div.modal.pending-task-modal {:on-click #(.stopPropagation %)}
-        [:div.modal-header (t header-key)]
-        [:div.modal-body
-         [:p.task-title title]
-         [:p.modal-instruction (t :modal/select-categories)]
-         [category-group :people state/CATEGORY-TYPE-PERSON selected-people :category/people]
-         [category-group :places state/CATEGORY-TYPE-PLACE selected-places :category/places]
-         [category-group :projects state/CATEGORY-TYPE-PROJECT selected-projects :category/projects]
-         (when (= type :task)
-           [category-group :goals state/CATEGORY-TYPE-GOAL selected-goals :category/goals])]
-        [:div.modal-footer
-         [:button.cancel {:on-click #(state/clear-pending-new-item)} (t :modal/cancel)]
-         [:button.confirm {:on-click #(state/confirm-pending-new-item)} (t confirm-key)]]]])))
-
 (defn- markdown-preview [text]
   [:div.preview-description
    {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])

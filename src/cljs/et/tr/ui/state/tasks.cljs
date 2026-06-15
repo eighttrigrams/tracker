@@ -81,11 +81,11 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))
 
-(defn add-task [app-state auth-headers current-scope-fn has-active-filters-fn set-pending-new-task-fn title on-success]
+(defn add-task [app-state auth-headers current-scope-fn has-active-filters-fn add-with-categories-fn title on-success]
   (if (str/blank? title)
     (swap! app-state assoc :error "Title is required")
     (if (has-active-filters-fn)
-      (set-pending-new-task-fn title on-success)
+      (add-with-categories-fn title on-success)
       (POST "/api/tasks"
         {:params {:title title :scope (current-scope-fn)}
          :format :json
