@@ -8,7 +8,6 @@
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.components.filter-section :as filter-section]
-            [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private today-category-shortcut-keys
@@ -717,11 +716,6 @@
                      {:edit-id-path :today-page/inline-edit-journal-entry
                       :title-path :today-page/inline-edit-journal-entry-title
                       :update-fn state/update-journal-entry})
-      :title-content (fn [{:keys [item expanded? title-el]}]
-                       [:<>
-                        title-el
-                        (when (and (not expanded?) (seq (:relations item)))
-                          [relation-badges/relation-badges-collapsed (:relations item) "jen" (:id item)])])
       :date {:render (fn [e]
                        [:<>
                         (when (:entry_date e)
@@ -733,7 +727,8 @@
                                                               (state/set-active-tab :resources))}
                            "🔁"])])}
       :description {:edit-type :journal-entry}
-      :expanded-suffix [relation-badges/relation-badges-expanded (:relations entry) "jen" (:id entry)]}]))
+      :categories {:selector-fn task-item/journal-entry-category-selector
+                   :relations-prefix "jen"}}]))
 
 (defn- today-journals-section []
   (let [entries (:today-journal-entries @state/*app-state)]
