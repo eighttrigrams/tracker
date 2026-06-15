@@ -682,6 +682,27 @@
                :on-click #(state/toggle-today-journals-mode)}
       (t :today/journals)]]))
 
+(defn- today-journals-summary-toggle []
+  (let [summary-mode? (:today-page/journal-summary-mode @state/*app-state)]
+    [:button.journal-summary-btn
+     {:class (when summary-mode? "active")
+      :on-click #(swap! state/*app-state update :today-page/journal-summary-mode not)}
+     "📋"]))
+
+(defn- today-journal-entries-summary [entries]
+  [:div.journal-entries-summary
+   (for [entry entries]
+     ^{:key (:id entry)}
+     [:div.journal-entry-summary-item
+      [:div.journal-entry-summary-header
+       [:span.journal-entry-summary-title (:title entry)]
+       (when (:entry_date entry)
+         [:span.journal-entry-summary-date (date/format-date-localized (:entry_date entry))])]
+      (when (seq (:description entry))
+        [:div.journal-entry-summary-description
+         {:on-click #(state/set-editing-modal :journal-entry entry)}
+         [task-item/markdown (:description entry)]])])])
+
 (defn- today-journal-entry-item [entry]
   (let [is-expanded (= (:today-page/expanded-journal-entry @state/*app-state) (:id entry))]
     [item-card/item-card
@@ -719,10 +740,12 @@
     [:div.today-section
      (if (empty? entries)
        [:p.empty-message (t :journals/no-entries)]
-       [:ul.items
-        (for [entry entries]
-          ^{:key (:id entry)}
-          [today-journal-entry-item entry])])]))
+       (if (:today-page/journal-summary-mode @state/*app-state)
+         [today-journal-entries-summary entries]
+         [:ul.items
+          (for [entry entries]
+            ^{:key (:id entry)}
+            [today-journal-entry-item entry])]))]))
 
 (defn today-tab []
   (let [overdue (state/overdue-tasks)
@@ -744,6 +767,8 @@
        [today-overdue-section overdue]
        [:div.tasks-header
         [today-journals-toggle]
+        (when journals-mode
+          [today-journals-summary-toggle])
         (when-not journals-mode
           [day-selector])]
        (if journals-mode
