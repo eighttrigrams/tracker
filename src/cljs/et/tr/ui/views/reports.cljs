@@ -90,7 +90,7 @@
       (when (seq (:description entry))
         [:div.journal-entry-summary-description
          {:on-click #(state/set-editing-modal :journal-entry entry)}
-         (:description entry)])])])
+         [task-item/markdown (:description entry)]])])])
 
 (defn- sidebar-filters []
   (let [app-state @state/*app-state
