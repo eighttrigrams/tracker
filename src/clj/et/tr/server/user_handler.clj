@@ -49,6 +49,31 @@
                                           (update :mail_only #(= 1 %)))}})
           {:status 401 :body {:success false :error "Invalid credentials"}})))))
 
+(defn me-handler
+  "GET /api/auth/me — return the freshly DB-loaded current user for the
+  authenticated caller, so the client can refresh DB-sourced settings
+  (language, vim-keys, screensaver) instead of trusting its cached
+  localStorage copy. Mirrors the :user shape returned by login-handler.
+  Returns 401 when unauthenticated, the synthetic admin for admin tokens,
+  or 404 when the user row cannot be located."
+  [req]
+  (let [user-info (common/get-user-from-request req)]
+    (cond
+      (nil? user-info)
+      {:status 401 :body {:error "Not authenticated"}}
+
+      (:is-admin user-info)
+      {:status 200 :body {:id nil :username "admin" :is_admin true :has_mail false :language "en" :vim_keys 0}}
+
+      :else
+      (if-let [user (db.user/get-user-by-username (common/ensure-ds) (:username user-info))]
+        {:status 200 :body (-> user
+                               (dissoc :password_hash)
+                               (assoc :has_mail (:has-mail user-info))
+                               (update :is_machine_user #(= 1 %))
+                               (update :mail_only #(= 1 %)))}
+        {:status 404 :body {:error "User not found"}}))))
+
 (defn password-required-handler
   "GET /api/auth/required — public probe used by the login UI to decide
   whether to show a password field. Returns 200 {:required boolean} where

@@ -23,7 +23,22 @@
   (let [lang (or (:language user) "en")]
     (i18n/set-language! lang)))
 
-(defn fetch-auth-required [app-state _auth-headers _initial-collection-state fetch-all-fn
+(defn refresh-current-user
+  "Re-fetch the current user from the DB and overwrite the cached copy, so
+  DB-sourced settings (language, vim-keys, screensaver) win over whatever
+  was frozen in localStorage. Updates the storage blob to match."
+  [app-state auth-headers]
+  (GET "/api/auth/me"
+    {:response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [user]
+                (when user
+                  (swap! app-state update :current-user merge user)
+                  (apply-user-language (:current-user @app-state))
+                  (save-auth-to-storage (:token @app-state) (:current-user @app-state))))}))
+
+(defn fetch-auth-required [app-state auth-headers _initial-collection-state fetch-all-fn
                            & {:keys [on-skip-logins]}]
   (GET "/api/auth/required"
     {:response-format :json
@@ -50,7 +65,8 @@
                              :token token
                              :current-user user)
                       (apply-user-language user)
-                      (fetch-all-fn user)))))}))
+                      (fetch-all-fn user)
+                      (refresh-current-user app-state auth-headers)))))}))
 
 (defn login [app-state username password on-success]
   (POST "/api/auth/login"

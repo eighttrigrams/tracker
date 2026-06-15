@@ -181,6 +181,7 @@
 
     (context "/auth" []
       (GET "/required" [] user-handler/password-required-handler)
+      (GET "/me" [] user-handler/me-handler)
       (GET "/available-users" [] user-handler/available-users-handler)
       (POST "/login" [] user-handler/login-handler))
 
