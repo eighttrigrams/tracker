@@ -7,6 +7,7 @@
             [et.tr.ui.date :as date]
             [et.tr.ui.modals :as modals]
             [et.tr.ui.components.item-card :as item-card]
+            [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
@@ -389,7 +390,7 @@
         (when (seq (:description entry))
           [:div.journal-entry-summary-description
            {:on-click #(state/set-editing-modal :journal-entry entry)}
-           (:description entry)])])]))
+           [task-item/markdown (:description entry)]])])]))
 
 (defn- journal-filter-bar []
   (let [jf (state/journal-filter)
