@@ -55,6 +55,12 @@
                                    [:not= :lined_up_for nil]
                                    [:= :reminder "active"]]]
                       :reminder [:and user-where [:= :done 0] [:not= :reminder_date nil]]
+                      :unassigned [:and user-where [:= :done 0]
+                                   [:= :due_date nil]
+                                   [:= :reminder_date nil]
+                                   [:= :today 0]
+                                   [:= :lined_up_for nil]
+                                   [:= :urgency "default"]]
                       [:and user-where [:= :done 0]])
          search-clause (db/build-search-clause search-term)
          importance-clause (db/build-importance-clause importance)
@@ -77,6 +83,10 @@
                             [[:case [:not= :due_time nil] 1 :else 0] :desc]
                             [:due_time :asc]]
                     :reminder [[:reminder_date :asc]]
+                    :recent [[[:case [:= :urgency "superurgent"] 0
+                                     [:= :urgency "urgent"] 1
+                                     :else 2] :asc]
+                             [:modified_at :desc]]
                     [[:modified_at :desc]])
          tasks (jdbc/execute! conn
                  (sql/format (cond-> {:select db/task-select-columns

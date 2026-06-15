@@ -59,26 +59,21 @@
      (when (seq input-value)
        [:button.clear-search {:on-click #(state/set-filter-search "")} "x"])]))
 
-(defn- sort-mode-button [current-mode mode label-key]
-  [:button {:class (when (= current-mode mode) "active")
-            :on-click #(when (not= current-mode mode) (state/set-sort-mode mode))}
+(defn- sort-mode-button [current-mode mode label-key & [tooltip-key]]
+  [:button (cond-> {:class (when (= current-mode mode) "active")
+                    :on-click #(when (not= current-mode mode) (state/set-sort-mode mode))}
+             tooltip-key (assoc :title (t tooltip-key)))
    (t label-key)])
 
 (defn sort-mode-toggle []
   (let [sort-mode (:sort-mode @state/*app-state)]
     [:div.sort-toggle.toggle-group
-     [sort-mode-button sort-mode :recent :tasks/sort-recent]
+     [sort-mode-button sort-mode :recent :tasks/sort-recent :tasks/sort-recent-tooltip]
      [sort-mode-button sort-mode :manual :tasks/sort-manual]
+     [sort-mode-button sort-mode :unassigned :tasks/sort-unassigned :tasks/sort-unassigned-tooltip]
      [sort-mode-button sort-mode :due-date :tasks/sort-due-date]
+     [sort-mode-button sort-mode :reminder :tasks/sort-reminders]
      [sort-mode-button sort-mode :done :tasks/sort-done]]))
-
-(defn reminder-filter-toggle []
-  (let [active? (= :reminder (:sort-mode @state/*app-state))]
-    [:div.reminder-filter-toggle.toggle-group
-     [:button {:class (when active? "active")
-               :on-click #(state/toggle-reminder-mode)
-               :title (t :tasks/reminder-filter)}
-      "🔔"]]))
 
 (defn importance-filter-toggle []
   (let [importance-filter (:tasks-page/importance-filter @state/*app-state)]
@@ -228,7 +223,16 @@
                                            (state/set-recurring-filter {:id (:recurring_task_id task) :title (:title task)}))}
         "🔁"])
      (when (or (:reminder_date task) (= "active" (:reminder task)))
-       [:span.reminder-icon "🔔"])]))
+       [:span.reminder-icon
+        (when (:reminder_date task)
+          {:title (date/format-date-localized (:reminder_date task))})
+        "🔔"])]))
+
+(defn- urgency-badge [task]
+  (case (:urgency task)
+    "superurgent" [:span.urgency-badge.superurgent "🚨🚨"]
+    "urgent" [:span.urgency-badge.urgent "🚨"]
+    nil))
 
 (defn- task-item-content [task is-expanded done-mode? container]
   [item-card/item-card
@@ -237,6 +241,7 @@
     :on-toggle #(state/toggle-expanded :tasks-page/expanded-task (:id task))
     :container (merge {:tag :li} container)
     :relation-link [:task (:id task)]
+    :title-extra (urgency-badge task)
     :inline-edit (item-card/make-inline-edit
                    {:edit-id-path :tasks-page/inline-edit-task
                     :title-path :tasks-page/inline-edit-title

@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [clojure.string :as str]
             [et.tr.ui.state :as state]
+            [et.tr.ui.date :as date]
             [et.tr.ui.components.category-selector :as category-selector]
             [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.filters :as filters]
@@ -142,8 +143,12 @@
           [:button.dropdown-item.set-reminder
            {:on-click #(do
                          (state/set-task-dropdown-open nil)
-                         (state/open-reminder-modal task))}
-           (t :task/set-reminder)])
+                         (state/open-reminder-modal task))
+            :title (when (:reminder_date task)
+                     (t :task/current-reminder {:date (date/format-date-localized (:reminder_date task))}))}
+           (if (:reminder_date task)
+             (t :task/change-reminder)
+             (t :task/set-reminder))])
         [:button.dropdown-item
          {:on-click #(do
                        (state/set-task-dropdown-open nil)

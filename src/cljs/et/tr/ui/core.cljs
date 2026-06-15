@@ -184,8 +184,6 @@
               [:div.tasks-header
                [tasks/recurring-toggle]
                (when-not recurring-mode
-                 [tasks/reminder-filter-toggle])
-               (when-not recurring-mode
                  [tasks/importance-filter-toggle])
                (when-not recurring-mode
                  [tasks/sort-mode-toggle])]
