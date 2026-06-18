@@ -213,17 +213,19 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message")))))
 
-(defn add-message [app-state auth-headers title on-success]
-  (api/post-json "/api/messages"
-    {:sender DEFAULT-SENDER
-     :title title
-     :description ""}
-    (auth-headers)
+(defn add-message [app-state auth-headers current-scope-fn title on-success]
+  (let [scope (current-scope-fn)]
+    (api/post-json "/api/messages"
+      (cond-> {:sender DEFAULT-SENDER
+               :title title
+               :description ""}
+        (#{"private" "work"} scope) (assoc :scope scope))
+      (auth-headers)
     (fn [_]
       (fetch-messages app-state auth-headers)
       (when on-success (on-success)))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add message")))))
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add message"))))))
 
 (defn set-message-dropdown-open [message-id]
   (swap! *mail-page-state assoc :message-dropdown-open message-id :message-action-dropdown-open nil))

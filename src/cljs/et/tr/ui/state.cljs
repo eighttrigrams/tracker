@@ -304,7 +304,7 @@
   (mail/update-message *app-state auth-headers message-id title description on-success))
 
 (defn add-message [title on-success]
-  (mail/add-message *app-state auth-headers title on-success))
+  (mail/add-message *app-state auth-headers current-scope title on-success))
 
 (defn set-message-dropdown-open [message-id]
   (mail/set-message-dropdown-open message-id))
