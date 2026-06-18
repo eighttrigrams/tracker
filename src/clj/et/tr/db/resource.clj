@@ -180,7 +180,7 @@
               db/jdbc-opts))
           (jdbc/execute-one! tx
             (sql/format {:delete-from :messages
-                         :where [:= :id message-id]}))
+                         :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]}))
           (tel/log! {:level :info :data {:message-id message-id :resource-id (:id resource) :user-id user-id}} "Message converted to resource")
           (assoc resource :description description :people [] :projects []))))))
 

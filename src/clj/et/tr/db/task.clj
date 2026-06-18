@@ -394,6 +394,6 @@
               db/jdbc-opts))
           (jdbc/execute-one! tx
             (sql/format {:delete-from :messages
-                         :where [:= :id message-id]}))
+                         :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]}))
           (tel/log! {:level :info :data {:message-id message-id :task-id (:id task) :user-id user-id}} "Message converted to task")
           (assoc task :description description :people [] :places [] :projects [] :goals []))))))

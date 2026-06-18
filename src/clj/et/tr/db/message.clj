@@ -88,7 +88,7 @@
   (when (message-owned-by-user? ds message-id user-id)
     (let [result (jdbc/execute-one! (db/get-conn ds)
                    (sql/format {:delete-from :messages
-                                :where [:= :id message-id]}))]
+                                :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]}))]
       (tel/log! {:level :info :data {:message-id message-id :user-id user-id}} "Message deleted")
       {:success (pos? (:next.jdbc/update-count result))})))
 
@@ -140,10 +140,10 @@
           (jdbc/execute-one! conn
             (sql/format {:update :messages
                          :set {:title merged-title}
-                         :where [:= :id target-id]})
+                         :where [:and [:= :id target-id] (db/user-id-where-clause user-id)]})
             db/jdbc-opts)
           (jdbc/execute-one! conn
             (sql/format {:delete-from :messages
-                         :where [:= :id source-id]}))
+                         :where [:and [:= :id source-id] (db/user-id-where-clause user-id)]}))
           (tel/log! {:level :info :data {:source-id source-id :target-id target-id :user-id user-id}} "Messages merged")
           {:success true})))))
