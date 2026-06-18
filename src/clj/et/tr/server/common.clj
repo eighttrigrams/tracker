@@ -122,7 +122,10 @@
   (:is-admin (get-user-from-request req)))
 
 (defn has-mail? [req]
-  (:has-mail (get-user-from-request req)))
+  (let [{:keys [machine? has-mail]} (get-user-from-request req)]
+    (if machine?
+      (boolean has-mail)
+      true)))
 
 (defn parse-category-param [param]
   (when (and param (not (str/blank? param)))

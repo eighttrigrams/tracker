@@ -175,7 +175,7 @@
   (:is_admin (:current-user @*app-state)))
 
 (defn has-mail? []
-  (:has_mail (:current-user @*app-state)))
+  true)
 
 (defn- current-scope []
   (name (:work-private-mode @*app-state)))
@@ -207,7 +207,7 @@
       (fetch-places)
       (fetch-projects)
       (fetch-goals)
-      (when (:has_mail user)
+      (when (has-mail?)
         (fetch-messages)))))
 
 (defn- restore-from-url []
