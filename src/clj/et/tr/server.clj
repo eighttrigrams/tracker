@@ -259,7 +259,6 @@
       (PUT "/:id/urgency" [] message-handler/set-message-urgency-handler)
       (POST "/:id/convert-to-resource" [] message-handler/convert-message-to-resource-handler)
       (POST "/:id/convert-to-task" [] message-handler/convert-message-to-task-handler)
-      (POST "/:id/merge" [] message-handler/merge-messages-handler)
       (PUT "/:id" [] message-handler/update-message-handler)
       (DELETE "/:id" [] message-handler/delete-message-handler))
 

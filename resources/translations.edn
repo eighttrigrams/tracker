@@ -263,7 +263,6 @@
   :mail/convert-target-task "Task"
   :mail/convert-to-resource "Convert to resource"
   :mail/convert-to-task "Convert to task"
-  :mail/merge-with-below "Merge with message below"
 
   :sources/sources "Sources"
   :sources/youtube-heading "YouTube"
@@ -638,7 +637,6 @@
   :mail/convert-target-task "Aufgabe"
   :mail/convert-to-resource "In Ressource umwandeln"
   :mail/convert-to-task "In Aufgabe umwandeln"
-  :mail/merge-with-below "Mit unterer Nachricht zusammenführen"
 
   :nav/resources "Ressourcen"
   :resources/title-placeholder "Titel"
@@ -973,7 +971,6 @@
   :mail/convert-target-task "Tarefa"
   :mail/convert-to-resource "Converter em recurso"
   :mail/convert-to-task "Converter em tarefa"
-  :mail/merge-with-below "Mesclar com mensagem abaixo"
 
   :nav/resources "Recursos"
   :resources/title-placeholder "Título"

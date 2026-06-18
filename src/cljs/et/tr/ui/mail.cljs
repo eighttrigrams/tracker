@@ -88,7 +88,7 @@
        {:on-click convert-to-task!}
        (t :mail/convert-to-task)])))
 
-(defn- mail-footer [message next-message-id]
+(defn- mail-footer [message]
   (let [{:keys [id title description sender]} message
         url (first-url title description)
         scope-spec {:type :scope :value (:scope message)
@@ -108,29 +108,11 @@
        :right [{:type :custom
                 :render [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
                          (t :task/delete)]}]}
-      (let [page-state @mail-state/*mail-page-state
-            view (:view page-state)
-            dropdown-open? (= id (:message-action-dropdown-open page-state))
-            show-merge? (and (= view :inbox) (= sender "Note") next-message-id)]
-        {:left [{:type :custom :render [archive-button-with-dropdown message]}
-                scope-spec importance-spec urgency-spec]
-         :right [{:type :custom
-                  :render (if show-merge?
-                            [:div.combined-button-wrapper
-                             [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
-                              (t :task/delete)]
-                             [:button.combined-dropdown-btn.delete-btn
-                              {:on-click #(state/set-message-action-dropdown-open (when-not dropdown-open? id))}
-                              "▼"]
-                             (when dropdown-open?
-                               [:div.task-dropdown-menu
-                                [:button.dropdown-item
-                                 {:on-click #(do
-                                               (state/set-message-action-dropdown-open nil)
-                                               (state/merge-message-with-below id next-message-id))}
-                                 (t :mail/merge-with-below)]])]
-                            [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
-                             (t :task/delete)])}]}))))
+      {:left [{:type :custom :render [archive-button-with-dropdown message]}
+              scope-spec importance-spec urgency-spec]
+       :right [{:type :custom
+                :render [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
+                         (t :task/delete)]}]})))
 
 (defn- mail-expanded-prefix [{:keys [title description type] :as message}]
   [:<>
@@ -177,9 +159,9 @@
                     (state/set-expanded-message nil))
                   (js/setTimeout #(state/set-message-done (:id message) true) 1000))}]])
 
-(defn- mail-message-item [_message _expanded-id _view _next-message-id]
+(defn- mail-message-item [_message _expanded-id _view]
   (let [archiving? (r/atom false)]
-    (fn [message expanded-id view next-message-id]
+    (fn [message expanded-id view]
       (let [{:keys [id created_at]} message
             expanded? (= expanded-id id)
             show-checkbox? (= view :inbox)]
@@ -206,7 +188,7 @@
           :header-extra [:span.item-date {:data-tooltip (some-> created_at (.substring 0 10) date/get-day-name)}
                          (format-message-datetime created_at)]
           :expanded-prefix [mail-expanded-prefix message]
-          :footer (mail-footer message next-message-id)}]))))
+          :footer (mail-footer message)}]))))
 
 (defn- mail-sender-filter-badge []
   (let [sender-filter (:sender-filter @mail-state/*mail-page-state)
@@ -346,9 +328,7 @@
         [mail-sender-filter-badge]
         (if (empty? messages)
           [:p.empty-message (t :mail/no-messages)]
-          (let [indexed (map-indexed vector messages)]
-            [:ul.items
-             (for [[idx message] indexed]
-               (let [next-message-id (some-> (get messages (inc idx)) :id)]
-                 ^{:key (:id message)}
-                 [mail-message-item message expanded-message view next-message-id]))]))])]))
+          [:ul.items
+           (for [message messages]
+             ^{:key (:id message)}
+             [mail-message-item message expanded-message view])])])]))

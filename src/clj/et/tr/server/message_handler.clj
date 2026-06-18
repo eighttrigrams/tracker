@@ -320,16 +320,3 @@
       {:status 200 :body result}
       {:status 404 :body {:error "Message not found"}})))
 
-(defn merge-messages-handler
-  "POST /api/messages/:id/merge — merge the message at :id into another
-  message. Body field: target-id (required; 400 if missing). Requires Mail
-  access (403); returns 404 when either message cannot be found, 200 with
-  the merged result otherwise."
-  [req]
-  (with-mail-message-context req user-id message-id
-    (let [target-id (get-in req [:body :target-id])]
-      (if (nil? target-id)
-        {:status 400 :body {:error "Missing required field: target-id"}}
-        (if-let [result (db.message/merge-messages (common/ensure-ds) user-id message-id target-id)]
-          {:status 200 :body result}
-          {:status 404 :body {:error "Message not found"}})))))

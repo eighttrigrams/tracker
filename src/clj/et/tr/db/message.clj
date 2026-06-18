@@ -129,21 +129,3 @@
                    :returning [:id :urgency]})
       db/jdbc-opts)))
 
-(defn merge-messages [ds user-id source-id target-id]
-  (when (and (message-owned-by-user? ds source-id user-id)
-             (message-owned-by-user? ds target-id user-id))
-    (let [conn (db/get-conn ds)
-          source (get-message ds user-id source-id)
-          target (get-message ds user-id target-id)]
-      (when (and source target)
-        (let [merged-title (str (:title target) " :: " (:title source))]
-          (jdbc/execute-one! conn
-            (sql/format {:update :messages
-                         :set {:title merged-title}
-                         :where [:and [:= :id target-id] (db/user-id-where-clause user-id)]})
-            db/jdbc-opts)
-          (jdbc/execute-one! conn
-            (sql/format {:delete-from :messages
-                         :where [:and [:= :id source-id] (db/user-id-where-clause user-id)]}))
-          (tel/log! {:level :info :data {:source-id source-id :target-id target-id :user-id user-id}} "Messages merged")
-          {:success true})))))

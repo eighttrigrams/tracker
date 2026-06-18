@@ -1,8 +1,8 @@
 (ns et.tr.message-isolation-integration-test
   "Integration coverage that message-mutating endpoints are scoped to the
   owning user. A second user (the attacker) must never be able to delete,
-  edit, merge, or convert another user's message — the owner's row must
-  survive every cross-user attempt, and the attacker gets a 404."
+  edit, or convert another user's message — the owner's row must survive
+  every cross-user attempt, and the attacker gets a 404."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.data.json :as json]
             [ring.mock.request :as mock]
@@ -67,32 +67,6 @@
     (is (= 404 (:status resp)))
     (is (some? (db.message/get-message *ds* *user-id* (:id msg)))
         "owner's message survives")))
-
-(deftest cannot-merge-away-another-users-source-message
-  (testing "attacker merges the owner's message (as source) into their own target"
-    (let [attacker (attacker-id)
-          victim (owned-message)
-          target (db.message/add-message *ds* attacker "attacker" "target" "" nil nil nil nil)
-          resp (as-user :post (str "/api/messages/" (:id victim) "/merge") attacker
-                        {:target-id (:id target)})]
-      (is (= 404 (:status resp)))
-      (is (some? (db.message/get-message *ds* *user-id* (:id victim)))
-          "owner's message is not deleted as a merge source")
-      (is (= "target" (:title (db.message/get-message *ds* attacker (:id target))))
-          "attacker's own target is untouched"))))
-
-(deftest cannot-merge-into-another-users-target-message
-  (testing "attacker merges their own message into the owner's message (as target)"
-    (let [attacker (attacker-id)
-          victim (owned-message)
-          source (db.message/add-message *ds* attacker "attacker" "source" "" nil nil nil nil)
-          resp (as-user :post (str "/api/messages/" (:id source) "/merge") attacker
-                        {:target-id (:id victim)})]
-      (is (= 404 (:status resp)))
-      (is (= "owned" (:title (db.message/get-message *ds* *user-id* (:id victim))))
-          "owner's message title is not modified by the merge")
-      (is (some? (db.message/get-message *ds* attacker (:id source)))
-          "attacker's source still exists (merge did not run)"))))
 
 (deftest owner-can-still-delete-own-message
   (testing "the inline user_id scoping does not break the legitimate path"
