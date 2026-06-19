@@ -7,7 +7,7 @@
 (def default-polling-minutes 60)
 
 (def settings-select-columns [:user_id :enabled :polling_minutes :last_polled_at])
-(def channel-select-columns [:id :channel_id :name :min_duration_minutes :enabled :added_at])
+(def channel-select-columns [:id :channel_id :name :min_duration_minutes :enabled :scope :added_at])
 
 (defn get-settings
   "Return the user's YouTube settings row, or a defaulted map if none yet."
@@ -113,6 +113,7 @@
                     (contains? fields :name) (assoc :name (:name fields))
                     (contains? fields :min-duration-minutes)
                     (assoc :min_duration_minutes (:min-duration-minutes fields))
+                    (contains? fields :scope) (assoc :scope (:scope fields))
                     (some? enabled) (assoc :enabled (if (boolean? enabled)
                                                       (if enabled 1 0)
                                                       enabled)))]

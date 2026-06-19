@@ -340,6 +340,9 @@
 (defn set-youtube-channel-min-minutes [channel-id minutes]
   (sources/set-channel-min-minutes auth-headers channel-id minutes))
 
+(defn set-youtube-channel-scope [channel-id scope]
+  (sources/set-channel-scope auth-headers channel-id scope))
+
 (defn delete-youtube-channel [channel-id]
   (sources/delete-channel auth-headers channel-id))
 

@@ -3,6 +3,7 @@
             [clojure.string :as str]
             [et.tr.ui.state :as state]
             [et.tr.ui.state.sources :as sources-state]
+            [et.tr.ui.components.controls :as controls]
             [et.tr.i18n :refer [t]]))
 
 (defn- settings-row
@@ -74,6 +75,9 @@
                           before (:min_duration_minutes channel)]
                       (when (not= n before)
                         (state/set-youtube-channel-min-minutes (:id channel) n))))}]
+       [controls/plain-scope-toggle "sources-channel-scope toggle-group compact"
+        (or (:scope channel) "private")
+        #(state/set-youtube-channel-scope (:id channel) %)]
        [:button.sources-channel-delete
         {:on-click #(state/delete-youtube-channel (:id channel))
          :title (t :sources/delete-channel)}

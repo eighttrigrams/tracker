@@ -1,0 +1,2 @@
+{:up ["ALTER TABLE youtube_channels ADD COLUMN scope TEXT NOT NULL DEFAULT 'private'"]
+ :down ["ALTER TABLE youtube_channels DROP COLUMN scope"]}

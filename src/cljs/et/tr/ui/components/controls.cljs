@@ -65,6 +65,22 @@
                             (on-change scope)))}
              (t (keyword "toggle" scope))]))))
 
+(defn plain-scope-toggle
+  "A scope selector (private/both/work) without the global strict-mode
+  coupling of scope-toggle. `current-value` is a string; `on-change`
+  receives the chosen scope string."
+  [css-class current-value on-change]
+  (into [:div {:class css-class}]
+        (for [scope ["private" "both" "work"]]
+          [:button.toggle-option
+           {:key scope
+            :class (when (= current-value scope) "active")
+            :on-click (fn [e]
+                        (.stopPropagation e)
+                        (when (not= current-value scope)
+                          (on-change scope)))}
+           (t (keyword "toggle" scope))])))
+
 (defn work-private-toggle []
   (let [mode (name (:work-private-mode @state/*app-state))]
     [scope-toggle "work-private-toggle toggle-group" mode #(state/set-work-private-mode (keyword %))]))

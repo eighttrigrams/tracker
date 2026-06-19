@@ -117,6 +117,9 @@
 (defn set-channel-min-minutes [auth-headers channel-id minutes]
   (update-channel auth-headers channel-id {:min_duration_minutes minutes}))
 
+(defn set-channel-scope [auth-headers channel-id scope]
+  (update-channel auth-headers channel-id {:scope scope}))
+
 (defn delete-channel [auth-headers channel-id]
   (api/delete-simple (str "/api/sources/youtube/channels/" channel-id)
     (auth-headers)

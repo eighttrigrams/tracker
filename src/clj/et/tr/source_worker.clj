@@ -32,15 +32,17 @@
   Accepts an optional :type (\"markdown\" by default, \"html\" for
   sanitized HTML payloads from feeds that declare type=\"html\")."
   ([ds actor user-id sender title description]
-   (forward! ds actor user-id sender title description "markdown"))
+   (forward! ds actor user-id sender title description "markdown" "private"))
   ([ds actor user-id sender title description type]
+   (forward! ds actor user-id sender title description type "private"))
+  ([ds actor user-id sender title description type scope]
    (let [result (message-handler/add-message!
                   ds actor user-id
                   {:sender sender
                    :title title
                    :description description
                    :type type
-                   :scope "private"})]
+                   :scope scope})]
      (when (:error result)
        (tel/log! {:level :warn :data {:user-id user-id :sender sender
                                       :error (:error result)}}
@@ -58,10 +60,12 @@
 
 (defn- forward-video! [ds user-id channel video]
   (let [{:keys [author title link]} video
-        display-author (or (:name channel) author)]
+        display-author (or (:name channel) author)
+        scope (or (:scope channel) "private")]
     (forward! ds yt-actor user-id "YouTube"
               (str "New YouTube video from \"" display-author "\" just dropped.")
-              (str "# " title "\n\n" link))
+              (str "# " title "\n\n" link)
+              "markdown" scope)
     (tel/log! {:level :info :data {:user-id user-id :video-id (:video-id video)
                                    :title title :channel display-author}}
               "YouTube worker: forwarded video to inbox")))
