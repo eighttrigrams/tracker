@@ -70,23 +70,48 @@
                   "Failed to fetch YouTube channel info from video URL")
         nil))))
 
+(def ^:private watch-page-headers
+  {;; A real browser UA + en locale, plus a consent cookie, so EU/consent
+   ;; regions get the actual watch page rather than the consent interstitial
+   ;; (which carries none of the duration fields).
+   "User-Agent" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+   "Accept-Language" "en-US,en;q=0.9"
+   "Cookie" "CONSENT=YES+cb; SOCS=CAI"})
+
+(defn parse-duration-minutes
+  "Extract a video's duration in decimal minutes from a watch-page body.
+  Tries `videoDetails.lengthSeconds` first, then `approxDurationMs` from
+  streamingData. Treats a zero/blank value as unknown (live streams and
+  premieres report 0). Returns nil when no usable duration is present."
+  [body]
+  (when body
+    (or (when-let [[_ secs] (re-find #"\"lengthSeconds\":\"(\d+)\"" body)]
+          (when-let [s (parse-long secs)]
+            (when (pos? s) (/ s 60.0))))
+        (when-let [[_ ms] (re-find #"\"approxDurationMs\":\"(\d+)\"" body)]
+          (when-let [m (parse-long ms)]
+            (when (pos? m) (/ m 60000.0)))))))
+
 (defn get-video-duration-minutes
-  "Look up the duration (in minutes, decimal) of a video by scraping
-  `lengthSeconds` from the public watch page. Keyless. Returns nil if
-  the request fails or the field cannot be found."
+  "Look up the duration (in minutes, decimal) of a video by scraping the
+  public watch page. Keyless. Retries once on a failed/empty fetch since
+  the page is occasionally served without the player payload. Returns nil
+  only if both attempts fail or no duration field can be found."
   [video-id]
   (when video-id
-    (try
-      (let [resp (http/get (str "https://www.youtube.com/watch?v=" video-id)
-                   {:as :string
-                    :throw-exceptions false
-                    :socket-timeout 30000
-                    :connection-timeout 30000
-                    :headers {"User-Agent" "Mozilla/5.0"}})]
-        (when (= 200 (:status resp))
-          (when-let [[_ secs] (re-find #"\"lengthSeconds\":\"(\d+)\"" (:body resp))]
-            (/ (parse-long secs) 60.0))))
-      (catch Exception e
-        (tel/log! {:level :warn :data {:video-id video-id :error (.getMessage e)}}
-                  "Failed to fetch YouTube video duration")
-        nil))))
+    (letfn [(attempt []
+              (try
+                (let [resp (http/get (str "https://www.youtube.com/watch?v=" video-id "&hl=en")
+                             {:as :string
+                              :throw-exceptions false
+                              :socket-timeout 30000
+                              :connection-timeout 30000
+                              :headers watch-page-headers})]
+                  (when (= 200 (:status resp))
+                    (parse-duration-minutes (:body resp))))
+                (catch Exception e
+                  (tel/log! {:level :warn :data {:video-id video-id :error (.getMessage e)}}
+                            "Failed to fetch YouTube video duration")
+                  nil)))]
+      (or (attempt)
+          (attempt)))))
