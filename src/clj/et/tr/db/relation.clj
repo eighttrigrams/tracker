@@ -23,7 +23,8 @@
 (defn add-relation [ds user-id source-type source-id target-type target-id]
   (validate-relation-type! source-type)
   (validate-relation-type! target-type)
-  (when (and (item-exists? ds user-id source-type source-id)
+  (when (and (not (and (= source-type target-type) (= source-id target-id)))
+             (item-exists? ds user-id source-type source-id)
              (item-exists? ds user-id target-type target-id))
     (let [conn (db/get-conn ds)]
       (jdbc/with-transaction [tx conn]

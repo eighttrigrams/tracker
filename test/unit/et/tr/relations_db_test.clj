@@ -22,6 +22,12 @@
         (is (= {:target_type "tsk" :target_id (:id task1)}
                (select-keys (first rels2) [:target_type :target_id])))))))
 
+(deftest add-relation-rejects-self-relation-test
+  (testing "an item cannot be related to itself (same type and id)"
+    (let [task (db.task/add-task *ds* *user-id* "Lonely task")]
+      (is (nil? (db.relation/add-relation *ds* *user-id* "tsk" (:id task) "tsk" (:id task))))
+      (is (empty? (db.relation/get-relations-for-item *ds* *user-id* "tsk" (:id task)))))))
+
 (deftest add-relation-cross-type-test
   (testing "can create relations between different entity types"
     (let [task (db.task/add-task *ds* *user-id* "My task")

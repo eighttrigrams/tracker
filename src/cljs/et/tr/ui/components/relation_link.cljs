@@ -27,5 +27,6 @@
            {:class (when is-source? "source-selected")
             :on-click (fn [e]
                         (.stopPropagation e)
-                        (state/select-for-relation item-type item-id))}
+                        (when-not is-source?
+                          (state/select-for-relation item-type item-id)))}
            "◎"])))))

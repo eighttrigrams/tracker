@@ -29,6 +29,9 @@
       (or (nil? target-id) (not (integer? target-id)))
       {:status 400 :body {:success false :error "target-id must be an integer"}}
 
+      (and (= source-type target-type) (= source-id target-id))
+      {:status 400 :body {:success false :error "An item cannot be related to itself"}}
+
       :else
       (if-let [result (db.relation/add-relation (common/ensure-ds) user-id source-type source-id target-type target-id)]
         (let [conn (db/get-conn (common/ensure-ds))
