@@ -25,7 +25,7 @@
 (defn- present-channel [row]
   (when row
     (-> row
-        (select-keys [:id :channel_id :name :min_duration_minutes :scope :added_at])
+        (select-keys [:id :channel_id :name :min_duration_minutes :scope :importance :added_at])
         (assoc :enabled (= 1 (:enabled row))))))
 
 (defn- present-feed [row]
@@ -148,9 +148,10 @@
   "PUT /api/sources/youtube/channels/:id — update mutable fields on one of the
   caller's tracked channels. Body fields (all optional, only provided keys
   change): :name, :min_duration_minutes (int or blank for null), :scope
-  (\"private\"/\"both\"/\"work\"), :enabled.
-  Returns 400 when min_duration_minutes is malformed, scope is invalid, or no
-  fields are provided,
+  (\"private\"/\"both\"/\"work\"), :importance
+  (\"normal\"/\"important\"/\"critical\"), :enabled.
+  Returns 400 when min_duration_minutes is malformed, scope/importance is
+  invalid, or no fields are provided,
   404 if the channel is not owned/found, 403 without mail access, else 200."
   [req]
   (mail-only-guard req
@@ -175,6 +176,8 @@
                      (assoc :min-duration-minutes min-mins)
                      (contains? body :scope)
                      (assoc :scope (:scope body))
+                     (contains? body :importance)
+                     (assoc :importance (:importance body))
                      (contains? body :enabled)
                      (assoc :enabled (bool->int (:enabled body))))]
         (cond
@@ -184,6 +187,10 @@
           (and (contains? body :scope)
                (not (#{"private" "both" "work"} (:scope body))))
           {:status 400 :body {:error "scope must be 'private', 'both', or 'work'"}}
+
+          (and (contains? body :importance)
+               (not (#{"normal" "important" "critical"} (:importance body))))
+          {:status 400 :body {:error "importance must be 'normal', 'important', or 'critical'"}}
 
           (empty? fields)
           {:status 400 :body {:error "No updatable fields provided"}}

@@ -29,20 +29,22 @@
 
 (defn- forward!
   "Push a message into the user's inbox via the message-handler service.
-  Accepts an optional :type (\"markdown\" by default, \"html\" for
-  sanitized HTML payloads from feeds that declare type=\"html\")."
+  `opts` may carry :type (\"markdown\" by default, \"html\" for sanitized
+  HTML payloads from feeds that declare type=\"html\"), :scope (\"private\"
+  by default) and :importance (\"normal\" by default)."
   ([ds actor user-id sender title description]
-   (forward! ds actor user-id sender title description "markdown" "private"))
-  ([ds actor user-id sender title description type]
-   (forward! ds actor user-id sender title description type "private"))
-  ([ds actor user-id sender title description type scope]
-   (let [result (message-handler/add-message!
+   (forward! ds actor user-id sender title description nil))
+  ([ds actor user-id sender title description opts]
+   (let [{:keys [type scope importance]
+          :or {type "markdown" scope "private" importance "normal"}} opts
+         result (message-handler/add-message!
                   ds actor user-id
                   {:sender sender
                    :title title
                    :description description
                    :type type
-                   :scope scope})]
+                   :scope scope
+                   :importance importance})]
      (when (:error result)
        (tel/log! {:level :warn :data {:user-id user-id :sender sender
                                       :error (:error result)}}
@@ -55,17 +57,20 @@
 
 (defn- video-too-short? [video-id min-duration]
   (when min-duration
-    (when-let [duration (youtube/get-video-duration-minutes video-id)]
-      (< duration min-duration))))
+    (if-let [duration (youtube/get-video-duration-minutes video-id)]
+      (< duration min-duration)
+      (do (tel/log! {:level :warn :data {:video-id video-id :min-duration min-duration}}
+                    "YouTube worker: duration unknown, cannot apply min-minutes filter; forwarding anyway")
+          false))))
 
 (defn- forward-video! [ds user-id channel video]
   (let [{:keys [author title link]} video
-        display-author (or (:name channel) author)
-        scope (or (:scope channel) "private")]
+        display-author (or (:name channel) author)]
     (forward! ds yt-actor user-id "YouTube"
               (str "New YouTube video from \"" display-author "\" just dropped.")
               (str "# " title "\n\n" link)
-              "markdown" scope)
+              {:scope (or (:scope channel) "private")
+               :importance (or (:importance channel) "normal")})
     (tel/log! {:level :info :data {:user-id user-id :video-id (:video-id video)
                                    :title title :channel display-author}}
               "YouTube worker: forwarded video to inbox")))
@@ -211,7 +216,7 @@
     (forward! ds atom-actor user-id sender
               (str "New post from \"" display-name "\"")
               body
-              (name kind))
+              {:type (name kind)})
     (tel/log! {:level :info :data {:user-id user-id :entry-id (:entry-id entry)
                                    :title title :feed display-name :kind kind}}
               "Atom worker: forwarded entry to inbox")))

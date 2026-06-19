@@ -1,0 +1,23 @@
+.sources-channel-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.sources-channel-id {
+  font-family: monospace;
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.sources-channel-row .sources-channel-scope,
+.sources-channel-row .sources-channel-importance {
+  flex: 0 0 auto;
+}
+
+.sources-channel-row .sources-channel-delete {
+  margin-left: auto;
+}

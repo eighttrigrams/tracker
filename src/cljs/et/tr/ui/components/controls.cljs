@@ -81,6 +81,22 @@
                           (on-change scope)))}
            (t (keyword "toggle" scope))])))
 
+(defn plain-importance-toggle
+  "An importance selector (normal/important/critical) for per-item use.
+  `current-value` is a string; `on-change` receives the chosen value."
+  [css-class current-value on-change]
+  (into [:div {:class css-class}]
+        (for [[level label] [["normal" "○"] ["important" "★"] ["critical" "★★"]]]
+          [:button.toggle-option
+           {:key level
+            :class (str level (when (= current-value level) " active"))
+            :title (t (keyword "importance" level))
+            :on-click (fn [e]
+                        (.stopPropagation e)
+                        (when (not= current-value level)
+                          (on-change level)))}
+           label])))
+
 (defn work-private-toggle []
   (let [mode (name (:work-private-mode @state/*app-state))]
     [scope-toggle "work-private-toggle toggle-group" mode #(state/set-work-private-mode (keyword %))]))

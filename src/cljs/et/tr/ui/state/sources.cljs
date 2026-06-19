@@ -120,6 +120,9 @@
 (defn set-channel-scope [auth-headers channel-id scope]
   (update-channel auth-headers channel-id {:scope scope}))
 
+(defn set-channel-importance [auth-headers channel-id importance]
+  (update-channel auth-headers channel-id {:importance importance}))
+
 (defn delete-channel [auth-headers channel-id]
   (api/delete-simple (str "/api/sources/youtube/channels/" channel-id)
     (auth-headers)

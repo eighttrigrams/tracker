@@ -78,6 +78,9 @@
        [controls/plain-scope-toggle "sources-channel-scope toggle-group compact"
         (or (:scope channel) "private")
         #(state/set-youtube-channel-scope (:id channel) %)]
+       [controls/plain-importance-toggle "sources-channel-importance toggle-group compact"
+        (or (:importance channel) "normal")
+        #(state/set-youtube-channel-importance (:id channel) %)]
        [:button.sources-channel-delete
         {:on-click #(state/delete-youtube-channel (:id channel))
          :title (t :sources/delete-channel)}

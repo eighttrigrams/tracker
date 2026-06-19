@@ -343,6 +343,9 @@
 (defn set-youtube-channel-scope [channel-id scope]
   (sources/set-channel-scope auth-headers channel-id scope))
 
+(defn set-youtube-channel-importance [channel-id importance]
+  (sources/set-channel-importance auth-headers channel-id importance))
+
 (defn delete-youtube-channel [channel-id]
   (sources/delete-channel auth-headers channel-id))
 
