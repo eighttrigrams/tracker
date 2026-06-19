@@ -180,6 +180,12 @@
 (defn- current-scope []
   (name (:work-private-mode @*app-state)))
 
+(defn- current-task-importance []
+  (case (:tasks-page/importance-filter @*app-state)
+    :important "important"
+    :critical "critical"
+    "normal"))
+
 (declare fetch-tasks)
 (declare fetch-today-meets)
 (declare fetch-today-journal-entries)
@@ -1263,7 +1269,7 @@
 (declare has-active-filters?)
 
 (defn add-task-with-categories [title categories on-success]
-  (tasks/add-task-with-categories *app-state auth-headers fetch-tasks current-scope title categories on-success))
+  (tasks/add-task-with-categories *app-state auth-headers fetch-tasks current-scope current-task-importance title categories on-success))
 
 (defn add-resource-with-categories [title link categories on-success]
   (resources-state/add-resource-with-categories *app-state auth-headers fetch-resources current-scope title link categories on-success))
@@ -1272,7 +1278,7 @@
   (meets-state/add-meet-with-categories *app-state auth-headers fetch-meets current-scope title categories on-success))
 
 (defn add-task [title on-success]
-  (tasks/add-task *app-state auth-headers current-scope has-active-filters?
+  (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title on-success))
 
 (defn update-task [task-id title description tags on-success]
@@ -1364,7 +1370,7 @@
          (when (not= (:reports-task-dropdown-open @*app-state) task-id) task-id)))
 
 (defn add-task-to-today [title on-success]
-  (tasks/add-task *app-state auth-headers current-scope has-active-filters?
+  (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title
                   (fn []
                     (let [task (first (:tasks @*app-state))]
@@ -1373,7 +1379,7 @@
                     (when on-success (on-success)))))
 
 (defn add-task-lined-up-for [title date on-success]
-  (tasks/add-task *app-state auth-headers current-scope has-active-filters?
+  (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title
                   (fn []
                     (let [task (first (:tasks @*app-state))]

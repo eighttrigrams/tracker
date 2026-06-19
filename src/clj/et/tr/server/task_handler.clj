@@ -43,15 +43,16 @@
 
 (defn add-task-handler
   "POST /api/tasks/ — create a new task for the current user. Body: {:title
-  :scope}. `scope` defaults to \"both\". 400 if title is blank, 201 with the
-  new task (plus empty :people/:places/:projects/:goals) on success. Logs a
+  :scope :importance}. `scope` defaults to \"both\"; `importance` defaults to
+  \"normal\" when absent/invalid. 400 if title is blank, 201 with the new task
+  (plus empty :people/:places/:projects/:goals) on success. Logs a
   :create event."
   [req]
   (let [user-id (common/get-user-id req)
-        {:keys [title scope]} (:body req)]
+        {:keys [title scope importance]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [task (db.task/add-task (common/ensure-ds) user-id title (or scope "both"))]
+      (let [task (db.task/add-task (common/ensure-ds) user-id title (or scope "both") importance)]
         (events/record-create! req :task (:id task) task)
         {:status 201 :body (assoc task :people [] :places [] :projects [] :goals [])}))))
 

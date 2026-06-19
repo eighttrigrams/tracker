@@ -8,7 +8,8 @@
 
 (defn add-task
   ([ds user-id title] (add-task ds user-id title "both"))
-  ([ds user-id title scope]
+  ([ds user-id title scope] (add-task ds user-id title scope nil))
+  ([ds user-id title scope importance]
    (let [conn (db/get-conn ds)
          valid-scope (db/normalize-scope scope)
          min-order (or (:min_order (jdbc/execute-one! conn
@@ -18,13 +19,15 @@
                                      db/jdbc-opts))
                        1.0)
          new-order (- min-order 1.0)
+         values (cond-> {:title title
+                         :sort_order new-order
+                         :user_id user-id
+                         :modified_at [:raw "datetime('now')"]
+                         :scope valid-scope}
+                  (contains? db/valid-importances importance) (assoc :importance importance))
          result (jdbc/execute-one! conn
                   (sql/format {:insert-into :tasks
-                               :values [{:title title
-                                         :sort_order new-order
-                                         :user_id user-id
-                                         :modified_at [:raw "datetime('now')"]
-                                         :scope valid-scope}]
+                               :values [values]
                                :returning (conj db/task-select-columns :user_id)})
                   db/jdbc-opts)]
      (tel/log! {:level :info :data {:task-id (:id result) :user-id user-id}} "Task added")

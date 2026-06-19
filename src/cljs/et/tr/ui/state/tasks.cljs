@@ -61,9 +61,9 @@
       (auth-headers)
       (fn [_]))))
 
-(defn add-task-with-categories [app-state auth-headers fetch-tasks-fn current-scope-fn title categories on-success]
+(defn add-task-with-categories [app-state auth-headers fetch-tasks-fn current-scope-fn current-importance-fn title categories on-success]
   (POST "/api/tasks"
-    {:params {:title title :scope (current-scope-fn)}
+    {:params {:title title :scope (current-scope-fn) :importance (current-importance-fn)}
      :format :json
      :response-format :json
      :keywords? true
@@ -81,13 +81,13 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))
 
-(defn add-task [app-state auth-headers current-scope-fn has-active-filters-fn add-with-categories-fn title on-success]
+(defn add-task [app-state auth-headers current-scope-fn current-importance-fn has-active-filters-fn add-with-categories-fn title on-success]
   (if (str/blank? title)
     (swap! app-state assoc :error "Title is required")
     (if (has-active-filters-fn)
       (add-with-categories-fn title on-success)
       (POST "/api/tasks"
-        {:params {:title title :scope (current-scope-fn)}
+        {:params {:title title :scope (current-scope-fn) :importance (current-importance-fn)}
          :format :json
          :response-format :json
          :keywords? true
