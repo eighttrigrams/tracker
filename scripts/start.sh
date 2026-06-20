@@ -33,7 +33,12 @@ if [ "${SHADOW:-true}" = "true" ]; then
   echo "Starting shadow-cljs watch..."
   npx shadow-cljs watch app &
   echo $! > .shadow-cljs.pid
-  sleep 3
+  for _ in $(seq 1 60); do
+    if grep -q "shadow.cljs.devtools.client" resources/public/tracker/js/main.js 2>/dev/null; then
+      break
+    fi
+    sleep 1
+  done
 else
   echo "Building ClojureScript..."
   npx shadow-cljs release app
