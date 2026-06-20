@@ -124,7 +124,9 @@
                            :rel "noopener noreferrer"
                            :on-click #(.stopPropagation %)}
                           "🔗"])})
-      :description {:edit-type :resource}
+      :description {:edit-type :resource
+                    :on-edit state/edit-resource-description
+                    :loaded-fn #(contains? % :description)}
       :expanded-prefix (when video-id [youtube-embed video-id])
       :categories {:selector-fn resource-category-selector :relations-prefix "res"}
       :footer {:left [{:type :scope :value (:scope resource)

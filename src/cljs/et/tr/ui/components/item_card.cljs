@@ -172,17 +172,29 @@
      (when relations-prefix
        [relation-badges/relation-badges-expanded (:relations item) relations-prefix (:id item)])]))
 
-(defn- card-description [{:keys [item edit-type content-type]}]
-  (if (seq (:description item))
-    [task-item/clampable-description
-     {:text (:description item)
-      :content-type content-type
-      :on-click #(state/set-editing-modal edit-type item)}]
-    [:button.edit-icon.description-placeholder
-     {:on-click (fn [e]
-                  (.stopPropagation e)
-                  (state/set-editing-modal edit-type item))}
-     "✎"]))
+(defn- card-description [{:keys [item edit-type content-type on-edit loaded-fn]}]
+  (let [loaded? (if loaded-fn (loaded-fn item) true)
+        open-edit (fn [] (if on-edit (on-edit item) (state/set-editing-modal edit-type item)))]
+    (cond
+      (and loaded? (seq (:description item)))
+      [task-item/clampable-description
+       {:text (:description item)
+        :content-type content-type
+        :on-click open-edit}]
+
+      loaded?
+      [:button.edit-icon.description-placeholder
+       {:on-click (fn [e]
+                    (.stopPropagation e)
+                    (open-edit))}
+       "✎"]
+
+      :else
+      [:button.edit-icon.description-placeholder.description-loading
+       {:on-click (fn [e]
+                    (.stopPropagation e)
+                    (open-edit))}
+       "…"])))
 
 (defn- card-expanded-body [{:keys [item content-class description categories footer expanded-prefix expanded-suffix]}]
   [(keyword (str "div." content-class))
@@ -190,7 +202,9 @@
    (when description
      [card-description {:item item
                         :edit-type (:edit-type description)
-                        :content-type (:content-type description)}])
+                        :content-type (:content-type description)
+                        :on-edit (:on-edit description)
+                        :loaded-fn (:loaded-fn description)}])
    (when categories
      [card-categories {:item item
                        :selector-fn (:selector-fn categories)

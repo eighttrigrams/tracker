@@ -457,6 +457,15 @@
   (when (and id resource (not (contains? resource :description)))
     (resources-state/fetch-resource-description *app-state auth-headers id)))
 
+(declare set-editing-modal)
+
+(defn edit-resource-description [resource]
+  (if (contains? resource :description)
+    (set-editing-modal :resource resource)
+    (resources-state/fetch-resource-description *app-state auth-headers (:id resource)
+      (fn [full]
+        (set-editing-modal :resource (merge resource (select-keys full [:description :tags])))))))
+
 (defn set-editing-resource [id]
   (resources-state/set-editing-resource id))
 

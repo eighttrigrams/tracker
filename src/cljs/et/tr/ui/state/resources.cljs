@@ -80,18 +80,24 @@
                             (do (swap! app-state assoc :resources [])
                                 (swap! *resources-page-state assoc :has-more? false)))))})))
 
-(defn fetch-resource-description [app-state auth-headers resource-id]
-  (api/fetch-json-with-error (str "/api/resources/" resource-id "?detail=full")
-    (auth-headers)
-    (fn [full]
-      (swap! app-state update :resources
-             (fn [resources]
-               (mapv #(if (= (:id %) resource-id)
-                        (assoc % :description (:description full) :tags (:tags full))
-                        %)
-                     resources))))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to load resource description")))))
+(defn fetch-resource-description
+  ([app-state auth-headers resource-id]
+   (fetch-resource-description app-state auth-headers resource-id nil))
+  ([app-state auth-headers resource-id on-loaded]
+   (api/fetch-json-with-error (str "/api/resources/" resource-id "?detail=full")
+     (auth-headers)
+     (fn [full]
+       (swap! app-state update :resources
+              (fn [resources]
+                (mapv #(if (= (:id %) resource-id)
+                         (cond-> %
+                           (not (contains? % :description)) (assoc :description (:description full))
+                           (not (contains? % :tags)) (assoc :tags (:tags full)))
+                         %)
+                      resources)))
+       (when on-loaded (on-loaded full)))
+     (fn [resp]
+       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to load resource description"))))))
 
 (defn add-resource [app-state auth-headers current-scope-fn title link on-success fetch-resources-fn]
   (api/post-json "/api/resources"

@@ -95,6 +95,34 @@ When(
   },
 );
 
+When(
+  "I open the description editor for resource {string}",
+  async ({ page }, title: string) => {
+    const card = page.locator(".items li").filter({ hasText: title });
+    const placeholder = card.locator(".description-placeholder");
+    if (await placeholder.count()) {
+      await placeholder.click();
+    } else {
+      await card.locator(".item-description").click();
+    }
+    await page.waitForLoadState("networkidle");
+  },
+);
+
+When("I save the open description editor", async ({ page }) => {
+  if (await page.locator(".edit-item-modal").count()) {
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.locator(".modal-overlay")).toHaveCount(0);
+  }
+  await page.waitForLoadState("networkidle");
+});
+
+Then("the expanded resource has an empty description", async ({ page }) => {
+  const card = page.locator("ul.items > li.expanded");
+  await expect(card.locator(".description-placeholder")).toBeVisible({ timeout: 5000 });
+  await expect(card.locator(".item-description")).toHaveCount(0);
+});
+
 Then("I should see {string} in the resources list", async ({ page }, text: string) => {
   await expect(page.locator(".items")).toContainText(text, { timeout: 5000 });
 });

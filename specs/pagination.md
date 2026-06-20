@@ -86,9 +86,10 @@ the contract.
   only `:description`, never `:tags` — tags are needed to render and filter
   collapsed cards.
 - **`offset` alongside the existing `limit`.** Pagination is plain SQL
-  `LIMIT/OFFSET` over a stable `ORDER BY`. The offset is tracked explicitly in
-  pagination state and pinned to the page boundary, not re-derived from the
-  live list length (which mutations like delete/add would desync).
+  `LIMIT/OFFSET` over a stable `ORDER BY`. The next-page offset is derived from
+  the live loaded row count (`count` of the current list) at See-more time. A
+  delete removes the row from both the client list and the server result set, so
+  the two stay in lockstep and the page boundary lands correctly.
 - **Reset on change.** Any change to search, filter, sort, or scope resets
   pagination to the first page. An in-flight-request id guards against a slow
   earlier fetch clobbering a newer one.
