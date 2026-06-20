@@ -485,6 +485,8 @@
     (when (and (true? (:dangerously-skip-logins? @common/*config)) prod?)
       (throw (ex-info "Cannot use :dangerously-skip-logins? in production mode" {})))
     (tel/log! :info (str "Starting system in " (if prod? "production" "development") " mode"))
+    (when e2e?
+      (swap! common/*config assoc :db {:type :sqlite-memory}))
     (common/ensure-ds)
     (when (and (not prod?) (not e2e?))
       (when-let [nrepl-port (:nrepl-port @common/*config)]
