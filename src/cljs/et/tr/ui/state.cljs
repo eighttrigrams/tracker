@@ -427,6 +427,11 @@
   ([opts]
    (resources-state/fetch-resources *app-state auth-headers opts)))
 
+(defn load-more-resources []
+  (fetch-resources (assoc (resources-fetch-opts)
+                          :offset (count (:resources @*app-state))
+                          :append? true)))
+
 (defn add-resource [title link on-success]
   (if (has-active-shared-filters?)
     (add-resource-with-categories title link (active-filter-categories) on-success)
@@ -446,6 +451,11 @@
 
 (defn set-expanded-resource [id]
   (resources-state/set-expanded-resource id))
+
+(defn expand-resource [id resource]
+  (resources-state/set-expanded-resource id)
+  (when (and id resource (not (contains? resource :description)))
+    (resources-state/fetch-resource-description *app-state auth-headers id)))
 
 (defn set-editing-resource [id]
   (resources-state/set-editing-resource id))

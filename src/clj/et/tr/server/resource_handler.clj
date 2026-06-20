@@ -22,7 +22,10 @@
   strict (\"true\" toggles strict context match), people/places/projects/goals
   (comma-separated category id lists), domain, excludedDomains
   (comma-separated), sortMode, limit (int — caps the row count; machine users
-  default to 10 when omitted). Always returns 200 with a vector of rows."
+  default to 10 when omitted), offset (int — skip rows for pagination), detail
+  (\"full\" includes :description; otherwise rows are lean), paged (\"true\"
+  wraps the response as {:items :has_more} for See-more pagination). Returns 200
+  with a vector of rows, or the {:items :has_more} envelope when paged."
   [req]
   (let [user-id (common/get-user-id req)
         search-term (get-in req [:params "q"])
@@ -39,9 +42,18 @@
                            (set (str/split excluded-domains-param #",")))
         sort-mode (get-in req [:params "sortMode"])
         limit (common/parse-int-opt (get-in req [:params "limit"]))
+        offset (common/parse-int-opt (get-in req [:params "offset"]))
+        lean? (not= "full" (get-in req [:params "detail"]))
+        paged? (= "true" (get-in req [:params "paged"]))
         categories (when (or people places projects goals)
-                     {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.resource/list-resources (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :domain domain :excluded-domains excluded-domains :sort-mode sort-mode :limit limit})}))
+                     {:people people :places places :projects projects :goals goals})
+        rows (vec (db.resource/list-resources (common/ensure-ds) user-id
+                    {:search-term search-term :importance importance :context context :strict strict
+                     :categories categories :domain domain :excluded-domains excluded-domains
+                     :sort-mode sort-mode :limit (when limit (inc limit)) :offset offset :lean? lean?}))
+        has-more? (boolean (and limit (> (count rows) limit)))
+        items (if has-more? (subvec rows 0 limit) rows)]
+    {:status 200 :body (if paged? {:items items :has_more has-more?} items)}))
 
 (defn add-resource-handler
   "POST /api/resources — create a new resource for the caller. Body fields:

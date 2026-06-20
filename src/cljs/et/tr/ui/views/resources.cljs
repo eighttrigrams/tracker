@@ -77,7 +77,9 @@
     [item-card/item-card
      {:item resource
       :expanded? is-expanded
-      :on-toggle #(state/set-expanded-resource (when-not is-expanded (:id resource)))
+      :on-toggle #(if is-expanded
+                    (state/set-expanded-resource nil)
+                    (state/expand-resource (:id resource) resource))
       :container {:tag :li
                   :class (str (when is-dragging "dragging")
                               (when is-drag-over " drag-over")
@@ -497,7 +499,12 @@
          [resource-domain-filter-badge]
          (if (empty? resources)
            [:p.empty-message (t :resources/no-resources)]
-           [:ul.items
-            (for [resource resources]
-              ^{:key (:id resource)}
-              [resource-item resource expanded-resource people places projects goals drag-enabled? drag-resource drag-over-resource])])])]]))
+           [:<>
+            [:ul.items
+             (for [resource resources]
+               ^{:key (:id resource)}
+               [resource-item resource expanded-resource people places projects goals drag-enabled? drag-resource drag-over-resource])]
+            (when (:has-more? @resources-state/*resources-page-state)
+              [:div.load-more
+               [:button.load-more-btn {:on-click #(state/load-more-resources)}
+                (t :resources/see-more)]])])])]]))

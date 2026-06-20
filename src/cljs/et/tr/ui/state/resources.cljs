@@ -14,7 +14,22 @@
                                         :domain-filter nil
                                         :excluded-domains #{}
                                         :sort-mode :recent
+                                        :has-more? false
                                         :fetch-request-id 0}))
+
+(def ^:private page-size 50)
+
+(defn- filtered? [{:keys [search-term importance domain excluded-domains
+                          filter-people filter-places filter-projects filter-goals]}]
+  (boolean
+    (or (>= (count (str search-term)) 2)
+        importance
+        (seq domain)
+        (seq excluded-domains)
+        (seq filter-people)
+        (seq filter-places)
+        (seq filter-projects)
+        (seq filter-goals))))
 
 (defn- ids->names [ids collection]
   (let [id-set (set ids)
@@ -30,7 +45,11 @@
         goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
         domain (:domain opts)
         excluded-domains (:excluded-domains opts)
-        url (cond-> "/api/resources?"
+        paginate? (not (filtered? opts))
+        offset (or (:offset opts) 0)
+        append? (boolean (:append? opts))
+        url (cond-> "/api/resources?paged=true&"
+              paginate? (str "limit=" page-size "&offset=" offset "&")
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
               importance (str "importance=" (name importance) "&")
               context (str "context=" (name context) "&")
@@ -46,12 +65,26 @@
       {:response-format :json
        :keywords? true
        :headers (auth-headers)
-       :handler (fn [resources]
+       :handler (fn [resp]
                   (when (= request-id (:fetch-request-id @*resources-page-state))
-                    (swap! app-state assoc :resources resources)))
+                    (let [items (:items resp)]
+                      (swap! *resources-page-state assoc :has-more? (and paginate? (boolean (:has_more resp))))
+                      (if append?
+                        (swap! app-state update :resources #(into (vec %) items))
+                        (swap! app-state assoc :resources items)))))
        :error-handler (fn [_]
                         (when (= request-id (:fetch-request-id @*resources-page-state))
-                          (swap! app-state assoc :resources [])))})))
+                          (when-not append?
+                            (swap! app-state assoc :resources []))
+                          (swap! *resources-page-state assoc :has-more? false)))})))
+
+(defn fetch-resource-description [app-state auth-headers resource-id]
+  (api/fetch-json (str "/api/resources/" resource-id "?detail=full")
+    (auth-headers)
+    (fn [full]
+      (swap! app-state update :resources
+             (fn [resources]
+               (mapv #(if (= (:id %) resource-id) (merge % full) %) resources))))))
 
 (defn add-resource [app-state auth-headers current-scope-fn title link on-success fetch-resources-fn]
   (api/post-json "/api/resources"

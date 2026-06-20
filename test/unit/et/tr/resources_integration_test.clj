@@ -13,6 +13,9 @@
 (defn- get-resource [id]
   (:body (GET-json (str "/api/resources/" id))))
 
+(defn- seed! [n]
+  (dotimes [i n] (add-sheet! (str "R" i))))
+
 (deftest update-sheet-description
   (let [sheet (add-sheet! "My Sheet")
         resp (update-resource! (:id sheet) {:title "My Sheet" :description "Some notes"})]
@@ -26,3 +29,74 @@
     (is (= 200 (:status resp)))
     (let [fetched (get-resource (:id resource))]
       (is (= "Link notes" (:description fetched))))))
+
+(deftest paged-envelope-shape
+  (testing "paged=true wraps the response as {:items :has_more}"
+    (seed! 3)
+    (let [{:keys [status body]} (GET-json "/api/resources?paged=true&limit=10&offset=0")]
+      (is (= 200 status))
+      (is (map? body))
+      (is (vector? (:items body)))
+      (is (= 3 (count (:items body))))
+      (is (contains? body :has_more))
+      (is (false? (:has_more body)))))
+  (testing "without paged the response is a bare vector"
+    (let [{:keys [body]} (GET-json "/api/resources")]
+      (is (vector? body)))))
+
+(deftest paged-without-limit-returns-full-set
+  (testing "paged=true without a limit returns the whole set with has_more false"
+    (seed! 3)
+    (let [{:keys [status body]} (GET-json "/api/resources?paged=true")]
+      (is (= 200 status))
+      (is (map? body))
+      (is (= 3 (count (:items body))))
+      (is (false? (:has_more body))))))
+
+(deftest has-more-boundary
+  (testing "exactly page-size rows -> has_more false, all rows returned"
+    (seed! 3)
+    (let [{:keys [body]} (GET-json "/api/resources?paged=true&limit=3&offset=0")]
+      (is (= 3 (count (:items body))))
+      (is (false? (:has_more body)))))
+  (testing "page-size + 1 rows -> has_more true, trimmed to page-size"
+    (add-sheet! "extra")
+    (let [{:keys [body]} (GET-json "/api/resources?paged=true&limit=3&offset=0")]
+      (is (= 3 (count (:items body))))
+      (is (true? (:has_more body))))))
+
+(deftest lean-default-vs-detail-full
+  (testing "lean default drops :description but keeps :tags; ?detail=full keeps :description"
+    (let [sheet (add-sheet! "Notes sheet")]
+      (update-resource! (:id sheet) {:title "Notes sheet" :description "the body" :tags "alpha beta"})
+      (let [lean (first (:body (GET-json "/api/resources")))
+            full (first (:body (GET-json "/api/resources?detail=full")))]
+        (is (= "Notes sheet" (:title lean)))
+        (is (not (contains? lean :description)))
+        (is (contains? lean :tags))
+        (is (= "alpha beta" (:tags lean)))
+        (is (= "the body" (:description full)))))))
+
+(deftest has-more-with-offset
+  (testing "has_more reflects the limit+1 probe at each offset, true until the final page"
+    (seed! 5)
+    (let [page (fn [off] (:body (GET-json (str "/api/resources?paged=true&sortMode=manual&limit=2&offset=" off))))]
+      (is (true? (:has_more (page 0))))
+      (is (= 2 (count (:items (page 0)))))
+      (is (true? (:has_more (page 2))))
+      (is (= 2 (count (:items (page 2)))))
+      (is (false? (:has_more (page 4))))
+      (is (= 1 (count (:items (page 4))))))))
+
+(deftest offset-paging-via-endpoint
+  (testing "limit + offset page through the full set without overlap"
+    (seed! 5)
+    (let [ids (fn [path] (mapv :id (:items (:body (GET-json path)))))
+          all (mapv :id (:body (GET-json "/api/resources?sortMode=manual")))
+          page1 (ids "/api/resources?paged=true&sortMode=manual&limit=2&offset=0")
+          page2 (ids "/api/resources?paged=true&sortMode=manual&limit=2&offset=2")
+          page3 (ids "/api/resources?paged=true&sortMode=manual&limit=2&offset=4")]
+      (is (= 5 (count all)))
+      (is (= [2 2 1] [(count page1) (count page2) (count page3)]))
+      (is (= all (concat page1 page2 page3)))
+      (is (= (set all) (set (concat page1 page2 page3)))))))

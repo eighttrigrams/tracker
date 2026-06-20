@@ -8,6 +8,33 @@
 (defn- add! [title link]
   (db.resource/add-resource *ds* *user-id* title link "both"))
 
+(deftest list-resources-offset-test
+  (testing "limit + offset page through the full set without overlap"
+    (dotimes [i 5] (add! (str "R" i) nil))
+    (let [all (db.resource/list-resources *ds* *user-id* {:sort-mode "added"})
+          page1 (db.resource/list-resources *ds* *user-id* {:sort-mode "added" :limit 2 :offset 0})
+          page2 (db.resource/list-resources *ds* *user-id* {:sort-mode "added" :limit 2 :offset 2})
+          page3 (db.resource/list-resources *ds* *user-id* {:sort-mode "added" :limit 2 :offset 4})]
+      (is (= 5 (count all)))
+      (is (= 2 (count page1)))
+      (is (= 2 (count page2)))
+      (is (= 1 (count page3)))
+      (is (= (set (map :id all))
+             (set (mapcat #(map :id %) [page1 page2 page3]))))
+      (is (= (map :id all)
+             (concat (map :id page1) (map :id page2) (map :id page3)))))))
+
+(deftest list-resources-lean-test
+  (testing "lean? drops :description but keeps other columns; default keeps it"
+    (let [r (add! "Has notes" nil)]
+      (db.resource/update-resource *ds* *user-id* (:id r)
+        {:title "Has notes" :link nil :description "Some notes" :tags ""})
+      (let [full (first (db.resource/list-resources *ds* *user-id* {}))
+            lean (first (db.resource/list-resources *ds* *user-id* {:lean? true}))]
+        (is (= "Some notes" (:description full)))
+        (is (not (contains? lean :description)))
+        (is (= "Has notes" (:title lean)))))))
+
 (deftest list-resources-domain-filter-test
   (testing "filters resources by domain (includes www variant)"
     (add! "A" "https://example.com/a")
