@@ -86,10 +86,10 @@
                                           :from [:resources]
                                           :where where-clause
                                           :order-by (case sort-mode
-                                                      "added" [[:created_at :desc]]
-                                                      "recent" [[:modified_at :desc]]
-                                                      "manual" [[:sort_order :asc]]
-                                                      [[:modified_at :desc]])}
+                                                      "added" [[:created_at :desc] [:id :desc]]
+                                                      "recent" [[:modified_at :desc] [:id :desc]]
+                                                      "manual" [[:sort_order :asc] [:id :asc]]
+                                                      [[:modified_at :desc] [:id :desc]])}
                                    limit (assoc :limit limit)
                                    offset (assoc :offset offset)))
                      db/jdbc-opts)

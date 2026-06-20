@@ -100,8 +100,11 @@
 
       :else
       (let [effective-link (when (seq link) link)
+            fields (cond-> {:title title :link effective-link}
+                     (some? description) (assoc :description description)
+                     (some? tags) (assoc :tags tags))
             before (events/fetch-fields :resources resource-id [:title :link :description :tags])
-            resource (db.resource/update-resource (common/ensure-ds) user-id resource-id {:title title :link effective-link :description (or description "") :tags (or tags "")})]
+            resource (db.resource/update-resource (common/ensure-ds) user-id resource-id fields)]
         (events/record-update! req :resource resource-id before
                                (select-keys resource [:title :link :description :tags]))
         {:status 200 :body resource}))))

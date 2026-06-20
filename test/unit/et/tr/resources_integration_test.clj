@@ -30,6 +30,33 @@
     (let [fetched (get-resource (:id resource))]
       (is (= "Link notes" (:description fetched))))))
 
+(deftest title-only-update-preserves-description
+  (testing "a title-only update (no :description key) leaves the stored description untouched"
+    (let [sheet (add-sheet! "My Sheet")]
+      (update-resource! (:id sheet) {:title "My Sheet" :description "Some notes"})
+      (let [resp (update-resource! (:id sheet) {:title "Renamed Sheet"})]
+        (is (= 200 (:status resp))))
+      (let [fetched (get-resource (:id sheet))]
+        (is (= "Renamed Sheet" (:title fetched)))
+        (is (= "Some notes" (:description fetched)))))))
+
+(deftest explicit-blank-description-clears
+  (testing "an explicit :description \"\" still empties the stored description"
+    (let [sheet (add-sheet! "My Sheet")]
+      (update-resource! (:id sheet) {:title "My Sheet" :description "Some notes"})
+      (let [resp (update-resource! (:id sheet) {:title "My Sheet" :description ""})]
+        (is (= 200 (:status resp))))
+      (let [fetched (get-resource (:id sheet))]
+        (is (= "" (:description fetched)))))))
+
+(deftest title-only-update-preserves-tags
+  (testing "a title-only update leaves stored tags untouched"
+    (let [sheet (add-sheet! "Tagged")]
+      (update-resource! (:id sheet) {:title "Tagged" :tags "alpha beta"})
+      (update-resource! (:id sheet) {:title "Tagged Renamed"})
+      (let [fetched (get-resource (:id sheet))]
+        (is (= "alpha beta" (:tags fetched)))))))
+
 (deftest paged-envelope-shape
   (testing "paged=true wraps the response as {:items :has_more}"
     (seed! 3)

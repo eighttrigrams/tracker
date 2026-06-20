@@ -1,5 +1,7 @@
 (ns et.tr.resources-db-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
+            [next.jdbc :as jdbc]
+            [et.tr.db :as db]
             [et.tr.db.resource :as db.resource]
             [et.tr.test-helpers :refer [*ds* *user-id* with-in-memory-db]]))
 
@@ -7,6 +9,20 @@
 
 (defn- add! [title link]
   (db.resource/add-resource *ds* *user-id* title link "both"))
+
+(deftest list-resources-tiebreaker-test
+  (testing "rows sharing the primary sort key fall back to a deterministic :id order"
+    (dotimes [i 6] (add! (str "R" i) nil))
+    (jdbc/execute! (db/get-conn *ds*) ["UPDATE resources SET created_at = '2026-01-01 00:00:00', modified_at = '2026-01-01 00:00:00'"])
+    (let [all-ids (map :id (db.resource/list-resources *ds* *user-id* {:sort-mode "added"}))
+          expected (reverse (sort all-ids))]
+      (testing "with the primary sort tied, rows come back in descending :id order"
+        (is (= expected all-ids))
+        (is (= expected (map :id (db.resource/list-resources *ds* *user-id* {:sort-mode "recent"})))))
+      (testing "paging that order skips/duplicates nothing"
+        (let [pages (mapcat #(map :id (db.resource/list-resources *ds* *user-id* {:sort-mode "added" :limit 2 :offset %})) [0 2 4])]
+          (is (= expected pages))
+          (is (= 6 (count (distinct pages)))))))))
 
 (deftest list-resources-offset-test
   (testing "limit + offset page through the full set without overlap"

@@ -27,9 +27,15 @@
   (fn [req]
     (let [resp (handler req)
           body (:body resp)]
-      (if (and (machine? req)
-               (not (detail-full? req))
-               (sequential? body)
-               (every? map? body))
+      (cond
+        (not (and (machine? req) (not (detail-full? req))))
+        resp
+
+        (and (sequential? body) (every? map? body))
         (assoc resp :body (mapv strip-item body))
+
+        (and (map? body) (sequential? (:items body)) (every? map? (:items body)))
+        (assoc resp :body (update body :items #(mapv strip-item %)))
+
+        :else
         resp))))

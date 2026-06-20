@@ -43,6 +43,32 @@ When("I click the resources add button", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 });
 
+When("I block resource detail fetches", async ({ page }) => {
+  await page.route(
+    (url) => url.href.includes("detail=full"),
+    (route) => route.abort(),
+  );
+});
+
+When("I unblock resource detail fetches", async ({ page }) => {
+  await page.unrouteAll();
+});
+
+When(
+  "I inline-edit the title of resource {string} to {string}",
+  async ({ page }, title: string, newTitle: string) => {
+    await page
+      .locator(".items li")
+      .filter({ hasText: title })
+      .locator(".item-title-text")
+      .click({ modifiers: ["Alt"] });
+    const input = page.locator(".inline-title-edit");
+    await input.fill(newTitle);
+    await input.press("Enter");
+    await page.waitForLoadState("networkidle");
+  },
+);
+
 When("I expand resource {string}", async ({ page }, title: string) => {
   await page.locator(".items li").filter({ hasText: title }).locator(".item-header").click();
   await page.waitForLoadState("networkidle");
