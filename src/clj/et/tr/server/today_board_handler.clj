@@ -7,21 +7,30 @@
             [et.tr.db.journal-entry :as db.journal-entry]
             [et.tr.server.common :as common]))
 
-(defn- today-meets [ds user-id]
-  (let [meets (db.meet/list-meets ds user-id {})
-        today (:today (jdbc/execute-one! (db/get-conn ds)
-                        (sql/format {:select [[[:raw "date('now','localtime')"] :today]]})
-                        db/jdbc-opts))]
-    (filterv #(= today (:start_date %)) meets)))
+(defn- board-meets [ds user-id today end]
+  (let [meets (db.meet/list-meets ds user-id {})]
+    (filterv (fn [m]
+               (let [d (:start_date m)]
+                 (and (some? d)
+                      (<= 0 (compare d today))
+                      (<= 0 (compare end d)))))
+             meets)))
 
 (defn today-board-handler
-  "GET /api/today-board — fetch today's board for the current user: tasks due/marked
-  for today, meets whose start_date matches the local-time current date, and
-  today's journal entries. Returns {:tasks :meets :journal-entries}."
+  "GET /api/today-board — fetch the board for the current user: tasks due/marked
+  for today, meets within the date window, and today's journal entries. Optional
+  ?days=N (non-negative integer, default 0) widens the meets window to
+  today..today+N; days absent or 0 means today only (unchanged behavior).
+  Returns {:tasks :meets :journal-entries}."
   [req]
   (let [user-id (common/get-user-id req)
-        ds (common/ensure-ds)]
+        ds (common/ensure-ds)
+        days (max 0 (or (common/parse-int-opt (get-in req [:params "days"])) 0))
+        today (:today (jdbc/execute-one! (db/get-conn ds)
+                        (sql/format {:select [[[:raw "date('now','localtime')"] :today]]})
+                        db/jdbc-opts))
+        end (str (.plusDays (java.time.LocalDate/parse today) days))]
     {:status 200
      :body {:tasks (db.task/list-tasks ds user-id :today nil)
-            :meets (today-meets ds user-id)
+            :meets (board-meets ds user-id today end)
             :journal-entries (db.journal-entry/list-today-journal-entries ds user-id {})}}))

@@ -39,16 +39,16 @@
   (dotimes [i n]
     (db.meet/add-meet *ds* *user-id* (str "Meet " i))))
 
-(deftest machine-user-no-limit-defaults-to-ten
+(deftest machine-user-no-limit-defaults-to-hundred
   (with-real-auth
     (let [machine (db.user/create-user *ds* "machine" "machinepass"
                                        {:is-machine-user true :for-user-id *user-id*})
           token (machine-token (:id machine) *user-id*)]
-      (seed-meets! 25)
-      (testing "machine user without ?limit gets 10 rows"
+      (seed-meets! 120)
+      (testing "machine user without ?limit gets 100 rows"
         (let [resp (get-meets {:token token})]
           (is (= 200 (:status resp)))
-          (is (= 10 (count (:body resp)))))))))
+          (is (= 100 (count (:body resp)))))))))
 
 (deftest machine-user-explicit-limit-overrides-default
   (with-real-auth

@@ -23,7 +23,7 @@
 
 (defn wrap-machine-default-limit
   "When a verified machine-user calls GET on one of the unbounded list
-  endpoints without an explicit ?limit, inject ?limit=10 into :params so
+  endpoints without an explicit ?limit, inject ?limit=100 into :params so
   downstream handlers receive a default cap. Caller-supplied ?limit values
   are preserved verbatim."
   [handler]
@@ -31,5 +31,5 @@
     (if (and (list-get? req)
              (nil? (get-in req [:params "limit"]))
              (machine? req))
-      (handler (assoc-in req [:params "limit"] "10"))
+      (handler (assoc-in req [:params "limit"] "100"))
       (handler req))))

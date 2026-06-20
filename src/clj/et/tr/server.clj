@@ -31,6 +31,7 @@
             [honey.sql :as sql]
             [et.tr.middleware.rate-limit :as rate-limit :refer [wrap-rate-limit]]
             [et.tr.middleware.machine-user :as machine-user]
+            [et.tr.middleware.machine-lean :as machine-lean]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.string :as str]
@@ -432,6 +433,7 @@
       (recording-mode/wrap-machine-write-guard)
       (audit/wrap-write-audit)
       (wrap-auth prod?)
+      (machine-lean/wrap-machine-lean)
       (wrap-json-response)
       (wrap-cors :access-control-allow-origin [#".*"]
                  :access-control-allow-methods [:get :post :put :delete])
