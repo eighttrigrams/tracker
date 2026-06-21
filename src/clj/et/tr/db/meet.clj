@@ -211,6 +211,16 @@
                    :returning [:id :start_date :start_time :modified_at]})
       db/jdbc-opts)))
 
+(defn set-meet-maybe [ds user-id meet-id maybe?]
+  (let [maybe-val (if maybe? 1 0)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :meets
+                   :set {:maybe maybe-val
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id meet-id] (db/user-id-where-clause user-id)]
+                   :returning [:id :maybe :modified_at]})
+      db/jdbc-opts)))
+
 (defn archive-meet [ds user-id meet-id]
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update :meets

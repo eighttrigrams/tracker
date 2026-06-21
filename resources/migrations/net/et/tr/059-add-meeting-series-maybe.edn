@@ -1,0 +1,2 @@
+{:up ["ALTER TABLE meeting_series ADD COLUMN maybe TEXT NOT NULL DEFAULT '0'"]
+ :down ["ALTER TABLE meeting_series DROP COLUMN maybe"]}

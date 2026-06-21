@@ -81,6 +81,24 @@
       (db.meet/set-meet-start-time *ds* *user-id* (:id meet) "09:00")
       (is (nil? (:start_time (db.meet/set-meet-start-time *ds* *user-id* (:id meet) "")))))))
 
+(deftest meet-maybe-defaults-to-zero-test
+  (testing "new meet has maybe = 0"
+    (let [meet (db.meet/add-meet *ds* *user-id* "Meet")]
+      (is (= 0 (:maybe meet))))))
+
+(deftest set-meet-maybe-test
+  (testing "flips the maybe flag and returns updated fields"
+    (let [meet (db.meet/add-meet *ds* *user-id* "Meet")
+          on (db.meet/set-meet-maybe *ds* *user-id* (:id meet) true)]
+      (is (= 1 (:maybe on)))
+      (is (some? (:modified_at on)))
+      (is (= 0 (:maybe (db.meet/set-meet-maybe *ds* *user-id* (:id meet) false))))))
+
+  (testing "is ownership-scoped"
+    (let [meet (db.meet/add-meet *ds* *user-id* "Meet")]
+      (is (nil? (db.meet/set-meet-maybe *ds* (inc *user-id*) (:id meet) true)))
+      (is (= 0 (:maybe (db.meet/get-meet *ds* *user-id* (:id meet))))))))
+
 (deftest list-meets-exclude-by-place-test
   (let [place (db.category/add-place *ds* *user-id* "Office")
         m1 (db.meet/add-meet *ds* *user-id* "At office")
