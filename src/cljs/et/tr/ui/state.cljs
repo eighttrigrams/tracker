@@ -520,6 +520,8 @@
 (defn uncategorize-resource [resource-id category-type category-id]
   (resources-state/uncategorize-resource *app-state auth-headers fetch-resources resource-id category-type category-id))
 
+(def ^:private meets-week-limit 4)
+
 (defn- meets-fetch-opts []
   (let [series-filter (:meets-page/filter-series @*app-state)
         summary-mode? (:meets-page/meet-summary-mode @*app-state)]
@@ -533,13 +535,21 @@
              :filter-people (:shared/filter-people @*app-state)
              :filter-places (:shared/filter-places @*app-state)
              :filter-projects (:shared/filter-projects @*app-state)
-             :filter-goals (:shared/filter-goals @*app-state)}
+             :filter-goals (:shared/filter-goals @*app-state)
+             :week-offset (:week-offset @meets-state/*meets-page-state)
+             :week-limit meets-week-limit}
       series-filter (assoc :series-id (:id series-filter)))))
 
 (defn fetch-meets
-  ([] (fetch-meets (meets-fetch-opts)))
+  ([]
+   (swap! meets-state/*meets-page-state assoc :week-offset 0)
+   (fetch-meets (meets-fetch-opts)))
   ([opts]
    (meets-state/fetch-meets *app-state auth-headers opts)))
+
+(defn load-more-meets []
+  (let [next-offset (+ (:week-offset @meets-state/*meets-page-state) meets-week-limit)]
+    (fetch-meets (assoc (meets-fetch-opts) :week-offset next-offset :append? true))))
 
 (defn add-meet [title on-success]
   (if (has-active-shared-filters?)

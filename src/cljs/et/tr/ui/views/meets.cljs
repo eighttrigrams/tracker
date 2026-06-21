@@ -6,7 +6,7 @@
             [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
-            [et.tr.i18n :refer [t]]))
+            [et.tr.i18n :as i18n :refer [t]]))
 
 (declare series-create-meeting-button)
 
@@ -79,6 +79,16 @@
                       {:type :importance :value (:importance meet)
                        :on-set #(state/set-meet-importance (:id meet) %)}]
                :right [{:type :delete :on-click #(state/set-confirm-delete-meet meet)}]}}]))
+
+(defn- meet-week-section [week-key week-meets expanded-meet people places projects goals]
+  (let [[_ week-num] week-key]
+    [:div.report-week-group {:key (str (first week-key) "-" (second week-key))}
+     [:h3.report-week-header (i18n/tf :meets/week week-num)]
+     (into [:ul.items]
+           (map (fn [meet]
+                  ^{:key (:id meet)}
+                  [meet-item meet expanded-meet people places projects goals])
+                week-meets))]))
 
 (defn- importance-filter-toggle []
   (let [importance-filter (:importance-filter @meets-state/*meets-page-state)]
@@ -338,7 +348,20 @@
         :else
         (if (empty? meets)
           [:p.empty-message (t :meets/no-meets)]
-          [:ul.items
-           (for [meet meets]
-             ^{:key (:id meet)}
-             [meet-item meet expanded-meet people places projects goals])]))]]))
+          (let [sort-mode (:sort-mode @meets-state/*meets-page-state)
+                meets-by-week (group-by #(date/iso-week-key (:start_date %)) meets)
+                week-keys (->> (keys meets-by-week)
+                               (filter some?)
+                               distinct
+                               (sort (if (= sort-mode :past)
+                                       #(compare %2 %1)
+                                       compare)))]
+            [:<>
+             (into [:div.report-weeks]
+                   (for [wk week-keys]
+                     ^{:key (str (first wk) "-" (second wk))}
+                     [meet-week-section wk (get meets-by-week wk) expanded-meet people places projects goals]))
+             (when (:has-more? @meets-state/*meets-page-state)
+               [:div.load-more
+                [:button.load-more-btn {:on-click #(state/load-more-meets)}
+                 (t :meets/see-more)]])])))]]))

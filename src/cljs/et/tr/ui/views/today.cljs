@@ -98,8 +98,11 @@
                             (t :task/unlink-today)]])}]}}]))
 
 (defn- today-meet-archive-button [meet]
-  (let [show? (or (nil? (:meeting_series_id meet))
-                  (:series_has_future_meet meet))]
+  (let [future? (and (:start_date meet)
+                     (pos? (compare (:start_date meet) (date/today-str))))
+        show? (and (not future?)
+                   (or (nil? (:meeting_series_id meet))
+                       (:series_has_future_meet meet)))]
     (when show?
       [:button.archive-meet-btn
        {:on-click (fn [e]
