@@ -110,6 +110,18 @@
                                         :set-fn db.journal/set-journal-field
                                         :table :journals}))
 
+(defn get-taken-dates-handler
+  "GET /api/journals/:id/taken-dates — return dates already occupied by entries
+  belonging to this journal, used by the UI to grey out unavailable slots when
+  creating an entry. Returns 200 {:dates [...]}, or 404 {:error ...} if the
+  journal does not exist for this user."
+  [req]
+  (let [user-id (common/get-user-id req)
+        journal-id (Integer/parseInt (get-in req [:params :id]))]
+    (if-let [dates (db.journal/get-taken-dates (common/ensure-ds) user-id journal-id)]
+      {:status 200 :body {:dates dates}}
+      {:status 404 :body {:error "Journal not found"}})))
+
 (defn create-entry-handler
   "POST /api/journals/:id/create-entry — create a new journal entry under the
   given journal for a specific date. Body field :date must be in YYYY-MM-DD

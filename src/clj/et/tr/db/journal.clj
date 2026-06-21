@@ -221,6 +221,18 @@
             (tel/log! {:level :info :data {:entry-id (:id entry) :journal-id journal-id :user-id user-id}} "Journal entry created from journal")
             (assoc entry :people [] :places [] :projects [] :goals [])))))))
 
+(defn get-taken-dates [ds user-id journal-id]
+  (when (journal-owned-by-user? ds journal-id user-id)
+    (let [conn (db/get-conn ds)
+          rows (jdbc/execute! conn
+                 (sql/format {:select-distinct [:entry_date]
+                              :from [:journal_entries]
+                              :where [:and
+                                      [:= :journal_id journal-id]
+                                      [:!= :entry_date nil]]})
+                 db/jdbc-opts)]
+      (mapv :entry_date rows))))
+
 (defn- monday-of-week [^LocalDate date]
   (.with date (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY)))
 

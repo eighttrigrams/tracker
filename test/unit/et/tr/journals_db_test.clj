@@ -48,6 +48,27 @@
         (is (= "2026-04-11" (:entry_date entry)))
         (is (= (:id journal) (:journal_id entry)))))))
 
+(deftest get-taken-dates-test
+  (let [journal (db.journal/add-journal *ds* *user-id* "Dates Journal")]
+    (testing "returns empty list when no entries exist"
+      (is (= [] (db.journal/get-taken-dates *ds* *user-id* (:id journal)))))
+
+    (testing "returns entry dates of created entries"
+      (db.journal/create-entry-for-journal *ds* *user-id* (:id journal) "2026-05-01")
+      (db.journal/create-entry-for-journal *ds* *user-id* (:id journal) "2026-05-08")
+      (let [dates (db.journal/get-taken-dates *ds* *user-id* (:id journal))]
+        (is (= 2 (count dates)))
+        (is (contains? (set dates) "2026-05-01"))
+        (is (contains? (set dates) "2026-05-08"))))
+
+    (testing "is scoped to the journal"
+      (let [other (db.journal/add-journal *ds* *user-id* "Other Journal")]
+        (db.journal/create-entry-for-journal *ds* *user-id* (:id other) "2026-06-01")
+        (is (not (contains? (set (db.journal/get-taken-dates *ds* *user-id* (:id journal))) "2026-06-01")))))
+
+    (testing "returns nil for non-existent journal"
+      (is (nil? (db.journal/get-taken-dates *ds* *user-id* 99999))))))
+
 (deftest auto-create-journal-entries-test
   (testing "creates entries for journals that don't have one for today"
     (db.journal/add-journal *ds* *user-id* "Auto Daily" "both" "daily")

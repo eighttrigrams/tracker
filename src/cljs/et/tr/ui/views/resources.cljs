@@ -306,6 +306,13 @@
                                :title (t :journals/filter-by-journal)}
     "⏚"]])
 
+(defn- journal-create-entry-button [journal]
+  [:button.create-next-meeting-btn
+   {:on-click (fn [e]
+                (.stopPropagation e)
+                (state/open-create-date-modal :journal journal))}
+   (t :journals/create-entry)])
+
 (defn- journal-item [journal expanded-id people places projects goals]
   (let [is-expanded (= expanded-id (:id journal))]
     [item-card/item-card
@@ -321,7 +328,8 @@
       :categories {:selector-fn journal-category-selector}
       :footer {:left [{:type :scope :value (:scope journal)
                        :on-set #(state/set-journal-scope (:id journal) %)}]
-               :right [{:type :delete :on-click #(state/set-confirm-delete-journal journal)}]}}]))
+               :right [{:type :delete :on-click #(state/set-confirm-delete-journal journal)}]}
+      :readonly-extra [journal-create-entry-button journal]}]))
 
 (defn- journal-search-add-form []
   (let [input-value (:filter-search @journals-state/*journals-page-state)

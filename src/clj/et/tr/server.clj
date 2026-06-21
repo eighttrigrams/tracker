@@ -326,7 +326,8 @@
       (POST "/:id/categorize" [] journal-handler/categorize-journal-handler)
       (DELETE "/:id/categorize" [] journal-handler/uncategorize-journal-handler)
       (PUT "/:id/scope" [] journal-handler/set-journal-scope-handler)
-      (POST "/:id/create-entry" [] journal-handler/create-entry-handler))
+      (POST "/:id/create-entry" [] journal-handler/create-entry-handler)
+      (GET "/:id/taken-dates" [] journal-handler/get-taken-dates-handler))
 
     (context "/journal-entries" []
       (GET "/" [] journal-entry-handler/list-journal-entries-handler)

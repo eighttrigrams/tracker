@@ -78,6 +78,15 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete journal"))
       (swap! *journals-page-state assoc :confirm-delete-journal nil))))
 
+(defn create-entry-for-journal [app-state auth-headers fetch-fn journal-id date]
+  (api/post-json (str "/api/journals/" journal-id "/create-entry")
+    {:date date}
+    (auth-headers)
+    (fn [_]
+      (fetch-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to create entry")))))
+
 (defn set-journal-scope [app-state auth-headers journal-id scope]
   (api/put-json (str "/api/journals/" journal-id "/scope")
     {:scope scope}

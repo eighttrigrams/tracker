@@ -1789,7 +1789,8 @@
   (swap! *app-state assoc :create-date-modal {:type entity-type :entity entity :taken-dates nil :loading? true})
   (let [url (case entity-type
               :recurring-task (str "/api/recurring-tasks/" (:id entity) "/taken-dates")
-              :meeting-series (str "/api/meeting-series/" (:id entity) "/taken-dates"))]
+              :meeting-series (str "/api/meeting-series/" (:id entity) "/taken-dates")
+              :journal (str "/api/journals/" (:id entity) "/taken-dates"))]
     (api/fetch-json url (auth-headers)
       (fn [result]
         (swap! *app-state update :create-date-modal assoc :taken-dates (set (:dates result)) :loading? false)))))
@@ -1802,14 +1803,19 @@
 
 (defn confirm-create-date-modal [date]
   (when-let [{:keys [type entity]} (:create-date-modal @*app-state)]
-    (let [js-d (js/Date. (str date "T00:00:00"))
-          day-num (scheduling/js-day-to-iso-day (.getDay js-d))
-          time (scheduling/get-schedule-time-for-day (:schedule_time entity) day-num)]
-      (case type
-        :recurring-task
-        (recurring-tasks-state/create-task-for-recurring *app-state auth-headers fetch-recurring-tasks (:id entity) date time)
-        :meeting-series
-        (meeting-series-state/create-meeting-for-series *app-state auth-headers
-          (fn [] (fetch-meeting-series) (fetch-today-meets))
-          (:id entity) date time)))
+    (case type
+      :journal
+      (journals-state/create-entry-for-journal *app-state auth-headers
+        (fn [] (fetch-journals) (fetch-today-journal-entries))
+        (:id entity) date)
+      (let [js-d (js/Date. (str date "T00:00:00"))
+            day-num (scheduling/js-day-to-iso-day (.getDay js-d))
+            time (scheduling/get-schedule-time-for-day (:schedule_time entity) day-num)]
+        (case type
+          :recurring-task
+          (recurring-tasks-state/create-task-for-recurring *app-state auth-headers fetch-recurring-tasks (:id entity) date time)
+          :meeting-series
+          (meeting-series-state/create-meeting-for-series *app-state auth-headers
+            (fn [] (fetch-meeting-series) (fetch-today-meets))
+            (:id entity) date time))))
     (swap! *app-state dissoc :create-date-modal)))
