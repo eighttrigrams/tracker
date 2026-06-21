@@ -1,10 +1,15 @@
 (ns et.tr.meeting-series-db-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [et.tr.db.meeting-series :as db.meeting-series]
+            [et.tr.db.meet :as db.meet]
             [et.tr.db.category :as db.category]
-            [et.tr.test-helpers :refer [*ds* *user-id* with-in-memory-db]]))
+            [et.tr.test-helpers :refer [*ds* *user-id* with-in-memory-db]])
+  (:import [java.time LocalDate]))
 
 (use-fixtures :each with-in-memory-db)
+
+(defn- day-num-of [date-str]
+  (.getValue (.getDayOfWeek (LocalDate/parse date-str))))
 
 (deftest add-meeting-series-test
   (testing "creates a meeting series with default scope"
@@ -94,6 +99,61 @@
         (let [meet (db.meeting-series/create-meeting-for-series
                      *ds* *user-id* (:id series2) "2026-07-01" "10:00")]
           (is (some? (:id meet))))))))
+
+(deftest create-meeting-for-series-maybe-test
+  (let [series (db.meeting-series/add-meeting-series *ds* *user-id* "Maybe Series")]
+    (testing "maybe defaults to 0 when not given"
+      (let [meet (db.meeting-series/create-meeting-for-series
+                   *ds* *user-id* (:id series) "2026-05-01" "09:00")]
+        (is (= 0 (:maybe meet)))))
+
+    (testing "stores the given maybe value"
+      (let [meet (db.meeting-series/create-meeting-for-series
+                   *ds* *user-id* (:id series) "2026-05-02" "09:00" 1)]
+        (is (= 1 (:maybe meet)))))))
+
+(deftest auto-create-meetings-single-mode-maybe-test
+  (testing "single-mode series maybe=1 seeds every generated meet with maybe=1"
+    (let [series (db.meeting-series/add-meeting-series *ds* *user-id* "All Days")]
+      (db.meeting-series/set-meeting-series-schedule
+        *ds* *user-id* (:id series) "1,2,3,4,5,6,7" "09:00" "weekly" false "1")
+      (let [created (db.meeting-series/auto-create-meetings *ds* *user-id*)]
+        (is (seq created))
+        (is (every? #(= 1 (:maybe %)) created))))))
+
+(deftest auto-create-meetings-per-day-maybe-test
+  (testing "per-day series maybe seeds each generated meet from its day-number"
+    (let [per-day "1=1,2=0,3=1,4=0,5=1,6=0,7=1"
+          series (db.meeting-series/add-meeting-series *ds* *user-id* "Per Day")]
+      (db.meeting-series/set-meeting-series-schedule
+        *ds* *user-id* (:id series) "1,2,3,4,5,6,7" "09:00" "weekly" false per-day)
+      (let [created (db.meeting-series/auto-create-meetings *ds* *user-id*)
+            expected {1 1 2 0 3 1 4 0 5 1 6 0 7 1}]
+        (is (seq created))
+        (doseq [meet created]
+          (is (= (expected (day-num-of (:start_date meet))) (:maybe meet))
+              (str "day " (day-num-of (:start_date meet)) " on " (:start_date meet))))))))
+
+(deftest series-maybe-is-independent-test
+  (let [series (db.meeting-series/add-meeting-series *ds* *user-id* "Independent")]
+    (db.meeting-series/set-meeting-series-schedule
+      *ds* *user-id* (:id series) "1,2,3,4,5,6,7" "09:00" "weekly" false "1")
+    (let [created (db.meeting-series/auto-create-meetings *ds* *user-id*)
+          meet-ids (mapv :id created)]
+      (testing "changing the series default does NOT rewrite existing meets"
+        (db.meeting-series/set-meeting-series-schedule
+          *ds* *user-id* (:id series) "1,2,3,4,5,6,7" "09:00" "weekly" false "0")
+        (doseq [id meet-ids]
+          (is (= 1 (:maybe (db.meet/get-meet *ds* *user-id* id))))))
+
+      (testing "toggling one meet's maybe touches neither siblings nor the series"
+        (let [target (first meet-ids)
+              siblings (rest meet-ids)]
+          (db.meet/set-meet-maybe *ds* *user-id* target false)
+          (is (= 0 (:maybe (db.meet/get-meet *ds* *user-id* target))))
+          (doseq [id siblings]
+            (is (= 1 (:maybe (db.meet/get-meet *ds* *user-id* id)))))
+          (is (= "0" (:maybe (db.meeting-series/get-meeting-series *ds* *user-id* (:id series))))))))))
 
 (deftest categorize-meeting-series-test
   (let [series (db.meeting-series/add-meeting-series *ds* *user-id* "Cat Series")

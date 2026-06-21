@@ -146,25 +146,36 @@
                        (common/valid-time-format? (second parts)))))
               (str/split schedule-time #","))))
 
+(defn- valid-maybe? [maybe]
+  (or (nil? maybe)
+      (str/blank? maybe)
+      (re-matches #"[01]" maybe)
+      (every? (fn [pair]
+                (re-matches #"[1-7]=[01]" pair))
+              (str/split maybe #","))))
+
 (defn set-meeting-series-schedule-handler
   "PUT /api/meeting-series/:id/schedule — update the recurring schedule of a
   series. Body: {:schedule-days :schedule-time :schedule-mode
-  :biweekly-offset}. schedule-time accepts nil, a blank string, a single HH:MM
-  value, or a comma-separated list of \"D=HH:MM\" pairs where D is 1-7;
-  invalid input yields 400 {:error \"Invalid time format\"}. On success
-  returns 200 with the updated row and emits an :update event diffing the
-  four schedule fields. 404 if the series does not exist for this user."
+  :biweekly-offset :maybe}. schedule-time accepts nil, a blank string, a
+  single HH:MM value, or a comma-separated list of \"D=HH:MM\" pairs where D
+  is 1-7; maybe accepts nil, a blank string, a single \"0\"/\"1\", or a
+  comma-separated list of \"D=0|1\" pairs; invalid input yields 400 {:error
+  \"Invalid time format\"}. On success returns 200 with the updated row and
+  emits an :update event diffing the schedule fields. 404 if the series does
+  not exist for this user."
   [req]
   (let [user-id (common/get-user-id req)
         series-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [schedule-days schedule-time schedule-mode biweekly-offset]} (:body req)]
-    (if (not (valid-schedule-time? schedule-time))
+        {:keys [schedule-days schedule-time schedule-mode biweekly-offset maybe]} (:body req)]
+    (if (or (not (valid-schedule-time? schedule-time))
+            (not (valid-maybe? maybe)))
       {:status 400 :body {:error "Invalid time format"}}
       (let [before (events/fetch-fields :meeting_series series-id
-                                        [:schedule_days :schedule_time :schedule_mode :biweekly_offset])]
-        (if-let [result (db.meeting-series/set-meeting-series-schedule (common/ensure-ds) user-id series-id schedule-days schedule-time schedule-mode biweekly-offset)]
+                                        [:schedule_days :schedule_time :schedule_mode :biweekly_offset :maybe])]
+        (if-let [result (db.meeting-series/set-meeting-series-schedule (common/ensure-ds) user-id series-id schedule-days schedule-time schedule-mode biweekly-offset (or maybe "0"))]
           (do (events/record-update! req :meeting-series series-id before
-                                     (select-keys result [:schedule_days :schedule_time :schedule_mode :biweekly_offset]))
+                                     (select-keys result [:schedule_days :schedule_time :schedule_mode :biweekly_offset :maybe]))
               {:status 200 :body result})
           {:status 404 :body {:error "Meeting series not found"}})))))
 

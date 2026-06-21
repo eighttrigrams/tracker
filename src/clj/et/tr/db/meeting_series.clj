@@ -161,20 +161,27 @@
                    :returning [:id field :modified_at]})
       db/jdbc-opts)))
 
-(defn set-meeting-series-schedule [ds user-id series-id schedule-days schedule-time schedule-mode biweekly-offset]
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update :meeting_series
-                 :set {:schedule_days (or schedule-days "")
-                       :schedule_time schedule-time
-                       :schedule_mode (or schedule-mode "weekly")
-                       :biweekly_offset (if biweekly-offset 1 0)
-                       :modified_at [:raw "datetime('now')"]}
-                 :where [:and [:= :id series-id] (db/user-id-where-clause user-id)]
-                 :returning [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset :modified_at]})
-    db/jdbc-opts))
+(defn set-meeting-series-schedule
+  ([ds user-id series-id schedule-days schedule-time schedule-mode biweekly-offset]
+   (set-meeting-series-schedule ds user-id series-id schedule-days schedule-time schedule-mode biweekly-offset "0"))
+  ([ds user-id series-id schedule-days schedule-time schedule-mode biweekly-offset maybe]
+   (jdbc/execute-one! (db/get-conn ds)
+     (sql/format {:update :meeting_series
+                  :set {:schedule_days (or schedule-days "")
+                        :schedule_time schedule-time
+                        :schedule_mode (or schedule-mode "weekly")
+                        :biweekly_offset (if biweekly-offset 1 0)
+                        :maybe (or maybe "0")
+                        :modified_at [:raw "datetime('now')"]}
+                  :where [:and [:= :id series-id] (db/user-id-where-clause user-id)]
+                  :returning [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset :maybe :modified_at]})
+     db/jdbc-opts)))
 
-(defn create-meeting-for-series [ds user-id series-id date time]
-  (when (meeting-series-owned-by-user? ds series-id user-id)
+(defn create-meeting-for-series
+  ([ds user-id series-id date time]
+   (create-meeting-for-series ds user-id series-id date time 0))
+  ([ds user-id series-id date time maybe]
+   (when (meeting-series-owned-by-user? ds series-id user-id)
     (let [conn (db/get-conn ds)
           series (jdbc/execute-one! conn
                    (sql/format {:select [:title :scope]
@@ -199,6 +206,7 @@
                                               :start_date date
                                               :start_time time
                                               :scope (:scope series)
+                                              :maybe maybe
                                               :meeting_series_id series-id}]
                                     :returning db/meet-select-columns})
                        db/jdbc-opts)
@@ -216,7 +224,7 @@
                              :on-conflict []
                              :do-nothing true})))
             (tel/log! {:level :info :data {:meet-id (:id meet) :series-id series-id :user-id user-id}} "Meet created from series")
-            (assoc meet :people [] :places [] :projects [] :goals [])))))))
+            (assoc meet :people [] :places [] :projects [] :goals []))))))))
 
 (defn categorize-meeting-series [ds user-id series-id category-type category-id]
   (db/validate-category-type! category-type)
@@ -273,7 +281,7 @@
    (let [conn (db/get-conn ds)
          today-expr [:raw "date('now','localtime')"]
          all-series (jdbc/execute! conn
-                      (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset]
+                      (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset :maybe]
                                    :from [:meeting_series]
                                    :where [:and
                                            (db/user-id-where-clause user-id)
@@ -282,7 +290,7 @@
          today (LocalDate/now)
          today-str (str today)
          created (atom [])]
-     (doseq [{:keys [id schedule_days schedule_time schedule_mode biweekly_offset]} all-series]
+     (doseq [{:keys [id schedule_days schedule_time schedule_mode biweekly_offset maybe]} all-series]
        (let [mode (or schedule_mode "weekly")
              schedule-days-set (set (str/split schedule_days #","))
              scheduled-dates (scheduling/scheduled-dates-from mode schedule-days-set biweekly_offset today 10)
@@ -298,7 +306,8 @@
          (doseq [date dates-to-create]
            (let [d (LocalDate/parse date)
                  day-num (.getValue (.getDayOfWeek d))
-                 time (get-schedule-time-for-day schedule_time day-num)]
-             (when-let [meet (create-meeting-for-series ds user-id id date time)]
+                 time (get-schedule-time-for-day schedule_time day-num)
+                 maybe-val (if (= "1" (get-schedule-time-for-day maybe day-num)) 1 0)]
+             (when-let [meet (create-meeting-for-series ds user-id id date time maybe-val)]
                (swap! created conj meet))))))
      @created)))
