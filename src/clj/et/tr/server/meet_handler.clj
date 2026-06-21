@@ -1,6 +1,7 @@
 (ns et.tr.server.meet-handler
   (:require [et.tr.server.common :as common]
             [et.tr.server.events :as events]
+            [et.tr.server.week-window :as week-window]
             [et.tr.db :as db]
             [et.tr.db.meet :as db.meet]
             [clojure.string :as str]))
@@ -22,8 +23,13 @@
   (\"past\" | \"summary\" | default \"upcoming\"), people, places, projects,
   goals, excluded-places, excluded-projects (all CSV id lists), series-id
   (int), limit (int — caps the row count; machine users default to 10 when
-  omitted). Category filters only kick in when at least one of people/places/
-  projects/goals is non-empty. Returns 200 with the matching rows."
+  omitted), paged (\"true\" opts into the week-windowed envelope), weekOffset
+  /weekLimit (units=weeks; default weekLimit=4). When paged with sort past or
+  upcoming, the result is week-windowed — backward in time for past, forward
+  for upcoming — and wrapped as {:items :has_more}; otherwise a bare vector is
+  returned (the machine contract is unchanged). Category filters only kick in
+  when at least one of people/places/projects/goals is non-empty. Returns 200
+  with the matching rows."
   [req]
   (let [user-id (common/get-user-id req)
         search-term (get-in req [:params "q"])
@@ -43,8 +49,22 @@
         series-id (when-let [s (get-in req [:params "series-id"])] (Integer/parseInt s))
         limit (common/parse-int-opt (get-in req [:params "limit"]))
         categories (when (or people places projects goals)
-                     {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.meet/list-meets (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects :series-id series-id :limit limit})}))
+                     {:people people :places places :projects projects :goals goals})
+        paged (= "true" (get-in req [:params "paged"]))
+        base-opts {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects :series-id series-id :limit limit}]
+    (if (and paged (contains? #{:past :upcoming} sort-mode))
+      (let [direction (if (= sort-mode :past) :backward :forward)
+            window (week-window/week-window (week-window/parse-week-param (get-in req [:params "weekOffset"]) 0)
+                                            (week-window/parse-week-param (get-in req [:params "weekLimit"]) 4)
+                                            direction)
+            meets (db.meet/list-meets (common/ensure-ds) user-id
+                    (assoc base-opts :date-from (:date-from window) :date-to (:date-to window)))
+            probe-opts (if (= direction :backward)
+                         (assoc base-opts :date-to (:date-from window) :limit 1)
+                         (assoc base-opts :date-from (:date-to window) :limit 1))
+            has-more (boolean (seq (db.meet/list-meets (common/ensure-ds) user-id probe-opts)))]
+        {:status 200 :body {:items meets :has_more has-more}})
+      {:status 200 :body (db.meet/list-meets (common/ensure-ds) user-id base-opts)})))
 
 (defn add-meet-handler
   "POST /api/meets/ — create a new meet for the calling user. Body: {:title

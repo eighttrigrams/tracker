@@ -1,13 +1,12 @@
 (ns et.tr.server.report-handler
   (:require [et.tr.server.common :as common]
+            [et.tr.server.week-window :as week-window]
             [et.tr.db :as db]
             [et.tr.db.task :as db.task]
             [et.tr.db.meet :as db.meet]
             [et.tr.db.journal-entry :as db.journal-entry]
             [next.jdbc :as jdbc]
-            [honey.sql :as sql])
-  (:import [java.time LocalDate DayOfWeek]
-           [java.time.temporal TemporalAdjusters]))
+            [honey.sql :as sql]))
 
 (defn- annotate-schedule-types [ds user-id entries]
   (if (empty? entries)
@@ -23,17 +22,6 @@
                                                             [:in :id journal-ids]]})
                                   db/jdbc-opts))))]
       (mapv #(assoc % :schedule_type (get schedule-map (:journal_id %))) entries))))
-
-(defn- parse-week-param [v default]
-  (if (and v (re-matches #"\d+" v))
-    (Integer/parseInt v)
-    default))
-
-(defn- week-window [week-offset week-limit]
-  (let [current-monday (.with (LocalDate/now) (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY))
-        next-monday (.plusDays current-monday 7)]
-    {:date-from (str (.minusDays next-monday (* 7 (+ week-offset week-limit))))
-     :date-to (str (.minusDays next-monday (* 7 week-offset)))}))
 
 (defn reports-handler
   "GET /api/reports — list completed/past tasks, meets, and journal entries for
@@ -58,8 +46,9 @@
                      {:people people :places places :projects projects :goals goals})
         week-offset-param (get-in req [:params "weekOffset"])
         week-limit-param (get-in req [:params "weekLimit"])
-        window (week-window (parse-week-param week-offset-param 0)
-                            (parse-week-param week-limit-param 4))
+        window (week-window/week-window (week-window/parse-week-param week-offset-param 0)
+                                        (week-window/parse-week-param week-limit-param 4)
+                                        :backward)
         shared-opts {:context context :strict strict :categories categories}
         window-opts (merge shared-opts (when window {:date-from (:date-from window)
                                                      :date-to (:date-to window)}))

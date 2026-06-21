@@ -12,6 +12,8 @@
                                      :filter-search ""
                                      :importance-filter nil
                                      :sort-mode :upcoming
+                                     :week-offset 0
+                                     :has-more? false
                                      :fetch-request-id 0}))
 
 (defonce *today-meets-request-id (atom 0))
@@ -23,7 +25,8 @@
 
 (defn fetch-meets [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *meets-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode series-id]} opts
+        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode series-id week-offset week-limit append?]} opts
+        paged? (contains? #{:upcoming :past} sort-mode)
         people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
@@ -39,17 +42,29 @@
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
-              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&"))]
+              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&")
+              paged? (str "paged=true&")
+              paged? (str "weekOffset=" (or week-offset 0) "&")
+              paged? (str "weekLimit=" (or week-limit 4) "&"))]
     (GET url
       {:response-format :json
        :keywords? true
        :headers (auth-headers)
-       :handler (fn [meets]
+       :handler (fn [data]
                   (when (= request-id (:fetch-request-id @*meets-page-state))
-                    (swap! app-state assoc :meets meets)))
+                    (let [meets (if (map? data) (:items data) data)]
+                      (swap! *meets-page-state assoc :has-more? (boolean (and (map? data) (:has_more data))))
+                      (if append?
+                        (do
+                          (swap! app-state update :meets #(into (vec %) meets))
+                          (swap! *meets-page-state assoc :week-offset week-offset))
+                        (swap! app-state assoc :meets meets)))))
        :error-handler (fn [_]
                         (when (= request-id (:fetch-request-id @*meets-page-state))
-                          (swap! app-state assoc :meets [])))})))
+                          (if append?
+                            (swap! *meets-page-state assoc :has-more? true)
+                            (do (swap! app-state assoc :meets [])
+                                (swap! *meets-page-state assoc :has-more? false)))))})))
 
 (defn add-meet [app-state auth-headers current-scope-fn title on-success fetch-meets-fn]
   (api/post-json "/api/meets"
