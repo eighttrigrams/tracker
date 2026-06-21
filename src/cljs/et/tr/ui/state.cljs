@@ -568,6 +568,9 @@
 (defn set-meet-importance [meet-id importance]
   (meets-state/set-meet-importance *app-state auth-headers meet-id importance))
 
+(defn set-meet-maybe [meet-id maybe?]
+  (meets-state/set-meet-maybe *app-state auth-headers meet-id maybe?))
+
 (defn- fetch-meets-and-today-meets []
   (fetch-meets)
   (fetch-today-meets)

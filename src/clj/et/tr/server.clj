@@ -289,6 +289,7 @@
       (PUT "/:id/scope" [] meet-handler/set-meet-scope-handler)
       (PUT "/:id/importance" [] meet-handler/set-meet-importance-handler)
       (PUT "/:id/archive" [] meet-handler/archive-meet-handler)
+      (PUT "/:id/maybe" [] meet-handler/set-meet-maybe-handler)
       (PUT "/:id/relation-badge-title" [] meet-handler/set-meet-relation-badge-title-handler))
 
     (context "/meeting-series" []

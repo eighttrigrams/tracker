@@ -110,15 +110,16 @@
                     (state/archive-meet (:id meet)))}
        (t :meets/archive)])))
 
-(defn- today-meet-item [meet & {:keys [show-day-prefix hide-date is-today] :or {show-day-prefix false hide-date false is-today false}}]
+(defn- today-meet-item [meet & {:keys [show-day-prefix hide-date is-today gray-when-maybe] :or {show-day-prefix false hide-date false is-today false gray-when-maybe false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:start_date meet) 6))
-        is-expanded (= (:today-page/expanded-meet @state/*app-state) (:id meet))]
+        is-expanded (= (:today-page/expanded-meet @state/*app-state) (:id meet))
+        maybe? (= 1 (:maybe meet))]
     [item-card/item-card
      {:item meet
       :expanded? is-expanded
       :on-toggle #(state/toggle-expanded :today-page/expanded-meet (:id meet))
       :container {:tag :div
-                  :class "today-task-item meet-item"
+                  :class (str "today-task-item meet-item" (when (and gray-when-maybe maybe?) " maybe"))
                   :classes {:header "today-task-header"
                             :title "today-task-content"
                             :content "today-task-details"}}
@@ -162,6 +163,10 @@
                        :on-set #(state/set-meet-importance (:id meet) %)}]
                :right [{:type :custom
                         :render [:div.combined-button-wrapper
+                                 (when gray-when-maybe
+                                   [:button.toggle-maybe
+                                    {:on-click #(state/set-meet-maybe (:id meet) (not maybe?))}
+                                    (if maybe? (t :task/unset-maybe) (t :task/set-maybe))])
                                  (when is-today
                                    [today-meet-archive-button meet])
                                  [:button.delete-btn {:on-click #(state/set-confirm-delete-meet meet)}
@@ -506,7 +511,7 @@
           (for [item items]
             (if (= (:item-type item) :meet)
               ^{:key (str "meet-" (:id item))}
-              [today-meet-item item :hide-date true :is-today is-today?]
+              [today-meet-item item :hide-date true :is-today is-today? :gray-when-maybe true]
               ^{:key (str "task-" (:id item))}
               [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳")])))]
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])]

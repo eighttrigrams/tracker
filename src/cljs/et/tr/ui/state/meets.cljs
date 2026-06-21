@@ -146,6 +146,24 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))))
 
+(defn set-meet-maybe [app-state auth-headers meet-id maybe?]
+  (api/put-json (str "/api/meets/" meet-id "/maybe")
+    {:maybe maybe?}
+    (auth-headers)
+    (fn [result]
+      (let [merge-fn (fn [meets]
+                       (mapv #(if (= (:id %) meet-id)
+                                (merge % (select-keys result [:maybe :modified_at]))
+                                %)
+                             meets))]
+        (swap! app-state (fn [s]
+                           (-> s
+                               (update :meets merge-fn)
+                               (update :today-meets merge-fn)
+                               (update-in [:reports-data :meets] merge-fn))))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update maybe flag")))))
+
 (defn set-meet-start-date [app-state auth-headers fetch-meets-fn meet-id start-date]
   (api/put-json (str "/api/meets/" meet-id "/start-date")
     {:start-date start-date}
