@@ -368,6 +368,7 @@
   background: transparent;
   color: #ff3b30;
   border: 1px solid #ff3b30;
+  border-radius: 8px;
   padding: 6px 14px;
   font-size: 0.85em;
 }
@@ -398,12 +399,12 @@
   background: transparent;
   cursor: pointer;
   font-size: 0.875rem;
-  border-radius: 4px 0 0 4px;
+  border-radius: 8px 0 0 8px;
   border-right: none;
   transition: background-color 0.2s, color 0.2s;
 }
 .combined-main-btn.standalone {
-  border-radius: 4px;
+  border-radius: 8px;
   border-right: 1px solid;
 }
 .combined-dropdown-btn {
@@ -412,7 +413,7 @@
   background: transparent;
   cursor: pointer;
   font-size: 0.875rem;
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 8px 8px 0;
   border-left: 1px solid rgba(255, 255, 255, 0.2);
   transition: background-color 0.2s, color 0.2s;
 }
@@ -448,17 +449,18 @@
   background-color: #ff9500;
   color: white;
 }
+.combined-main-btn.delete-btn,
 .combined-dropdown-btn.delete-btn {
   border-color: #ff3b30;
   color: #ff3b30;
+}
+.combined-dropdown-btn.delete-btn {
   padding: 4px 8px;
 }
+.combined-main-btn.delete-btn:hover,
 .combined-dropdown-btn.delete-btn:hover {
   background-color: #ff3b30;
   color: white;
-}
-.combined-button-wrapper > .delete-btn:first-child {
-  border-radius: 4px 0 0 4px;
 }
 .task-dropdown-menu {
   position: absolute;
