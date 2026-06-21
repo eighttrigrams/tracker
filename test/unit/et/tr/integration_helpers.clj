@@ -47,10 +47,13 @@
         (when-let [pc (:persistent-conn conn)]
           (.close pc))))))
 
-(defn GET-json [path]
+(defn GET-json-as [user-id path]
   (let [resp (*app* (-> (mock/request :get path)
-                        (mock/header "X-User-Id" (str *user-id*))))]
+                        (mock/header "X-User-Id" (str user-id))))]
     (update resp :body #(when % (json/read-str % :key-fn keyword)))))
+
+(defn GET-json [path]
+  (GET-json-as *user-id* path))
 
 (defn POST-json [path body]
   (let [resp (*app* (-> (mock/request :post path)

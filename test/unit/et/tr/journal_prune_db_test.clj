@@ -5,6 +5,7 @@
             [et.tr.db :as db]
             [et.tr.db.journal :as db.journal]
             [et.tr.db.journal-entry :as db.journal-entry]
+            [et.tr.db.user :as db.user]
             [et.tr.test-helpers :refer [*ds* *user-id* with-in-memory-db]])
   (:import [java.time LocalDate DayOfWeek]
            [java.time.temporal TemporalAdjusters]))
@@ -21,20 +22,23 @@
 (defn- monday-this [] (.with (today) (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY)))
 (defn- monday-last [] (.minusWeeks (monday-this) 1))
 
-(defn- insert-entry! [journal-id entry-date description created-at]
+(defn- insert-entry-for! [user-id journal-id entry-date description created-at]
   (:id (jdbc/execute-one! (db/get-conn *ds*)
          (sql/format {:insert-into :journal_entries
                       :values [{:title "Entry"
                                 :description description
                                 :sort_order 1.0
                                 :scope "both"
-                                :user_id *user-id*
+                                :user_id user-id
                                 :journal_id journal-id
                                 :entry_date entry-date
                                 :created_at created-at
                                 :modified_at created-at}]
                       :returning [:id]})
          db/jdbc-opts)))
+
+(defn- insert-entry! [journal-id entry-date description created-at]
+  (insert-entry-for! *user-id* journal-id entry-date description created-at))
 
 (defn- exists? [id]
   (some? (jdbc/execute-one! (db/get-conn *ds*)
@@ -108,3 +112,15 @@
     (testing "entries with NULL journal_id or NULL entry_date are kept"
       (is (exists? no-journal-id))
       (is (exists? no-date-id)))))
+
+(deftest prune-never-touches-other-users-entries
+  (let [other (db.user/create-user *ds* "other-user" "testpass")
+        other-journal (db.journal/add-journal *ds* (:id other) "Other Daily" "both" "daily")
+        other-id (insert-entry-for! (:id other) (:id other-journal) (iso (days-ago 10)) "" old-ts)
+        j (db.journal/add-journal *ds* *user-id* "Daily" "both" "daily")
+        mine-id (insert-entry! (:id j) (iso (days-ago 10)) "" old-ts)]
+    (db.journal-entry/prune-empty-entries *ds* *user-id*)
+    (testing "userA's own prunable entry is deleted"
+      (is (not (exists? mine-id))))
+    (testing "userB's identical prunable entry is never deleted by userA's prune"
+      (is (exists? other-id)))))
