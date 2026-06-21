@@ -1,5 +1,5 @@
 (ns et.tr.ui.core
-  (:require [reagent.dom :as rdom]
+  (:require [reagent.dom.client :as rdomc]
             [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.modals :as modals]
@@ -272,6 +272,8 @@
           (.preventDefault e)
           (state/toggle-reports-filter-collapsed filter-key)))))))
 
+(defonce root (rdomc/create-root (.getElementById js/document "app")))
+
 (defn init []
   (i18n/load-translations!
    (fn []
@@ -286,4 +288,4 @@
            (fn [_]
              (when (:editing-modal @state/*app-state)
                (swap! state/*app-state assoc :editing-modal nil))))
-     (rdom/render [app] (.getElementById js/document "app")))))
+     (rdomc/render root [app]))))
