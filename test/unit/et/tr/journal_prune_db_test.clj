@@ -100,8 +100,11 @@
 (deftest prune-leaves-standalone-entries-untouched
   (let [j (db.journal/add-journal *ds* *user-id* "Daily" "both" "daily")
         no-journal-id (insert-entry! nil (iso (days-ago 10)) "" old-ts)
-        no-date-id (insert-entry! (:id j) nil "" old-ts)]
+        no-date-id (insert-entry! (:id j) nil "" old-ts)
+        prunable-id (insert-entry! (:id j) (iso (days-ago 10)) "" old-ts)]
     (db.journal-entry/prune-empty-entries *ds* *user-id*)
+    (testing "the prune actually ran: a generated empty old sibling was deleted"
+      (is (not (exists? prunable-id))))
     (testing "entries with NULL journal_id or NULL entry_date are kept"
       (is (exists? no-journal-id))
       (is (exists? no-date-id)))))
