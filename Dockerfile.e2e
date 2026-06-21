@@ -1,4 +1,4 @@
-FROM clojure:temurin-21-tools-deps-bookworm
+FROM clojure:temurin-21-tools-deps-bookworm@sha256:4de7041ebb9256ddccaa64a1ce84200c8c45231a3d626d334ec42a2d5faf017e
 
 RUN apt-get update && apt-get install -y curl && \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
