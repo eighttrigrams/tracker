@@ -5,7 +5,7 @@
         com.github.seancorfield/honeysql {:mvn/version "2.7.1389"}
         org.xerial/sqlite-jdbc {:mvn/version "3.53.2.0"}
         dev.weavejester/ragtime.next-jdbc {:mvn/version "0.12.1"}
-        ring/ring-core {:mvn/version "1.9.6"}
+        ring/ring-core {:mvn/version "1.15.4"}
         ring/ring-json {:mvn/version "0.5.1"}
         info.sunng/ring-jetty9-adapter {:mvn/version "0.38.0"}
         ring-cors/ring-cors {:mvn/version "0.1.13"}
