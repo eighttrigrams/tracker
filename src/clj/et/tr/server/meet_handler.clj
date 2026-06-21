@@ -4,7 +4,8 @@
             [et.tr.server.week-window :as week-window]
             [et.tr.db :as db]
             [et.tr.db.meet :as db.meet]
-            [clojure.string :as str]))
+            [clojure.string :as str])
+  (:import [java.time LocalDate]))
 
 (defn get-meet-handler
   "GET /api/meets/:id — fetch a single meet by numeric id, scoped to the calling
@@ -138,12 +139,15 @@
   [req]
   (let [user-id (common/get-user-id req)
         meet-id (Integer/parseInt (get-in req [:params :id]))
-        before (events/fetch-fields :meets meet-id [:archived])]
-    (if-let [result (db.meet/archive-meet (common/ensure-ds) user-id meet-id)]
-      (do (events/record-update! req :meet meet-id before
-                                 (select-keys result [:archived]))
-          {:status 200 :body result})
-      {:status 404 :body {:error "Meet not found"}})))
+        before (events/fetch-fields :meets meet-id [:archived :start_date])]
+    (if (and (:start_date before)
+             (pos? (compare (:start_date before) (str (LocalDate/now)))))
+      {:status 400 :body {:error "Cannot archive a future-dated meet"}}
+      (if-let [result (db.meet/archive-meet (common/ensure-ds) user-id meet-id)]
+        (do (events/record-update! req :meet meet-id before
+                                   (select-keys result [:archived]))
+            {:status 200 :body result})
+        {:status 404 :body {:error "Meet not found"}}))))
 
 (def categorize-meet-handler
   "POST /api/meets/:id/categorize — link a meet to a category. Body:
