@@ -99,12 +99,7 @@ When(
   "I open the description editor for resource {string}",
   async ({ page }, title: string) => {
     const card = page.locator(".items li").filter({ hasText: title });
-    const placeholder = card.locator(".description-placeholder");
-    if (await placeholder.count()) {
-      await placeholder.click();
-    } else {
-      await card.locator(".item-description").click();
-    }
+    await card.locator(".description-placeholder, .item-description").first().click();
     await page.waitForLoadState("networkidle");
   },
 );
