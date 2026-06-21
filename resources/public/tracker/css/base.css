@@ -96,6 +96,21 @@ button {
 }
 button:hover { background: var(--accent-hover); transform: translateY(-1px); }
 button:active { transform: translateY(0); }
+.load-more-btn {
+  padding: 0;
+  background: none;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  font-weight: 400;
+  text-decoration: underline;
+}
+.load-more-btn:hover {
+  background: none;
+  transform: none;
+  color: var(--text-secondary);
+}
 .error {
   color: #ff3b30;
   padding: 12px 16px;
