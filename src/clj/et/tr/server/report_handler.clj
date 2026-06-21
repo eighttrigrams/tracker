@@ -5,7 +5,9 @@
             [et.tr.db.meet :as db.meet]
             [et.tr.db.journal-entry :as db.journal-entry]
             [next.jdbc :as jdbc]
-            [honey.sql :as sql]))
+            [honey.sql :as sql])
+  (:import [java.time LocalDate DayOfWeek]
+           [java.time.temporal TemporalAdjusters]))
 
 (defn- annotate-schedule-types [ds user-id entries]
   (if (empty? entries)
@@ -21,6 +23,17 @@
                                                             [:in :id journal-ids]]})
                                   db/jdbc-opts))))]
       (mapv #(assoc % :schedule_type (get schedule-map (:journal_id %))) entries))))
+
+(defn- parse-week-param [v default]
+  (if (and v (re-matches #"\d+" v))
+    (Integer/parseInt v)
+    default))
+
+(defn- week-window [week-offset week-limit]
+  (let [current-monday (.with (LocalDate/now) (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY))
+        next-monday (.plusDays current-monday 7)]
+    {:date-from (str (.minusDays next-monday (* 7 (+ week-offset week-limit))))
+     :date-to (str (.minusDays next-monday (* 7 week-offset)))}))
 
 (defn reports-handler
   "GET /api/reports — list completed/past tasks, meets, and journal entries for
@@ -43,17 +56,34 @@
         goals (common/parse-category-param (get-in req [:params "goals"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})
+        week-offset-param (get-in req [:params "weekOffset"])
+        week-limit-param (get-in req [:params "weekLimit"])
+        window (when (or week-offset-param week-limit-param)
+                 (week-window (parse-week-param week-offset-param 0)
+                              (parse-week-param week-limit-param 4)))
         shared-opts {:context context :strict strict :categories categories}
+        window-opts (merge shared-opts (when window {:date-from (:date-from window)
+                                                     :date-to (:date-to window)}))
         tasks (if include-tasks-meets?
-                (db.task/list-tasks ds user-id :done shared-opts)
+                (db.task/list-tasks ds user-id :done window-opts)
                 [])
         meets (if include-tasks-meets?
-                (db.meet/list-meets ds user-id (assoc shared-opts :sort-mode :past))
+                (db.meet/list-meets ds user-id (assoc window-opts :sort-mode :past))
                 [])
         journal-entries (if include-journals?
                           (->> (db.journal-entry/list-journal-entries ds user-id
-                                 (assoc shared-opts :sort-mode "added"))
+                                 (assoc window-opts :sort-mode "added"))
                                (filter :entry_date)
                                (annotate-schedule-types ds user-id))
-                          [])]
-    {:status 200 :body {:tasks tasks :meets meets :journal_entries journal-entries}}))
+                          [])
+        older-opts (assoc shared-opts :date-to (:date-from window) :limit 1)
+        has-more (boolean
+                   (and window
+                        (or (and include-tasks-meets?
+                                 (or (seq (db.task/list-tasks ds user-id :done older-opts))
+                                     (seq (db.meet/list-meets ds user-id (assoc older-opts :sort-mode :past)))))
+                            (and include-journals?
+                                 (seq (->> (db.journal-entry/list-journal-entries ds user-id
+                                             (assoc older-opts :sort-mode "added"))
+                                           (filter :entry_date)))))))]
+    {:status 200 :body {:tasks tasks :meets meets :journal_entries journal-entries :has_more has-more}}))

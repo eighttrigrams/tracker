@@ -275,10 +275,15 @@
         [:p.empty-message (t :reports/no-data)]
 
         :else
-        (into [:div.report-weeks]
-          (for [wk all-week-keys]
-            ^{:key (str (first wk) "-" (second wk))}
-            [week-section wk
-             (get sorted-dates-by-week wk [])
-             tasks-by-day meets-by-day daily-entries-by-day
-             (get weekly-entries-by-week wk)])))]]))
+        [:<>
+         (into [:div.report-weeks]
+           (for [wk all-week-keys]
+             ^{:key (str (first wk) "-" (second wk))}
+             [week-section wk
+              (get sorted-dates-by-week wk [])
+              tasks-by-day meets-by-day daily-entries-by-day
+              (get weekly-entries-by-week wk)]))
+         (when (:has-more? @reports-state/*reports-page-state)
+           [:div.load-more
+            [:button.load-more-btn {:on-click #(state/load-more-reports)}
+             (t :reports/see-more)]])])]]))

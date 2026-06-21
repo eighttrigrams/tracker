@@ -1545,6 +1545,8 @@
   (today-page/upcoming-meets *app-state))
 
 
+(def ^:private reports-week-limit 4)
+
 (defn- reports-fetch-opts []
   {:context (:work-private-mode @*app-state)
    :strict (:strict-mode @*app-state)
@@ -1552,12 +1554,20 @@
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)
+   :week-offset (:week-offset @reports-state/*reports-page-state)
+   :week-limit reports-week-limit})
 
 (defn fetch-reports
-  ([] (fetch-reports (reports-fetch-opts)))
+  ([]
+   (swap! reports-state/*reports-page-state assoc :week-offset 0)
+   (fetch-reports (reports-fetch-opts)))
   ([opts]
    (reports-state/fetch-reports *app-state auth-headers opts)))
+
+(defn load-more-reports []
+  (swap! reports-state/*reports-page-state update :week-offset + reports-week-limit)
+  (fetch-reports (assoc (reports-fetch-opts) :append? true)))
 
 (defn toggle-reports-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:reports-page/collapsed-filters @*app-state) filter-key)
