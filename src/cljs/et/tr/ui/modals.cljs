@@ -256,6 +256,7 @@
                                        :schedule-time (r/atom (or (:schedule_time entity) ""))
                                        :schedule-mode (r/atom (or (:schedule_mode entity) "weekly"))
                                        :biweekly-offset (r/atom (= 1 (:biweekly_offset entity)))
+                                       :maybe (r/atom (or (:maybe entity) "0"))
                                        :task-type (r/atom (or (:task_type entity) "due_date"))}
                       :journal {:title (r/atom (:title entity))
                                 :description (r/atom (or (:description entity) ""))
@@ -271,7 +272,7 @@
                        :badge-title (r/atom (or (:badge_title entity) ""))})]
     (assoc field-atoms :type type :entity entity)))
 
-(defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
+(defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]}]
   (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry :message} type))
         title-orig (if is-category (:name entity) (:title entity))
         base-dirty (or (not= @title title-orig)
@@ -286,6 +287,7 @@
       (and schedule-time (not= @schedule-time (or (:schedule_time entity) ""))) true
       (and schedule-mode (not= @schedule-mode (or (:schedule_mode entity) "weekly"))) true
       (and biweekly-offset (not= @biweekly-offset (= 1 (:biweekly_offset entity)))) true
+      (and maybe (= type :meeting-series) (not= @maybe (or (:maybe entity) "0"))) true
       (and task-type (not= @task-type (or (:task_type entity) "due_date"))) true
       (and due-date (not= @due-date (or (:due_date entity) ""))) true
       (and due-time (not= @due-time (or (:due_time entity) ""))) true
@@ -293,7 +295,7 @@
       (and start-time (not= @start-time (or (:start_time entity) ""))) true
       :else false)))
 
-(defn- edit-modal-save [{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]}]
+(defn- edit-modal-save [{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]}]
   (let [id (:id entity)]
     (when (and relation-badge-title
                (not= @relation-badge-title (or (:relation_badge_title entity) "")))
@@ -312,7 +314,7 @@
                 (state/set-meet-start-time id (when (seq @start-time) @start-time)))
               (state/update-meet id @title @description @tags state/clear-editing-modal))
       :meeting-series (do (state/update-meeting-series id @title @description @tags state/clear-editing-modal)
-                          (state/set-meeting-series-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset nil))
+                          (state/set-meeting-series-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset @maybe nil))
       :recurring-task (do (state/update-recurring-task id @title @description @tags state/clear-editing-modal)
                           (state/set-recurring-task-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset @task-type nil))
       :journal (state/update-journal id @title @description @tags state/clear-editing-modal)
@@ -436,8 +438,10 @@
   (let [per-day? (r/atom false)
         day-times (r/atom {})
         shared-time-val (r/atom "")
+        day-maybes (r/atom {})
+        maybe-single? (r/atom false)
         initialized? (r/atom false)]
-    (fn [_entity schedule-days schedule-time schedule-mode biweekly-offset & [task-type]]
+    (fn [_entity schedule-days schedule-time schedule-mode biweekly-offset & [task-type maybe]]
       (when-not @initialized?
         (reset! initialized? true)
         (let [st @schedule-time]
@@ -447,7 +451,12 @@
                 (reset! shared-time-val ""))
             (do (reset! per-day? false)
                 (reset! day-times {})
-                (reset! shared-time-val (shared-time st))))))
+                (reset! shared-time-val (shared-time st)))))
+        (when maybe
+          (let [mb @maybe]
+            (if (per-day-time? mb)
+              (reset! day-maybes (parse-per-day-times mb))
+              (reset! maybe-single? (= "1" mb))))))
       (let [mode @schedule-mode
             active-days (parse-schedule-days @schedule-days)
             current-task-type (when task-type @task-type)
@@ -456,6 +465,11 @@
                                   (if (and @per-day? (= mode "weekly"))
                                     (reset! schedule-time (serialize-per-day-times @day-times))
                                     (reset! schedule-time @shared-time-val)))
+            sync-maybe! (fn []
+                          (when maybe
+                            (if (and @per-day? (= mode "weekly"))
+                              (reset! maybe (serialize-per-day-times @day-maybes))
+                              (reset! maybe (if @maybe-single? "1" "0")))))
             set-mode! (fn [new-mode]
                         (reset! schedule-mode new-mode)
                         (reset! schedule-days "")
@@ -463,7 +477,8 @@
                           (reset! per-day? false))
                         (when (= new-mode "biweekly")
                           (reset! biweekly-offset false))
-                        (sync-schedule-time!))]
+                        (sync-schedule-time!)
+                        (sync-maybe!))]
         [:div.scheduling-form
          (when task-type
            [:div.schedule-task-type-selector
@@ -569,7 +584,8 @@
                           :checked @per-day?
                           :on-change (fn [_]
                                        (swap! per-day? not)
-                                       (sync-schedule-time!))}]
+                                       (sync-schedule-time!)
+                                       (sync-maybe!))}]
                  (str " " (t :scheduling/per-day))]]
                (if @per-day?
                  [:div.schedule-per-day-times
@@ -583,14 +599,32 @@
                        (get @day-times num "")
                        (fn [v]
                          (swap! day-times assoc num v)
-                         (sync-schedule-time!))]]))]
+                         (sync-schedule-time!))]
+                      (when maybe
+                        [:label.schedule-day-maybe
+                         [:input {:type "checkbox"
+                                  :checked (= "1" (get @day-maybes num "0"))
+                                  :on-change (fn [_]
+                                               (swap! day-maybes assoc num
+                                                      (if (= "1" (get @day-maybes num "0")) "0" "1"))
+                                               (sync-maybe!))}]
+                         (str " " (t :scheduling/maybe))])]))]
                  [:div.schedule-time-row
                   [:label (t :scheduling/time)]
                   [schedule-time-picker
                    @shared-time-val
                    (fn [v]
                      (reset! shared-time-val v)
-                     (sync-schedule-time!))]])])])]))))
+                     (sync-schedule-time!))]])])])
+         (when (and maybe (not (and @per-day? (= mode "weekly"))))
+           [:div.schedule-maybe-row
+            [:label
+             [:input {:type "checkbox"
+                      :checked @maybe-single?
+                      :on-change (fn [_]
+                                   (swap! maybe-single? not)
+                                   (sync-maybe!))}]
+             (str " " (t :scheduling/maybe))]])]))))
 
 (defn- unsaved-changes-modal [{:keys [on-go-back on-discard]}]
   [:div.modal-overlay
@@ -648,7 +682,7 @@
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
             (reset! active-tab (or tab :edit))
             (reset! confirm-discard? false))
-          (when-let [{:keys [title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset task-type due-date due-time start-date start-time]} @fields-state]
+          (when-let [{:keys [title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]} @fields-state]
             (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry :message} type))
                   preview-tab-key (case type
                                     (:task :recurring-task) :modal/tab-task
@@ -695,7 +729,8 @@
                    (case @active-tab
                      :scheduling
                      [scheduling-tab-content entity schedule-days schedule-time schedule-mode biweekly-offset
-                      (when (= type :recurring-task) task-type)]
+                      (when (= type :recurring-task) task-type)
+                      (when (= type :meeting-series) maybe)]
 
                      :time
                      (case type

@@ -668,8 +668,8 @@
 (defn clear-confirm-delete-series []
   (meeting-series-state/clear-confirm-delete-series))
 
-(defn set-meeting-series-schedule [series-id schedule-days schedule-time schedule-mode biweekly-offset on-success]
-  (meeting-series-state/set-meeting-series-schedule *app-state auth-headers series-id schedule-days schedule-time schedule-mode biweekly-offset on-success))
+(defn set-meeting-series-schedule [series-id schedule-days schedule-time schedule-mode biweekly-offset maybe on-success]
+  (meeting-series-state/set-meeting-series-schedule *app-state auth-headers series-id schedule-days schedule-time schedule-mode biweekly-offset maybe on-success))
 
 (defn create-meeting-for-series [series-id date time]
   (meeting-series-state/create-meeting-for-series *app-state auth-headers fetch-meeting-series series-id date time))
