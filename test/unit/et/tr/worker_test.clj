@@ -131,8 +131,6 @@
         (worker/run-meeting-series-check *ds*)
         (is (= count-after-first (count (db.meeting-series/get-taken-dates *ds* *user-id* (:id ms)))))))))
 
-;; ── Journal Prune ──
-
 (deftest journal-prune-deletes-old-empty-entries
   (testing "the hourly prune check removes old empty generated entries across users"
     (let [j (db.journal/add-journal *ds* *user-id* "Daily" "both" "daily")
@@ -148,8 +146,6 @@
                     db/jdbc-opts))]
       (worker/run-journal-prune-check *ds*)
       (is (nil? (db.journal-entry/get-journal-entry *ds* *user-id* id))))))
-
-;; ── Events Prune ──
 
 (defn- insert-event! [effective-user-id ts]
   (:id (jdbc/execute-one! (db/get-conn *ds*)
