@@ -241,7 +241,6 @@
   (let [conn (db/get-conn ds)
         today (LocalDate/now)
         yesterday-str (str (.minusDays today 1))
-        today-str (str today)
         monday-this (.with today (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY))
         monday-last-str (str (.minusWeeks monday-this 1))
         candidates (jdbc/execute! conn
@@ -252,7 +251,6 @@
                                           [:= :je.user_id user-id]
                                           [:!= :je.entry_date nil]
                                           [:or [:= :je.description nil] [:= :je.description ""]]
-                                          [:<= :je.entry_date today-str]
                                           [:< :je.created_at [:raw "datetime('now','-24 hours')"]]
                                           [:or
                                            [:and [:= :j.schedule_type "weekly"] [:< :je.entry_date monday-last-str]]

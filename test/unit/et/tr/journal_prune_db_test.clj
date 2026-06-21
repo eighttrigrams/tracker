@@ -66,10 +66,14 @@
       (is (not (exists? older-id))))))
 
 (deftest prune-never-deletes-future-dated
-  (let [j (db.journal/add-journal *ds* *user-id* "Daily" "both" "daily")
-        future-id (insert-entry! (:id j) (iso (days-ahead 5)) "" old-ts)]
+  (let [daily (db.journal/add-journal *ds* *user-id* "Daily" "both" "daily")
+        weekly (db.journal/add-journal *ds* *user-id* "Weekly" "both" "weekly")
+        daily-future-id (insert-entry! (:id daily) (iso (days-ahead 5)) "" old-ts)
+        weekly-future-id (insert-entry! (:id weekly) (iso (days-ahead 14)) "" old-ts)]
     (db.journal-entry/prune-empty-entries *ds* *user-id*)
-    (is (exists? future-id))))
+    (testing "the per-schedule branch guards alone exclude future-dated entries"
+      (is (exists? daily-future-id))
+      (is (exists? weekly-future-id)))))
 
 (deftest prune-respects-24h-grace
   (let [j (db.journal/add-journal *ds* *user-id* "Daily" "both" "daily")
