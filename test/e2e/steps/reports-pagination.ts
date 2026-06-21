@@ -21,6 +21,32 @@ When("I click the reports See more button", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 });
 
+When("reports responses are delayed", async ({ page }) => {
+  await page.route("**/api/reports**", async (route) => {
+    await new Promise((r) => setTimeout(r, 400));
+    await route.continue();
+  });
+});
+
+When("the first reports See more append fails", async ({ page }) => {
+  let failed = false;
+  await page.route("**/api/reports**", async (route) => {
+    if (!failed && /weekOffset=[1-9]/.test(route.request().url())) {
+      failed = true;
+      await route.abort();
+    } else {
+      await route.continue();
+    }
+  });
+});
+
+When("I rapid-double-click the reports See more button", async ({ page }) => {
+  const btn = page.locator(".load-more-btn");
+  await btn.click();
+  await btn.click();
+  await page.waitForLoadState("networkidle");
+});
+
 Then("I should see {string} in the reports", async ({ page }, text: string) => {
   await expect(page.locator(".report-weeks")).toContainText(text, { timeout: 5000 });
 });

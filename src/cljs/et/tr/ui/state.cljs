@@ -1566,8 +1566,8 @@
    (reports-state/fetch-reports *app-state auth-headers opts)))
 
 (defn load-more-reports []
-  (swap! reports-state/*reports-page-state update :week-offset + reports-week-limit)
-  (fetch-reports (assoc (reports-fetch-opts) :append? true)))
+  (let [next-offset (+ (:week-offset @reports-state/*reports-page-state) reports-week-limit)]
+    (fetch-reports (assoc (reports-fetch-opts) :week-offset next-offset :append? true))))
 
 (defn toggle-reports-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:reports-page/collapsed-filters @*app-state) filter-key)

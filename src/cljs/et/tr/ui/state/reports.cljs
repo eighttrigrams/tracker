@@ -41,11 +41,13 @@
                   (when (= request-id (:fetch-request-id @*reports-page-state))
                     (swap! *reports-page-state assoc :has-more? (boolean (:has_more data)))
                     (if append?
-                      (swap! app-state update :reports-data
-                             (fn [cur]
-                               {:tasks (into (vec (:tasks cur)) (:tasks data))
-                                :meets (into (vec (:meets cur)) (:meets data))
-                                :journal_entries (into (vec (:journal_entries cur)) (:journal_entries data))}))
+                      (do
+                        (swap! app-state update :reports-data
+                               (fn [cur]
+                                 {:tasks (into (vec (:tasks cur)) (:tasks data))
+                                  :meets (into (vec (:meets cur)) (:meets data))
+                                  :journal_entries (into (vec (:journal_entries cur)) (:journal_entries data))}))
+                        (swap! *reports-page-state assoc :week-offset week-offset))
                       (swap! app-state assoc :reports-data data))))
        :error-handler (fn [_]
                         (when (= request-id (:fetch-request-id @*reports-page-state))
