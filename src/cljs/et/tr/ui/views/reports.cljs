@@ -116,7 +116,7 @@
 
 (defn- task-actions [task]
   [:div.combined-button-wrapper
-   [:button.delete-btn {:on-click #(state/set-confirm-delete-task task)}
+   [:button.combined-main-btn.delete-btn {:on-click #(state/set-confirm-delete-task task)}
     (t :task/delete)]
    [:button.combined-dropdown-btn.delete-btn
     {:on-click #(state/set-reports-task-dropdown-open (:id task))}

@@ -111,49 +111,39 @@
        (when has-relations?
          [relation-badges/relation-badges-collapsed (:relations task) "tsk" (:id task)])])))
 
-(defn task-combined-action-button [task & {:keys [extra-dropdown-items]}]
+(defn done-button-spec [task extra-dropdown-items]
   (if (= "active" (:reminder task))
-    [:div.combined-button-wrapper
-     [:button.combined-main-btn.acknowledge-reminder
-      {:on-click #(state/acknowledge-task-reminder (:id task))}
-      (t :task/acknowledge-reminder)]]
-    [:div.combined-button-wrapper
-     [:button.combined-main-btn
-      {:class (if (state/task-done? task) "undone" "done")
-       :on-click #(if (state/task-done? task)
+    {:label (t :task/acknowledge-reminder)
+     :variant :acknowledge
+     :on-click #(state/acknowledge-task-reminder (:id task))}
+    (let [done? (state/task-done? task)]
+      {:label (if done? (t :task/set-undone) (t :task/mark-done))
+       :variant (if done? :undone :done)
+       :on-click #(if done?
                     (state/set-confirm-undone-task task)
-                    (state/set-task-done (:id task) true))}
-      (if (state/task-done? task)
-        (t :task/set-undone)
-        (t :task/mark-done))]
-     [:button.combined-dropdown-btn
-      {:class (if (state/task-done? task) "undone" "done")
-       :on-click #(state/set-task-dropdown-open (:id task))}
-      "▼"]
-     (when (= (:id task) (:task-dropdown-open @state/*app-state))
-       [:div.task-dropdown-menu
-        (when extra-dropdown-items
-          extra-dropdown-items)
-        (if (state/task-done? task)
-          [:button.dropdown-item
-           {:on-click #(do
-                         (state/set-task-dropdown-open nil)
-                         (state/open-done-date-modal task))}
-           (t :task/change-done-date)]
-          [:button.dropdown-item.set-reminder
-           {:on-click #(do
-                         (state/set-task-dropdown-open nil)
-                         (state/open-reminder-modal task))
-            :title (when (:reminder_date task)
-                     (t :task/current-reminder {:date (date/format-date-localized (:reminder_date task))}))}
-           (if (:reminder_date task)
-             (t :task/change-reminder)
-             (t :task/set-reminder))])
-        [:button.dropdown-item
-         {:on-click #(do
-                       (state/set-task-dropdown-open nil)
-                       (state/set-confirm-delete-task task))}
-         (t :task/delete)]])]))
+                    (state/set-task-done (:id task) true))
+       :dropdown {:open? (= (:id task) (:task-dropdown-open @state/*app-state))
+                  :on-toggle #(state/set-task-dropdown-open (:id task))
+                  :items (concat
+                           (or extra-dropdown-items [])
+                           [(if done?
+                              {:label (t :task/change-done-date)
+                               :on-click #(do
+                                            (state/set-task-dropdown-open nil)
+                                            (state/open-done-date-modal task))}
+                              {:label (if (:reminder_date task)
+                                        (t :task/change-reminder)
+                                        (t :task/set-reminder))
+                               :class "set-reminder"
+                               :title (when (:reminder_date task)
+                                        (t :task/current-reminder {:date (date/format-date-localized (:reminder_date task))}))
+                               :on-click #(do
+                                            (state/set-task-dropdown-open nil)
+                                            (state/open-reminder-modal task))})
+                            {:label (t :task/delete)
+                             :on-click #(do
+                                          (state/set-task-dropdown-open nil)
+                                          (state/set-confirm-delete-task task))}])}})))
 
 (defn task-categories-readonly [task]
   [:div.item-tags-readonly

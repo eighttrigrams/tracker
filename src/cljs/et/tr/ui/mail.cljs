@@ -39,7 +39,7 @@
            ", "
            (.toLocaleTimeString date js/undefined #js {:hour "2-digit" :minute "2-digit"})))))
 
-(defn- archive-button-with-dropdown [{:keys [id title description done] :as _message}]
+(defn- archive-button-spec [{:keys [id title description done] :as _message}]
   (let [url (first-url title description)
         dropdown-open? (= id (:message-dropdown-open @mail-state/*mail-page-state))
         toggle-dropdown! #(state/set-message-dropdown-open (when-not dropdown-open? id))
@@ -49,44 +49,36 @@
                               (state/convert-message-to-task id))]
     (cond
       (not= done 1)
-      [:div.combined-button-wrapper
-       [:button.combined-main-btn.done
-        {:on-click #(state/set-message-done id true)}
-        (t :mail/archive)]
-       [:button.combined-dropdown-btn.done
-        {:on-click toggle-dropdown!}
-        "▼"]
-       (when dropdown-open?
-         [:div.task-dropdown-menu
-          (when url
-            [:button.dropdown-item.convert-to-resource
-             {:on-click convert-to-resource!}
-             (t :mail/convert-to-resource)])
-          [:button.dropdown-item.convert-to-task
-           {:on-click convert-to-task!}
-           (t :mail/convert-to-task)]])]
+      {:type :button :variant :done
+       :label (t :mail/archive)
+       :on-click #(state/set-message-done id true)
+       :dropdown {:open? dropdown-open?
+                  :on-toggle toggle-dropdown!
+                  :items (into (when url
+                                 [{:label (t :mail/convert-to-resource)
+                                   :class "convert-to-resource"
+                                   :on-click convert-to-resource!}])
+                               [{:label (t :mail/convert-to-task)
+                                 :class "convert-to-task"
+                                 :on-click convert-to-task!}])}}
 
       url
-      [:div.combined-button-wrapper
-       [:button.combined-main-btn.done
-        {:on-click toggle-dropdown!}
-        (t :mail/convert-to)]
-       [:button.combined-dropdown-btn.done
-        {:on-click toggle-dropdown!}
-        "▼"]
-       (when dropdown-open?
-         [:div.task-dropdown-menu
-          [:button.dropdown-item.convert-to-resource
-           {:on-click convert-to-resource!}
-           (t :mail/convert-target-resource)]
-          [:button.dropdown-item.convert-to-task
-           {:on-click convert-to-task!}
-           (t :mail/convert-target-task)]])]
+      {:type :button :variant :done
+       :label (t :mail/convert-to)
+       :on-click toggle-dropdown!
+       :dropdown {:open? dropdown-open?
+                  :on-toggle toggle-dropdown!
+                  :items [{:label (t :mail/convert-target-resource)
+                           :class "convert-to-resource"
+                           :on-click convert-to-resource!}
+                          {:label (t :mail/convert-target-task)
+                           :class "convert-to-task"
+                           :on-click convert-to-task!}]}}
 
       :else
-      [:button.combined-main-btn.standalone.done
-       {:on-click convert-to-task!}
-       (t :mail/convert-to-task)])))
+      {:type :button :variant :done
+       :label (t :mail/convert-to-task)
+       :on-click convert-to-task!})))
 
 (defn- mail-footer [message]
   (let [{:keys [id title description sender]} message
@@ -96,23 +88,19 @@
         importance-spec {:type :importance :value (:importance message)
                          :on-set #(state/set-message-importance id %)}
         urgency-spec {:type :urgency :value (:urgency message)
-                      :on-set #(state/set-message-urgency id %)}]
+                      :on-set #(state/set-message-urgency id %)}
+        delete-spec {:type :delete :on-click #(state/set-confirm-delete-message message)}]
     (if (#{"YouTube" "Podcasts"} sender)
       {:left (into [(when url
-                      {:type :custom
-                       :render [:button.combined-main-btn.done
-                                {:on-click #(state/convert-message-to-resource id url)}
-                                (t :mail/convert-to-resource)]})
+                      {:type :button :variant :done
+                       :label (t :mail/convert-to-resource)
+                       :on-click #(state/convert-message-to-resource id url)})
                     scope-spec importance-spec urgency-spec]
                    [])
-       :right [{:type :custom
-                :render [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
-                         (t :task/delete)]}]}
-      {:left [{:type :custom :render [archive-button-with-dropdown message]}
+       :right [delete-spec]}
+      {:left [(archive-button-spec message)
               scope-spec importance-spec urgency-spec]
-       :right [{:type :custom
-                :render [:button.delete-btn {:on-click #(state/set-confirm-delete-message message)}
-                         (t :task/delete)]}]})))
+       :right [delete-spec]})))
 
 (defn- mail-expanded-prefix [{:keys [title description type] :as message}]
   [:<>

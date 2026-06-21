@@ -83,19 +83,18 @@
                         :item task
                         :extra-dropdown-items
                         (when show-unlink?
-                          [:<>
-                           [:button.dropdown-item.toggle-maybe
-                            {:on-click #(do
-                                          (state/set-task-dropdown-open nil)
-                                          (state/set-task-maybe (:id task) (not maybe?)))}
-                            (if maybe? (t :task/unset-maybe) (t :task/set-maybe))]
-                           [:button.dropdown-item.unlink-today
-                            {:on-click #(let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
-                                          (state/set-task-dropdown-open nil)
-                                          (if (zero? selected-day)
-                                            (state/set-task-today (:id task) false)
-                                            (state/set-task-lined-up-for (:id task) nil)))}
-                            (t :task/unlink-today)]])}]}}]))
+                          [{:label (if maybe? (t :task/unset-maybe) (t :task/set-maybe))
+                            :class "toggle-maybe"
+                            :on-click #(do
+                                         (state/set-task-dropdown-open nil)
+                                         (state/set-task-maybe (:id task) (not maybe?)))}
+                           {:label (t :task/unlink-today)
+                            :class "unlink-today"
+                            :on-click #(let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
+                                         (state/set-task-dropdown-open nil)
+                                         (if (zero? selected-day)
+                                           (state/set-task-today (:id task) false)
+                                           (state/set-task-lined-up-for (:id task) nil)))}])}]}}]))
 
 (defn- today-meet-archive-button [meet]
   (let [future? (and (:start_date meet)

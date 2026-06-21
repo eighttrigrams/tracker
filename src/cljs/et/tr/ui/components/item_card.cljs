@@ -60,19 +60,40 @@
                      (on-set level))}
         label])]))
 
-(defn- delete-widget [{:keys [on-click]}]
-  [:div.combined-button-wrapper
-   [:button.delete-btn {:on-click on-click}
-    (t :task/delete)]])
+(defn- variant-class [variant]
+  (case variant
+    :delete "delete-btn"
+    :done "done"
+    :undone "undone"
+    :acknowledge "acknowledge-reminder"
+    nil))
+
+(defn- footer-button [{:keys [label on-click variant dropdown]}]
+  (let [vclass (variant-class variant)
+        {:keys [items open? on-toggle]} dropdown]
+    [:div.combined-button-wrapper
+     (if (seq items)
+       [:<>
+        [:button.combined-main-btn {:class vclass :on-click on-click} label]
+        [:button.combined-dropdown-btn {:class vclass :on-click on-toggle} "▼"]
+        (when open?
+          (into [:div.task-dropdown-menu]
+                (map-indexed
+                  (fn [i {item-label :label item-click :on-click item-class :class item-title :title}]
+                    ^{:key i}
+                    [:button.dropdown-item {:class item-class :title item-title :on-click item-click}
+                     item-label])
+                  items)))]
+       [:button.combined-main-btn.standalone {:class vclass :on-click on-click} label])]))
 
 (defn- footer-widget [spec]
   (case (:type spec)
     :scope [scope-selector spec]
     :importance [importance-selector spec]
     :urgency [urgency-selector spec]
-    :delete [delete-widget spec]
-    :done [task-item/task-combined-action-button (:item spec)
-           :extra-dropdown-items (:extra-dropdown-items spec)]
+    :delete [footer-button {:label (t :task/delete) :variant :delete :on-click (:on-click spec)}]
+    :done [footer-button (task-item/done-button-spec (:item spec) (:extra-dropdown-items spec))]
+    :button [footer-button spec]
     :custom (:render spec)
     nil))
 
