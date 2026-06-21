@@ -227,7 +227,7 @@
 
 (defn- markdown-preview [text]
   [:div.preview-description
-   {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
+   {:dangerouslySetInnerHTML (r/unsafe-html (marked (or text "")))}])
 
 (defn- edit-modal-fields [{:keys [type entity]}]
   (let [field-atoms (case type

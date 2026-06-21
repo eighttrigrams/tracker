@@ -11,11 +11,11 @@
 
 (defn markdown [text]
   [:div.markdown-content
-   {:dangerouslySetInnerHTML {:__html (marked (or text ""))}}])
+   {:dangerouslySetInnerHTML (r/unsafe-html (marked (or text "")))}])
 
 (defn html [text]
   [:div.markdown-content.html-content
-   {:dangerouslySetInnerHTML {:__html (or text "")}}])
+   {:dangerouslySetInnerHTML (r/unsafe-html (or text ""))}])
 
 (defn- body-renderer [content-type]
   (if (= content-type "html") html markdown))
