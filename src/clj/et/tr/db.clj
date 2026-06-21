@@ -197,6 +197,13 @@
     "superurgent" [:= :urgency "superurgent"]
     nil))
 
+(defn build-date-range-clause [field date-from date-to]
+  (let [clauses (cond-> []
+                  date-from (conj [:>= field date-from])
+                  date-to (conj [:< field date-to]))]
+    (when (seq clauses)
+      (into [:and] clauses))))
+
 (defn build-scope-clause [context strict]
   (when context
     (if strict

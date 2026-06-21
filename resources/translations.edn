@@ -364,6 +364,7 @@
   :reports/filter-all "All"
   :reports/filter-tasks-meets "Tasks & Meets"
   :reports/filter-journals "Journals"
+  :reports/see-more "See more"
 
   :date/mon "Mon"
   :date/tue "Tue"
@@ -699,6 +700,7 @@
   :reports/filter-all "Alle"
   :reports/filter-tasks-meets "Aufgaben & Treffen"
   :reports/filter-journals "Journale"
+  :reports/see-more "Mehr anzeigen"
 
   :date/mon "Mo"
   :date/tue "Di"
@@ -1034,6 +1036,7 @@
   :reports/filter-all "Todos"
   :reports/filter-tasks-meets "Tarefas & Encontros"
   :reports/filter-journals "Journais"
+  :reports/see-more "Ver mais"
 
   :date/mon "Seg"
   :date/tue "Ter"

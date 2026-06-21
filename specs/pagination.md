@@ -68,6 +68,31 @@ the contract.
   📋 views, e.g. journal summary) are *about* the bodies, so they fetch
   descriptions eagerly (`?detail=full`) rather than lazily.
 
+### Guard: a lean row's edit-modal save MUST omit an unloaded `description`
+
+This is a latent landmine, documented here so the next person making a list
+view lean does not step on it. The server PUT overwrites `description`
+**unconditionally** (no field-level partial update: `task_handler.clj` writes
+`:description (or description "")`). So the *only* thing standing between a
+not-yet-loaded body and a silent wipe is the client omitting `:description`
+from the save payload when it was never fetched.
+
+Today only `:resource` does that — its edit-modal save guards with "send
+`@description` only if the row already carries `:description` **or** the field
+is non-empty, else `nil`" — because `:resource` is the only type served as a
+lean row (lazy-fetched on expand). Every other type (`:task`, `:meet`,
+`:journal`, `:journal-entry`, `:message`) still sends `@description`
+unconditionally, which is safe **only because** their list rows currently carry
+the real `:description` inline, so their modals always open with the true body.
+
+If lean list rows are ever extended to those types (or the reports endpoint is
+made lean), their edit-modal save **must** be changed to the `:resource`
+pattern — omit an unloaded `:description` — **and** the save should be gated
+until the body has loaded. Otherwise opening a lean card and editing only its
+title (or saving before the lazy body fetch resolves) will overwrite the real
+server-side description with an empty string. The nil-omission belongs uniform
+across types, not resource-only.
+
 ## Key design decisions & rationale
 
 - **Page size 50.** A pragmatic default; large enough that most sessions never
@@ -130,6 +155,23 @@ default cap imposed *for* it by middleware. The bot never sends `paged=true`,
 so it always receives a plain vector — its contract is stable regardless of
 the UI's pagination evolving. `detail=full` is the single, shared escape hatch
 back to full payloads for both.
+
+### Reports are bounded by default — a deliberate, reports-specific exception
+
+`GET /api/reports` is the one list endpoint where the machine-user response is
+*not* "unchanged". The week-window is applied to **every** caller, including a
+param-less bot call: with no `weekOffset` / `weekLimit` it returns the
+most-recent **4 weeks** (`weekOffset=0`, `weekLimit=4`) plus an accurate
+`has_more`, never the full unbounded history. This is on purpose — an unbounded
+report (potentially years of completed tasks, meets, and journal entries, each
+a row) is exactly the context-window blowout the lean/paginated design exists
+to prevent, and reports have no row-count `limit` to fall back on. The bot
+reaches older data by paging `weekOffset` (0, 4, 8, …) and stops when
+`has_more` is false; full history is reachable, just never in a single fetch.
+`weekLimit` remains overridable by an explicit param. (Reports return a
+map-bodied envelope `{tasks, meets, journal_entries, has_more}` with no
+`:items` key, so `wrap-machine-lean` passes the body through untouched — the
+bounding is the handler's own week-window, not the lean middleware.)
 
 ## Special cases
 
