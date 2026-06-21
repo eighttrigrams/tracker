@@ -7,6 +7,7 @@
             [et.tr.db.meeting-series :as db.meeting-series]
             [et.tr.db.journal :as db.journal]
             [et.tr.db.journal-entry :as db.journal-entry]
+            [et.tr.db.event :as db.event]
             [et.tr.test-helpers :refer [*ds* *user-id* with-in-memory-db]]
             [next.jdbc :as jdbc]
             [honey.sql :as sql])
@@ -147,6 +148,32 @@
                     db/jdbc-opts))]
       (worker/run-journal-prune-check *ds*)
       (is (nil? (db.journal-entry/get-journal-entry *ds* *user-id* id))))))
+
+;; ── Events Prune ──
+
+(defn- insert-event! [effective-user-id ts]
+  (:id (jdbc/execute-one! (db/get-conn *ds*)
+         (sql/format {:insert-into :events
+                      :values [{:ts ts :actor_username "tester"
+                                :effective_user_id effective-user-id
+                                :action "update" :payload "{}"}]
+                      :returning [:id]})
+         db/jdbc-opts)))
+
+(defn- event-exists? [id]
+  (some? (jdbc/execute-one! (db/get-conn *ds*)
+           (sql/format {:select [:id] :from [:events] :where [:= :id id]})
+           db/jdbc-opts)))
+
+(deftest events-prune-removes-old-events-and-system-events
+  (testing "the hourly events prune removes old per-user and old system events, keeps recent"
+    (let [old-user (insert-event! *user-id* "2020-01-01 00:00:00")
+          recent-user (insert-event! *user-id* [:raw "datetime('now')"])
+          old-sys (insert-event! nil "2020-01-01 00:00:00")]
+      (worker/run-events-prune-check *ds*)
+      (is (not (event-exists? old-user)))
+      (is (event-exists? recent-user))
+      (is (not (event-exists? old-sys))))))
 
 ;; ── Reminders ──
 

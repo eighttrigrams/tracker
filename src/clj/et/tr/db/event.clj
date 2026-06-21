@@ -80,6 +80,34 @@
                  (update :dropped #(= 1 %))))
            rows))))
 
+(def default-event-cap 10000)
+
+(defn prune-events!
+  ([ds user-id] (prune-events! ds user-id default-event-cap))
+  ([ds user-id cap]
+   (let [result (jdbc/execute-one! (db/get-conn ds)
+                  (sql/format {:delete-from :events
+                               :where [:and
+                                       [:= :effective_user_id user-id]
+                                       [:or
+                                        [:< :ts [:raw "datetime('now','-2 months')"]]
+                                        [:not [:in :id {:select [:id]
+                                                        :from [:events]
+                                                        :where [:= :effective_user_id user-id]
+                                                        :order-by [[:ts :desc] [:id :desc]]
+                                                        :limit cap}]]]]})
+                  db/jdbc-opts)]
+     (:next.jdbc/update-count result))))
+
+(defn prune-system-events! [ds]
+  (let [result (jdbc/execute-one! (db/get-conn ds)
+                 (sql/format {:delete-from :events
+                              :where [:and
+                                      [:is :effective_user_id nil]
+                                      [:< :ts [:raw "datetime('now','-2 months')"]]]})
+                 db/jdbc-opts)]
+    (:next.jdbc/update-count result)))
+
 (defn diff-fields
   "Given a `before` map and an `after` map, return only the keys whose values
   differ. Both inputs are expected to be unqualified maps."

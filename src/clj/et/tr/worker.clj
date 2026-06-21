@@ -4,6 +4,7 @@
             [et.tr.db.recurring-task :as db.recurring-task]
             [et.tr.db.journal :as db.journal]
             [et.tr.db.journal-entry :as db.journal-entry]
+            [et.tr.db.event :as db.event]
             [et.tr.db.task :as db.task]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
@@ -60,6 +61,21 @@
     (catch Exception e
       (tel/log! {:level :error :data {:error (.getMessage e)}} "Journal prune worker failed"))))
 
+(defn run-events-prune-check [ds]
+  (tel/log! :info "Events prune worker: check started")
+  (try
+    (doseq [user-id (all-user-ids ds)]
+      (let [deleted (db.event/prune-events! ds user-id)]
+        (when (pos? deleted)
+          (tel/log! {:level :info :data {:user-id user-id :count deleted}}
+                    "Events prune worker: pruned events"))))
+    (let [deleted (db.event/prune-system-events! ds)]
+      (when (pos? deleted)
+        (tel/log! {:level :info :data {:count deleted}}
+                  "Events prune worker: pruned system events")))
+    (catch Exception e
+      (tel/log! {:level :error :data {:error (.getMessage e)}} "Events prune worker failed"))))
+
 (defn run-lined-up-promotion [ds]
   (tel/log! :info "Lined-up promotion worker: check started")
   (try
@@ -95,6 +111,7 @@
                   (run-recurring-tasks-check ds)
                   (run-journals-check ds)
                   (run-journal-prune-check ds)
+                  (run-events-prune-check ds)
                   (run-lined-up-promotion ds)
                   (run-reminders-check ds))
       initial-delay
