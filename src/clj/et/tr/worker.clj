@@ -3,6 +3,7 @@
             [et.tr.db.meeting-series :as db.meeting-series]
             [et.tr.db.recurring-task :as db.recurring-task]
             [et.tr.db.journal :as db.journal]
+            [et.tr.db.journal-entry :as db.journal-entry]
             [et.tr.db.task :as db.task]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
@@ -48,6 +49,17 @@
     (catch Exception e
       (tel/log! {:level :error :data {:error (.getMessage e)}} "Journals worker failed"))))
 
+(defn run-journal-prune-check [ds]
+  (tel/log! :info "Journal prune worker: check started")
+  (try
+    (doseq [user-id (all-user-ids ds)]
+      (let [{:keys [deleted-count]} (db.journal-entry/prune-empty-entries ds user-id)]
+        (when (pos? deleted-count)
+          (tel/log! {:level :info :data {:user-id user-id :count deleted-count}}
+                    "Journal prune worker: pruned empty entries"))))
+    (catch Exception e
+      (tel/log! {:level :error :data {:error (.getMessage e)}} "Journal prune worker failed"))))
+
 (defn run-lined-up-promotion [ds]
   (tel/log! :info "Lined-up promotion worker: check started")
   (try
@@ -82,6 +94,7 @@
                   (run-meeting-series-check ds)
                   (run-recurring-tasks-check ds)
                   (run-journals-check ds)
+                  (run-journal-prune-check ds)
                   (run-lined-up-promotion ds)
                   (run-reminders-check ds))
       initial-delay

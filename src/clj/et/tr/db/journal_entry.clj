@@ -3,7 +3,9 @@
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
             [et.tr.db :as db]
-            [et.tr.db.relation :as relation]))
+            [et.tr.db.relation :as relation])
+  (:import [java.time LocalDate DayOfWeek]
+           [java.time.temporal TemporalAdjusters]))
 
 (defn- build-journal-entry-category-clauses [categories]
   (let [people-clause (db/build-category-subquery :journal_entry_categories :journal_entry_id :journal_entries "person" (:people categories))
@@ -234,3 +236,31 @@
                  db/jdbc-opts)]
     (tel/log! {:level :info :data {:journal-entry-id (:id result) :user-id user-id}} "Journal entry added")
     (assoc result :people [] :places [] :projects [] :goals [])))
+
+(defn prune-empty-entries [ds user-id]
+  (let [conn (db/get-conn ds)
+        today (LocalDate/now)
+        yesterday-str (str (.minusDays today 1))
+        today-str (str today)
+        monday-this (.with today (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY))
+        monday-last-str (str (.minusWeeks monday-this 1))
+        candidates (jdbc/execute! conn
+                     (sql/format {:select [[:je.id :id]]
+                                  :from [[:journal_entries :je]]
+                                  :join [[:journals :j] [:= :je.journal_id :j.id]]
+                                  :where [:and
+                                          [:= :je.user_id user-id]
+                                          [:!= :je.entry_date nil]
+                                          [:or [:= :je.description nil] [:= :je.description ""]]
+                                          [:<= :je.entry_date today-str]
+                                          [:< :je.created_at [:raw "datetime('now','-24 hours')"]]
+                                          [:or
+                                           [:and [:= :j.schedule_type "weekly"] [:< :je.entry_date monday-last-str]]
+                                           [:and [:= :j.schedule_type "daily"] [:< :je.entry_date yesterday-str]]]]})
+                     db/jdbc-opts)
+        ids (mapv :id candidates)]
+    (doseq [id ids]
+      (delete-journal-entry ds user-id id))
+    (when (seq ids)
+      (tel/log! {:level :info :data {:user-id user-id :count (count ids) :entry-ids ids}} "Pruned empty journal entries"))
+    {:deleted-count (count ids) :deleted-ids ids}))

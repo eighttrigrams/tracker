@@ -5,6 +5,8 @@
             [et.tr.db.recurring-task :as db.recurring-task]
             [et.tr.db.task :as db.task]
             [et.tr.db.meeting-series :as db.meeting-series]
+            [et.tr.db.journal :as db.journal]
+            [et.tr.db.journal-entry :as db.journal-entry]
             [et.tr.test-helpers :refer [*ds* *user-id* with-in-memory-db]]
             [next.jdbc :as jdbc]
             [honey.sql :as sql])
@@ -127,6 +129,24 @@
       (let [count-after-first (count (db.meeting-series/get-taken-dates *ds* *user-id* (:id ms)))]
         (worker/run-meeting-series-check *ds*)
         (is (= count-after-first (count (db.meeting-series/get-taken-dates *ds* *user-id* (:id ms)))))))))
+
+;; ── Journal Prune ──
+
+(deftest journal-prune-deletes-old-empty-entries
+  (testing "the hourly prune check removes old empty generated entries across users"
+    (let [j (db.journal/add-journal *ds* *user-id* "Daily" "both" "daily")
+          old-date (str (.minusDays (LocalDate/now) 3))
+          id (:id (jdbc/execute-one! (db/get-conn *ds*)
+                    (sql/format {:insert-into :journal_entries
+                                 :values [{:title "Entry" :description "" :sort_order 1.0
+                                           :scope "both" :user_id *user-id* :journal_id (:id j)
+                                           :entry_date old-date
+                                           :created_at "2020-01-01 00:00:00"
+                                           :modified_at "2020-01-01 00:00:00"}]
+                                 :returning [:id]})
+                    db/jdbc-opts))]
+      (worker/run-journal-prune-check *ds*)
+      (is (nil? (db.journal-entry/get-journal-entry *ds* *user-id* id))))))
 
 ;; ── Reminders ──
 
