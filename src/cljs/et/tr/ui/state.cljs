@@ -1805,9 +1805,12 @@
   (when-let [{:keys [type entity]} (:create-date-modal @*app-state)]
     (case type
       :journal
-      (journals-state/create-entry-for-journal *app-state auth-headers
-        (fn [] (fetch-journals) (fetch-today-journal-entries))
-        (:id entity) date)
+      (let [entry-date (if (= (:schedule_type entity) "weekly")
+                         (scheduling/monday-of-week date)
+                         date)]
+        (journals-state/create-entry-for-journal *app-state auth-headers
+          (fn [] (fetch-journals) (fetch-today-journal-entries))
+          (:id entity) entry-date))
       (let [js-d (js/Date. (str date "T00:00:00"))
             day-num (scheduling/js-day-to-iso-day (.getDay js-d))
             time (scheduling/get-schedule-time-for-day (:schedule_time entity) day-num)]

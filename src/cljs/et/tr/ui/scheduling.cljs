@@ -27,6 +27,12 @@
     (.setDate js-d (+ (.getDate js-d) 1))
     (format-js-date js-d)))
 
+(defn monday-of-week [date-str]
+  (let [js-d (js/Date. (str date-str "T00:00:00"))
+        iso-day (js-day-to-iso-day (.getDay js-d))]
+    (.setDate js-d (- (.getDate js-d) (dec iso-day)))
+    (format-js-date js-d)))
+
 (defn next-scheduled-date-from [schedule-days-set start-date]
   (loop [d start-date i 0]
     (when (< i 8)
