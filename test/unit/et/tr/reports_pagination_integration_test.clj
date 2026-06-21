@@ -106,11 +106,22 @@
       (let [{:keys [body]} (GET-json "/api/reports?weekOffset=0&weekLimit=4&items=journals")]
         (is (true? (:has_more body)))))))
 
-(deftest no-params-returns-full-history
-  (testing "without pagination params the endpoint returns everything (machine-user contract)"
+(deftest no-params-returns-bounded-default-window
+  (testing "without pagination params the endpoint returns the most-recent default window, not full history"
     (seed-spread!)
     (let [{:keys [body]} (GET-json "/api/reports")]
-      (is (= #{"task-now" "task-recent" "task-null-done" "task-old"} (titles (:tasks body))))
-      (is (= #{"meet-recent" "meet-old"} (titles (:meets body))))
-      (is (= #{"journal-recent" "journal-old"} (titles (:journal_entries body))))
-      (is (false? (:has_more body))))))
+      (is (= #{"task-now" "task-recent" "task-null-done"} (titles (:tasks body))))
+      (is (= #{"meet-recent"} (titles (:meets body))))
+      (is (= #{"journal-recent"} (titles (:journal_entries body))))
+      (is (not (contains? (titles (:tasks body)) "task-old")))
+      (is (not (contains? (titles (:meets body)) "meet-old")))
+      (is (not (contains? (titles (:journal_entries body)) "journal-old")))
+      (is (true? (:has_more body))))))
+
+(deftest paramless-older-data-reachable-by-paging
+  (testing "the default window's older items remain reachable by paging weekOffset (no unbounded fetch needed)"
+    (seed-spread!)
+    (let [{:keys [body]} (GET-json "/api/reports?weekOffset=4")]
+      (is (= #{"task-old"} (titles (:tasks body))))
+      (is (= #{"meet-old"} (titles (:meets body))))
+      (is (= #{"journal-old"} (titles (:journal_entries body)))))))

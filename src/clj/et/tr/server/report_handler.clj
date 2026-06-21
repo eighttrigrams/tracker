@@ -58,9 +58,8 @@
                      {:people people :places places :projects projects :goals goals})
         week-offset-param (get-in req [:params "weekOffset"])
         week-limit-param (get-in req [:params "weekLimit"])
-        window (when (or week-offset-param week-limit-param)
-                 (week-window (parse-week-param week-offset-param 0)
-                              (parse-week-param week-limit-param 4)))
+        window (week-window (parse-week-param week-offset-param 0)
+                            (parse-week-param week-limit-param 4))
         shared-opts {:context context :strict strict :categories categories}
         window-opts (merge shared-opts (when window {:date-from (:date-from window)
                                                      :date-to (:date-to window)}))
