@@ -108,7 +108,6 @@
                             ;; Resources page journals mode
                             :resources-page/journals-mode false
                             :resources-page/filter-journal nil
-                            :resources-page/journal-with-description-only true
 
                             ;; Today page journals mode
                             :today-page/journals-mode false
@@ -833,8 +832,7 @@
      :filter-places (:shared/filter-places @*app-state)
      :filter-projects (:shared/filter-projects @*app-state)
      :filter-goals (:shared/filter-goals @*app-state)
-     :journal-id (when journal-filter (:id journal-filter))
-     :with-description (boolean (:resources-page/journal-with-description-only @*app-state))}))
+     :journal-id (when journal-filter (:id journal-filter))}))
 
 (defn fetch-journal-entries
   ([] (fetch-journal-entries (journal-entries-fetch-opts)))
@@ -876,10 +874,6 @@
 
 (defn set-journal-entry-importance-filter [level]
   (journal-entries-state/set-importance-filter fetch-journal-entries level))
-
-(defn toggle-journal-with-description-only []
-  (swap! *app-state update :resources-page/journal-with-description-only not)
-  (fetch-journal-entries))
 
 (defn- fetch-journal-entries-and-maybe-reports []
   (fetch-journal-entries)

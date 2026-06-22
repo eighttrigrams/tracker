@@ -27,19 +27,17 @@
 (defn list-journal-entries
   ([ds user-id] (list-journal-entries ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories sort-mode journal-id with-description limit date-from date-to]} opts
+   (let [{:keys [search-term importance context strict categories sort-mode journal-id limit date-from date-to]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags])
          importance-clause (db/build-importance-clause importance)
          scope-clause (db/build-scope-clause context strict)
          journal-clause (when journal-id [:= :journal_id journal-id])
-         with-description-clause (when with-description
-                                   [:and [:!= :description nil] [:!= :description ""]])
          date-range-clause (db/build-date-range-clause :entry_date date-from date-to)
          category-clauses (build-journal-entry-category-clauses categories)
          where-clause (into [:and user-where]
-                            (concat (filter some? [search-clause importance-clause scope-clause journal-clause with-description-clause date-range-clause])
+                            (concat (filter some? [search-clause importance-clause scope-clause journal-clause date-range-clause])
                                     category-clauses))
          entries (jdbc/execute! conn
                    (sql/format (cond-> {:select db/journal-entry-select-columns

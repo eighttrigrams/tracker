@@ -411,20 +411,12 @@
 
 (defn- journal-filter-bar []
   (let [jf (state/journal-filter)
-        summary-mode? (:resources-page/journal-summary-mode @state/*app-state)
-        with-desc-only? (:resources-page/journal-with-description-only @state/*app-state)]
+        summary-mode? (:resources-page/journal-summary-mode @state/*app-state)]
     [:div.series-filter-bar
      [:span.series-filter-label
       {:on-click #(state/open-filter-target-edit-modal :journal "/api/journals/" (:id jf))
        :style {:cursor "pointer"}}
       (:title jf)]
-     [:button.journal-with-desc-btn
-      {:class (when-not with-desc-only? "active")
-       :title (if with-desc-only?
-                "Show all entries"
-                "Only show entries with a description")
-       :on-click #(state/toggle-journal-with-description-only)}
-      "👁"]
      [:button.journal-summary-btn
       {:class (when summary-mode? "active")
        :on-click #(swap! state/*app-state update :resources-page/journal-summary-mode not)}

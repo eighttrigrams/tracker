@@ -20,7 +20,7 @@
   "GET /api/journal-entries/ — list journal entries for the current user.
   Query params: q (search term), importance, context, strict (\"true\"/
   \"false\"), comma-separated category id lists people/places/projects/goals,
-  sortMode, withDescription (\"true\"/\"false\"), journalId (parsed as an int,
+  sortMode, journalId (parsed as an int,
   ignored if non-numeric), limit (int — caps the row count; machine users
   default to 10 when omitted). Categories are only forwarded when at least
   one list is provided. Always returns 200 with the result vector."
@@ -35,13 +35,12 @@
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
         sort-mode (get-in req [:params "sortMode"])
-        with-description (= "true" (get-in req [:params "withDescription"]))
         journal-id (when-let [jid (get-in req [:params "journalId"])]
                      (try (Integer/parseInt jid) (catch Exception _ nil)))
         limit (common/parse-int-opt (get-in req [:params "limit"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.journal-entry/list-journal-entries (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :journal-id journal-id :with-description with-description :limit limit})}))
+    {:status 200 :body (db.journal-entry/list-journal-entries (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :journal-id journal-id :limit limit})}))
 
 (defn list-today-journal-entries-handler
   "GET /api/journal-entries/today — list today's journal entries for the

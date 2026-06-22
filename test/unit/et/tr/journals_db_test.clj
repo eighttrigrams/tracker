@@ -80,6 +80,20 @@
     (let [created (db.journal/auto-create-journal-entries *ds* *user-id*)]
       (is (= 0 (count created))))))
 
+(deftest list-journal-entries-shows-empty-descriptions-test
+  (testing "empty-description entries are returned even when the removed with-description opt is passed"
+    (let [journal (db.journal/add-journal *ds* *user-id* "Eye Test Journal")
+          empty-entry (db.journal/create-entry-for-journal *ds* *user-id* (:id journal) "2026-06-22")
+          described-entry (db.journal/create-entry-for-journal *ds* *user-id* (:id journal) "2026-06-23")]
+      (db.journal-entry/update-journal-entry *ds* *user-id* (:id described-entry)
+        {:title "Eye Test Journal" :description "has notes" :tags ""})
+      (let [entries (db.journal-entry/list-journal-entries *ds* *user-id*
+                      {:journal-id (:id journal) :with-description true})
+            ids (set (map :id entries))]
+        (is (contains? ids (:id empty-entry))
+          "the empty-description entry must be visible (show-all default)")
+        (is (contains? ids (:id described-entry)))))))
+
 (deftest journal-entry-crud-test
   (testing "add and list journal entries"
     (let [entry (db.journal-entry/add-journal-entry *ds* *user-id* "Standalone Entry" "both")]
