@@ -96,18 +96,46 @@
                                            (state/set-task-today (:id task) false)
                                            (state/set-task-lined-up-for (:id task) nil)))}])}]}}]))
 
-(defn- today-meet-archive-button [meet]
+(defn- meet-archivable? [meet is-today]
   (let [future? (and (:start_date meet)
-                     (pos? (compare (:start_date meet) (date/today-str))))
-        show? (and (not future?)
-                   (or (nil? (:meeting_series_id meet))
-                       (:series_has_future_meet meet)))]
-    (when show?
-      [:button.archive-meet-btn
-       {:on-click (fn [e]
-                    (.stopPropagation e)
-                    (state/archive-meet (:id meet)))}
-       (t :meets/archive)])))
+                     (pos? (compare (:start_date meet) (date/today-str))))]
+    (and is-today
+         (not future?)
+         (or (nil? (:meeting_series_id meet))
+             (:series_has_future_meet meet)))))
+
+(defn- meet-footer-spec [meet is-today gray-when-maybe]
+  (let [maybe? (= 1 (:maybe meet))
+        close! #(state/set-meet-dropdown-open nil)
+        actions (cond-> []
+                  (meet-archivable? meet is-today)
+                  (conj {:variant :done
+                         :label (t :meets/archive)
+                         :on-click #(do (close!) (state/archive-meet (:id meet)))})
+                  gray-when-maybe
+                  (conj {:variant :done
+                         :class "toggle-maybe"
+                         :label (if maybe? (t :task/unset-maybe) (t :task/set-maybe))
+                         :on-click #(do (close!) (state/set-meet-maybe (:id meet) (not maybe?)))})
+                  true
+                  (conj {:variant :delete
+                         :label (t :task/delete)
+                         :on-click #(do (close!) (state/set-confirm-delete-meet meet))}))
+        anchor (first actions)
+        items (rest actions)]
+    (cond-> {:type :button
+             :variant (:variant anchor)
+             :label (:label anchor)
+             :on-click (:on-click anchor)}
+      (:class anchor) (assoc :class (:class anchor))
+      (seq items) (assoc :dropdown
+                         {:open? (= (:id meet) (:meet-dropdown-open @state/*app-state))
+                          :on-toggle #(state/set-meet-dropdown-open (:id meet))
+                          :items (mapv (fn [a]
+                                         {:label (:label a)
+                                          :class (:class a)
+                                          :on-click (:on-click a)})
+                                       items)}))))
 
 (defn- today-meet-item [meet & {:keys [show-day-prefix hide-date is-today gray-when-maybe] :or {show-day-prefix false hide-date false is-today false gray-when-maybe false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:start_date meet) 6))
@@ -160,16 +188,7 @@
                        :on-set #(state/set-meet-scope (:id meet) %)}
                       {:type :importance :value (:importance meet)
                        :on-set #(state/set-meet-importance (:id meet) %)}]
-               :right [{:type :custom
-                        :render [:div.combined-button-wrapper
-                                 (when gray-when-maybe
-                                   [:button.toggle-maybe
-                                    {:on-click #(state/set-meet-maybe (:id meet) (not maybe?))}
-                                    (if maybe? (t :task/unset-maybe) (t :task/set-maybe))])
-                                 (when is-today
-                                   [today-meet-archive-button meet])
-                                 [:button.delete-btn {:on-click #(state/set-confirm-delete-meet meet)}
-                                  (t :task/delete)]]}]}}]))
+               :right [(meet-footer-spec meet is-today gray-when-maybe)]}}]))
 
 (defn- interleave-by-date [tasks meets]
   (sort-by (fn [item]

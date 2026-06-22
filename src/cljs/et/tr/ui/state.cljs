@@ -601,6 +601,10 @@
 (defn set-confirm-delete-meet [meet]
   (meets-state/set-confirm-delete-meet meet))
 
+(defn set-meet-dropdown-open [meet-id]
+  (swap! *app-state assoc :meet-dropdown-open
+         (when (not= (:meet-dropdown-open @*app-state) meet-id) meet-id)))
+
 (defn clear-confirm-delete-meet []
   (meets-state/clear-confirm-delete-meet))
 
