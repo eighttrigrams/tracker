@@ -15,6 +15,14 @@ Feature: Unified card footer buttons
     Then the footer convert button has a solid right border
     And the footer convert button has corner radius "8px"
 
+  Scenario: The recurring-task delete button shares the unified footer-button geometry
+    Given I am on the app
+    And a recurring task "Footer geometry rtask" exists
+    And I click the "Tasks" tab
+    When I click the "Recurring" button
+    And I expand "Footer geometry rtask" in the recurring list
+    Then the recurring delete button uses the unified footer geometry
+
   Scenario: A footer button with a dropdown is a glued 8px group that opens and fires
     Given I am on the app
     And I click the "Tasks" tab

@@ -86,7 +86,7 @@
                   items)))]
        [:button.combined-main-btn.standalone {:class vclass :on-click on-click} label])]))
 
-(defn- footer-widget [spec]
+(defn footer-widget [spec]
   (case (:type spec)
     :scope [scope-selector spec]
     :importance [importance-selector spec]

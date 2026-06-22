@@ -50,3 +50,12 @@ When("I click the footer dropdown item {string}", async ({ page }, label: string
 Then("I see the delete confirmation", async ({ page }) => {
   await expect(page.locator(".modal-overlay .confirm-delete")).toBeVisible();
 });
+
+Then("the recurring delete button uses the unified footer geometry", async ({ page }) => {
+  const btn = page.locator(".item-actions .combined-main-btn.delete-btn");
+  await expect(btn).toBeVisible();
+  await expect(btn).toHaveCSS("padding-top", "4px");
+  await expect(btn).toHaveCSS("padding-left", "12px");
+  await expect(btn).toHaveCSS("border-top-left-radius", "8px");
+  await expect(btn).toHaveCSS("border-top-right-radius", "8px");
+});

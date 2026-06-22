@@ -360,9 +360,8 @@
     [rtask-category-selector rtask state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
    [:div.item-actions
     [rtask-scope-selector rtask]
-    [:div.combined-button-wrapper
-     [:button.delete-btn {:on-click #(state/set-confirm-delete-rtask rtask)}
-      (t :task/delete)]]]])
+    [item-card/footer-widget {:type :delete
+                              :on-click #(state/set-confirm-delete-rtask rtask)}]]])
 
 (defn- rtask-inline-title-edit [rtask]
   (let [value (or (:rtasks-page/inline-edit-title @state/*app-state) "")]
