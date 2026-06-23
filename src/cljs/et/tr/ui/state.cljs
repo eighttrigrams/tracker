@@ -1380,6 +1380,12 @@
 (defn acknowledge-task-reminder [task-id]
   (tasks/acknowledge-task-reminder *app-state auth-headers task-id))
 
+(defn acknowledge-reminder-on-collapse [task-id]
+  (swap! *app-state update :tasks
+         (fn [tasks]
+           (mapv #(if (= (:id %) task-id) (assoc % :reminder nil) %) tasks)))
+  (tasks/acknowledge-task-reminder *app-state auth-headers task-id))
+
 (defn open-reminder-modal [task]
   (swap! *app-state assoc :reminder-modal task))
 

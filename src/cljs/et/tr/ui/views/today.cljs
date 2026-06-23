@@ -29,7 +29,12 @@
     [item-card/item-card
      {:item task
       :expanded? is-expanded
-      :on-toggle #(state/toggle-expanded :today-page/expanded-task (:id task))
+      :on-toggle (fn []
+                   (when (and is-expanded
+                              (= "active" (:reminder task))
+                              (#{"urgent" "superurgent"} (:urgency task)))
+                     (state/acknowledge-reminder-on-collapse (:id task)))
+                   (state/toggle-expanded :today-page/expanded-task (:id task)))
       :container {:tag :div
                   :class (str "today-task-item" (when maybe? " maybe"))
                   :classes {:header "today-task-header"

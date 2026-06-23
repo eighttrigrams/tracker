@@ -25,6 +25,24 @@ Given(
   },
 );
 
+Given(
+  "a task {string} with an active reminder and urgency {string} exists",
+  async ({ request }, title: string, urgency: string) => {
+    const task = await (
+      await request.post("/api/tasks", { headers, data: { title } })
+    ).json();
+    await request.put(`/api/tasks/${task.id}/urgency`, {
+      headers,
+      data: { urgency },
+    });
+    await request.put(`/api/tasks/${task.id}/reminder`, {
+      headers,
+      data: { "reminder-date": dateStr(-1) },
+    });
+    await request.post("/api/test/activate-reminders", { headers });
+  },
+);
+
 When("I open the dropdown on task {string}", async ({ page }, title: string) => {
   const taskRow = page.locator(".items li").filter({ hasText: title });
   await taskRow.locator(".combined-dropdown-btn").click();
@@ -129,5 +147,43 @@ When(
       .filter({ hasText: title });
     await taskItem.getByRole("button", { name: buttonText }).click();
     await page.waitForLoadState("networkidle");
+  },
+);
+
+When("I collapse reminder task {string}", async ({ page }, title: string) => {
+  await page
+    .locator(".today-section.reminders .today-task-item")
+    .filter({ hasText: title })
+    .locator(".today-task-header")
+    .click();
+  await page.waitForLoadState("networkidle");
+});
+
+Then(
+  "I should not see {string} in the reminders section",
+  async ({ page }, text: string) => {
+    await expect(
+      page.locator(".today-section.reminders"),
+    ).not.toContainText(text, { timeout: 5000 });
+  },
+);
+
+Then(
+  "the task {string} should not have an active reminder",
+  async ({ request }, title: string) => {
+    const tasks = await (await request.get("/api/tasks?sort=recent", { headers })).json();
+    const task = tasks.find((t: any) => t.title === title);
+    expect(task).toBeTruthy();
+    expect(task.reminder).not.toBe("active");
+  },
+);
+
+Then(
+  "the task {string} should still have an active reminder",
+  async ({ request }, title: string) => {
+    const tasks = await (await request.get("/api/tasks?sort=recent", { headers })).json();
+    const task = tasks.find((t: any) => t.title === title);
+    expect(task).toBeTruthy();
+    expect(task.reminder).toBe("active");
   },
 );
