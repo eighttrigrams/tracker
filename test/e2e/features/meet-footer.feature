@@ -9,9 +9,9 @@ Feature: Unified meet footer (button + dropdown)
     And the meet footer anchor button is blue
     And the meet footer has no flat archive button
     When I open the meet footer dropdown on "Footer archivable"
-    Then the meet footer dropdown shows "Archive"
-    And the meet footer dropdown shows "maybe"
-    And the meet footer dropdown shows "Delete"
+    Then the meet footer dropdown items in order are "Set maybe, Archive, Delete"
+    And the meet footer dropdown "Archive" item is non-destructive
+    And the meet footer dropdown "Set maybe" item is non-destructive
     And the meet footer dropdown delete item is red
 
   Scenario: Archive from the meet footer dropdown removes the meet
@@ -44,6 +44,19 @@ Feature: Unified meet footer (button + dropdown)
     When I open the meet footer dropdown on "Footer future"
     Then the meet footer dropdown shows "maybe"
     And the meet footer dropdown shows "Delete"
+
+  Scenario: An over today meet anchors on Archive with a non-destructive "Meet not over" in the dropdown
+    Given I am on the app
+    And a meet "Footer over" with start date today exists
+    When I navigate to the "Today" tab
+    And I expand the today meet "Footer over"
+    And I click the meet footer anchor button
+    Then the meet footer anchor button shows "Archive"
+    And the meet footer anchor button is blue
+    When I open the meet footer dropdown on "Footer over"
+    Then the meet footer dropdown items in order are "Meet not over, Delete"
+    And the meet footer dropdown "Meet not over" item is non-destructive
+    And the meet footer dropdown delete item is red
 
   Scenario: A non-archivable meet in the upcoming section is a plain Delete button
     Given I am on the app

@@ -45,6 +45,27 @@ Then("the meet footer dropdown shows {string}", async ({ page }, label: string) 
   ).toBeVisible();
 });
 
+Then(
+  "the meet footer dropdown items in order are {string}",
+  async ({ page }, csv: string) => {
+    const expected = csv.split(",").map((s) => s.trim());
+    const items = page.locator(".task-dropdown-menu .dropdown-item");
+    await expect(items).toHaveCount(expected.length);
+    for (let i = 0; i < expected.length; i++) {
+      await expect(items.nth(i)).toContainText(expected[i]);
+    }
+  },
+);
+
+Then(
+  "the meet footer dropdown {string} item is non-destructive",
+  async ({ page }, label: string) => {
+    await expect(
+      page.locator(".task-dropdown-menu .dropdown-item").filter({ hasText: label }),
+    ).toHaveCSS("color", "rgb(0, 122, 255)");
+  },
+);
+
 Then("the meet footer dropdown delete item is red", async ({ page }) => {
   await expect(
     page.locator(".task-dropdown-menu .dropdown-item").filter({ hasText: "Delete" }),

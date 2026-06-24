@@ -119,8 +119,14 @@
                          :class "toggle-over"
                          :label (t :meets/set-over)
                          :on-click #(do (close!) (state/set-meet-over (:id meet) true))})
+                  (and gray-when-maybe (not over?))
+                  (conj {:variant :done
+                         :class "toggle-maybe"
+                         :label (if maybe? (t :task/unset-maybe) (t :task/set-maybe))
+                         :on-click #(do (close!) (state/set-meet-maybe (:id meet) (not maybe?)))})
                   (meet-archivable? meet is-today)
                   (conj {:variant :done
+                         :class "archive"
                          :label (t :meets/archive)
                          :on-click #(do (close!) (state/archive-meet (:id meet)))})
                   (and gray-when-maybe over?)
@@ -128,11 +134,6 @@
                          :class "toggle-over"
                          :label (t :meets/unset-over)
                          :on-click #(do (close!) (state/set-meet-over (:id meet) false))})
-                  (and gray-when-maybe (not over?))
-                  (conj {:variant :done
-                         :class "toggle-maybe"
-                         :label (if maybe? (t :task/unset-maybe) (t :task/set-maybe))
-                         :on-click #(do (close!) (state/set-meet-maybe (:id meet) (not maybe?)))})
                   true
                   (conj {:variant :delete
                          :label (t :task/delete)
