@@ -123,3 +123,19 @@
       (source-worker/run-youtube-tick *ds*))
     (is (empty? (list-inbox)))
     (is (db.youtube/video-notified? *ds* *user-id* "vShort"))))
+
+(deftest min-duration-forwards-when-duration-unknown
+  (testing "when the duration lookup fails (nil), the video is forwarded anyway — current policy"
+    (enable-mail! *user-id*)
+    (db.youtube/upsert-settings *ds* *user-id* {:enabled 1 :polling-minutes 60})
+    (db.youtube/add-channel *ds* *user-id*
+      {:channel-id "UCunknown" :name nil :min-duration-minutes 5 :enabled 1})
+    (with-redefs [youtube/get-latest-videos
+                  (fn [_] [{:video-id "vUnknown" :title "Unknown length"
+                            :published "2999-04-04T00:00:00Z"
+                            :link "https://youtu.be/vUnknown" :author "Mystery"}])
+                  youtube/get-video-duration-minutes (fn [_] nil)]
+      (source-worker/run-youtube-tick *ds*))
+    (is (= 1 (count (list-inbox)))
+        "duration unknown does not drop the video; making the lookup reliable is what keeps shorts out")
+    (is (db.youtube/video-notified? *ds* *user-id* "vUnknown"))))

@@ -78,10 +78,20 @@
    "Accept-Language" "en-US,en;q=0.9"
    "Cookie" "CONSENT=YES+cb; SOCS=CAI"})
 
+(defn- iso8601-duration->minutes [s]
+  (when-let [[_ h m sec] (re-find #"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$" s)]
+    (let [h (or (some-> h parse-long) 0)
+          m (or (some-> m parse-long) 0)
+          sec (or (some-> sec parse-long) 0)
+          total (+ (* h 60) m (/ sec 60.0))]
+      (when (pos? total) total))))
+
 (defn parse-duration-minutes
   "Extract a video's duration in decimal minutes from a watch-page body.
   Tries `videoDetails.lengthSeconds` first, then `approxDurationMs` from
-  streamingData. Treats a zero/blank value as unknown (live streams and
+  streamingData, then the schema.org `<meta itemprop=\"duration\">`
+  ISO-8601 value (an independent source that survives player-payload shape
+  changes). Treats a zero/blank value as unknown (live streams and
   premieres report 0). Returns nil when no usable duration is present."
   [body]
   (when body
@@ -90,13 +100,23 @@
             (when (pos? s) (/ s 60.0))))
         (when-let [[_ ms] (re-find #"\"approxDurationMs\":\"(\d+)\"" body)]
           (when-let [m (parse-long ms)]
-            (when (pos? m) (/ m 60000.0)))))))
+            (when (pos? m) (/ m 60000.0))))
+        (when-let [[_ pt] (re-find #"itemprop=\"duration\"[^>]*content=\"(PT[0-9HMS]+)\"" body)]
+          (iso8601-duration->minutes pt)))))
+
+(defn- consent-interstitial?
+  [body]
+  (boolean (and body
+                (re-find #"consent\.(?:youtube|google)\.com" body)
+                (not (re-find #"ytInitialPlayerResponse" body)))))
 
 (defn get-video-duration-minutes
   "Look up the duration (in minutes, decimal) of a video by scraping the
   public watch page. Keyless. Retries once on a failed/empty fetch since
   the page is occasionally served without the player payload. Returns nil
-  only if both attempts fail or no duration field can be found."
+  only if both attempts fail or no duration field can be found; the reason
+  (non-200, consent interstitial, or a 200 page with no duration field) is
+  logged distinctly so a recurring leak can be diagnosed from the logs."
   [video-id]
   (when video-id
     (letfn [(attempt []
@@ -107,8 +127,18 @@
                               :socket-timeout 30000
                               :connection-timeout 30000
                               :headers watch-page-headers})]
-                  (when (= 200 (:status resp))
-                    (parse-duration-minutes (:body resp))))
+                  (if (= 200 (:status resp))
+                    (let [body (:body resp)]
+                      (or (parse-duration-minutes body)
+                          (do (if (consent-interstitial? body)
+                                (tel/log! {:level :warn :data {:video-id video-id}}
+                                          "YouTube duration: served a consent interstitial, no player payload")
+                                (tel/log! {:level :warn :data {:video-id video-id}}
+                                          "YouTube duration: 200 OK but no duration field found in page"))
+                              nil)))
+                    (do (tel/log! {:level :warn :data {:video-id video-id :status (:status resp)}}
+                                  "YouTube duration: non-200 response")
+                        nil)))
                 (catch Exception e
                   (tel/log! {:level :warn :data {:video-id video-id :error (.getMessage e)}}
                             "Failed to fetch YouTube video duration")

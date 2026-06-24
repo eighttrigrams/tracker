@@ -28,3 +28,38 @@
   (is (nil? (youtube/parse-duration-minutes "<html>consent interstitial</html>")))
   (is (nil? (youtube/parse-duration-minutes "")))
   (is (nil? (youtube/parse-duration-minutes nil))))
+
+(def ^:private realistic-watch-page
+  "A trimmed body that mirrors the real watch-page shape: ytInitialData
+  (related videos, no lengthSeconds) appears before ytInitialPlayerResponse,
+  streamingData/approxDurationMs precedes videoDetails/lengthSeconds, and
+  URLs carry the escaped forward slashes YouTube emits. The video is 212s."
+  (str "<!DOCTYPE html><html><head><title>Clip</title>"
+       "<meta itemprop=\"duration\" content=\"PT3M32S\">"
+       "<script nonce=\"a\">var ytInitialData = {\"contents\":{\"twoColumnWatchNextResults\":"
+       "{\"secondaryResults\":{\"results\":[{\"compactVideoRenderer\":{\"videoId\":\"rel1\","
+       "\"lengthText\":{\"simpleText\":\"4:13\"}}}]}}}};</script>"
+       "<script nonce=\"b\">var ytInitialPlayerResponse = {\"responseContext\":{},"
+       "\"playabilityStatus\":{\"status\":\"OK\"},"
+       "\"streamingData\":{\"expiresInSeconds\":\"21540\",\"formats\":[{\"itag\":18,"
+       "\"url\":\"https:\\/\\/rr3---sn-abc.googlevideo.com\\/videoplayback\","
+       "\"approxDurationMs\":\"212000\"}]},"
+       "\"videoDetails\":{\"videoId\":\"xyz\",\"title\":\"Clip\","
+       "\"lengthSeconds\":\"212\",\"channelId\":\"UCabc\"}};</script></head><body></body></html>"))
+
+(deftest parses-representative-watch-page
+  (testing "a real-structure watch page yields the videoDetails duration"
+    (is (= (/ 212 60.0) (youtube/parse-duration-minutes realistic-watch-page))
+        "212 seconds = ~3.53 minutes, read from videoDetails.lengthSeconds")))
+
+(deftest meta-itemprop-duration-fallback
+  (testing "schema.org <meta itemprop=duration> ISO-8601 is used when the player payload is absent"
+    (is (< 4.21 (youtube/parse-duration-minutes
+                  "<meta itemprop=\"duration\" content=\"PT4M13S\">") 4.22))
+    (is (= 90.0 (youtube/parse-duration-minutes
+                  "<meta itemprop=\"duration\" content=\"PT1H30M\">")))
+    (is (= 0.75 (youtube/parse-duration-minutes
+                  "<meta itemprop=\"duration\" content=\"PT45S\">"))))
+  (testing "player payload still wins over the meta tag"
+    (is (= 1.0 (youtube/parse-duration-minutes
+                 "\"lengthSeconds\":\"60\" <meta itemprop=\"duration\" content=\"PT99M\">")))))
