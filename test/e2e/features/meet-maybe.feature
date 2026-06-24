@@ -16,5 +16,5 @@ Feature: Maybe meets on the today page
     When I navigate to the "Today" tab
     And I click the second day button
     And I expand the today meet "Standup"
-    And I toggle maybe on the today meet "Standup"
+    And I click the meet footer anchor button
     Then the meet "Standup" in the today section should be grayed

@@ -32,18 +32,18 @@ Feature: Unified meet footer (button + dropdown)
     And I click the footer dropdown item "Delete"
     Then I see the delete confirmation
 
-  Scenario: A future meet in the strip uses a "Meet over" anchor with maybe and Delete in the dropdown
+  Scenario: A future meet in the strip uses a "Set maybe" anchor with only Delete in the dropdown
     Given I am on the app
     And a meet "Footer future" with start date tomorrow exists
     When I navigate to the "Today" tab
     And I click the second day button
     And I expand the today meet "Footer future"
-    Then the meet footer anchor button shows "Meet over"
+    Then the meet footer anchor button shows "Set maybe"
     And the meet footer anchor button is blue
     And the meet footer has no flat archive button
     When I open the meet footer dropdown on "Footer future"
-    Then the meet footer dropdown shows "maybe"
-    And the meet footer dropdown shows "Delete"
+    Then the meet footer dropdown items in order are "Delete"
+    And the meet footer dropdown does not show "Meet over"
 
   Scenario: An over today meet anchors on Archive with a non-destructive "Meet not over" in the dropdown
     Given I am on the app

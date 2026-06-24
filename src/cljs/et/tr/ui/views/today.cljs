@@ -114,7 +114,7 @@
         over? (= 1 (:over meet))
         close! #(state/set-meet-dropdown-open nil)
         actions (cond-> []
-                  (and gray-when-maybe (not over?))
+                  (and is-today (not over?))
                   (conj {:variant :done
                          :class "toggle-over"
                          :label (t :meets/set-over)
@@ -129,7 +129,7 @@
                          :class "archive"
                          :label (t :meets/archive)
                          :on-click #(do (close!) (state/archive-meet (:id meet)))})
-                  (and gray-when-maybe over?)
+                  (and is-today over?)
                   (conj {:variant :done
                          :class "toggle-over"
                          :label (t :meets/unset-over)
@@ -164,7 +164,7 @@
       :expanded? is-expanded
       :on-toggle #(state/toggle-expanded :today-page/expanded-meet (:id meet))
       :container {:tag :div
-                  :class (str "today-task-item meet-item" (when (and gray-when-maybe maybe?) " maybe") (when (and gray-when-maybe over?) " over"))
+                  :class (str "today-task-item meet-item" (when (and gray-when-maybe maybe?) " maybe") (when (and is-today over?) " over"))
                   :classes {:header "today-task-header"
                             :title "today-task-content"
                             :content "today-task-details"}}
