@@ -1,5 +1,6 @@
 (ns et.tr.ui.components.relation-badges
   (:require [clojure.string :as str]
+            [et.tr.ui.date :as date]
             [et.tr.ui.state :as state]))
 
 (defn relation-type-label [type]
@@ -20,10 +21,41 @@
 (defn- relation-task-done? [relation]
   (and (= "tsk" (:type relation)) (= 1 (:done relation))))
 
+(defn- relation-meet-past? [relation]
+  (and (= "met" (:type relation))
+       (let [sd (:start_date relation)]
+         (and sd (not (str/blank? sd)) (neg? (compare sd (date/today-str)))))))
+
+(defn- relation-muted? [relation]
+  (or (relation-task-done? relation) (relation-meet-past? relation)))
+
+(def ^:private icon-svg-attrs
+  {:viewBox "0 0 24 24" :fill "none" :stroke "currentColor"
+   :stroke-width "2" :stroke-linecap "round" :stroke-linejoin "round"
+   :aria-hidden "true"})
+
+(defn- relation-icon [type]
+  [:span.relation-icon {:class type}
+   (case type
+     "met" [:svg icon-svg-attrs
+            [:rect {:x "3" :y "4" :width "18" :height "18" :rx "2"}]
+            [:line {:x1 "16" :y1 "2" :x2 "16" :y2 "6"}]
+            [:line {:x1 "8" :y1 "2" :x2 "8" :y2 "6"}]
+            [:line {:x1 "3" :y1 "10" :x2 "21" :y2 "10"}]]
+     "res" [:svg icon-svg-attrs
+            [:path {:d "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"}]
+            [:polyline {:points "14 2 14 8 20 8"}]
+            [:line {:x1 "16" :y1 "13" :x2 "8" :y2 "13"}]
+            [:line {:x1 "16" :y1 "17" :x2 "8" :y2 "17"}]
+            [:line {:x1 "10" :y1 "9" :x2 "8" :y2 "9"}]]
+     "jen" [:svg icon-svg-attrs
+            [:path {:d "M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"}]]
+     nil)])
+
 (defn- relation-prefix [relation]
   (if (= "tsk" (:type relation))
     (if (= 1 (:done relation)) "☑ " "☐ ")
-    (str (relation-type-label (:type relation)) ": ")))
+    (relation-icon (:type relation))))
 
 (defn- sort-relations [relations]
   (sort-by #(if (relation-task-done? %) 0 1) relations))
@@ -31,11 +63,12 @@
 (defn relation-badge-collapsed [relation]
   [:span.tag.relation.clickable
    {:key (relation-key relation)
-    :class (when (relation-task-done? relation) "task-done")
+    :class (when (relation-muted? relation) "task-done")
     :on-click (fn [e]
                 (.stopPropagation e)
                 (state/open-relation-in-modal (:type relation) (:id relation)))}
-   (str (relation-prefix relation) (relation-display-title relation))])
+   (relation-prefix relation)
+   (relation-display-title relation)])
 
 (defn relation-badges-collapsed [relations source-type source-id]
   (when (seq relations)
@@ -47,8 +80,9 @@
 (defn relation-badge-expanded [relation source-type source-id]
   [:span.tag.relation
    {:key (relation-key relation)
-    :class (when (relation-task-done? relation) "task-done")}
-   (str (relation-prefix relation) (relation-display-title relation))
+    :class (when (relation-muted? relation) "task-done")}
+   (relation-prefix relation)
+   (relation-display-title relation)
    [:button.remove-tag
     {:on-click (fn [e]
                  (.stopPropagation e)

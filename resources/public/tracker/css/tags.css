@@ -190,6 +190,15 @@ html.dark-mode .relation-badge {
 .tag.relation.task-done {
   color: var(--muted-text);
 }
+.relation-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+}
+.relation-icon svg {
+  width: 1em;
+  height: 1em;
+}
 .relation-badges-collapsed,
 .relation-badges-expanded {
   flex-basis: 100%;

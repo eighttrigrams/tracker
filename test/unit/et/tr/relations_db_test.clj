@@ -61,6 +61,23 @@
         (is (some #(= "Target Task" (:title %)) rels))
         (is (some #(= "A Resource" (:title %)) rels))))))
 
+(deftest met-relations-include-start-date-test
+  (testing "met relation targets carry :start_date"
+    (let [task (db.task/add-task *ds* *user-id* "Task with meet")
+          meet (db.meet/add-meet *ds* *user-id* "Scheduled meet")]
+      (db.meet/set-meet-start-date *ds* *user-id* (:id meet) "2099-03-04")
+      (db.relation/add-relation *ds* *user-id* "tsk" (:id task) "met" (:id meet))
+      (testing "via list-tasks (associate-relations-with-items)"
+        (let [tasks (db.task/list-tasks *ds* *user-id* {})
+              t (first (filter #(= "Task with meet" (:title %)) tasks))
+              met-rel (first (filter #(= "met" (:type %)) (:relations t)))]
+          (is (some? met-rel))
+          (is (= "2099-03-04" (:start_date met-rel)))))
+      (testing "via get-relations-with-titles"
+        (let [rels (db.relation/get-relations-with-titles *ds* *user-id* "tsk" (:id task))
+              met-rel (first (filter #(= "met" (:type %)) rels))]
+          (is (= "2099-03-04" (:start_date met-rel))))))))
+
 (deftest delete-task-cascades-relations-test
   (testing "deleting a task removes its relations"
     (let [task1 (db.task/add-task *ds* *user-id* "Task 1")

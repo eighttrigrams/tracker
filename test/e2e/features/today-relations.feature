@@ -42,7 +42,8 @@ Feature: Today page relations
     And today item "Checkbox source" relation badge for "Open target" is not grayed
     And today item "Checkbox source" relation badge for "Done target" shows "☑"
     And today item "Checkbox source" relation badge for "Done target" is grayed
-    And today item "Checkbox source" relation badge for "Linked resource" shows "R:"
+    And today item "Checkbox source" relation badge for "Linked resource" carries a "res" icon
+    And today item "Checkbox source" relation badge for "Linked resource" does not contain "R:"
     And today item "Checkbox source" relation badge for "Done target" appears before the one for "Open target"
     And today item "Checkbox source" relation badges are stacked one per row
 
@@ -66,3 +67,35 @@ Feature: Today page relations
     When I navigate to the "Today" tab
     Then today item "Override source" should show a relation badge for "OT"
     And today item "Override source" should not show a relation badge for "Override target"
+
+  Scenario: Relation badges use monochrome type icons instead of letter prefixes
+    Given I am on the app
+    And a task "Icon source" with due date today exists
+    And a task "Icon task target" with due date today exists
+    And a resource "Icon resource" with link "https://example.com" exists
+    And a meet "Icon meet" dated 3 days from now exists
+    And a journal entry "Icon journal" exists
+    And a relation links task "Icon source" to task "Icon task target"
+    And a relation links task "Icon source" to resource "Icon resource"
+    And a relation links task "Icon source" to meet "Icon meet"
+    And a relation links task "Icon source" to journal entry "Icon journal"
+    When I navigate to the "Today" tab
+    Then today item "Icon source" relation badge for "Icon task target" shows "☐"
+    And today item "Icon source" relation badge for "Icon resource" carries a "res" icon
+    And today item "Icon source" relation badge for "Icon resource" does not contain "R:"
+    And today item "Icon source" relation badge for "Icon meet" carries a "met" icon
+    And today item "Icon source" relation badge for "Icon meet" does not contain "M:"
+    And today item "Icon source" relation badge for "Icon journal" carries a "jen" icon
+    And today item "Icon source" relation badge for "Icon journal" does not contain "J:"
+
+  Scenario: Past-meet relation badges are grayed like done-task relations
+    Given I am on the app
+    And a task "Meet graying source" with due date today exists
+    And a meet "Past meet" dated 5 days ago exists
+    And a meet "Upcoming meet" dated 5 days from now exists
+    And a relation links task "Meet graying source" to meet "Past meet"
+    And a relation links task "Meet graying source" to meet "Upcoming meet"
+    When I navigate to the "Today" tab
+    Then today item "Meet graying source" relation badge for "Past meet" carries a "met" icon
+    And today item "Meet graying source" relation badge for "Past meet" is grayed
+    And today item "Meet graying source" relation badge for "Upcoming meet" is not grayed

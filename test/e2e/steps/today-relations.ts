@@ -27,6 +27,17 @@ async function findResourceByTitle(request: any, title: string): Promise<number>
   return r.id;
 }
 
+const meetIds = new Map<string, number>();
+const journalEntryIds = new Map<string, number>();
+
+function offsetDateStr(daysOffset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysOffset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+}
+
 function todayBadge(page: any, title: string, target: string) {
   return todayItem(page, title).locator(".tag.relation", { hasText: target });
 }
@@ -70,6 +81,90 @@ Given(
         "source-type": "tsk",
         "source-id": srcId,
         "target-type": "res",
+        "target-id": tgtId,
+      },
+    });
+  },
+);
+
+Given(
+  "a meet {string} dated {int} days ago exists",
+  async ({ request }, title: string, days: number) => {
+    const meet = await (
+      await request.post("/api/meets", { headers, data: { title } })
+    ).json();
+    await request.put(`/api/meets/${meet.id}/start-date`, {
+      headers,
+      data: { "start-date": offsetDateStr(-days) },
+    });
+    meetIds.set(title, meet.id);
+  },
+);
+
+Given(
+  "a meet {string} dated {int} days from now exists",
+  async ({ request }, title: string, days: number) => {
+    const meet = await (
+      await request.post("/api/meets", { headers, data: { title } })
+    ).json();
+    await request.put(`/api/meets/${meet.id}/start-date`, {
+      headers,
+      data: { "start-date": offsetDateStr(days) },
+    });
+    meetIds.set(title, meet.id);
+  },
+);
+
+Given(
+  "a relation links task {string} to meet {string}",
+  async ({ request }, src: string, tgt: string) => {
+    const srcId = await findTaskByTitle(request, src);
+    const tgtId = meetIds.get(tgt);
+    if (tgtId == null) throw new Error(`meet not seeded: ${tgt}`);
+    await request.post("/api/relations", {
+      headers,
+      data: {
+        "source-type": "tsk",
+        "source-id": srcId,
+        "target-type": "met",
+        "target-id": tgtId,
+      },
+    });
+  },
+);
+
+Given(
+  "a journal entry {string} exists",
+  async ({ request }, title: string) => {
+    const journal = await (
+      await request.post("/api/journals", {
+        headers,
+        data: { title, "schedule-type": "daily" },
+      })
+    ).json();
+    const resp = await (
+      await request.post(`/api/journals/${journal.id}/create-entry`, {
+        headers,
+        data: { date: offsetDateStr(0) },
+      })
+    ).json();
+    const entry = resp["journal-entry"] || resp;
+    journalEntryIds.set(title, entry.id);
+  },
+);
+
+Given(
+  "a relation links task {string} to journal entry {string}",
+  async ({ request }, src: string, tgt: string) => {
+    const srcId = await findTaskByTitle(request, src);
+    const tgtId = journalEntryIds.get(tgt);
+    if (tgtId == null) throw new Error(`journal entry not seeded: ${tgt}`);
+    await request.post("/api/relations", {
+      headers,
+      data: {
+        "source-type": "tsk",
+        "source-id": srcId,
+        "target-type": "jen",
         "target-id": tgtId,
       },
     });
@@ -148,6 +243,23 @@ Then(
     await expect(todayBadge(page, title, target)).toContainText(glyph, {
       timeout: 5000,
     });
+  },
+);
+
+Then(
+  "today item {string} relation badge for {string} carries a {string} icon",
+  async ({ page }, title: string, target: string, type: string) => {
+    await expect(
+      todayBadge(page, title, target).locator(`.relation-icon.${type} svg`),
+    ).toHaveCount(1, { timeout: 5000 });
+  },
+);
+
+Then(
+  "today item {string} relation badge for {string} does not contain {string}",
+  async ({ page }, title: string, target: string, text: string) => {
+    await expect(todayBadge(page, title, target)).toBeVisible({ timeout: 5000 });
+    await expect(todayBadge(page, title, target)).not.toContainText(text);
   },
 );
 
