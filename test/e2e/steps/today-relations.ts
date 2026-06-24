@@ -156,6 +156,26 @@ Then(
 );
 
 Then(
+  "today item {string} relation badges are stacked one per row",
+  async ({ page }, title: string) => {
+    const badges = todayItem(page, title).locator(".tag.relation");
+    const count = await badges.count();
+    expect(count).toBeGreaterThan(1);
+    const boxes = [];
+    for (let i = 0; i < count; i++) {
+      boxes.push(await badges.nth(i).boundingBox());
+    }
+    boxes.sort((a: any, b: any) => a.y - b.y);
+    for (let i = 1; i < boxes.length; i++) {
+      const prev: any = boxes[i - 1];
+      const cur: any = boxes[i];
+      expect(cur.y).toBeGreaterThanOrEqual(prev.y + prev.height - 1);
+      expect(Math.abs(cur.x - prev.x)).toBeLessThan(2);
+    }
+  },
+);
+
+Then(
   "today item {string} relation badge for {string} appears before the one for {string}",
   async ({ page }, title: string, first: string, second: string) => {
     await expect(todayBadge(page, title, first)).toBeVisible({ timeout: 5000 });

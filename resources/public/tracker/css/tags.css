@@ -190,6 +190,15 @@ html.dark-mode .relation-badge {
 .tag.relation.task-done {
   color: var(--muted-text);
 }
+.relation-badges-collapsed,
+.relation-badges-expanded {
+  flex-basis: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
 .tag.clickable {
   cursor: pointer;
   transition: all 0.2s ease;

@@ -39,7 +39,7 @@
 
 (defn relation-badges-collapsed [relations source-type source-id]
   (when (seq relations)
-    (into [:<>]
+    (into [:div.relation-badges-collapsed]
           (for [relation (sort-relations relations)]
             ^{:key (relation-key relation)}
             [relation-badge-collapsed relation]))))
