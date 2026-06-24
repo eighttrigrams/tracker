@@ -128,17 +128,18 @@
                             (title-expanded-click item))))})
        (:title item)])))
 
-(defn- card-title-area [{:keys [item expanded? title-class relation-link inline-edit badges title-extra title-expanded-click title-content title-text-class]}]
+(defn- card-title-area [{:keys [item expanded? title-class relation-link inline-edit badges title-extra title-expanded-click title-content title-text-class title-icon]}]
   (let [title-el [card-title-el {:item item
                                  :expanded? expanded?
                                  :inline-edit inline-edit
                                  :title-expanded-click title-expanded-click
-                                 :title-text-class title-text-class}]]
+                                 :title-text-class title-text-class}]
+        title-icon-el (when title-icon [:span.item-title-icon title-icon])]
     (if title-content
       [(keyword (str "div." title-class))
        (when relation-link
          [relation-link/relation-link-button (first relation-link) (second relation-link)])
-       (title-content {:item item :expanded? expanded? :editing? (inline-editing? inline-edit item) :title-el title-el})]
+       (title-content {:item item :expanded? expanded? :editing? (inline-editing? inline-edit item) :title-el title-el :title-icon-el title-icon-el})]
       [(keyword (str "div." title-class))
        (when relation-link
          [relation-link/relation-link-button (first relation-link) (second relation-link)])
@@ -150,10 +151,11 @@
        (when-let [render (:render badges)]
          [render item])
        title-extra
+       title-icon-el
        title-el])))
 
 (defn- card-header [{:keys [item expanded? on-toggle inline-edit header-class title-class
-                            relation-link badges title-extra title-expanded-click title-content title-text-class
+                            relation-link badges title-extra title-expanded-click title-content title-text-class title-icon
                             toolbar date date-class header-extra]}]
   (let [editing? (inline-editing? inline-edit item)]
     [(keyword (str "div." header-class))
@@ -170,7 +172,8 @@
                        :title-extra title-extra
                        :title-expanded-click title-expanded-click
                        :title-content title-content
-                       :title-text-class title-text-class}]
+                       :title-text-class title-text-class
+                       :title-icon title-icon}]
      (when (and expanded? toolbar)
        [:div.item-toolbar
         (when-let [cal (:calendar toolbar)]
@@ -277,7 +280,7 @@
 (defn item-card [{:keys [item expanded? on-toggle container
                          relation-link inline-edit badges toolbar date
                          description categories footer
-                         title-extra title-expanded-click title-content title-text-class
+                         title-extra title-expanded-click title-content title-text-class title-icon
                          header-wrapper header-extra readonly-extra
                          expanded-prefix expanded-suffix]}]
   (let [{:keys [tag class attrs classes]} container
@@ -299,6 +302,7 @@
                              :title-expanded-click title-expanded-click
                              :title-content title-content
                              :title-text-class title-text-class
+                             :title-icon title-icon
                              :toolbar toolbar
                              :date date
                              :date-class date-class
