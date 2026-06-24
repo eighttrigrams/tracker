@@ -168,6 +168,26 @@
             {:status 200 :body result})
         {:status 404 :body {:error "Meet not found"}}))))
 
+(defn set-meet-over-handler
+  "PUT /api/meets/:id/over — toggle the over flag used by the today page's
+  today section to render a finished meet in a lighter color. Setting over=true
+  also clears the maybe flag. Body: {:over} as a boolean (required; 400 if
+  absent). Returns the updated meet on 200, 404 if not found. Logs an :update
+  event for :over and :maybe."
+  [req]
+  (if-not (contains? (:body req) :over)
+    {:status 400 :body {:error "Missing required field: over"}}
+    (let [user-id (common/get-user-id req)
+          meet-id (Integer/parseInt (get-in req [:params :id]))
+          over? (boolean (get-in req [:body :over]))
+          before (events/fetch-fields :meets meet-id [:over :maybe])
+          result (db.meet/set-meet-over (common/ensure-ds) user-id meet-id over?)]
+      (if result
+        (do (events/record-update! req :meet meet-id before
+                                   (select-keys result [:over :maybe]))
+            {:status 200 :body result})
+        {:status 404 :body {:error "Meet not found"}}))))
+
 (def categorize-meet-handler
   "POST /api/meets/:id/categorize — link a meet to a category. Body:
   {:category-type :category-id}. category-type must be a non-blank string

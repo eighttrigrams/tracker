@@ -40,11 +40,9 @@ When("I expand the today meet {string}", async ({ page }, title: string) => {
 });
 
 When("I toggle maybe on the today meet {string}", async ({ page }, title: string) => {
-  await page
-    .locator(".today-task-item.meet-item")
-    .filter({ hasText: title })
-    .locator(".toggle-maybe")
-    .click();
+  const card = page.locator(".today-task-item.meet-item").filter({ hasText: title });
+  await card.locator(".combined-dropdown-btn").click();
+  await page.locator(".task-dropdown-menu .dropdown-item.toggle-maybe").click();
   await page.waitForLoadState("networkidle");
 });
 

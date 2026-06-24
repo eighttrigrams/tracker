@@ -221,6 +221,17 @@
                    :returning [:id :maybe :modified_at]})
       db/jdbc-opts)))
 
+(defn set-meet-over [ds user-id meet-id over?]
+  (let [over-val (if over? 1 0)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :meets
+                   :set (cond-> {:over over-val
+                                 :modified_at [:raw "datetime('now')"]}
+                          over? (assoc :maybe 0))
+                   :where [:and [:= :id meet-id] (db/user-id-where-clause user-id)]
+                   :returning [:id :over :maybe :modified_at]})
+      db/jdbc-opts)))
+
 (defn archive-meet [ds user-id meet-id]
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update :meets

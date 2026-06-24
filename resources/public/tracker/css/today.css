@@ -178,12 +178,14 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.today-task-item.maybe .task-title {
+.today-task-item.maybe .task-title,
+.today-task-item.over .task-title {
   color: #a1a1a6;
   font-weight: 400;
 }
 @media (prefers-color-scheme: dark) {
-  .today-task-item.maybe .task-title {
+  .today-task-item.maybe .task-title,
+  .today-task-item.over .task-title {
     color: #6c6c70;
   }
 }

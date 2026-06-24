@@ -69,7 +69,7 @@
 
 (def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance :relation_badge_title])
 
-(def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time :meeting_series_id :archived :maybe :relation_badge_title])
+(def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time :meeting_series_id :archived :maybe :over :relation_badge_title])
 
 (def meeting-series-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_days :schedule_time :schedule_mode :biweekly_offset :maybe])
 

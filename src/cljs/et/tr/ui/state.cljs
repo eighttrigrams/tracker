@@ -570,6 +570,9 @@
 (defn set-meet-maybe [meet-id maybe?]
   (meets-state/set-meet-maybe *app-state auth-headers meet-id maybe?))
 
+(defn set-meet-over [meet-id over?]
+  (meets-state/set-meet-over *app-state auth-headers meet-id over?))
+
 (defn- fetch-meets-and-today-meets []
   (fetch-meets)
   (fetch-today-meets)

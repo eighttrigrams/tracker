@@ -111,13 +111,24 @@
 
 (defn- meet-footer-spec [meet is-today gray-when-maybe]
   (let [maybe? (= 1 (:maybe meet))
+        over? (= 1 (:over meet))
         close! #(state/set-meet-dropdown-open nil)
         actions (cond-> []
+                  (and gray-when-maybe (not over?))
+                  (conj {:variant :done
+                         :class "toggle-over"
+                         :label (t :meets/set-over)
+                         :on-click #(do (close!) (state/set-meet-over (:id meet) true))})
                   (meet-archivable? meet is-today)
                   (conj {:variant :done
                          :label (t :meets/archive)
                          :on-click #(do (close!) (state/archive-meet (:id meet)))})
-                  gray-when-maybe
+                  (and gray-when-maybe over?)
+                  (conj {:variant :done
+                         :class "toggle-over"
+                         :label (t :meets/unset-over)
+                         :on-click #(do (close!) (state/set-meet-over (:id meet) false))})
+                  (and gray-when-maybe (not over?))
                   (conj {:variant :done
                          :class "toggle-maybe"
                          :label (if maybe? (t :task/unset-maybe) (t :task/set-maybe))
@@ -145,13 +156,14 @@
 (defn- today-meet-item [meet & {:keys [show-day-prefix hide-date is-today gray-when-maybe] :or {show-day-prefix false hide-date false is-today false gray-when-maybe false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:start_date meet) 6))
         is-expanded (= (:today-page/expanded-meet @state/*app-state) (:id meet))
-        maybe? (= 1 (:maybe meet))]
+        maybe? (= 1 (:maybe meet))
+        over? (= 1 (:over meet))]
     [item-card/item-card
      {:item meet
       :expanded? is-expanded
       :on-toggle #(state/toggle-expanded :today-page/expanded-meet (:id meet))
       :container {:tag :div
-                  :class (str "today-task-item meet-item" (when (and gray-when-maybe maybe?) " maybe"))
+                  :class (str "today-task-item meet-item" (when (and gray-when-maybe maybe?) " maybe") (when (and gray-when-maybe over?) " over"))
                   :classes {:header "today-task-header"
                             :title "today-task-content"
                             :content "today-task-details"}}

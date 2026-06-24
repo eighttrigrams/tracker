@@ -1,24 +1,26 @@
 Feature: Unified meet footer (button + dropdown)
 
-  Scenario: An archivable today meet shows an Archive anchor plus dropdown, not three flat buttons
+  Scenario: An archivable today meet shows a "Meet over" anchor plus dropdown, not three flat buttons
     Given I am on the app
     And a meet "Footer archivable" with start date today exists
     When I navigate to the "Today" tab
     And I expand the today meet "Footer archivable"
-    Then the meet footer anchor button shows "Archive"
+    Then the meet footer anchor button shows "Meet over"
     And the meet footer anchor button is blue
     And the meet footer has no flat archive button
     When I open the meet footer dropdown on "Footer archivable"
-    Then the meet footer dropdown shows "maybe"
+    Then the meet footer dropdown shows "Archive"
+    And the meet footer dropdown shows "maybe"
     And the meet footer dropdown shows "Delete"
     And the meet footer dropdown delete item is red
 
-  Scenario: The Archive anchor archives the meet
+  Scenario: Archive from the meet footer dropdown removes the meet
     Given I am on the app
     And a meet "Footer to archive" with start date today exists
     When I navigate to the "Today" tab
     And I expand the today meet "Footer to archive"
-    And I click the meet footer anchor button
+    And I open the meet footer dropdown on "Footer to archive"
+    And I click the footer dropdown item "Archive"
     Then the today section should no longer show "Footer to archive"
 
   Scenario: Delete from the meet footer dropdown opens the delete confirmation
@@ -30,17 +32,18 @@ Feature: Unified meet footer (button + dropdown)
     And I click the footer dropdown item "Delete"
     Then I see the delete confirmation
 
-  Scenario: A future meet in the strip falls back to a maybe anchor with Delete in the dropdown
+  Scenario: A future meet in the strip uses a "Meet over" anchor with maybe and Delete in the dropdown
     Given I am on the app
     And a meet "Footer future" with start date tomorrow exists
     When I navigate to the "Today" tab
     And I click the second day button
     And I expand the today meet "Footer future"
-    Then the meet footer anchor button shows "maybe"
+    Then the meet footer anchor button shows "Meet over"
     And the meet footer anchor button is blue
     And the meet footer has no flat archive button
     When I open the meet footer dropdown on "Footer future"
-    Then the meet footer dropdown shows "Delete"
+    Then the meet footer dropdown shows "maybe"
+    And the meet footer dropdown shows "Delete"
 
   Scenario: A non-archivable meet in the upcoming section is a plain Delete button
     Given I am on the app
