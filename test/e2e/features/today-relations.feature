@@ -46,6 +46,17 @@ Feature: Today page relations
     And today item "Checkbox source" relation badge for "Done target" appears before the one for "Open target"
     And today item "Checkbox source" relation badges are stacked one per row
 
+  Scenario: Relation badges render above the category tags
+    Given I am on the app
+    And a task "Layout source" with due date today exists
+    And a task "Layout target" with due date today exists
+    And a person "Layout person" exists
+    And task "Layout source" is categorized as person "Layout person"
+    And a relation links task "Layout source" to task "Layout target"
+    When I navigate to the "Today" tab
+    Then today item "Layout source" should show a relation badge for "Layout target"
+    And today item "Layout source" relation badges appear above its category tags
+
   Scenario: Relation badge title overrides the target's title in the badge
     Given I am on the app
     And a task "Override target" with due date today exists

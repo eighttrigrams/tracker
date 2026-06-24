@@ -76,6 +76,20 @@ Given(
   },
 );
 
+Given(
+  "task {string} is categorized as person {string}",
+  async ({ request }, title: string, person: string) => {
+    const taskId = await findTaskByTitle(request, title);
+    const people = await (await request.get("/api/people/", { headers })).json();
+    const p = people.find((x: any) => x.name === person);
+    if (!p) throw new Error(`person not found: ${person}`);
+    await request.post(`/api/tasks/${taskId}/categorize`, {
+      headers,
+      data: { "category-type": "person", "category-id": p.id },
+    });
+  },
+);
+
 Given("task {string} is done", async ({ request }, title: string) => {
   const id = await findTaskByTitle(request, title);
   await request.put(`/api/tasks/${id}/done`, { headers, data: { done: true } });
@@ -172,6 +186,30 @@ Then(
       expect(cur.y).toBeGreaterThanOrEqual(prev.y + prev.height - 1);
       expect(Math.abs(cur.x - prev.x)).toBeLessThan(2);
     }
+  },
+);
+
+Then(
+  "today item {string} relation badges appear above its category tags",
+  async ({ page }, title: string) => {
+    const item = todayItem(page, title);
+    const relations = item.locator(".tag.relation");
+    const categories = item.locator(".tag:not(.relation)");
+    const relCount = await relations.count();
+    const catCount = await categories.count();
+    expect(relCount).toBeGreaterThan(0);
+    expect(catCount).toBeGreaterThan(0);
+    let lowestRelationBottom = 0;
+    for (let i = 0; i < relCount; i++) {
+      const box: any = await relations.nth(i).boundingBox();
+      lowestRelationBottom = Math.max(lowestRelationBottom, box.y + box.height);
+    }
+    let highestCategoryTop = Infinity;
+    for (let i = 0; i < catCount; i++) {
+      const box: any = await categories.nth(i).boundingBox();
+      highestCategoryTop = Math.min(highestCategoryTop, box.y);
+    }
+    expect(highestCategoryTop).toBeGreaterThanOrEqual(lowestRelationBottom - 1);
   },
 );
 

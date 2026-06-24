@@ -188,13 +188,15 @@
   (if (state/show-collapsed-categories?)
     (let [{:keys [people places projects goals]} @state/*app-state]
       [:div.item-tags
+       (when relations-prefix
+         [relation-badges/relation-badges-expanded (:relations item) relations-prefix (:id item)])
        [selector-fn item state/CATEGORY-TYPE-PERSON people (t :category/person)]
        [selector-fn item state/CATEGORY-TYPE-PLACE places (t :category/place)]
        [selector-fn item state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-       [selector-fn item state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
-       (when relations-prefix
-         [relation-badges/relation-badges-expanded (:relations item) relations-prefix (:id item)])])
+       [selector-fn item state/CATEGORY-TYPE-GOAL goals (t :category/goal)]])
     [:div.item-tags-readonly
+     (when (and relations-prefix (seq (:relations item)))
+       [relation-badges/relation-badges-collapsed (:relations item) relations-prefix (:id item)])
      [task-item/category-badges
       {:item item
        :category-types [[state/CATEGORY-TYPE-PERSON :people]
@@ -203,9 +205,7 @@
                         [state/CATEGORY-TYPE-GOAL :goals]]
        :toggle-fn state/toggle-shared-filter
        :has-filter-fn state/has-filter-for-type?
-       :force-show? true}]
-     (when (and relations-prefix (seq (:relations item)))
-       [relation-badges/relation-badges-collapsed (:relations item) relations-prefix (:id item)])]))
+       :force-show? true}]]))
 
 (defn- card-description [{:keys [item edit-type content-type on-edit loaded-fn]}]
   (let [loaded? (if loaded-fn (loaded-fn item) true)
@@ -260,6 +260,10 @@
 
      categories
      [:div.item-tags-readonly
+      (when (and (:relations-prefix categories)
+                 (not (false? (:readonly-relations? categories)))
+                 (seq (:relations item)))
+        [relation-badges/relation-badges-collapsed (:relations item) (:relations-prefix categories) (:id item)])
       [task-item/category-badges
        {:item item
         :category-types [[state/CATEGORY-TYPE-PERSON :people]
@@ -267,11 +271,7 @@
                          [state/CATEGORY-TYPE-PROJECT :projects]
                          [state/CATEGORY-TYPE-GOAL :goals]]
         :toggle-fn state/toggle-shared-filter
-        :has-filter-fn state/has-filter-for-type?}]
-      (when (and (:relations-prefix categories)
-                 (not (false? (:readonly-relations? categories)))
-                 (seq (:relations item)))
-        [relation-badges/relation-badges-collapsed (:relations item) (:relations-prefix categories) (:id item)])])
+        :has-filter-fn state/has-filter-for-type?}]])
    readonly-extra])
 
 (defn item-card [{:keys [item expanded? on-toggle container

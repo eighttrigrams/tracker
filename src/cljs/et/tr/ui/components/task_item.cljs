@@ -93,6 +93,8 @@
         has-relations? (seq (:relations task))]
     (when (or importance-stars show-categories? has-relations?)
       [:div.task-badges
+       (when has-relations?
+         [relation-badges/relation-badges-collapsed (:relations task) "tsk" (:id task)])
        (when importance-stars
          [:span.importance-badge {:class importance} importance-stars])
        (when show-categories?
@@ -107,9 +109,7 @@
                                            (fn [e]
                                              (.stopPropagation e)
                                              (state/toggle-shared-filter (:type category) (:id category))))}
-                    (filters/badge-label category)]))))
-       (when has-relations?
-         [relation-badges/relation-badges-collapsed (:relations task) "tsk" (:id task)])])))
+                    (filters/badge-label category)]))))])))
 
 (defn done-button-spec [task extra-dropdown-items]
   (if (= "active" (:reminder task))
