@@ -137,6 +137,7 @@
       :on-toggle #(swap! reports-state/*reports-page-state assoc :expanded-task
                          (when-not is-expanded (:id task)))
       :container {:tag :li :class "report-item report-task"}
+      :title-icon "☑"
       :relation-link [:task (:id task)]
       :inline-edit (item-card/make-inline-edit
                      {:edit-id-path :reports-page/inline-edit-task
@@ -158,6 +159,7 @@
       :on-toggle #(swap! reports-state/*reports-page-state assoc :expanded-meet
                          (when-not is-expanded (:id meet)))
       :container {:tag :li :class "report-item report-meet"}
+      :title-icon "🗓️"
       :relation-link [:meet (:id meet)]
       :inline-edit (item-card/make-inline-edit
                      {:edit-id-path :reports-page/inline-edit-meet
@@ -176,13 +178,15 @@
                :right [{:type :delete :on-click #(state/set-confirm-delete-meet meet)}]}}]))
 
 (defn- report-journal-entry-item [entry]
-  (let [is-expanded (= (:expanded-journal-entry @reports-state/*reports-page-state) (:id entry))]
+  (let [is-expanded (= (:expanded-journal-entry @reports-state/*reports-page-state) (:id entry))
+        journals-only? (= :journals (:reports-page/items-filter @state/*app-state))]
     [item-card/item-card
      {:item entry
       :expanded? is-expanded
       :on-toggle #(swap! reports-state/*reports-page-state assoc :expanded-journal-entry
                          (when-not is-expanded (:id entry)))
       :container {:tag :li :class "report-item report-journal-entry"}
+      :title-icon (when-not journals-only? "📝")
       :relation-link [:journal-entry (:id entry)]
       :inline-edit (item-card/make-inline-edit
                      {:edit-id-path :reports-page/inline-edit-journal-entry
@@ -206,26 +210,19 @@
 (defn- day-section [day-date day-tasks day-meets day-entries]
   [:div.report-day-group {:key day-date}
    [:h4.done-day-header (date/day-formatted day-date)]
-   (when (seq day-tasks)
-     [:div.report-type-section
-      [:h5.report-section-label (t :reports/tasks-section)]
-      (into [:ul.items] (map report-task-item day-tasks))])
-   (when (seq day-meets)
-     [:div.report-type-section
-      [:h5.report-section-label (t :reports/meets-section)]
-      (into [:ul.items] (map report-meet-item day-meets))])
    (when (seq day-entries)
-     [:div.report-type-section
-      [:h5.report-section-label (t :reports/journals-section)]
-      (into [:ul.items] (map report-journal-entry-item day-entries))])])
+     (into [:ul.items] (map report-journal-entry-item day-entries)))
+   (when (seq day-tasks)
+     (into [:ul.items] (map report-task-item day-tasks)))
+   (when (seq day-meets)
+     (into [:ul.items] (map report-meet-item day-meets)))])
 
 (defn- week-section [week-key week-dates tasks-by-day meets-by-day daily-entries-by-day weekly-entries]
   (let [[_ week-num] week-key]
     [:div.report-week-group {:key (str (first week-key) "-" (second week-key))}
      [:h3.report-week-header (i18n/tf :reports/week week-num)]
      (when (seq weekly-entries)
-       [:div.report-type-section.report-weekly-journals
-        [:h5.report-section-label (t :reports/journals-section)]
+       [:div.report-weekly-journals
         (into [:ul.items] (map report-journal-entry-item weekly-entries))])
      (for [d week-dates]
        ^{:key d}

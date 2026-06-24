@@ -173,10 +173,11 @@
                      {:edit-id-path :today-page/inline-edit-meet
                       :title-path :today-page/inline-edit-meet-title
                       :update-fn state/update-meet})
-      :title-content (fn [{:keys [item expanded? title-el]}]
+      :title-icon "🗓️"
+      :title-content (fn [{:keys [item expanded? title-el title-icon-el]}]
                        [:<>
                         [:span.task-title
-                         "🗓️ "
+                         title-icon-el
                          (when show-prefix?
                            [:span.task-day-prefix (str (date/get-day-name (:start_date item))
                                                        (when (seq (:start_time item)) ","))])
