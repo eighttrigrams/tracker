@@ -81,6 +81,30 @@ Then(
   },
 );
 
+Then(
+  "task {string} should not show category remove buttons",
+  async ({ page }, task: string) => {
+    const removes = page
+      .locator(".items li")
+      .filter({ hasText: task })
+      .first()
+      .locator(".tag-selector .remove-tag");
+    await expect(removes).toHaveCount(0);
+  },
+);
+
+Then(
+  "task {string} should show relation remove buttons",
+  async ({ page }, task: string) => {
+    const removes = page
+      .locator(".items li")
+      .filter({ hasText: task })
+      .first()
+      .locator(".relation-badges-expanded .remove-tag");
+    await expect(removes.first()).toBeVisible();
+  },
+);
+
 When("I reload the page", async ({ page }) => {
   await page.reload();
   await page.waitForLoadState("networkidle");

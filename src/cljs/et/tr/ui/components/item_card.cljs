@@ -195,8 +195,8 @@
        [selector-fn item state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
        [selector-fn item state/CATEGORY-TYPE-GOAL goals (t :category/goal)]])
     [:div.item-tags-readonly
-     (when (and relations-prefix (seq (:relations item)))
-       [relation-badges/relation-badges-collapsed (:relations item) relations-prefix (:id item)])
+     (when relations-prefix
+       [relation-badges/relation-badges-expanded (:relations item) relations-prefix (:id item)])
      [task-item/category-badges
       {:item item
        :category-types [[state/CATEGORY-TYPE-PERSON :people]
