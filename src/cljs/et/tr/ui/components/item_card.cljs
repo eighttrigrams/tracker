@@ -185,14 +185,27 @@
      header-extra]))
 
 (defn- card-categories [{:keys [item selector-fn relations-prefix]}]
-  (let [{:keys [people places projects goals]} @state/*app-state]
-    [:div.item-tags
-     [selector-fn item state/CATEGORY-TYPE-PERSON people (t :category/person)]
-     [selector-fn item state/CATEGORY-TYPE-PLACE places (t :category/place)]
-     [selector-fn item state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-     [selector-fn item state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
-     (when relations-prefix
-       [relation-badges/relation-badges-expanded (:relations item) relations-prefix (:id item)])]))
+  (if (state/show-collapsed-categories?)
+    (let [{:keys [people places projects goals]} @state/*app-state]
+      [:div.item-tags
+       [selector-fn item state/CATEGORY-TYPE-PERSON people (t :category/person)]
+       [selector-fn item state/CATEGORY-TYPE-PLACE places (t :category/place)]
+       [selector-fn item state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
+       [selector-fn item state/CATEGORY-TYPE-GOAL goals (t :category/goal)]
+       (when relations-prefix
+         [relation-badges/relation-badges-expanded (:relations item) relations-prefix (:id item)])])
+    [:div.item-tags-readonly
+     [task-item/category-badges
+      {:item item
+       :category-types [[state/CATEGORY-TYPE-PERSON :people]
+                        [state/CATEGORY-TYPE-PLACE :places]
+                        [state/CATEGORY-TYPE-PROJECT :projects]
+                        [state/CATEGORY-TYPE-GOAL :goals]]
+       :toggle-fn state/toggle-shared-filter
+       :has-filter-fn state/has-filter-for-type?
+       :force-show? true}]
+     (when (and relations-prefix (seq (:relations item)))
+       [relation-badges/relation-badges-collapsed (:relations item) relations-prefix (:id item)])]))
 
 (defn- card-description [{:keys [item edit-type content-type on-edit loaded-fn]}]
   (let [loaded? (if loaded-fn (loaded-fn item) true)

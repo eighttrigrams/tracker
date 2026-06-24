@@ -62,9 +62,9 @@
                      nil))
     :on-blur (fn [_] (on-commit))}])
 
-(defn category-badges [{:keys [item category-types toggle-fn has-filter-fn]}]
+(defn category-badges [{:keys [item category-types toggle-fn has-filter-fn force-show?]}]
   (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]
-    (when (and (state/show-collapsed-categories?) (seq all-categories))
+    (when (and (or force-show? (state/show-collapsed-categories?)) (seq all-categories))
       (into [:div.task-badges]
             (for [category all-categories]
               (let [type-has-filter? (has-filter-fn (:type category))

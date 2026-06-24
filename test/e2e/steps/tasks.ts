@@ -33,6 +33,54 @@ Given("test data with categorized tasks exists", async ({ request }) => {
   });
 });
 
+Then(
+  "task {string} should show category add buttons",
+  async ({ page }, task: string) => {
+    const triggers = page
+      .locator(".items li")
+      .filter({ hasText: task })
+      .first()
+      .locator(".category-selector-trigger");
+    await expect(triggers.first()).toBeVisible();
+  },
+);
+
+Then(
+  "task {string} should not show category add buttons",
+  async ({ page }, task: string) => {
+    const triggers = page
+      .locator(".items li")
+      .filter({ hasText: task })
+      .first()
+      .locator(".category-selector-trigger");
+    await expect(triggers).toHaveCount(0);
+  },
+);
+
+Then(
+  "task {string} should show badge remove buttons",
+  async ({ page }, task: string) => {
+    const removes = page
+      .locator(".items li")
+      .filter({ hasText: task })
+      .first()
+      .locator(".remove-tag");
+    await expect(removes.first()).toBeVisible();
+  },
+);
+
+Then(
+  "task {string} should not show badge remove buttons",
+  async ({ page }, task: string) => {
+    const removes = page
+      .locator(".items li")
+      .filter({ hasText: task })
+      .first()
+      .locator(".remove-tag");
+    await expect(removes).toHaveCount(0);
+  },
+);
+
 When("I reload the page", async ({ page }) => {
   await page.reload();
   await page.waitForLoadState("networkidle");
