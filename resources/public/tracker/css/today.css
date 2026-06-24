@@ -180,14 +180,8 @@
 }
 .today-task-item.maybe .task-title,
 .today-task-item.over .task-title {
-  color: #a1a1a6;
+  color: var(--muted-text);
   font-weight: 400;
-}
-@media (prefers-color-scheme: dark) {
-  .today-task-item.maybe .task-title,
-  .today-task-item.over .task-title {
-    color: #6c6c70;
-  }
 }
 .task-time {
   color: var(--accent);

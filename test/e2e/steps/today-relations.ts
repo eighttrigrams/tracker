@@ -154,3 +154,19 @@ Then(
     });
   },
 );
+
+Then(
+  "today item {string} relation badge for {string} appears before the one for {string}",
+  async ({ page }, title: string, first: string, second: string) => {
+    await expect(todayBadge(page, title, first)).toBeVisible({ timeout: 5000 });
+    await expect(todayBadge(page, title, second)).toBeVisible({ timeout: 5000 });
+    const texts = await todayItem(page, title)
+      .locator(".tag.relation")
+      .allTextContents();
+    const firstIdx = texts.findIndex((t) => t.includes(first));
+    const secondIdx = texts.findIndex((t) => t.includes(second));
+    expect(firstIdx).toBeGreaterThanOrEqual(0);
+    expect(secondIdx).toBeGreaterThanOrEqual(0);
+    expect(firstIdx).toBeLessThan(secondIdx);
+  },
+);

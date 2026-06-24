@@ -12,6 +12,7 @@
   --accent-hover: #0077ed;
   --text-primary: #1d1d1f;
   --text-secondary: #6e6e73;
+  --muted-text: #a1a1a6;
   --border-color: #d1d1d6;
   --surface-subtle: rgba(0, 0, 0, 0.03);
   --badge-excluded-bg: rgba(255, 59, 48, 0.2);
@@ -40,6 +41,9 @@ html.dark-mode {
   --border-color: #3a3a3c;
   --surface-subtle: rgba(255, 255, 255, 0.05);
   --body-bg: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --muted-text: #6c6c70; }
 }
 * { box-sizing: border-box; }
 body {

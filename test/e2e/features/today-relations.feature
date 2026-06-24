@@ -43,6 +43,7 @@ Feature: Today page relations
     And today item "Checkbox source" relation badge for "Done target" shows "☑"
     And today item "Checkbox source" relation badge for "Done target" is grayed
     And today item "Checkbox source" relation badge for "Linked resource" shows "R:"
+    And today item "Checkbox source" relation badge for "Done target" appears before the one for "Open target"
 
   Scenario: Relation badge title overrides the target's title in the badge
     Given I am on the app

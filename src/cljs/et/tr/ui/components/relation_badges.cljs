@@ -25,6 +25,9 @@
     (if (= 1 (:done relation)) "☑ " "☐ ")
     (str (relation-type-label (:type relation)) ": ")))
 
+(defn- sort-relations [relations]
+  (sort-by #(if (relation-task-done? %) 0 1) relations))
+
 (defn relation-badge-collapsed [relation]
   [:span.tag.relation.clickable
    {:key (relation-key relation)
@@ -37,7 +40,7 @@
 (defn relation-badges-collapsed [relations source-type source-id]
   (when (seq relations)
     (into [:<>]
-          (for [relation relations]
+          (for [relation (sort-relations relations)]
             ^{:key (relation-key relation)}
             [relation-badge-collapsed relation]))))
 
@@ -55,6 +58,6 @@
 (defn relation-badges-expanded [relations source-type source-id]
   (when (seq relations)
     [:div.relation-badges-expanded
-     (for [relation relations]
+     (for [relation (sort-relations relations)]
        ^{:key (relation-key relation)}
        [relation-badge-expanded relation source-type source-id])]))

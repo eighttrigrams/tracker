@@ -188,7 +188,7 @@ html.dark-mode .relation-badge {
   color: #7a78e0;
 }
 .tag.relation.task-done {
-  color: var(--text-secondary);
+  color: var(--muted-text);
 }
 .tag.clickable {
   cursor: pointer;
