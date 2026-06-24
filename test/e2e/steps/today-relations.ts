@@ -20,6 +20,17 @@ async function findTaskByTitle(request: any, title: string): Promise<number> {
   return t.id;
 }
 
+async function findResourceByTitle(request: any, title: string): Promise<number> {
+  const resources = await (await request.get("/api/resources/", { headers })).json();
+  const r = resources.find((x: any) => x.title === title);
+  if (!r) throw new Error(`resource not found: ${title}`);
+  return r.id;
+}
+
+function todayBadge(page: any, title: string, target: string) {
+  return todayItem(page, title).locator(".tag.relation", { hasText: target });
+}
+
 Given(
   "task {string} has relation badge title {string}",
   async ({ request }, title: string, badge: string) => {
@@ -47,6 +58,28 @@ Given(
     });
   },
 );
+
+Given(
+  "a relation links task {string} to resource {string}",
+  async ({ request }, src: string, tgt: string) => {
+    const srcId = await findTaskByTitle(request, src);
+    const tgtId = await findResourceByTitle(request, tgt);
+    await request.post("/api/relations", {
+      headers,
+      data: {
+        "source-type": "tsk",
+        "source-id": srcId,
+        "target-type": "res",
+        "target-id": tgtId,
+      },
+    });
+  },
+);
+
+Given("task {string} is done", async ({ request }, title: string) => {
+  const id = await findTaskByTitle(request, title);
+  await request.put(`/api/tasks/${id}/done`, { headers, data: { done: true } });
+});
 
 When("I activate relation mode", async ({ page }) => {
   await page.locator(".relation-mode-toggle").click();
@@ -92,5 +125,32 @@ Then(
     await expect(
       todayItem(page, title).locator(".tag.relation", { hasText: target }),
     ).toHaveCount(0, { timeout: 5000 });
+  },
+);
+
+Then(
+  "today item {string} relation badge for {string} shows {string}",
+  async ({ page }, title: string, target: string, glyph: string) => {
+    await expect(todayBadge(page, title, target)).toContainText(glyph, {
+      timeout: 5000,
+    });
+  },
+);
+
+Then(
+  "today item {string} relation badge for {string} is grayed",
+  async ({ page }, title: string, target: string) => {
+    await expect(todayBadge(page, title, target)).toHaveClass(/task-done/, {
+      timeout: 5000,
+    });
+  },
+);
+
+Then(
+  "today item {string} relation badge for {string} is not grayed",
+  async ({ page }, title: string, target: string) => {
+    await expect(todayBadge(page, title, target)).not.toHaveClass(/task-done/, {
+      timeout: 5000,
+    });
   },
 );

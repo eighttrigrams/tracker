@@ -27,6 +27,23 @@ Feature: Today page relations
     And I click the link button on the today item "Today task gamma"
     Then today item "Today task gamma" should show a relation badge for "Source resource"
 
+  Scenario: Task relation badges show a checkbox glyph reflecting the target's done state
+    Given I am on the app
+    And a task "Checkbox source" with due date today exists
+    And a task "Open target" with due date today exists
+    And a task "Done target" with due date today exists
+    And a resource "Linked resource" with link "https://example.com" exists
+    And a relation links task "Checkbox source" to task "Open target"
+    And a relation links task "Checkbox source" to task "Done target"
+    And a relation links task "Checkbox source" to resource "Linked resource"
+    And task "Done target" is done
+    When I navigate to the "Today" tab
+    Then today item "Checkbox source" relation badge for "Open target" shows "☐"
+    And today item "Checkbox source" relation badge for "Open target" is not grayed
+    And today item "Checkbox source" relation badge for "Done target" shows "☑"
+    And today item "Checkbox source" relation badge for "Done target" is grayed
+    And today item "Checkbox source" relation badge for "Linked resource" shows "R:"
+
   Scenario: Relation badge title overrides the target's title in the badge
     Given I am on the app
     And a task "Override target" with due date today exists
