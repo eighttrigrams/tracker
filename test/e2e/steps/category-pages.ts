@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { setFieldValue } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -22,14 +23,18 @@ Given("a goal {string} exists", async ({ request }, name: string) => {
 });
 
 When("I click the {string} category tab", async ({ page }, name: string) => {
-  await page.locator(".tabs").getByRole("button", { name }).click();
+  const tab = page.locator(".tabs").getByRole("button", { name });
+  await tab.click();
+  await expect(tab).toHaveClass(/active/);
   await page.waitForLoadState("networkidle");
 });
 
 When("I add a category entry called {string}", async ({ page }, name: string) => {
-  await page.locator(".combined-search-add-form input").fill(name);
+  const input = page.locator(".combined-search-add-form input");
+  await setFieldValue(input, name);
   await page.locator(".combined-search-add-form button").first().click();
-  await page.waitForLoadState("networkidle");
+  await expect(page.locator(".category-cards-grid")).toContainText(name);
+  await expect(input).toHaveValue("");
 });
 
 When("I expand the card {string}", async ({ page }, name: string) => {

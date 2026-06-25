@@ -42,12 +42,12 @@ export default defineConfig({
       //      `npx playwright install [--with-deps] chromium`).
       // --no-sandbox is needed when running chromium inside a container,
       // --disable-dev-shm-usage avoids the small /dev/shm crashing tabs.
-      ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-        ? { launchOptions: {
-              executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
-              args: ["--no-sandbox", "--disable-dev-shm-usage"],
-            } }
-        : {}),
+      launchOptions: {
+        args: ["--no-sandbox", "--disable-dev-shm-usage"],
+        ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+          ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+          : {}),
+      },
     },
   }],
   webServer: {

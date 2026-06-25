@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { setFieldValue } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -7,6 +8,7 @@ Given("I am on the app", async ({ page, request }) => {
   await request.post("/api/test/reset");
   await page.goto("/");
   await page.waitForLoadState("networkidle");
+  await expect(page.locator(".top-bar .tabs")).toBeVisible();
 });
 
 Given("test data with categorized tasks exists", async ({ request }) => {
@@ -108,10 +110,13 @@ Then(
 When("I reload the page", async ({ page }) => {
   await page.reload();
   await page.waitForLoadState("networkidle");
+  await expect(page.locator(".top-bar .tabs")).toBeVisible();
 });
 
 When("I click the {string} tab", async ({ page }, name: string) => {
-  await page.getByRole("button", { name }).click();
+  const tab = page.locator(".top-bar .tabs").getByRole("button", { name });
+  await tab.click();
+  await expect(tab).toHaveClass(/active/);
   await page.waitForLoadState("networkidle");
 });
 
@@ -151,16 +156,17 @@ When("I click the add button", async ({ page }) => {
 });
 
 When("I add a place called {string}", async ({ page }, name: string) => {
-  await page.locator(".add-entity-form input").last().fill(name);
+  await setFieldValue(page.locator(".add-entity-form input").last(), name);
   await page.locator(".add-entity-form button").last().click();
   await page.waitForLoadState("networkidle");
 });
 
 When("I add a task called {string}", async ({ page }, title: string) => {
-  await page.locator("#tasks-filter-search").fill(title);
+  const search = page.locator("#tasks-filter-search");
+  await setFieldValue(search, title);
   await page.locator(".combined-search-add-form button").first().click();
-  await page.waitForLoadState("networkidle");
-  await page.locator("#tasks-filter-search").fill("");
+  await expect(page.locator(".items li").filter({ hasText: title }).first()).toBeVisible();
+  await expect(search).toHaveValue("");
 });
 
 When(
@@ -168,10 +174,13 @@ When(
   async ({ page }, place: string, task: string) => {
     const taskRow = page.locator(".items li").filter({ hasText: task }).first();
     const placeBtn = taskRow.getByRole("button", { name: "+ Place" });
-    if (!(await placeBtn.isVisible())) await taskRow.click();
+    if (!(await placeBtn.isVisible())) {
+      await taskRow.locator(".item-header").click();
+      await placeBtn.waitFor({ state: "visible" });
+    }
     await placeBtn.click();
     await page.locator(".category-selector-item").filter({ hasText: place }).first().click();
-    await page.waitForLoadState("networkidle");
+    await expect(taskRow.locator(".tag", { hasText: place })).toBeVisible();
   },
 );
 
@@ -188,12 +197,14 @@ When("I filter by project {string}", async ({ page }, project: string) => {
 });
 
 When("I switch to {string}", async ({ page }, tab: string) => {
-  await page.getByRole("button", { name: tab }).click();
+  const btn = page.locator(".top-bar .tabs").getByRole("button", { name: tab });
+  await btn.click();
+  await expect(btn).toHaveClass(/active/);
   await page.waitForLoadState("networkidle");
 });
 
 When("I add a project called {string}", async ({ page }, name: string) => {
-  await page.locator(".add-entity-form input").first().fill(name);
+  await setFieldValue(page.locator(".add-entity-form input").first(), name);
   await page.locator(".add-entity-form button").first().click();
   await page.waitForLoadState("networkidle");
 });
@@ -209,7 +220,7 @@ When(
     }
     await projectBtn.click();
     await page.locator(".category-selector-item").filter({ hasText: project }).first().click();
-    await page.waitForLoadState("networkidle");
+    await expect(taskRow.locator(".tag", { hasText: project })).toBeVisible();
   },
 );
 
