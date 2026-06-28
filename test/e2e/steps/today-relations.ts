@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { apiCategorize } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -178,10 +179,7 @@ Given(
     const people = await (await request.get("/api/people/", { headers })).json();
     const p = people.find((x: any) => x.name === person);
     if (!p) throw new Error(`person not found: ${person}`);
-    await request.post(`/api/tasks/${taskId}/categorize`, {
-      headers,
-      data: { "category-type": "person", "category-id": p.id },
-    });
+    await apiCategorize(request, `/api/tasks/${taskId}`, "person", p.id);
   },
 );
 

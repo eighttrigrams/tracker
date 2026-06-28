@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { setFieldValue } from "./helpers";
+import { setFieldValue, apiCategorize } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -21,18 +21,10 @@ Given("test data with categorized tasks exists", async ({ request }) => {
   const task1 = await (await request.post("/api/tasks", { headers, data: { title: "Fix plumbing" } })).json();
   const task2 = await (await request.post("/api/tasks", { headers, data: { title: "Paint walls" } })).json();
 
-  await request.post(`/api/tasks/${task1.id}/categorize`, {
-    headers, data: { "category-type": "place", "category-id": lagos.id },
-  });
-  await request.post(`/api/tasks/${task1.id}/categorize`, {
-    headers, data: { "category-type": "project", "category-id": renovations.id },
-  });
-  await request.post(`/api/tasks/${task2.id}/categorize`, {
-    headers, data: { "category-type": "place", "category-id": lagos.id },
-  });
-  await request.post(`/api/tasks/${task2.id}/categorize`, {
-    headers, data: { "category-type": "place", "category-id": bordeira.id },
-  });
+  await apiCategorize(request, `/api/tasks/${task1.id}`, "place", lagos.id);
+  await apiCategorize(request, `/api/tasks/${task1.id}`, "project", renovations.id);
+  await apiCategorize(request, `/api/tasks/${task2.id}`, "place", lagos.id);
+  await apiCategorize(request, `/api/tasks/${task2.id}`, "place", bordeira.id);
 });
 
 Then(

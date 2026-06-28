@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { apiCategorize } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -16,10 +17,7 @@ Given(
     const task = tasks.find((t: any) => t.title === taskTitle);
     const places = await (await request.get("/api/places", { headers })).json();
     const place = places.find((p: any) => p.name === placeName);
-    await request.post(`/api/tasks/${task.id}/categorize`, {
-      headers,
-      data: { "category-type": "place", "category-id": place.id },
-    });
+    await apiCategorize(request, `/api/tasks/${task.id}`, "place", place.id);
   },
 );
 
@@ -30,10 +28,7 @@ Given(
     const meet = meets.find((m: any) => m.title === meetTitle);
     const places = await (await request.get("/api/places", { headers })).json();
     const place = places.find((p: any) => p.name === placeName);
-    await request.post(`/api/meets/${meet.id}/categorize`, {
-      headers,
-      data: { "category-type": "place", "category-id": place.id },
-    });
+    await apiCategorize(request, `/api/meets/${meet.id}`, "place", place.id);
   },
 );
 

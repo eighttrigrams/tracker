@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { apiCategorize } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -14,33 +15,21 @@ Given("report data with categorized items exists", async ({ request }) => {
 
   const task = await (await request.post("/api/tasks", { headers, data: { title: "Buy paint" } })).json();
   await request.put(`/api/tasks/${task.id}/done`, { headers, data: { done: true } });
-  await request.post(`/api/tasks/${task.id}/categorize`, {
-    headers, data: { "category-type": "person", "category-id": alice.id },
-  });
-  await request.post(`/api/tasks/${task.id}/categorize`, {
-    headers, data: { "category-type": "project", "category-id": apollo.id },
-  });
+  await apiCategorize(request, `/api/tasks/${task.id}`, "person", alice.id);
+  await apiCategorize(request, `/api/tasks/${task.id}`, "project", apollo.id);
 
   const journal = await (await request.post("/api/journals", { headers, data: { title: "Daily log" } })).json();
   const entry = await (await request.post(`/api/journals/${journal.id}/create-entry`, {
     headers, data: { date: new Date().toISOString().slice(0, 10) },
   })).json();
-  await request.post(`/api/journal-entries/${entry.id}/categorize`, {
-    headers, data: { "category-type": "person", "category-id": alice.id },
-  });
-  await request.post(`/api/journal-entries/${entry.id}/categorize`, {
-    headers, data: { "category-type": "project", "category-id": apollo.id },
-  });
+  await apiCategorize(request, `/api/journal-entries/${entry.id}`, "person", alice.id);
+  await apiCategorize(request, `/api/journal-entries/${entry.id}`, "project", apollo.id);
 
   const meet = await (await request.post("/api/meets/", { headers, data: { title: "Standup" } })).json();
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   await request.put(`/api/meets/${meet.id}/start-date`, { headers, data: { "start-date": yesterday } });
-  await request.post(`/api/meets/${meet.id}/categorize`, {
-    headers, data: { "category-type": "person", "category-id": alice.id },
-  });
-  await request.post(`/api/meets/${meet.id}/categorize`, {
-    headers, data: { "category-type": "project", "category-id": apollo.id },
-  });
+  await apiCategorize(request, `/api/meets/${meet.id}`, "person", alice.id);
+  await apiCategorize(request, `/api/meets/${meet.id}`, "project", apollo.id);
 });
 
 Given("a report day with a task, a meet, and a journal entry exists", async ({ request }) => {
