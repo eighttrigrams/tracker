@@ -171,8 +171,7 @@
                          [:span.due-date (:start_time m)]))}
       :description {:edit-type :meet}
       :categories {:selector-fn task-item/meet-category-selector
-                   :relations-prefix "met"
-                   :readonly-relations? false}
+                   :relations-prefix "met"}
       :footer {:left [{:type :scope :value (:scope meet)
                        :on-set #(state/set-meet-scope (:id meet) %)}]
                :right [{:type :delete :on-click #(state/set-confirm-delete-meet meet)}]}}]))
@@ -201,8 +200,7 @@
                           "🔁"])})
       :description {:edit-type :journal-entry}
       :categories {:selector-fn task-item/journal-entry-category-selector
-                   :relations-prefix "jen"
-                   :readonly-relations? false}
+                   :relations-prefix "jen"}
       :footer {:left [{:type :scope :value (:scope entry)
                        :on-set #(state/set-journal-entry-scope (:id entry) %)}]
                :right [{:type :delete :on-click #(state/set-confirm-delete-journal-entry entry)}]}}]))

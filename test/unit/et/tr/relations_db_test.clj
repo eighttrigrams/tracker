@@ -1,5 +1,8 @@
 (ns et.tr.relations-db-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
+            [honey.sql :as sql]
+            [next.jdbc :as jdbc]
+            [et.tr.db :as db]
             [et.tr.db.meet :as db.meet]
             [et.tr.db.relation :as db.relation]
             [et.tr.db.resource :as db.resource]
@@ -77,6 +80,58 @@
         (let [rels (db.relation/get-relations-with-titles *ds* *user-id* "tsk" (:id task))
               met-rel (first (filter #(= "met" (:type %)) rels))]
           (is (= "2099-03-04" (:start_date met-rel))))))))
+
+(deftest relation-display-is-bidirectional-test
+  (testing "a task->meet relation displays on BOTH the task and the meet"
+    (let [task (db.task/add-task *ds* *user-id* "Pay Luís")
+          meet (db.meet/add-meet *ds* *user-id* "OpenBox")]
+      (db.meet/set-meet-start-date *ds* *user-id* (:id meet) "2099-07-03")
+      (db.relation/add-relation *ds* *user-id* "tsk" (:id task) "met" (:id meet))
+      (testing "the meet's :relations include the task carrying :done"
+        (let [meets (db.meet/list-meets *ds* *user-id* {:sort-mode :upcoming})
+              m (first (filter #(= "OpenBox" (:title %)) meets))
+              tsk-rel (first (filter #(= "tsk" (:type %)) (:relations m)))]
+          (is (some? tsk-rel))
+          (is (= (:id task) (:id tsk-rel)))
+          (is (= 0 (:done tsk-rel)))))
+      (testing "the task's :relations include the meet carrying :start_date"
+        (let [tasks (db.task/list-tasks *ds* *user-id* {})
+              t (first (filter #(= "Pay Luís" (:title %)) tasks))
+              met-rel (first (filter #(= "met" (:type %)) (:relations t)))]
+          (is (some? met-rel))
+          (is (= (:id meet) (:id met-rel)))
+          (is (= "2099-07-03" (:start_date met-rel))))))))
+
+(deftest relation-display-no-duplicate-test
+  (testing "both stored directions collapse to a single displayed relation per item"
+    (let [task1 (db.task/add-task *ds* *user-id* "Task 1")
+          task2 (db.task/add-task *ds* *user-id* "Task 2")]
+      (db.relation/add-relation *ds* *user-id* "tsk" (:id task1) "tsk" (:id task2))
+      (is (= 1 (count (db.relation/get-relations-for-item *ds* *user-id* "tsk" (:id task1)))))
+      (is (= 1 (count (db.relation/get-relations-for-item *ds* *user-id* "tsk" (:id task2)))))
+      (is (= 1 (count (db.relation/get-relations-with-titles *ds* *user-id* "tsk" (:id task1))))))))
+
+(deftest relation-display-direction-independent-test
+  (testing "a relation stored in only one direction still displays on both endpoints"
+    (let [task (db.task/add-task *ds* *user-id* "Solo task")
+          meet (db.meet/add-meet *ds* *user-id* "Solo meet")]
+      (jdbc/execute-one! (db/get-conn *ds*)
+        (sql/format {:insert-into :relations
+                     :values [{:source_type "tsk" :source_id (:id task)
+                               :target_type "met" :target_id (:id meet)}]}))
+      (is (= [{:target_type "met" :target_id (:id meet)}]
+             (db.relation/get-relations-for-item *ds* *user-id* "tsk" (:id task))))
+      (is (= [{:target_type "tsk" :target_id (:id task)}]
+             (db.relation/get-relations-for-item *ds* *user-id* "met" (:id meet)))))))
+
+(deftest delete-relation-direction-agnostic-test
+  (testing "deleting with swapped (target,source) args removes the relation for both items"
+    (let [task (db.task/add-task *ds* *user-id* "Task")
+          meet (db.meet/add-meet *ds* *user-id* "Meet")]
+      (db.relation/add-relation *ds* *user-id* "tsk" (:id task) "met" (:id meet))
+      (db.relation/delete-relation *ds* *user-id* "met" (:id meet) "tsk" (:id task))
+      (is (empty? (db.relation/get-relations-for-item *ds* *user-id* "tsk" (:id task))))
+      (is (empty? (db.relation/get-relations-for-item *ds* *user-id* "met" (:id meet)))))))
 
 (deftest delete-task-cascades-relations-test
   (testing "deleting a task removes its relations"

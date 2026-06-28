@@ -75,16 +75,27 @@
                                       :user-id user-id}} "Relation deleted")
       {:success true})))
 
-(defn get-relations-for-item [ds user-id source-type source-id]
-  (validate-relation-type! source-type)
-  (when (item-exists? ds user-id source-type source-id)
-    (jdbc/execute! (db/get-conn ds)
-      (sql/format {:select [:target_type :target_id]
-                   :from [:relations]
-                   :where [:and
-                           [:= :source_type source-type]
-                           [:= :source_id source-id]]})
-      db/jdbc-opts)))
+(defn- fetch-bidirectional-relations [conn item-type item-id]
+  (let [as-source (jdbc/execute! conn
+                    (sql/format {:select [:target_type :target_id]
+                                 :from [:relations]
+                                 :where [:and
+                                         [:= :source_type item-type]
+                                         [:= :source_id item-id]]})
+                    db/jdbc-opts)
+        as-target (jdbc/execute! conn
+                    (sql/format {:select [[:source_type :target_type] [:source_id :target_id]]
+                                 :from [:relations]
+                                 :where [:and
+                                         [:= :target_type item-type]
+                                         [:= :target_id item-id]]})
+                    db/jdbc-opts)]
+    (vec (distinct (concat as-source as-target)))))
+
+(defn get-relations-for-item [ds user-id item-type item-id]
+  (validate-relation-type! item-type)
+  (when (item-exists? ds user-id item-type item-id)
+    (fetch-bidirectional-relations (db/get-conn ds) item-type item-id)))
 
 (defn fetch-title-for-relation [conn type id]
   (let [table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)
@@ -114,15 +125,23 @@
                   (= target_type "met") (assoc :start_date start_date))))
             relations))))
 
-(defn- fetch-relations-batch [conn source-type source-ids]
-  (when (seq source-ids)
-    (jdbc/execute! conn
-      (sql/format {:select [:source_id :target_type :target_id]
-                   :from [:relations]
-                   :where [:and
-                           [:= :source_type source-type]
-                           [:in :source_id source-ids]]})
-      db/jdbc-opts)))
+(defn- fetch-relations-batch [conn item-type item-ids]
+  (when (seq item-ids)
+    (let [as-source (jdbc/execute! conn
+                      (sql/format {:select [[:source_id :item_id] :target_type :target_id]
+                                   :from [:relations]
+                                   :where [:and
+                                           [:= :source_type item-type]
+                                           [:in :source_id item-ids]]})
+                      db/jdbc-opts)
+          as-target (jdbc/execute! conn
+                      (sql/format {:select [[:target_id :item_id] [:source_type :target_type] [:source_id :target_id]]
+                                   :from [:relations]
+                                   :where [:and
+                                           [:= :target_type item-type]
+                                           [:in :target_id item-ids]]})
+                      db/jdbc-opts)]
+      (vec (distinct (concat as-source as-target))))))
 
 (defn- enrich-relations-with-titles [conn relations]
   (let [grouped (group-by :target_type relations)
@@ -149,13 +168,13 @@
                 (= target_type "met") (assoc :start_date start_date))))
           relations)))
 
-(defn associate-relations-with-items [items source-type conn]
+(defn associate-relations-with-items [items item-type conn]
   (let [item-ids (mapv :id items)
-        relations (fetch-relations-batch conn source-type item-ids)
+        relations (fetch-relations-batch conn item-type item-ids)
         enriched (enrich-relations-with-titles conn relations)
-        relations-by-source (group-by :source_id enriched)]
+        relations-by-item (group-by :item_id enriched)]
     (mapv (fn [item]
-            (let [item-relations (get relations-by-source (:id item) [])]
+            (let [item-relations (get relations-by-item (:id item) [])]
               (assoc item :relations
                      (mapv (fn [{:keys [target_type target_id title badge_title done start_date]}]
                              (cond-> {:type target_type :id target_id :title title :badge_title badge_title}
