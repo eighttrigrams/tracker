@@ -69,6 +69,7 @@
   (let [sort-mode (:sort-mode @state/*app-state)]
     [:div.sort-toggle.toggle-group
      [sort-mode-button sort-mode :recent :tasks/sort-recent :tasks/sort-recent-tooltip]
+     [sort-mode-button sort-mode :added :tasks/sort-added]
      [sort-mode-button sort-mode :manual :tasks/sort-manual]
      [sort-mode-button sort-mode :unassigned :tasks/sort-unassigned :tasks/sort-unassigned-tooltip]
      [sort-mode-button sort-mode :due-date :tasks/sort-due-date]

@@ -60,6 +60,17 @@
     (let [tasks (db.task/list-tasks *ds* *user-id* :manual)]
       (is (= ["Third" "Second" "First"] (map :title tasks))))))
 
+(deftest list-tasks-added-mode-test
+  (testing "added mode orders by created_at DESC and ignores urgency"
+    (let [early (db.task/add-task *ds* *user-id* "Early urgent")
+          late (db.task/add-task *ds* *user-id* "Late normal")]
+      (db.task/set-task-field *ds* *user-id* (:id early) :urgency "superurgent")
+      (db.task/update-task *ds* *user-id* (:id early) {:created_at "2026-01-01 10:00:00"})
+      (db.task/update-task *ds* *user-id* (:id late) {:created_at "2026-06-01 10:00:00"})
+      (let [tasks (db.task/list-tasks *ds* *user-id* :added)]
+        (is (= ["Late normal" "Early urgent"] (map :title tasks)))
+        (is (= "Late normal" (:title (first tasks))))))))
+
 (deftest reorder-task-updates-sort-order-test
   (testing "updates task sort_order"
     (let [task (db.task/add-task *ds* *user-id* "Test")

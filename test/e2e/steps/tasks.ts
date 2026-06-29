@@ -249,6 +249,42 @@ Then(
   },
 );
 
+const apiHeaders = { "Content-Type": "application/json", "X-User-Id": "null" };
+
+Given("an urgent task {string} was added earlier", async ({ request }, title: string) => {
+  const task = await (await request.post("/api/tasks", { headers: apiHeaders, data: { title } })).json();
+  await request.put(`/api/tasks/${task.id}/urgency`, { headers: apiHeaders, data: { urgency: "superurgent" } });
+});
+
+Given("a normal task {string} was added later", async ({ request }, title: string) => {
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await request.post("/api/tasks", { headers: apiHeaders, data: { title } });
+});
+
+Then("the {int}nd sort button should read {string}", async ({ page }, position: number, label: string) => {
+  await expect(page.locator(".sort-toggle button").nth(position - 1)).toHaveText(label);
+});
+
+When("I click the {string} sort button", async ({ page }, label: string) => {
+  const btn = page.locator(".sort-toggle").getByRole("button", { name: label });
+  await btn.click();
+  await expect(btn).toHaveClass(/active/);
+  await page.waitForLoadState("networkidle");
+});
+
+Then(
+  "{string} should appear above {string} in the task list",
+  async ({ page }, above: string, below: string) => {
+    await expect(async () => {
+      const titles = await page.locator(".items li .item-title-text").allInnerTexts();
+      const aboveIdx = titles.findIndex((t) => t.includes(above));
+      const belowIdx = titles.findIndex((t) => t.includes(below));
+      expect(aboveIdx).toBeGreaterThanOrEqual(0);
+      expect(belowIdx).toBeGreaterThan(aboveIdx);
+    }).toPass({ timeout: 10000 });
+  },
+);
+
 Then("I should see {string} in the task list", async ({ page }, text: string) => {
   await expect(page.locator(".items")).toContainText(text);
 });

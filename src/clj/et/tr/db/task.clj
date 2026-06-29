@@ -87,6 +87,7 @@
                             [[:case [:not= :due_time nil] 1 :else 0] :desc]
                             [:due_time :asc]]
                     :reminder [[:reminder_date :asc]]
+                    :added [[:created_at :desc]]
                     :recent [[[:case [:= :urgency "superurgent"] 0
                                      [:= :urgency "urgent"] 1
                                      :else 2] :asc]
