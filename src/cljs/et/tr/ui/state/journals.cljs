@@ -52,9 +52,10 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add journal")))))
 
-(defn update-journal [app-state auth-headers journal-id title description tags on-success]
+(defn update-journal [app-state auth-headers journal-id title description tags expected-modified-at on-success on-error]
   (api/put-json (str "/api/journals/" journal-id)
-    {:title title :description description :tags tags}
+    (cond-> {:title title :description description :tags tags}
+      expected-modified-at (assoc :expected-modified-at expected-modified-at))
     (auth-headers)
     (fn [result]
       (swap! app-state update :journals
@@ -64,8 +65,9 @@
                         %)
                      journals)))
       (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update journal")))))
+    (or on-error
+        (fn [resp]
+          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update journal"))))))
 
 (defn delete-journal [app-state auth-headers journal-id]
   (api/delete-simple (str "/api/journals/" journal-id)

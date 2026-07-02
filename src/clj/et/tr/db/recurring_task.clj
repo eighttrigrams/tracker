@@ -150,15 +150,17 @@
             categories-by-rtask (group-by :recurring_task_id categories-data)]
         (first (associate-categories-with-recurring-tasks [rtask] categories-by-rtask people-by-id places-by-id projects-by-id goals-by-id))))))
 
-(defn update-recurring-task [ds user-id rtask-id fields]
-  (let [set-map (assoc fields :modified_at [:raw "datetime('now')"])
-        return-cols (into [:id :created_at :modified_at] (keys fields))]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :recurring_tasks
-                   :set set-map
-                   :where [:and [:= :id rtask-id] (db/user-id-where-clause user-id)]
-                   :returning return-cols})
-      db/jdbc-opts)))
+(defn update-recurring-task
+  ([ds user-id rtask-id fields] (update-recurring-task ds user-id rtask-id fields nil))
+  ([ds user-id rtask-id fields expected-modified-at]
+   (let [set-map (assoc fields :modified_at [:raw "datetime('now')"])
+         return-cols (into [:id :created_at :modified_at] (keys fields))]
+     (jdbc/execute-one! (db/get-conn ds)
+       (sql/format {:update :recurring_tasks
+                    :set set-map
+                    :where (db/update-where rtask-id user-id expected-modified-at)
+                    :returning return-cols})
+       db/jdbc-opts))))
 
 (defn delete-recurring-task [ds user-id rtask-id]
   (when (recurring-task-owned-by-user? ds rtask-id user-id)

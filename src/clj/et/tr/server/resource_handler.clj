@@ -100,14 +100,17 @@
 
       :else
       (let [effective-link (when (seq link) link)
+            expected (get-in req [:body :expected-modified-at])
             fields (cond-> {:title title :link effective-link}
                      (some? description) (assoc :description description)
                      (some? tags) (assoc :tags tags))
             before (events/fetch-fields :resources resource-id [:title :link :description :tags])
-            resource (db.resource/update-resource (common/ensure-ds) user-id resource-id fields)]
-        (events/record-update! req :resource resource-id before
-                               (select-keys resource [:title :link :description :tags]))
-        {:status 200 :body resource}))))
+            resource (db.resource/update-resource (common/ensure-ds) user-id resource-id fields expected)]
+        (if resource
+          (do (events/record-update! req :resource resource-id before
+                                     (select-keys resource [:title :link :description :tags]))
+              {:status 200 :body resource})
+          (common/conflict-or-not-found (db.resource/get-resource (common/ensure-ds) user-id resource-id) "Resource not found"))))))
 
 (defn set-resource-relation-badge-title-handler
   "PUT /api/resources/:id/relation-badge-title — set or clear the override

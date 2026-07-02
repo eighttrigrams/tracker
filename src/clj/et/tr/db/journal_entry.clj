@@ -135,16 +135,18 @@
                  (associate-categories-with-journal-entries [entry] categories-by-entry people-by-id places-by-id projects-by-id goals-by-id)
                  "jen" conn))))))
 
-(defn update-journal-entry [ds user-id entry-id fields]
-  (let [field-names (keys fields)
-        set-map (assoc fields :modified_at [:raw "datetime('now')"])
-        return-cols (into [:id :created_at :modified_at] field-names)]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :journal_entries
-                   :set set-map
-                   :where [:and [:= :id entry-id] (db/user-id-where-clause user-id)]
-                   :returning return-cols})
-      db/jdbc-opts)))
+(defn update-journal-entry
+  ([ds user-id entry-id fields] (update-journal-entry ds user-id entry-id fields nil))
+  ([ds user-id entry-id fields expected-modified-at]
+   (let [field-names (keys fields)
+         set-map (assoc fields :modified_at [:raw "datetime('now')"])
+         return-cols (into [:id :created_at :modified_at] field-names)]
+     (jdbc/execute-one! (db/get-conn ds)
+       (sql/format {:update :journal_entries
+                    :set set-map
+                    :where (db/update-where entry-id user-id expected-modified-at)
+                    :returning return-cols})
+       db/jdbc-opts))))
 
 (defn delete-journal-entry [ds user-id entry-id]
   (when (journal-entry-owned-by-user? ds entry-id user-id)

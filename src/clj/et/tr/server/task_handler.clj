@@ -67,11 +67,14 @@
         {:keys [title description tags]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [before (events/fetch-fields :tasks task-id [:title :description :tags])
-            task (db.task/update-task (common/ensure-ds) user-id task-id {:title title :description (or description "") :tags (or tags "")})]
-        (events/record-update! req :task task-id before
-                               (select-keys task [:title :description :tags]))
-        {:status 200 :body task}))))
+      (let [expected (get-in req [:body :expected-modified-at])
+            before (events/fetch-fields :tasks task-id [:title :description :tags])
+            task (db.task/update-task (common/ensure-ds) user-id task-id {:title title :description (or description "") :tags (or tags "")} expected)]
+        (if task
+          (do (events/record-update! req :task task-id before
+                                     (select-keys task [:title :description :tags]))
+              {:status 200 :body task})
+          (common/conflict-or-not-found (db.task/get-task (common/ensure-ds) user-id task-id) "Task not found"))))))
 
 (defn categorize-task-handler
   "POST /api/tasks/:id/categorize — link a task to a person/place/project/goal.

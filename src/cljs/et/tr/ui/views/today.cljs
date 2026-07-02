@@ -58,7 +58,7 @@
                          title-el]
                         (when-not expanded?
                           [task-item/task-category-badges item])])
-      :toolbar {:calendar {:on-click #(state/set-editing-modal :task task :time)}}
+      :toolbar {:calendar {:on-click #(state/open-edit-modal :task task :time)}}
       :header-extra [:<>
                      (when-not hide-date
                        [:span.task-date {:data-tooltip (date/get-day-name (:due_date task))}
@@ -186,7 +186,7 @@
                          title-el]
                         (when-not expanded?
                           [task-item/task-category-badges item])])
-      :toolbar {:calendar {:on-click #(state/set-editing-modal :meet meet :time)}}
+      :toolbar {:calendar {:on-click #(state/open-edit-modal :meet meet :time)}}
       :header-extra [:<>
                      (when-not hide-date
                        [:span.task-date {:data-tooltip (date/get-day-name (:start_date meet))}
@@ -744,12 +744,12 @@
          [:span.journal-entry-summary-date (date/format-date-localized (:entry_date entry))])]
       (if (seq (:description entry))
         [:div.journal-entry-summary-description
-         {:on-click #(state/set-editing-modal :journal-entry entry)}
+         {:on-click #(state/open-edit-modal :journal-entry entry)}
          [task-item/markdown (:description entry)]]
         [:button.edit-icon.description-placeholder
          {:on-click (fn [e]
                       (.stopPropagation e)
-                      (state/set-editing-modal :journal-entry entry))}
+                      (state/open-edit-modal :journal-entry entry))}
          "✎"])])])
 
 (defn- today-journal-entry-item [entry]

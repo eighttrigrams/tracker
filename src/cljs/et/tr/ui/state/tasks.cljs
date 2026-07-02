@@ -98,9 +98,10 @@
          :error-handler (fn [resp]
                           (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))))
 
-(defn update-task [app-state auth-headers task-id title description tags on-success]
+(defn update-task [app-state auth-headers task-id title description tags expected-modified-at on-success on-error]
   (api/put-json (str "/api/tasks/" task-id)
-    {:title title :description description :tags tags}
+    (cond-> {:title title :description description :tags tags}
+      expected-modified-at (assoc :expected-modified-at expected-modified-at))
     (auth-headers)
     (fn [updated-task]
       (let [merge-fn (fn [tasks]
@@ -110,8 +111,9 @@
                                (update :tasks merge-fn)
                                (update-in [:reports-data :tasks] merge-fn)))))
       (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))))
+    (or on-error
+        (fn [resp]
+          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task"))))))
 
 (defn categorize-task [_app-state auth-headers fetch-tasks-fn task-id category-type category-id]
   (api/post-json (str "/api/tasks/" task-id "/categorize")

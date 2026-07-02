@@ -773,3 +773,20 @@
       (let [fetched (db.task/get-task *ds* *user-id* (:id task))]
         (is (= 1 (:done fetched)))
         (is (= 0 (:maybe fetched)))))))
+
+(deftest update-task-optimistic-concurrency-test
+  (testing "modified_at guard: matching write succeeds, stale write is rejected, absent guard is last-write-wins"
+    (let [task (db.task/add-task *ds* *user-id* "OC task")
+          m0 (:modified_at task)]
+      (testing "a stale expected-modified-at matches no row (=> handler returns 409)"
+        (is (nil? (db.task/update-task *ds* *user-id* (:id task)
+                    {:title "stale"} "1999-01-01 00:00:00")))
+        (is (= "OC task" (:title (db.task/get-task *ds* *user-id* (:id task))))))
+      (testing "the matching expected-modified-at updates the row"
+        (let [res (db.task/update-task *ds* *user-id* (:id task) {:title "fresh"} m0)]
+          (is (some? res))
+          (is (= "fresh" (:title res)))))
+      (testing "omitting expected-modified-at keeps last-write-wins behavior"
+        (let [res (db.task/update-task *ds* *user-id* (:id task) {:title "no-guard"})]
+          (is (some? res))
+          (is (= "no-guard" (:title res))))))))

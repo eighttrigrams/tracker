@@ -212,7 +212,7 @@
 
 (defn- card-description [{:keys [item edit-type content-type on-edit loaded-fn]}]
   (let [loaded? (if loaded-fn (loaded-fn item) true)
-        open-edit (fn [] (if on-edit (on-edit item) (state/set-editing-modal edit-type item)))]
+        open-edit (fn [] (if on-edit (on-edit item) (state/open-edit-modal edit-type item)))]
     (cond
       (and loaded? (seq (:description item)))
       [task-item/clampable-description

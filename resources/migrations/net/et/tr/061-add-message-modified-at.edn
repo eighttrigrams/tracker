@@ -1,0 +1,4 @@
+{:id "061-add-message-modified-at"
+ :up ["ALTER TABLE messages ADD COLUMN modified_at TEXT"
+      "UPDATE messages SET modified_at = created_at"]
+ :down ["ALTER TABLE messages DROP COLUMN modified_at"]}

@@ -247,7 +247,7 @@
                    {:edit-id-path :tasks-page/inline-edit-task
                     :title-path :tasks-page/inline-edit-title
                     :update-fn state/update-task})
-    :toolbar {:calendar {:on-click #(state/set-editing-modal :task task :time)}}
+    :toolbar {:calendar {:on-click #(state/open-edit-modal :task task :time)}}
     :date {:render (task-date-render is-expanded done-mode?)}
     :description {:edit-type :task}
     :categories {:selector-fn task-item/category-selector
@@ -348,11 +348,11 @@
    (if (seq (:description rtask))
      [task-item/clampable-description
       {:text (:description rtask)
-       :on-click #(state/set-editing-modal :recurring-task rtask)}]
+       :on-click #(state/open-edit-modal :recurring-task rtask)}]
      [:button.edit-icon.description-placeholder
       {:on-click (fn [e]
                    (.stopPropagation e)
-                   (state/set-editing-modal :recurring-task rtask))}
+                   (state/open-edit-modal :recurring-task rtask))}
       "✎"])
    [:div.item-tags
     [rtask-category-selector rtask state/CATEGORY-TYPE-PERSON people (t :category/person)]
@@ -407,7 +407,7 @@
        [:div.item-toolbar
         [:button.calendar-icon {:on-click (fn [e]
                                             (.stopPropagation e)
-                                            (state/set-editing-modal :recurring-task rtask :scheduling))}
+                                            (state/open-edit-modal :recurring-task rtask :scheduling))}
          "📅"]])
      [:button.series-filter-btn {:on-click (fn [e]
                                              (.stopPropagation e)

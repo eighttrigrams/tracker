@@ -70,7 +70,7 @@
                       :title-path :meets-page/inline-edit-title
                       :update-fn state/update-meet})
       :badges {:importance? true}
-      :toolbar {:calendar {:on-click #(state/set-editing-modal :meet meet :time)}}
+      :toolbar {:calendar {:on-click #(state/open-edit-modal :meet meet :time)}}
       :date {:render meet-date-render}
       :description {:edit-type :meet}
       :categories {:selector-fn meet-category-selector :relations-prefix "met"}
@@ -234,7 +234,7 @@
                      {:edit-id-path :series-page/inline-edit-series
                       :title-path :series-page/inline-edit-title
                       :update-fn state/update-meeting-series})
-      :toolbar {:calendar {:on-click #(state/set-editing-modal :meeting-series series :scheduling)}}
+      :toolbar {:calendar {:on-click #(state/open-edit-modal :meeting-series series :scheduling)}}
       :header-extra [:button.series-filter-btn
                      {:on-click (fn [e]
                                   (.stopPropagation e)
@@ -303,7 +303,7 @@
                    (str " - " (:start_time meet))))])]
         (when (seq (:description meet))
           [:div.journal-entry-summary-description
-           {:on-click #(state/set-editing-modal :meet meet)}
+           {:on-click #(state/open-edit-modal :meet meet)}
            (:description meet)])])]))
 
 (defn- series-toggle []

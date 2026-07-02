@@ -89,12 +89,12 @@
          [:span.journal-entry-summary-date (date/format-date-localized (:entry_date entry))])]
       (if (seq (:description entry))
         [:div.journal-entry-summary-description
-         {:on-click #(state/set-editing-modal :journal-entry entry)}
+         {:on-click #(state/open-edit-modal :journal-entry entry)}
          [task-item/markdown (:description entry)]]
         [:button.edit-icon.description-placeholder
          {:on-click (fn [e]
                       (.stopPropagation e)
-                      (state/set-editing-modal :journal-entry entry))}
+                      (state/open-edit-modal :journal-entry entry))}
          "✎"])])])
 
 (defn- sidebar-filters []

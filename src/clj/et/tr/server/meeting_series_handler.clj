@@ -63,11 +63,14 @@
         {:keys [title description tags]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [before (events/fetch-fields :meeting_series series-id [:title :description :tags])
-            result (db.meeting-series/update-meeting-series (common/ensure-ds) user-id series-id {:title title :description (or description "") :tags (or tags "")})]
-        (events/record-update! req :meeting-series series-id before
-                               (select-keys result [:title :description :tags]))
-        {:status 200 :body result}))))
+      (let [expected (get-in req [:body :expected-modified-at])
+            before (events/fetch-fields :meeting_series series-id [:title :description :tags])
+            result (db.meeting-series/update-meeting-series (common/ensure-ds) user-id series-id {:title title :description (or description "") :tags (or tags "")} expected)]
+        (if result
+          (do (events/record-update! req :meeting-series series-id before
+                                     (select-keys result [:title :description :tags]))
+              {:status 200 :body result})
+          (common/conflict-or-not-found (db.meeting-series/get-meeting-series (common/ensure-ds) user-id series-id) "Meeting series not found"))))))
 
 (defn delete-meeting-series-handler
   "DELETE /api/meeting-series/:id — delete a meeting series owned by the

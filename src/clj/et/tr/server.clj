@@ -229,30 +229,35 @@
 
     (context "/people" []
       (GET "/" [] category-handler/list-people-handler)
+      (GET "/:id" [] category-handler/get-person-handler)
       (POST "/" [] category-handler/add-person-handler)
       (PUT "/:id" [] category-handler/update-person-handler)
       (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-people "people"))))
 
     (context "/places" []
       (GET "/" [] category-handler/list-places-handler)
+      (GET "/:id" [] category-handler/get-place-handler)
       (POST "/" [] category-handler/add-place-handler)
       (PUT "/:id" [] category-handler/update-place-handler)
       (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-places "places"))))
 
     (context "/projects" []
       (GET "/" [] category-handler/list-projects-handler)
+      (GET "/:id" [] category-handler/get-project-handler)
       (POST "/" [] category-handler/add-project-handler)
       (PUT "/:id" [] category-handler/update-project-handler)
       (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-projects "projects"))))
 
     (context "/goals" []
       (GET "/" [] category-handler/list-goals-handler)
+      (GET "/:id" [] category-handler/get-goal-handler)
       (POST "/" [] category-handler/add-goal-handler)
       (PUT "/:id" [] category-handler/update-goal-handler)
       (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-goals "goals"))))
 
     (context "/messages" []
       (GET "/" [] message-handler/list-messages-handler)
+      (GET "/:id" [] message-handler/get-message-handler)
       (POST "/" [] message-handler/add-message-handler)
       (PUT "/:id/done" [] message-handler/set-message-done-handler)
       (PUT "/:id/scope" [] message-handler/set-message-scope-handler)

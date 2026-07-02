@@ -71,27 +71,50 @@
   ([ds user-id] (list-category ds user-id "goals"))
   ([ds user-id opts] (list-category ds user-id "goals" opts)))
 
-(defn- update-category [ds user-id category-id name description tags badge-title table-name]
+(defn get-category [ds user-id category-id table-name]
   (validate-table-name! table-name)
   (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update (keyword table-name)
-                 :set {:name name :description description :tags tags :badge_title (or badge-title "")
-                       :modified_at [:raw "datetime('now')"]}
-                 :where [:and [:= :id category-id] (db/user-id-where-clause user-id)]
-                 :returning [:id :name :description :tags :badge_title :modified_at]})
+    (sql/format {:select [:id :name :description :tags :sort_order :badge_title :modified_at]
+                 :from [(keyword table-name)]
+                 :where [:and [:= :id category-id] (db/user-id-where-clause user-id)]})
     db/jdbc-opts))
 
-(defn update-person [ds user-id person-id name description tags badge-title]
-  (update-category ds user-id person-id name description tags badge-title "people"))
+(defn- update-category
+  ([ds user-id category-id name description tags badge-title table-name]
+   (update-category ds user-id category-id name description tags badge-title table-name nil))
+  ([ds user-id category-id name description tags badge-title table-name expected-modified-at]
+   (validate-table-name! table-name)
+   (jdbc/execute-one! (db/get-conn ds)
+     (sql/format {:update (keyword table-name)
+                  :set {:name name :description description :tags tags :badge_title (or badge-title "")
+                        :modified_at [:raw "datetime('now')"]}
+                  :where (db/update-where category-id user-id expected-modified-at)
+                  :returning [:id :name :description :tags :badge_title :modified_at]})
+     db/jdbc-opts)))
 
-(defn update-place [ds user-id place-id name description tags badge-title]
-  (update-category ds user-id place-id name description tags badge-title "places"))
+(defn update-person
+  ([ds user-id person-id name description tags badge-title]
+   (update-category ds user-id person-id name description tags badge-title "people"))
+  ([ds user-id person-id name description tags badge-title expected-modified-at]
+   (update-category ds user-id person-id name description tags badge-title "people" expected-modified-at)))
 
-(defn update-project [ds user-id project-id name description tags badge-title]
-  (update-category ds user-id project-id name description tags badge-title "projects"))
+(defn update-place
+  ([ds user-id place-id name description tags badge-title]
+   (update-category ds user-id place-id name description tags badge-title "places"))
+  ([ds user-id place-id name description tags badge-title expected-modified-at]
+   (update-category ds user-id place-id name description tags badge-title "places" expected-modified-at)))
 
-(defn update-goal [ds user-id goal-id name description tags badge-title]
-  (update-category ds user-id goal-id name description tags badge-title "goals"))
+(defn update-project
+  ([ds user-id project-id name description tags badge-title]
+   (update-category ds user-id project-id name description tags badge-title "projects"))
+  ([ds user-id project-id name description tags badge-title expected-modified-at]
+   (update-category ds user-id project-id name description tags badge-title "projects" expected-modified-at)))
+
+(defn update-goal
+  ([ds user-id goal-id name description tags badge-title]
+   (update-category ds user-id goal-id name description tags badge-title "goals"))
+  ([ds user-id goal-id name description tags badge-title expected-modified-at]
+   (update-category ds user-id goal-id name description tags badge-title "goals" expected-modified-at)))
 
 (defn delete-category [ds user-id category-id category-type table-name]
   (validate-table-name! table-name)

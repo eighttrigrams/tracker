@@ -136,6 +136,19 @@
     (try (Integer/parseInt (str/trim s))
          (catch NumberFormatException _ nil))))
 
+(def conflict-error
+  "This item was changed elsewhere (e.g. another tab). Its current version has been reloaded — review your edit and save again.")
+
+(defn conflict-or-not-found
+  "Response for an optimistic-concurrency update that matched no row. `current`
+  is the freshly-fetched row (nil when it no longer exists for this user):
+  when present the write lost a modified_at race, so return 409 carrying the
+  current row; otherwise fall back to a 404 with not-found-msg."
+  [current not-found-msg]
+  (if current
+    {:status 409 :body {:success false :error conflict-error :current current}}
+    {:status 404 :body {:error not-found-msg}}))
+
 (defn valid-time-format? [time-str]
   (or (nil? time-str)
       (empty? time-str)

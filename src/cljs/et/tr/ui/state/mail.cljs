@@ -195,22 +195,22 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
-(defn update-message [app-state auth-headers message-id title description on-success]
+(defn update-message [app-state auth-headers message-id title description expected-modified-at on-success on-error]
   (api/put-json (str "/api/messages/" message-id)
-    {:title title :description description}
+    (cond-> {:title title :description description}
+      expected-modified-at (assoc :expected-modified-at expected-modified-at))
     (auth-headers)
     (fn [result]
       (swap! app-state update :messages
              (fn [messages]
                (mapv #(if (= (:id %) message-id)
-                        (assoc %
-                               :title (:title result)
-                               :description (:description result))
+                        (merge % (select-keys result [:title :description :modified_at]))
                         %)
                      messages)))
       (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message")))))
+    (or on-error
+        (fn [resp]
+          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message"))))))
 
 (defn add-message [app-state auth-headers current-scope-fn title on-success]
   (let [scope (current-scope-fn)]

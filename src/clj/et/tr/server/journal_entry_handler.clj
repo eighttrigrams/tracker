@@ -79,11 +79,14 @@
         {:keys [title description tags]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [before (events/fetch-fields :journal_entries entry-id [:title :description :tags])
-            result (db.journal-entry/update-journal-entry (common/ensure-ds) user-id entry-id {:title title :description (or description "") :tags (or tags "")})]
-        (events/record-update! req :journal-entry entry-id before
-                               (select-keys result [:title :description :tags]))
-        {:status 200 :body result}))))
+      (let [expected (get-in req [:body :expected-modified-at])
+            before (events/fetch-fields :journal_entries entry-id [:title :description :tags])
+            result (db.journal-entry/update-journal-entry (common/ensure-ds) user-id entry-id {:title title :description (or description "") :tags (or tags "")} expected)]
+        (if result
+          (do (events/record-update! req :journal-entry entry-id before
+                                     (select-keys result [:title :description :tags]))
+              {:status 200 :body result})
+          (common/conflict-or-not-found (db.journal-entry/get-journal-entry (common/ensure-ds) user-id entry-id) "Journal entry not found"))))))
 
 (defn set-journal-entry-relation-badge-title-handler
   "PUT /api/journal-entries/:id/relation-badge-title — set or clear the

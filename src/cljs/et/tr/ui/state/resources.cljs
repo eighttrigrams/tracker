@@ -109,11 +109,12 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add resource")))))
 
-(defn update-resource [app-state auth-headers resource-id title link description tags on-success]
+(defn update-resource [app-state auth-headers resource-id title link description tags expected-modified-at on-success on-error]
   (api/put-json (str "/api/resources/" resource-id)
     (cond-> {:title title :link link}
       (some? description) (assoc :description description)
-      (some? tags) (assoc :tags tags))
+      (some? tags) (assoc :tags tags)
+      expected-modified-at (assoc :expected-modified-at expected-modified-at))
     (auth-headers)
     (fn [result]
       (swap! app-state update :resources
@@ -123,8 +124,9 @@
                         %)
                      resources)))
       (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update resource")))))
+    (or on-error
+        (fn [resp]
+          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update resource"))))))
 
 (defn delete-resource [app-state auth-headers resource-id]
   (api/delete-simple (str "/api/resources/" resource-id)

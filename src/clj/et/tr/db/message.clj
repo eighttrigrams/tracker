@@ -15,8 +15,9 @@
                                         :scope (when (contains? #{"private" "work"} scope) scope)
                                         :importance (if (contains? db/valid-importances importance) importance "normal")
                                         :urgency (if (contains? db/valid-urgencies urgency) urgency "default")
+                                        :modified_at [:raw "datetime('now')"]
                                         :user_id user-id}]
-                              :returning [:id :sender :title :description :created_at :done :type :scope :importance :urgency :user_id]})
+                              :returning [:id :sender :title :description :created_at :modified_at :done :type :scope :importance :urgency :user_id]})
                  db/jdbc-opts)]
     (tel/log! {:level :info :data {:message-id (:id result) :user-id user-id}} "Message added")
     result))
@@ -54,7 +55,7 @@
                         urgency-clause (conj urgency-clause)
                         search-clause (conj search-clause))]
      (jdbc/execute! (db/get-conn ds)
-       (sql/format (cond-> {:select [:id :sender :title :description :created_at :done :type :scope :importance :urgency]
+       (sql/format (cond-> {:select [:id :sender :title :description :created_at :modified_at :done :type :scope :importance :urgency]
                             :from [:messages]
                             :where where-clause
                             :order-by [[:created_at order-dir]]}
@@ -70,7 +71,7 @@
 
 (defn get-message [ds user-id message-id]
   (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:select [:id :sender :title :description]
+    (sql/format {:select [:id :sender :title :description :created_at :modified_at :done :type :scope :importance :urgency]
                  :from [:messages]
                  :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
     db/jdbc-opts))
@@ -92,15 +93,18 @@
       (tel/log! {:level :info :data {:message-id message-id :user-id user-id}} "Message deleted")
       {:success (pos? (:next.jdbc/update-count result))})))
 
-(defn update-message [ds user-id message-id title description]
-  (when (message-owned-by-user? ds message-id user-id)
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :messages
-                   :set {:title title
-                         :description (or description "")}
-                   :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :title :description]})
-      db/jdbc-opts)))
+(defn update-message
+  ([ds user-id message-id title description] (update-message ds user-id message-id title description nil))
+  ([ds user-id message-id title description expected-modified-at]
+   (when (message-owned-by-user? ds message-id user-id)
+     (jdbc/execute-one! (db/get-conn ds)
+       (sql/format {:update :messages
+                    :set {:title title
+                          :description (or description "")
+                          :modified_at [:raw "datetime('now')"]}
+                    :where (db/update-where message-id user-id expected-modified-at)
+                    :returning [:id :title :description :modified_at]})
+       db/jdbc-opts))))
 
 (defn set-message-scope [ds user-id message-id scope]
   (let [scope-val (when (contains? #{"private" "work"} scope) scope)]

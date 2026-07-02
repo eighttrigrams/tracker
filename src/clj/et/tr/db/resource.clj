@@ -137,16 +137,18 @@
                  :where [:and [:= :id resource-id] (db/user-id-where-clause user-id)]}))
   {:success true :sort_order new-sort-order})
 
-(defn update-resource [ds user-id resource-id fields]
-  (let [field-names (keys fields)
-        set-map (assoc fields :modified_at [:raw "datetime('now')"])
-        return-cols (into [:id :created_at :modified_at] field-names)]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :resources
-                   :set set-map
-                   :where [:and [:= :id resource-id] (db/user-id-where-clause user-id)]
-                   :returning return-cols})
-      db/jdbc-opts)))
+(defn update-resource
+  ([ds user-id resource-id fields] (update-resource ds user-id resource-id fields nil))
+  ([ds user-id resource-id fields expected-modified-at]
+   (let [field-names (keys fields)
+         set-map (assoc fields :modified_at [:raw "datetime('now')"])
+         return-cols (into [:id :created_at :modified_at] field-names)]
+     (jdbc/execute-one! (db/get-conn ds)
+       (sql/format {:update :resources
+                    :set set-map
+                    :where (db/update-where resource-id user-id expected-modified-at)
+                    :returning return-cols})
+       db/jdbc-opts))))
 
 (defn convert-message-to-resource [ds user-id message-id link & {:keys [title]}]
   (let [conn (db/get-conn ds)]

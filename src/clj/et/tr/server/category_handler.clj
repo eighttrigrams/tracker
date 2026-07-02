@@ -116,17 +116,19 @@
   [req entity-type table label db-fn]
   (let [user-id (common/get-user-id req)
         cat-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [name description tags badge-title]} (:body req)]
+        {:keys [name description tags badge-title]} (:body req)
+        expected (get-in req [:body :expected-modified-at])]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
       (try
         (let [before (events/fetch-fields table cat-id [:name :description :tags :badge_title])
-              result (db-fn (common/ensure-ds) user-id cat-id name (or description "") (or tags "") badge-title)]
+              result (db-fn (common/ensure-ds) user-id cat-id name (or description "") (or tags "") badge-title expected)]
           (if result
             (do (events/record-update! req entity-type cat-id before
                                        (select-keys result [:name :description :tags :badge_title]))
                 {:status 200 :body result})
-            {:status 404 :body {:success false :error (str label " not found")}}))
+            (common/conflict-or-not-found (db.category/get-category (common/ensure-ds) user-id cat-id (clojure.core/name table))
+                                          (str label " not found"))))
         (catch Exception _
           {:status 409 :body {:success false :error (str label " with this name already exists")}})))))
 
@@ -165,6 +167,38 @@
   :badge_title before the write and records an :update event for :goal."
   [req]
   (update-category-handler* req :goal :goals "Goal" db.category/update-goal))
+
+(defn- get-category-handler*
+  [req table label]
+  (let [user-id (common/get-user-id req)
+        cat-id (Integer/parseInt (get-in req [:params :id]))]
+    (if-let [row (db.category/get-category (common/ensure-ds) user-id cat-id table)]
+      {:status 200 :body row}
+      {:status 404 :body {:error (str label " not found")}})))
+
+(defn get-person-handler
+  "GET /api/people/:id — fetch a single person owned by the caller. Returns
+  200 with the row, or 404 when not found or not owned."
+  [req]
+  (get-category-handler* req "people" "Person"))
+
+(defn get-place-handler
+  "GET /api/places/:id — fetch a single place owned by the caller. Returns
+  200 with the row, or 404 when not found or not owned."
+  [req]
+  (get-category-handler* req "places" "Place"))
+
+(defn get-project-handler
+  "GET /api/projects/:id — fetch a single project owned by the caller. Returns
+  200 with the row, or 404 when not found or not owned."
+  [req]
+  (get-category-handler* req "projects" "Project"))
+
+(defn get-goal-handler
+  "GET /api/goals/:id — fetch a single goal owned by the caller. Returns
+  200 with the row, or 404 when not found or not owned."
+  [req]
+  (get-category-handler* req "goals" "Goal"))
 
 (def ^:private category-config
   {"people" {:type "person" :table "people"}

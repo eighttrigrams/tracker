@@ -76,9 +76,10 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meet")))))
 
-(defn update-meet [app-state auth-headers meet-id title description tags on-success]
+(defn update-meet [app-state auth-headers meet-id title description tags expected-modified-at on-success on-error]
   (api/put-json (str "/api/meets/" meet-id)
-    {:title title :description description :tags tags}
+    (cond-> {:title title :description description :tags tags}
+      expected-modified-at (assoc :expected-modified-at expected-modified-at))
     (auth-headers)
     (fn [result]
       (let [merge-fn (fn [meets]
@@ -89,8 +90,9 @@
                                (update :today-meets merge-fn)
                                (update-in [:reports-data :meets] merge-fn)))))
       (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update meet")))))
+    (or on-error
+        (fn [resp]
+          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update meet"))))))
 
 (defn delete-meet [app-state auth-headers meet-id]
   (api/delete-simple (str "/api/meets/" meet-id)

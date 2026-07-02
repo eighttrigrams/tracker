@@ -64,11 +64,14 @@
         {:keys [title description tags]} (:body req)]
     (if (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
-      (let [before (events/fetch-fields :recurring_tasks rtask-id [:title :description :tags])
-            result (db.recurring-task/update-recurring-task (common/ensure-ds) user-id rtask-id {:title title :description (or description "") :tags (or tags "")})]
-        (events/record-update! req :recurring-task rtask-id before
-                               (select-keys result [:title :description :tags]))
-        {:status 200 :body result}))))
+      (let [expected (get-in req [:body :expected-modified-at])
+            before (events/fetch-fields :recurring_tasks rtask-id [:title :description :tags])
+            result (db.recurring-task/update-recurring-task (common/ensure-ds) user-id rtask-id {:title title :description (or description "") :tags (or tags "")} expected)]
+        (if result
+          (do (events/record-update! req :recurring-task rtask-id before
+                                     (select-keys result [:title :description :tags]))
+              {:status 200 :body result})
+          (common/conflict-or-not-found (db.recurring-task/get-recurring-task (common/ensure-ds) user-id rtask-id) "Recurring task not found"))))))
 
 (defn delete-recurring-task-handler
   "DELETE /api/recurring-tasks/:id — delete a recurring task owned by the

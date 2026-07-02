@@ -86,6 +86,15 @@
     [:= :user_id user-id]
     [:is :user_id nil]))
 
+(defn update-where
+  "WHERE clause for an owned-by-user update, with an optional optimistic-
+  concurrency guard on modified_at. When expected-modified-at is non-nil the
+  update only matches while the stored timestamp is unchanged; otherwise it
+  behaves as a plain id + user match (last-write-wins)."
+  [id user-id expected-modified-at]
+  (cond-> [:and [:= :id id] (user-id-where-clause user-id)]
+    expected-modified-at (conj [:= :modified_at expected-modified-at])))
+
 (defn extract-category [task-categories category-type lookup-map]
   (->> task-categories
        (filter #(= (:category_type %) category-type))

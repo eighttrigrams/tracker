@@ -159,6 +159,8 @@
                             :current-user nil
                             :confirm-delete-user nil}))
 
+(declare edit-conflict-handler)
+
 (defn auth-headers []
   (let [token (:token @*app-state)
         current-user (:current-user @*app-state)
@@ -305,8 +307,12 @@
 (defn set-message-scope [message-id scope]
   (mail/set-message-scope *app-state auth-headers message-id scope))
 
-(defn update-message [message-id title description on-success]
-  (mail/update-message *app-state auth-headers message-id title description on-success))
+(defn update-message
+  ([message-id title description on-success]
+   (update-message message-id title description nil on-success))
+  ([message-id title description expected-modified-at on-success]
+   (mail/update-message *app-state auth-headers message-id title description expected-modified-at on-success
+                        (edit-conflict-handler :message "Failed to update message"))))
 
 (defn add-message [title on-success]
   (mail/add-message *app-state auth-headers current-scope title on-success))
@@ -436,8 +442,12 @@
     (add-resource-with-categories title link (active-filter-categories) on-success)
     (resources-state/add-resource *app-state auth-headers current-scope title link on-success fetch-resources)))
 
-(defn update-resource [resource-id title link description tags on-success]
-  (resources-state/update-resource *app-state auth-headers resource-id title link description tags on-success))
+(defn update-resource
+  ([resource-id title link description tags on-success]
+   (update-resource resource-id title link description tags nil on-success))
+  ([resource-id title link description tags expected-modified-at on-success]
+   (resources-state/update-resource *app-state auth-headers resource-id title link description tags expected-modified-at on-success
+                                    (edit-conflict-handler :resource "Failed to update resource"))))
 
 (defn delete-resource [resource-id]
   (resources-state/delete-resource *app-state auth-headers resource-id))
@@ -457,13 +467,10 @@
     (resources-state/fetch-resource-description *app-state auth-headers id)))
 
 (declare set-editing-modal)
+(declare open-edit-modal)
 
 (defn edit-resource-description [resource]
-  (if (contains? resource :description)
-    (set-editing-modal :resource resource)
-    (resources-state/fetch-resource-description *app-state auth-headers (:id resource)
-      (fn [full]
-        (set-editing-modal :resource (merge resource (select-keys full [:description :tags])))))))
+  (open-edit-modal :resource resource))
 
 (defn set-editing-resource [id]
   (resources-state/set-editing-resource id))
@@ -555,8 +562,12 @@
     (add-meet-with-categories title (active-filter-categories) on-success)
     (meets-state/add-meet *app-state auth-headers current-scope title on-success fetch-meets)))
 
-(defn update-meet [meet-id title description tags on-success]
-  (meets-state/update-meet *app-state auth-headers meet-id title description tags on-success))
+(defn update-meet
+  ([meet-id title description tags on-success]
+   (update-meet meet-id title description tags nil on-success))
+  ([meet-id title description tags expected-modified-at on-success]
+   (meets-state/update-meet *app-state auth-headers meet-id title description tags expected-modified-at on-success
+                            (edit-conflict-handler :meet "Failed to update meet"))))
 
 (defn delete-meet [meet-id]
   (meets-state/delete-meet *app-state auth-headers meet-id))
@@ -646,12 +657,16 @@
     (add-meeting-series-with-categories title (active-filter-categories) on-success)
     (meeting-series-state/add-meeting-series *app-state auth-headers current-scope title on-success fetch-meeting-series)))
 
-(defn update-meeting-series [series-id title description tags on-success]
-  (meeting-series-state/update-meeting-series *app-state auth-headers series-id title description tags
-    (fn []
-      (when (= series-id (:id (:meets-page/filter-series @*app-state)))
-        (swap! *app-state assoc-in [:meets-page/filter-series :title] title))
-      (when on-success (on-success)))))
+(defn update-meeting-series
+  ([series-id title description tags on-success]
+   (update-meeting-series series-id title description tags nil on-success))
+  ([series-id title description tags expected-modified-at on-success]
+   (meeting-series-state/update-meeting-series *app-state auth-headers series-id title description tags expected-modified-at
+     (fn []
+       (when (= series-id (:id (:meets-page/filter-series @*app-state)))
+         (swap! *app-state assoc-in [:meets-page/filter-series :title] title))
+       (when on-success (on-success)))
+     (edit-conflict-handler :meeting-series "Failed to update meeting series"))))
 
 (defn delete-meeting-series [series-id]
   (meeting-series-state/delete-meeting-series *app-state auth-headers series-id))
@@ -734,12 +749,16 @@
     (add-recurring-task-with-categories title (active-filter-categories) on-success)
     (recurring-tasks-state/add-recurring-task *app-state auth-headers current-scope title on-success fetch-recurring-tasks)))
 
-(defn update-recurring-task [rtask-id title description tags on-success]
-  (recurring-tasks-state/update-recurring-task *app-state auth-headers rtask-id title description tags
-    (fn []
-      (when (= rtask-id (:id (:tasks-page/filter-recurring @*app-state)))
-        (swap! *app-state assoc-in [:tasks-page/filter-recurring :title] title))
-      (when on-success (on-success)))))
+(defn update-recurring-task
+  ([rtask-id title description tags on-success]
+   (update-recurring-task rtask-id title description tags nil on-success))
+  ([rtask-id title description tags expected-modified-at on-success]
+   (recurring-tasks-state/update-recurring-task *app-state auth-headers rtask-id title description tags expected-modified-at
+     (fn []
+       (when (= rtask-id (:id (:tasks-page/filter-recurring @*app-state)))
+         (swap! *app-state assoc-in [:tasks-page/filter-recurring :title] title))
+       (when on-success (on-success)))
+     (edit-conflict-handler :recurring-task "Failed to update recurring task"))))
 
 (defn delete-recurring-task [rtask-id]
   (recurring-tasks-state/delete-recurring-task *app-state auth-headers rtask-id))
@@ -795,12 +814,16 @@
 (defn add-journal [title schedule-type on-success]
   (journals-state/add-journal *app-state auth-headers current-scope title schedule-type on-success fetch-journals))
 
-(defn update-journal [journal-id title description tags on-success]
-  (journals-state/update-journal *app-state auth-headers journal-id title description tags
-    (fn []
-      (when (= journal-id (:id (:resources-page/filter-journal @*app-state)))
-        (swap! *app-state assoc-in [:resources-page/filter-journal :title] title))
-      (when on-success (on-success)))))
+(defn update-journal
+  ([journal-id title description tags on-success]
+   (update-journal journal-id title description tags nil on-success))
+  ([journal-id title description tags expected-modified-at on-success]
+   (journals-state/update-journal *app-state auth-headers journal-id title description tags expected-modified-at
+     (fn []
+       (when (= journal-id (:id (:resources-page/filter-journal @*app-state)))
+         (swap! *app-state assoc-in [:resources-page/filter-journal :title] title))
+       (when on-success (on-success)))
+     (edit-conflict-handler :journal "Failed to update journal"))))
 
 (defn delete-journal [journal-id]
   (journals-state/delete-journal *app-state auth-headers journal-id))
@@ -851,8 +874,12 @@
 (defn add-journal-entry [title on-success]
   (journal-entries-state/add-journal-entry *app-state auth-headers current-scope title on-success fetch-journal-entries))
 
-(defn update-journal-entry [entry-id title description tags on-success]
-  (journal-entries-state/update-journal-entry *app-state auth-headers entry-id title description tags on-success))
+(defn update-journal-entry
+  ([entry-id title description tags on-success]
+   (update-journal-entry entry-id title description tags nil on-success))
+  ([entry-id title description tags expected-modified-at on-success]
+   (journal-entries-state/update-journal-entry *app-state auth-headers entry-id title description tags expected-modified-at on-success
+                                               (edit-conflict-handler :journal-entry "Failed to update journal entry"))))
 
 (defn delete-journal-entry [entry-id]
   (journal-entries-state/delete-journal-entry *app-state auth-headers entry-id))
@@ -1113,8 +1140,11 @@
 (defn add-motto [title description on-success]
   (mottos-state/add-motto *app-state auth-headers current-scope title description on-success fetch-mottos))
 
-(defn update-motto [motto-id title description on-success]
-  (mottos-state/update-motto *app-state auth-headers motto-id title description on-success))
+(defn update-motto
+  ([motto-id title description on-success]
+   (update-motto motto-id title description nil on-success))
+  ([motto-id title description expected-modified-at on-success]
+   (mottos-state/update-motto *app-state auth-headers motto-id title description expected-modified-at on-success)))
 
 (defn delete-motto [motto-id]
   (mottos-state/delete-motto *app-state auth-headers motto-id))
@@ -1207,17 +1237,33 @@
 (defn add-goal [name on-success]
   (categories/add-goal *app-state auth-headers name on-success))
 
-(defn update-person [id name description tags badge-title on-success]
-  (categories/update-person *app-state auth-headers fetch-tasks id name description tags badge-title on-success))
+(defn update-person
+  ([id name description tags badge-title on-success]
+   (update-person id name description tags badge-title nil on-success))
+  ([id name description tags badge-title expected-modified-at on-success]
+   (categories/update-person *app-state auth-headers fetch-tasks id name description tags badge-title expected-modified-at on-success
+                             (edit-conflict-handler :category-person "Failed to update person"))))
 
-(defn update-place [id name description tags badge-title on-success]
-  (categories/update-place *app-state auth-headers fetch-tasks id name description tags badge-title on-success))
+(defn update-place
+  ([id name description tags badge-title on-success]
+   (update-place id name description tags badge-title nil on-success))
+  ([id name description tags badge-title expected-modified-at on-success]
+   (categories/update-place *app-state auth-headers fetch-tasks id name description tags badge-title expected-modified-at on-success
+                            (edit-conflict-handler :category-place "Failed to update place"))))
 
-(defn update-project [id name description tags badge-title on-success]
-  (categories/update-project *app-state auth-headers fetch-tasks id name description tags badge-title on-success))
+(defn update-project
+  ([id name description tags badge-title on-success]
+   (update-project id name description tags badge-title nil on-success))
+  ([id name description tags badge-title expected-modified-at on-success]
+   (categories/update-project *app-state auth-headers fetch-tasks id name description tags badge-title expected-modified-at on-success
+                              (edit-conflict-handler :category-project "Failed to update project"))))
 
-(defn update-goal [id name description tags badge-title on-success]
-  (categories/update-goal *app-state auth-headers fetch-tasks id name description tags badge-title on-success))
+(defn update-goal
+  ([id name description tags badge-title on-success]
+   (update-goal id name description tags badge-title nil on-success))
+  ([id name description tags badge-title expected-modified-at on-success]
+   (categories/update-goal *app-state auth-headers fetch-tasks id name description tags badge-title expected-modified-at on-success
+                           (edit-conflict-handler :category-goal "Failed to update goal"))))
 
 (defn set-confirm-delete-category [category-type category]
   (categories/set-confirm-delete-category *app-state category-type category))
@@ -1314,8 +1360,12 @@
   (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title on-success))
 
-(defn update-task [task-id title description tags on-success]
-  (tasks/update-task *app-state auth-headers task-id title description tags on-success))
+(defn update-task
+  ([task-id title description tags on-success]
+   (update-task task-id title description tags nil on-success))
+  ([task-id title description tags expected-modified-at on-success]
+   (tasks/update-task *app-state auth-headers task-id title description tags expected-modified-at on-success
+                      (edit-conflict-handler :task "Failed to update task"))))
 
 (defn- fetch-tasks-and-maybe-reports []
   (fetch-tasks)
@@ -1710,15 +1760,57 @@
      (when-let [path (url/entity->path modal)]
        (url/push-state! (str path (when (= tab :edit) "?section=edit")))))))
 
-(defn open-filter-target-edit-modal [entity-type api-path id]
-  (api/fetch-json (str api-path id) (auth-headers)
-    (fn [entity]
-      (when entity
-        (set-editing-modal entity-type entity)))))
+(def ^:private edit-modal-api-paths
+  {:task "/api/tasks/"
+   :meet "/api/meets/"
+   :resource "/api/resources/"
+   :journal "/api/journals/"
+   :journal-entry "/api/journal-entries/"
+   :recurring-task "/api/recurring-tasks/"
+   :meeting-series "/api/meeting-series/"
+   :message "/api/messages/"
+   :category-person "/api/people/"
+   :category-place "/api/places/"
+   :category-project "/api/projects/"
+   :category-goal "/api/goals/"})
+
+(defn open-edit-modal
+  "Opens the edit modal for entity-type on a freshly-fetched copy of the row so
+  the modal never edits stale in-memory state. The fresh row is merged over the
+  in-memory entity, keeping display-only fields (e.g. :relations) while the
+  editable fields and :modified_at come from the backend. Falls back to the
+  in-memory entity if the fetch fails or the type has no fetch endpoint."
+  ([entity-type entity] (open-edit-modal entity-type entity :edit))
+  ([entity-type entity tab]
+   (if-let [api-path (edit-modal-api-paths entity-type)]
+     (api/fetch-json (str api-path (:id entity)) (auth-headers)
+       (fn [fresh]
+         (set-editing-modal entity-type (if fresh (merge entity fresh) entity) tab)))
+     (set-editing-modal entity-type entity tab))))
+
+(defn open-filter-target-edit-modal [entity-type _api-path id]
+  (open-edit-modal entity-type {:id id}))
 
 (defn clear-editing-modal []
   (swap! *app-state assoc :editing-modal nil)
   (url/push-state! "/"))
+
+(defn- edit-conflict-handler
+  "Error handler for optimistic-concurrency PUTs issued from the edit modal.
+  On HTTP 409 it surfaces the conflict and reopens the modal on the server's
+  current row (merged over the modal's entity) so the user can redo the edit
+  against fresh state; any other error just sets a generic message."
+  [entity-type fallback-msg]
+  (fn [resp]
+    (if (= 409 (:status resp))
+      (let [current (get-in resp [:response :current])
+            prev (get-in @*app-state [:editing-modal :entity])
+            tab (get-in @*app-state [:editing-modal :tab] :edit)]
+        (swap! *app-state assoc :error (get-in resp [:response :error] fallback-msg))
+        (when current
+          (swap! *app-state assoc :editing-modal
+                 {:type entity-type :entity (merge prev current) :tab tab})))
+      (swap! *app-state assoc :error (get-in resp [:response :error] fallback-msg)))))
 
 (defn set-work-private-mode [mode]
   (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports mode))

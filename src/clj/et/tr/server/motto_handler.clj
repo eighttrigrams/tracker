@@ -58,15 +58,17 @@
       {:status 400 :body {:success false :error "Title is required"}}
 
       :else
-      (let [before (events/fetch-fields :mottos motto-id [:title :description])
+      (let [expected (get-in req [:body :expected-modified-at])
+            before (events/fetch-fields :mottos motto-id [:title :description])
             motto (db.motto/update-motto (common/ensure-ds) user-id motto-id
                                          {:title title
-                                          :description (or description "")})]
+                                          :description (or description "")}
+                                         expected)]
         (if motto
           (do (events/record-update! req :motto motto-id before
                                      (select-keys motto [:title :description]))
               {:status 200 :body motto})
-          {:status 404 :body {:error "Motto not found"}})))))
+          (common/conflict-or-not-found (db.motto/get-motto (common/ensure-ds) user-id motto-id) "Motto not found"))))))
 
 (defn delete-motto-handler
   "DELETE /api/mottos/:id — delete a motto. Returns 200 {:success true}

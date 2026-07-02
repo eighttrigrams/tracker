@@ -111,12 +111,12 @@
       [clampable-description
        {:text description
         :content-type type
-        :on-click #(state/set-editing-modal :message message)}]
+        :on-click #(state/open-edit-modal :message message)}]
       [:button.copy-icon {:on-click #(.writeText js/navigator.clipboard description)} "⧉"]]
      [:button.edit-icon.description-placeholder
       {:on-click (fn [e]
                    (.stopPropagation e)
-                   (state/set-editing-modal :message message))}
+                   (state/open-edit-modal :message message))}
       "✎"])])
 
 (defn- mail-title-content [{:keys [item expanded? editing? title-el]}]

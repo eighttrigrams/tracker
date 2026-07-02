@@ -73,7 +73,7 @@
     [:li {:class (str (when is-dragging "dragging")
                       (when is-drag-over " drag-over"))
           :draggable true
-          :on-click #(state/set-editing-modal (keyword (str "category-" category-type)) item)
+          :on-click #(state/open-edit-modal (keyword (str "category-" category-type)) item)
             :on-drag-start (fn [e]
                              (.setData (.-dataTransfer e) "text/plain" (str (:id item)))
                              (state/set-drag-category state-key (:id item)))
@@ -117,11 +117,11 @@
         (if (seq (:description item))
           [task-item/clampable-description
            {:text (:description item)
-            :on-click #(state/set-editing-modal (keyword (str "category-" category-type)) item)}]
+            :on-click #(state/open-edit-modal (keyword (str "category-" category-type)) item)}]
           [:button.edit-icon.description-placeholder
            {:on-click (fn [e]
                         (.stopPropagation e)
-                        (state/set-editing-modal (keyword (str "category-" category-type)) item))}
+                        (state/open-edit-modal (keyword (str "category-" category-type)) item))}
            "✎"])])]))
 
 (defn category-cards-page [category-type]

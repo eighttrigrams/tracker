@@ -77,7 +77,7 @@
                [:span.filter-item-label {:class label-class}
                 (if entity-type
                   [:span.filter-item-name
-                   {:on-click #(state/set-editing-modal entity-type item)}
+                   {:on-click #(state/open-edit-modal entity-type item)}
                    (:name item)]
                   (:name item))
                 [:button.remove-item {:on-click #(toggle-fn (:id item))} "x"]]))]))

@@ -70,9 +70,10 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add journal entry")))))
 
-(defn update-journal-entry [app-state auth-headers entry-id title description tags on-success]
+(defn update-journal-entry [app-state auth-headers entry-id title description tags expected-modified-at on-success on-error]
   (api/put-json (str "/api/journal-entries/" entry-id)
-    {:title title :description description :tags tags}
+    (cond-> {:title title :description description :tags tags}
+      expected-modified-at (assoc :expected-modified-at expected-modified-at))
     (auth-headers)
     (fn [result]
       (let [merge-fn (fn [entries]
@@ -86,8 +87,9 @@
                                (update :today-journal-entries merge-fn)
                                (update-in [:reports-data :journal_entries] merge-fn)))))
       (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update journal entry")))))
+    (or on-error
+        (fn [resp]
+          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update journal entry"))))))
 
 (defn delete-journal-entry [app-state auth-headers entry-id]
   (api/delete-simple (str "/api/journal-entries/" entry-id)

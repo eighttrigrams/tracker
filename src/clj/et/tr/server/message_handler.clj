@@ -212,6 +212,15 @@
             {:status 200 :body {:success true}})
         {:status 404 :body {:success false :error "Message not found"}}))))
 
+(defn get-message-handler
+  "GET /api/messages/:id — fetch a single message owned by the caller. Requires
+  Mail access (403); returns 200 with the row, or 404 when not found."
+  [req]
+  (with-mail-message-context req user-id message-id
+    (if-let [message (db.message/get-message (common/ensure-ds) user-id message-id)]
+      {:status 200 :body message}
+      {:status 404 :body {:error "Message not found"}})))
+
 (defn update-message-handler
   "PUT /api/messages/:id — update a message's title and/or description. Body
   fields: title (required, non-blank; 400 otherwise), description. Records an
@@ -219,16 +228,17 @@
   when the message is not found."
   [req]
   (with-mail-message-context req user-id message-id
-    (let [{:keys [title description]} (:body req)]
+    (let [{:keys [title description]} (:body req)
+          expected (get-in req [:body :expected-modified-at])]
       (if (str/blank? title)
         {:status 400 :body {:error "Title is required"}}
         (let [before (events/fetch-fields :messages message-id [:title :description])
-              result (db.message/update-message (common/ensure-ds) user-id message-id title description)]
+              result (db.message/update-message (common/ensure-ds) user-id message-id title description expected)]
           (if result
             (do (events/record-update! req :message message-id before
                                        (select-keys result [:title :description]))
                 {:status 200 :body result})
-            {:status 404 :body {:error "Message not found"}}))))))
+            (common/conflict-or-not-found (db.message/get-message (common/ensure-ds) user-id message-id) "Message not found")))))))
 
 (defn set-message-scope-handler
   "PUT /api/messages/:id/scope — set a message's scope. Body field: scope

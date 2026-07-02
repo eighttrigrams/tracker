@@ -153,15 +153,17 @@
             categories-by-meet (group-by :meet_id categories-data)]
         (first (associate-categories-with-meets [meet] categories-by-meet people-by-id places-by-id projects-by-id goals-by-id))))))
 
-(defn update-meet [ds user-id meet-id fields]
-  (let [set-map (assoc fields :modified_at [:raw "datetime('now')"])
-        return-cols (into [:id :created_at :modified_at] (keys fields))]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :meets
-                   :set set-map
-                   :where [:and [:= :id meet-id] (db/user-id-where-clause user-id)]
-                   :returning return-cols})
-      db/jdbc-opts)))
+(defn update-meet
+  ([ds user-id meet-id fields] (update-meet ds user-id meet-id fields nil))
+  ([ds user-id meet-id fields expected-modified-at]
+   (let [set-map (assoc fields :modified_at [:raw "datetime('now')"])
+         return-cols (into [:id :created_at :modified_at] (keys fields))]
+     (jdbc/execute-one! (db/get-conn ds)
+       (sql/format {:update :meets
+                    :set set-map
+                    :where (db/update-where meet-id user-id expected-modified-at)
+                    :returning return-cols})
+       db/jdbc-opts))))
 
 (defn delete-meet [ds user-id meet-id]
   (when (meet-owned-by-user? ds meet-id user-id)

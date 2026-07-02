@@ -53,9 +53,10 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meeting series")))))
 
-(defn update-meeting-series [app-state auth-headers series-id title description tags on-success]
+(defn update-meeting-series [app-state auth-headers series-id title description tags expected-modified-at on-success on-error]
   (api/put-json (str "/api/meeting-series/" series-id)
-    {:title title :description description :tags tags}
+    (cond-> {:title title :description description :tags tags}
+      expected-modified-at (assoc :expected-modified-at expected-modified-at))
     (auth-headers)
     (fn [result]
       (swap! app-state update :meeting-series
@@ -65,8 +66,9 @@
                         %)
                      series)))
       (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update meeting series")))))
+    (or on-error
+        (fn [resp]
+          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update meeting series"))))))
 
 (defn delete-meeting-series [app-state auth-headers series-id]
   (api/delete-simple (str "/api/meeting-series/" series-id)

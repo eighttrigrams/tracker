@@ -37,7 +37,7 @@
         save (fn []
                (let [t* (str/trim @title)]
                  (when (seq t*)
-                   (state/update-motto (:id motto) t* @description on-done))))]
+                   (state/update-motto (:id motto) t* @description (:modified_at motto) on-done))))]
     (fn [motto _]
       [:div.motto-edit
        [:input.motto-edit-title

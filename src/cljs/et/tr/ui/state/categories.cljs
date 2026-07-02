@@ -44,29 +44,31 @@
 (defn add-goal [app-state auth-headers name on-success]
   (add-category-entity app-state auth-headers "/api/goals" :goals "Failed to add goal" name on-success))
 
-(defn- update-category-entity [app-state auth-headers fetch-tasks-fn endpoint state-key error-msg id name description tags badge-title on-success]
+(defn- update-category-entity [app-state auth-headers fetch-tasks-fn endpoint state-key error-msg id name description tags badge-title expected-modified-at on-success on-error]
   (api/put-json (str endpoint id)
-    {:name name :description description :tags tags :badge-title badge-title}
+    (cond-> {:name name :description description :tags tags :badge-title badge-title}
+      expected-modified-at (assoc :expected-modified-at expected-modified-at))
     (auth-headers)
     (fn [updated]
       (swap! app-state update state-key
              #(sort-by-modified (mapv (fn [item] (if (= (:id item) id) updated item)) %)))
       (fetch-tasks-fn)
       (when on-success (on-success)))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] error-msg)))))
+    (or on-error
+        (fn [resp]
+          (swap! app-state assoc :error (get-in resp [:response :error] error-msg))))))
 
-(defn update-person [app-state auth-headers fetch-tasks-fn id name description tags badge-title on-success]
-  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/people/" :people "Failed to update person" id name description tags badge-title on-success))
+(defn update-person [app-state auth-headers fetch-tasks-fn id name description tags badge-title expected-modified-at on-success on-error]
+  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/people/" :people "Failed to update person" id name description tags badge-title expected-modified-at on-success on-error))
 
-(defn update-place [app-state auth-headers fetch-tasks-fn id name description tags badge-title on-success]
-  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/places/" :places "Failed to update place" id name description tags badge-title on-success))
+(defn update-place [app-state auth-headers fetch-tasks-fn id name description tags badge-title expected-modified-at on-success on-error]
+  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/places/" :places "Failed to update place" id name description tags badge-title expected-modified-at on-success on-error))
 
-(defn update-project [app-state auth-headers fetch-tasks-fn id name description tags badge-title on-success]
-  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/projects/" :projects "Failed to update project" id name description tags badge-title on-success))
+(defn update-project [app-state auth-headers fetch-tasks-fn id name description tags badge-title expected-modified-at on-success on-error]
+  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/projects/" :projects "Failed to update project" id name description tags badge-title expected-modified-at on-success on-error))
 
-(defn update-goal [app-state auth-headers fetch-tasks-fn id name description tags badge-title on-success]
-  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/goals/" :goals "Failed to update goal" id name description tags badge-title on-success))
+(defn update-goal [app-state auth-headers fetch-tasks-fn id name description tags badge-title expected-modified-at on-success on-error]
+  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/goals/" :goals "Failed to update goal" id name description tags badge-title expected-modified-at on-success on-error))
 
 (defn set-confirm-delete-category [app-state category-type category]
   (swap! app-state assoc :confirm-delete-category {:type category-type :category category}))

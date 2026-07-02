@@ -54,16 +54,18 @@
                  :where [:and [:= :id motto-id] (db/user-id-where-clause user-id)]})
     db/jdbc-opts))
 
-(defn update-motto [ds user-id motto-id fields]
-  (let [field-names (keys fields)
-        set-map (assoc fields :modified_at [:raw "datetime('now')"])
-        return-cols (into [:id :created_at :modified_at] field-names)]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :mottos
-                   :set set-map
-                   :where [:and [:= :id motto-id] (db/user-id-where-clause user-id)]
-                   :returning return-cols})
-      db/jdbc-opts)))
+(defn update-motto
+  ([ds user-id motto-id fields] (update-motto ds user-id motto-id fields nil))
+  ([ds user-id motto-id fields expected-modified-at]
+   (let [field-names (keys fields)
+         set-map (assoc fields :modified_at [:raw "datetime('now')"])
+         return-cols (into [:id :created_at :modified_at] field-names)]
+     (jdbc/execute-one! (db/get-conn ds)
+       (sql/format {:update :mottos
+                    :set set-map
+                    :where (db/update-where motto-id user-id expected-modified-at)
+                    :returning return-cols})
+       db/jdbc-opts))))
 
 (defn set-motto-field [ds user-id motto-id field value]
   (let [normalize-fn (get db/field-normalizers field identity)
