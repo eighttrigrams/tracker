@@ -190,19 +190,6 @@
                    :returning [:id field :modified_at]})
       db/jdbc-opts)))
 
-(defn set-recurring-task-schedule [ds user-id rtask-id schedule-days schedule-time schedule-mode biweekly-offset task-type]
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update :recurring_tasks
-                 :set {:schedule_days (or schedule-days "")
-                       :schedule_time schedule-time
-                       :schedule_mode (or schedule-mode "weekly")
-                       :biweekly_offset (if biweekly-offset 1 0)
-                       :task_type (or task-type "due_date")
-                       :modified_at [:raw "datetime('now')"]}
-                 :where [:and [:= :id rtask-id] (db/user-id-where-clause user-id)]
-                 :returning [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type :modified_at]})
-    db/jdbc-opts))
-
 (defn create-task-for-recurring [ds user-id rtask-id date time]
   (when (recurring-task-owned-by-user? ds rtask-id user-id)
     (let [conn (db/get-conn ds)

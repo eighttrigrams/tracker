@@ -28,11 +28,21 @@
 
 ;; ── Recurring Tasks ──
 
+(defn- set-recurring-schedule!
+  "Apply a schedule to a recurring task through the surviving folded update
+  path (a title-carrying content update that also lands the schedule fields)."
+  [rt-id schedule-days task-type]
+  (db.recurring-task/update-recurring-task
+    *ds* *user-id* rt-id
+    {:schedule_days (or schedule-days "")
+     :schedule_time nil
+     :schedule_mode "weekly"
+     :biweekly_offset 0
+     :task_type task-type}))
+
 (defn- setup-today-type-recurring-task []
   (let [rt (db.recurring-task/add-recurring-task *ds* *user-id* "Test Task")]
-    (db.recurring-task/set-recurring-task-schedule
-      *ds* *user-id* (:id rt)
-      (schedule-days-today-and-next) nil "weekly" false "today")
+    (set-recurring-schedule! (:id rt) (schedule-days-today-and-next) "today")
     rt))
 
 (deftest recurring-task-today-type-creates-task
@@ -87,9 +97,7 @@
 (deftest recurring-task-today-type-delete-no-create-outside-window
   (testing "deleting today's task does not create when next scheduled date is beyond today+4"
     (let [rt (db.recurring-task/add-recurring-task *ds* *user-id* "Weekly Only Today")]
-      (db.recurring-task/set-recurring-task-schedule
-        *ds* *user-id* (:id rt)
-        (today-dow) nil "weekly" false "today")
+      (set-recurring-schedule! (:id rt) (today-dow) "today")
       (worker/run-recurring-tasks-check *ds*)
       (let [task-id (:id (first (db.task/list-tasks *ds* *user-id* {:recurring-task-id (:id rt)})))]
         (db.task/delete-task *ds* *user-id* task-id)
