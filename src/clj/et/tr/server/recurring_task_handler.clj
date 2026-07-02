@@ -170,28 +170,6 @@
                        (common/valid-time-format? (second parts)))))
               (str/split schedule-time #","))))
 
-(defn set-recurring-task-schedule-handler
-  "PUT /api/recurring-tasks/:id/schedule — set the scheduling rule for a
-  recurring task. Body fields: :schedule-days, :schedule-time (either a single
-  HH:MM value or a comma-separated list of \"day=HH:MM\" pairs with day in
-  1..7), :schedule-mode, :biweekly-offset and :task-type. Returns 400 {:error
-  \"Invalid time format\"} for malformed times, 404 when the recurring task is
-  missing, otherwise 200 with the updated row and a :recurring-task update
-  event."
-  [req]
-  (let [user-id (common/get-user-id req)
-        rtask-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [schedule-days schedule-time schedule-mode biweekly-offset task-type]} (:body req)]
-    (if (not (valid-schedule-time? schedule-time))
-      {:status 400 :body {:error "Invalid time format"}}
-      (let [before (events/fetch-fields :recurring_tasks rtask-id
-                                        [:schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type])]
-        (if-let [result (db.recurring-task/set-recurring-task-schedule (common/ensure-ds) user-id rtask-id schedule-days schedule-time schedule-mode biweekly-offset task-type)]
-          (do (events/record-update! req :recurring-task rtask-id before
-                                     (select-keys result [:schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type]))
-              {:status 200 :body result})
-          {:status 404 :body {:error "Recurring task not found"}})))))
-
 (def set-recurring-task-scope-handler
   "PUT /api/recurring-tasks/:id/scope — change the scope of a recurring task.
   Body field :scope must be one of db/valid-scopes (private/both/work);

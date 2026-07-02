@@ -302,6 +302,12 @@
                (not= @relation-badge-title (or (:relation_badge_title entity) "")))
       (state/set-relation-badge-title type id @relation-badge-title))
     (case type
+      ;; :task / :meet chain the date/time setters after the OC-guarded content
+      ;; PUT succeeds. If the content PUT commits (200) but a follow-up date/time
+      ;; setter then fails, the write is partial: title/description/tags persist
+      ;; while the date/time change does not (and the modal stays open on the
+      ;; setter's error). This is accepted — the setters run strictly after the
+      ;; content commit to preserve the due-date cascade without a self-conflict.
       :task (state/update-task id @title @description @tags expected
               (fn []
                 (when (and due-date (not= @due-date (or (:due_date entity) "")))

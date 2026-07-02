@@ -691,9 +691,6 @@
 (defn clear-confirm-delete-series []
   (meeting-series-state/clear-confirm-delete-series))
 
-(defn set-meeting-series-schedule [series-id schedule-days schedule-time schedule-mode biweekly-offset maybe on-success]
-  (meeting-series-state/set-meeting-series-schedule *app-state auth-headers series-id schedule-days schedule-time schedule-mode biweekly-offset maybe on-success))
-
 (defn create-meeting-for-series [series-id date time]
   (meeting-series-state/create-meeting-for-series *app-state auth-headers fetch-meeting-series series-id date time))
 
@@ -778,9 +775,6 @@
 
 (defn clear-confirm-delete-rtask []
   (recurring-tasks-state/clear-confirm-delete-rtask))
-
-(defn set-recurring-task-schedule [rtask-id schedule-days schedule-time schedule-mode biweekly-offset task-type on-success]
-  (recurring-tasks-state/set-recurring-task-schedule *app-state auth-headers rtask-id schedule-days schedule-time schedule-mode biweekly-offset task-type on-success))
 
 (defn create-task-for-recurring [rtask-id date time]
   (recurring-tasks-state/create-task-for-recurring *app-state auth-headers fetch-recurring-tasks rtask-id date time))

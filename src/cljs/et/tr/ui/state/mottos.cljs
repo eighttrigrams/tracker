@@ -45,6 +45,7 @@
       expected-modified-at (assoc :expected-modified-at expected-modified-at))
     (auth-headers)
     (fn [result]
+      (swap! app-state assoc :error nil)
       (swap! app-state update :mottos
              (fn [mottos]
                (mapv #(if (= (:id %) motto-id)

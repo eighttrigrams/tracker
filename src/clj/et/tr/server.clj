@@ -320,7 +320,6 @@
       (POST "/:id/categorize" [] recurring-task-handler/categorize-recurring-task-handler)
       (DELETE "/:id/categorize" [] recurring-task-handler/uncategorize-recurring-task-handler)
       (PUT "/:id/scope" [] recurring-task-handler/set-recurring-task-scope-handler)
-      (PUT "/:id/schedule" [] recurring-task-handler/set-recurring-task-schedule-handler)
       (POST "/:id/create-task" [] recurring-task-handler/create-next-task-handler)
       (GET "/:id/taken-dates" [] recurring-task-handler/get-taken-dates-handler))
 
