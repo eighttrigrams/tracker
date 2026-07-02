@@ -302,22 +302,28 @@
                (not= @relation-badge-title (or (:relation_badge_title entity) "")))
       (state/set-relation-badge-title type id @relation-badge-title))
     (case type
-      :task (do
-              (when (and due-date (not= @due-date (or (:due_date entity) "")))
-                (state/set-task-due-date id (when (seq @due-date) @due-date)))
-              (when (and due-time (not= @due-time (or (:due_time entity) "")))
-                (state/set-task-due-time id (when (seq @due-time) @due-time)))
-              (state/update-task id @title @description @tags expected state/clear-editing-modal))
-      :meet (do
-              (when (and start-date (not= @start-date (or (:start_date entity) "")))
-                (state/set-meet-start-date id (when (seq @start-date) @start-date)))
-              (when (and start-time (not= @start-time (or (:start_time entity) "")))
-                (state/set-meet-start-time id (when (seq @start-time) @start-time)))
-              (state/update-meet id @title @description @tags expected state/clear-editing-modal))
-      :meeting-series (do (state/update-meeting-series id @title @description @tags expected state/clear-editing-modal)
-                          (state/set-meeting-series-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset @maybe nil))
-      :recurring-task (do (state/update-recurring-task id @title @description @tags expected state/clear-editing-modal)
-                          (state/set-recurring-task-schedule id @schedule-days @schedule-time @schedule-mode @biweekly-offset @task-type nil))
+      :task (state/update-task id @title @description @tags expected
+              (fn []
+                (when (and due-date (not= @due-date (or (:due_date entity) "")))
+                  (state/set-task-due-date id (when (seq @due-date) @due-date)))
+                (when (and due-time (not= @due-time (or (:due_time entity) "")))
+                  (state/set-task-due-time id (when (seq @due-time) @due-time)))
+                (state/clear-editing-modal)))
+      :meet (state/update-meet id @title @description @tags expected
+              (fn []
+                (when (and start-date (not= @start-date (or (:start_date entity) "")))
+                  (state/set-meet-start-date id (when (seq @start-date) @start-date)))
+                (when (and start-time (not= @start-time (or (:start_time entity) "")))
+                  (state/set-meet-start-time id (when (seq @start-time) @start-time)))
+                (state/clear-editing-modal)))
+      :meeting-series (state/update-meeting-series id @title @description @tags expected
+                        {:schedule-days @schedule-days :schedule-time @schedule-time
+                         :schedule-mode @schedule-mode :biweekly-offset @biweekly-offset :maybe @maybe}
+                        state/clear-editing-modal)
+      :recurring-task (state/update-recurring-task id @title @description @tags expected
+                        {:schedule-days @schedule-days :schedule-time @schedule-time
+                         :schedule-mode @schedule-mode :biweekly-offset @biweekly-offset :task-type @task-type}
+                        state/clear-editing-modal)
       :journal (state/update-journal id @title @description @tags expected state/clear-editing-modal)
       :journal-entry (state/update-journal-entry id @title @description @tags expected state/clear-editing-modal)
       :resource (let [desc (if (or (contains? entity :description) (not= @description "")) @description nil)

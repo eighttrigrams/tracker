@@ -659,9 +659,11 @@
 
 (defn update-meeting-series
   ([series-id title description tags on-success]
-   (update-meeting-series series-id title description tags nil on-success))
+   (update-meeting-series series-id title description tags nil nil on-success))
   ([series-id title description tags expected-modified-at on-success]
-   (meeting-series-state/update-meeting-series *app-state auth-headers series-id title description tags expected-modified-at
+   (update-meeting-series series-id title description tags expected-modified-at nil on-success))
+  ([series-id title description tags expected-modified-at schedule on-success]
+   (meeting-series-state/update-meeting-series *app-state auth-headers series-id title description tags expected-modified-at schedule
      (fn []
        (when (= series-id (:id (:meets-page/filter-series @*app-state)))
          (swap! *app-state assoc-in [:meets-page/filter-series :title] title))
@@ -751,9 +753,11 @@
 
 (defn update-recurring-task
   ([rtask-id title description tags on-success]
-   (update-recurring-task rtask-id title description tags nil on-success))
+   (update-recurring-task rtask-id title description tags nil nil on-success))
   ([rtask-id title description tags expected-modified-at on-success]
-   (recurring-tasks-state/update-recurring-task *app-state auth-headers rtask-id title description tags expected-modified-at
+   (update-recurring-task rtask-id title description tags expected-modified-at nil on-success))
+  ([rtask-id title description tags expected-modified-at schedule on-success]
+   (recurring-tasks-state/update-recurring-task *app-state auth-headers rtask-id title description tags expected-modified-at schedule
      (fn []
        (when (= rtask-id (:id (:tasks-page/filter-recurring @*app-state)))
          (swap! *app-state assoc-in [:tasks-page/filter-recurring :title] title))
@@ -1142,9 +1146,11 @@
 
 (defn update-motto
   ([motto-id title description on-success]
-   (update-motto motto-id title description nil on-success))
+   (update-motto motto-id title description nil on-success nil))
   ([motto-id title description expected-modified-at on-success]
-   (mottos-state/update-motto *app-state auth-headers motto-id title description expected-modified-at on-success)))
+   (update-motto motto-id title description expected-modified-at on-success nil))
+  ([motto-id title description expected-modified-at on-success on-conflict]
+   (mottos-state/update-motto *app-state auth-headers motto-id title description expected-modified-at on-success on-conflict)))
 
 (defn delete-motto [motto-id]
   (mottos-state/delete-motto *app-state auth-headers motto-id))
@@ -1783,16 +1789,18 @@
   ([entity-type entity] (open-edit-modal entity-type entity :edit))
   ([entity-type entity tab]
    (if-let [api-path (edit-modal-api-paths entity-type)]
-     (api/fetch-json (str api-path (:id entity)) (auth-headers)
+     (api/fetch-json-with-error (str api-path (:id entity)) (auth-headers)
        (fn [fresh]
-         (set-editing-modal entity-type (if fresh (merge entity fresh) entity) tab)))
+         (set-editing-modal entity-type (if fresh (merge entity fresh) entity) tab))
+       (fn [_]
+         (set-editing-modal entity-type entity tab)))
      (set-editing-modal entity-type entity tab))))
 
 (defn open-filter-target-edit-modal [entity-type _api-path id]
   (open-edit-modal entity-type {:id id}))
 
 (defn clear-editing-modal []
-  (swap! *app-state assoc :editing-modal nil)
+  (swap! *app-state assoc :editing-modal nil :error nil)
   (url/push-state! "/"))
 
 (defn- edit-conflict-handler

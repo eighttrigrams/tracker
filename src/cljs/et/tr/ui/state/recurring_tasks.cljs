@@ -52,10 +52,11 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add recurring task")))))
 
-(defn update-recurring-task [app-state auth-headers rtask-id title description tags expected-modified-at on-success on-error]
+(defn update-recurring-task [app-state auth-headers rtask-id title description tags expected-modified-at schedule on-success on-error]
   (api/put-json (str "/api/recurring-tasks/" rtask-id)
     (cond-> {:title title :description description :tags tags}
-      expected-modified-at (assoc :expected-modified-at expected-modified-at))
+      expected-modified-at (assoc :expected-modified-at expected-modified-at)
+      schedule (merge schedule))
     (auth-headers)
     (fn [result]
       (swap! app-state update :recurring-tasks

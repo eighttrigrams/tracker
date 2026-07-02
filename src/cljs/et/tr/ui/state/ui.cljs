@@ -85,6 +85,7 @@
     (swap! app-state assoc k (:active-tab @app-state)))
   (swap! app-state assoc
          :active-tab tab
+         :error nil
          :category-selector/open nil
          :category-selector/search ""
          :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}

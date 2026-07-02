@@ -120,17 +120,22 @@
         expected (get-in req [:body :expected-modified-at])]
     (if (str/blank? name)
       {:status 400 :body {:success false :error "Name is required"}}
-      (try
-        (let [before (events/fetch-fields table cat-id [:name :description :tags :badge_title])
-              result (db-fn (common/ensure-ds) user-id cat-id name (or description "") (or tags "") badge-title expected)]
-          (if result
-            (do (events/record-update! req entity-type cat-id before
-                                       (select-keys result [:name :description :tags :badge_title]))
-                {:status 200 :body result})
-            (common/conflict-or-not-found (db.category/get-category (common/ensure-ds) user-id cat-id (clojure.core/name table))
-                                          (str label " not found"))))
-        (catch Exception _
-          {:status 409 :body {:success false :error (str label " with this name already exists")}})))))
+      (let [before (events/fetch-fields table cat-id [:name :description :tags :badge_title])
+            result (try
+                     (db-fn (common/ensure-ds) user-id cat-id name (or description "") (or tags "") badge-title expected)
+                     (catch Exception _ ::name-collision))]
+        (cond
+          (= result ::name-collision)
+          {:status 409 :body {:success false :error (str label " with this name already exists")}}
+
+          result
+          (do (events/record-update! req entity-type cat-id before
+                                     (select-keys result [:name :description :tags :badge_title]))
+              {:status 200 :body result})
+
+          :else
+          (common/conflict-or-not-found (db.category/get-category (common/ensure-ds) user-id cat-id (clojure.core/name table))
+                                        (str label " not found")))))))
 
 (defn update-person-handler
   "PUT /api/people/:id — update the named person. Body: {:name :description

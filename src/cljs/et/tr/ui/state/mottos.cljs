@@ -39,7 +39,7 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add motto")))))
 
-(defn update-motto [app-state auth-headers motto-id title description expected-modified-at on-success]
+(defn update-motto [app-state auth-headers motto-id title description expected-modified-at on-success on-conflict]
   (api/put-json (str "/api/mottos/" motto-id)
     (cond-> {:title title :description description}
       expected-modified-at (assoc :expected-modified-at expected-modified-at))
@@ -57,7 +57,8 @@
       (when-let [current (and (= 409 (:status resp)) (get-in resp [:response :current]))]
         (swap! app-state update :mottos
                (fn [mottos]
-                 (mapv #(if (= (:id %) motto-id) (merge % current) %) mottos)))))))
+                 (mapv #(if (= (:id %) motto-id) (merge % current) %) mottos)))
+        (when on-conflict (on-conflict current))))))
 
 (defn delete-motto [app-state auth-headers motto-id]
   (api/delete-simple (str "/api/mottos/" motto-id)

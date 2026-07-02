@@ -34,10 +34,15 @@
 (defn- motto-edit-row [motto on-done]
   (let [title (r/atom (:title motto))
         description (r/atom (or (:description motto) ""))
+        expected (r/atom (:modified_at motto))
+        on-conflict (fn [current]
+                      (reset! title (:title current))
+                      (reset! description (or (:description current) ""))
+                      (reset! expected (:modified_at current)))
         save (fn []
                (let [t* (str/trim @title)]
                  (when (seq t*)
-                   (state/update-motto (:id motto) t* @description (:modified_at motto) on-done))))]
+                   (state/update-motto (:id motto) t* @description @expected on-done on-conflict))))]
     (fn [motto _]
       [:div.motto-edit
        [:input.motto-edit-title

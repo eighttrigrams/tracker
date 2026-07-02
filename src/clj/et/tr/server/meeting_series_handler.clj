@@ -5,6 +5,8 @@
             [et.tr.db.meeting-series :as db.meeting-series]
             [clojure.string :as str]))
 
+(declare valid-schedule-time? valid-maybe?)
+
 (defn get-meeting-series-handler
   "GET /api/meeting-series/:id — fetch a single meeting series by numeric id,
   scoped to the calling user. Returns the full row on 200, or {:error
@@ -53,22 +55,43 @@
 
 (defn update-meeting-series-handler
   "PUT /api/meeting-series/:id — update the title, description, and tags of a
-  meeting series. Body: {:title :description :tags}. Title is required (400 if
-  blank); description and tags default to \"\" when missing. Captures the
-  prior values before the write and emits an :update event with before/after
-  diffs."
+  meeting series, and (when the body carries schedule fields) the recurring
+  schedule in the same write. Body: {:title :description :tags} plus optionally
+  :schedule-days, :schedule-time, :schedule-mode, :biweekly-offset and :maybe.
+  Title is required (400 if blank); description and tags default to \"\" when
+  missing; an invalid schedule-time or maybe yields 400. Folding the schedule
+  into this single optimistic-concurrency-guarded update means one modified_at
+  bump and one conflict check per modal save, so a save can never lose the text
+  edit to a racing schedule write. Captures the prior values before the write
+  and emits an :update event with before/after diffs."
   [req]
   (let [user-id (common/get-user-id req)
         series-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [title description tags]} (:body req)]
-    (if (str/blank? title)
+        {:keys [title description tags schedule-days schedule-time schedule-mode biweekly-offset maybe]} (:body req)
+        has-schedule? (contains? (:body req) :schedule-days)]
+    (cond
+      (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
+
+      (and has-schedule? (or (not (valid-schedule-time? schedule-time))
+                             (not (valid-maybe? maybe))))
+      {:status 400 :body {:error "Invalid time format"}}
+
+      :else
       (let [expected (get-in req [:body :expected-modified-at])
-            before (events/fetch-fields :meeting_series series-id [:title :description :tags])
-            result (db.meeting-series/update-meeting-series (common/ensure-ds) user-id series-id {:title title :description (or description "") :tags (or tags "")} expected)]
+            fields (cond-> {:title title :description (or description "") :tags (or tags "")}
+                     has-schedule? (assoc :schedule_days (or schedule-days "")
+                                          :schedule_time schedule-time
+                                          :schedule_mode (or schedule-mode "weekly")
+                                          :biweekly_offset (if biweekly-offset 1 0)
+                                          :maybe (or maybe "0")))
+            before-cols (cond-> [:title :description :tags]
+                          has-schedule? (into [:schedule_days :schedule_time :schedule_mode :biweekly_offset :maybe]))
+            before (events/fetch-fields :meeting_series series-id before-cols)
+            result (db.meeting-series/update-meeting-series (common/ensure-ds) user-id series-id fields expected)]
         (if result
           (do (events/record-update! req :meeting-series series-id before
-                                     (select-keys result [:title :description :tags]))
+                                     (select-keys result (keys fields)))
               {:status 200 :body result})
           (common/conflict-or-not-found (db.meeting-series/get-meeting-series (common/ensure-ds) user-id series-id) "Meeting series not found"))))))
 

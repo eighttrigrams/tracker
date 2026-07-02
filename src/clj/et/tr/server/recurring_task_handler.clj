@@ -5,6 +5,8 @@
             [et.tr.db.recurring-task :as db.recurring-task]
             [clojure.string :as str]))
 
+(declare valid-schedule-time?)
+
 (defn get-recurring-task-handler
   "GET /api/recurring-tasks/:id — fetch a single recurring task by id for the
   current user. Parses :id as an integer. Returns the task row on 200, or 404
@@ -54,22 +56,42 @@
 
 (defn update-recurring-task-handler
   "PUT /api/recurring-tasks/:id — update title/description/tags on a recurring
-  task. Body fields: :title (required, non-blank), :description and :tags
-  (default to empty strings). Returns 400 {:success false :error \"Title is
-  required\"} for a blank title, otherwise 200 with the updated row and
-  records a :recurring-task update event with before/after field snapshots."
+  task, and (when the body carries schedule fields) the scheduling rule in the
+  same write. Body fields: :title (required, non-blank), :description and :tags
+  (default to empty strings), and optionally :schedule-days, :schedule-time,
+  :schedule-mode, :biweekly-offset and :task-type. Folding the schedule into
+  this single optimistic-concurrency-guarded update means one modified_at bump
+  and one conflict check per modal save, so a save can never lose the text edit
+  to a racing schedule write. Returns 400 for a blank title or an invalid
+  schedule-time, otherwise 200 with the updated row and records a
+  :recurring-task update event with before/after field snapshots."
   [req]
   (let [user-id (common/get-user-id req)
         rtask-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [title description tags]} (:body req)]
-    (if (str/blank? title)
+        {:keys [title description tags schedule-days schedule-time schedule-mode biweekly-offset task-type]} (:body req)
+        has-schedule? (contains? (:body req) :schedule-days)]
+    (cond
+      (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
+
+      (and has-schedule? (not (valid-schedule-time? schedule-time)))
+      {:status 400 :body {:error "Invalid time format"}}
+
+      :else
       (let [expected (get-in req [:body :expected-modified-at])
-            before (events/fetch-fields :recurring_tasks rtask-id [:title :description :tags])
-            result (db.recurring-task/update-recurring-task (common/ensure-ds) user-id rtask-id {:title title :description (or description "") :tags (or tags "")} expected)]
+            fields (cond-> {:title title :description (or description "") :tags (or tags "")}
+                     has-schedule? (assoc :schedule_days (or schedule-days "")
+                                          :schedule_time schedule-time
+                                          :schedule_mode (or schedule-mode "weekly")
+                                          :biweekly_offset (if biweekly-offset 1 0)
+                                          :task_type (or task-type "due_date")))
+            before-cols (cond-> [:title :description :tags]
+                          has-schedule? (into [:schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type]))
+            before (events/fetch-fields :recurring_tasks rtask-id before-cols)
+            result (db.recurring-task/update-recurring-task (common/ensure-ds) user-id rtask-id fields expected)]
         (if result
           (do (events/record-update! req :recurring-task rtask-id before
-                                     (select-keys result [:title :description :tags]))
+                                     (select-keys result (keys fields)))
               {:status 200 :body result})
           (common/conflict-or-not-found (db.recurring-task/get-recurring-task (common/ensure-ds) user-id rtask-id) "Recurring task not found"))))))
 
