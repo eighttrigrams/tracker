@@ -1265,6 +1265,24 @@
    (categories/update-goal *app-state auth-headers fetch-tasks id name description tags badge-title expected-modified-at on-success
                            (edit-conflict-handler :category-goal "Failed to update goal"))))
 
+(def ^:private filter-key->update-category-fn
+  {:people   update-person
+   :places   update-place
+   :projects update-project
+   :goals    update-goal})
+
+(defn bump-category-modified
+  "Bump a category's modified_at to now via the existing optimistic-concurrency
+  update path, so a just-selected category floats to the top of the picker's
+  most-recently-modified ordering. Sends the entity's current field values with
+  :expected-modified-at = its current modified_at; the update fn optimistically
+  updates local state, re-sorts, and handles the 409 conflict path like every
+  other edit."
+  [filter-key item]
+  (when-let [update-fn (filter-key->update-category-fn filter-key)]
+    (update-fn (:id item) (:name item) (:description item) (:tags item) (:badge_title item)
+               (:modified_at item) nil)))
+
 (defn set-confirm-delete-category [category-type category]
   (categories/set-confirm-delete-category *app-state category-type category))
 
