@@ -19,6 +19,7 @@
             [et.tr.ui.state.journals :as journals-state]
             [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.components.controls :as controls]
+            [et.tr.ui.constants :as constants]
             [et.tr.i18n :as i18n :refer [t]]))
 
 (defn login-form []
@@ -203,6 +204,18 @@
                  [tasks/combined-search-add-form]
                  [tasks/tasks-list]])]]))])]))
 
+(def ^:private filter-key->category-type
+  {:people constants/CATEGORY-TYPE-PERSON
+   :places constants/CATEGORY-TYPE-PLACE
+   :projects constants/CATEGORY-TYPE-PROJECT
+   :goals constants/CATEGORY-TYPE-GOAL})
+
+(defn- handle-category-shortcut [e filter-key toggle-fn]
+  (.preventDefault e)
+  (when (.-shiftKey e)
+    (state/clear-shared-filter (filter-key->category-type filter-key)))
+  (toggle-fn filter-key))
+
 (defn- handle-keyboard-shortcuts [e]
   (when-not (any-modal-open?)
     (let [code (.-code e)
@@ -249,28 +262,23 @@
 
         (= :tasks active-tab)
         (when-let [filter-key (tasks-shortcut-keys code)]
-          (.preventDefault e)
-          (state/toggle-filter-collapsed filter-key))
+          (handle-category-shortcut e filter-key state/toggle-filter-collapsed))
 
         (= :today active-tab)
         (when-let [filter-key (today-shortcut-keys code)]
-          (.preventDefault e)
-          (state/toggle-today-filter-collapsed filter-key))
+          (handle-category-shortcut e filter-key state/toggle-today-filter-collapsed))
 
         (= :resources active-tab)
         (when-let [filter-key (resources-shortcut-keys code)]
-          (.preventDefault e)
-          (state/toggle-resources-filter-collapsed filter-key))
+          (handle-category-shortcut e filter-key state/toggle-resources-filter-collapsed))
 
         (= :meets active-tab)
         (when-let [filter-key (meets-shortcut-keys code)]
-          (.preventDefault e)
-          (state/toggle-meets-filter-collapsed filter-key))
+          (handle-category-shortcut e filter-key state/toggle-meets-filter-collapsed))
 
         (= :reports active-tab)
         (when-let [filter-key (reports-shortcut-keys code)]
-          (.preventDefault e)
-          (state/toggle-reports-filter-collapsed filter-key)))))))
+          (handle-category-shortcut e filter-key state/toggle-reports-filter-collapsed)))))))
 
 (defonce root (rdomc/create-root (.getElementById js/document "app")))
 
