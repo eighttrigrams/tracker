@@ -6,14 +6,15 @@
 (defn category-selector
   [{:keys [entity entity-id-key category-type]}]
   (let [selector-id (str (get entity entity-id-key) "-" category-type)
-        input-id (str "category-selector-input-" selector-id)]
+        input-id (str "category-selector-input-" selector-id)
+        sort-by-modified (fn [items] (sort-by :modified_at #(compare %2 %1) items))]
     (fn [{:keys [category-type entities label current-categories
                  on-categorize on-uncategorize on-close-focus-fn
                  open-selector-state search-state
                  open-selector-fn close-selector-fn set-search-fn]}]
       (let [category-ids (set (map :id current-categories))
             is-open (= open-selector-state selector-id)
-            available-entities (remove #(contains? category-ids (:id %)) entities)
+            available-entities (sort-by-modified (remove #(contains? category-ids (:id %)) entities))
             filtered-entities (if (and is-open (seq search-state))
                                 (filter #(tasks-page/prefix-matches? (str (:name %) " " (:tags %) " " (:badge_title %)) search-state) available-entities)
                                 available-entities)
