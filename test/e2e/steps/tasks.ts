@@ -262,13 +262,14 @@ Given("a normal task {string} was added later", async ({ request }, title: strin
 });
 
 Then("the {int}nd sort button should read {string}", async ({ page }, position: number, label: string) => {
-  await expect(page.locator(".sort-toggle button").nth(position - 1)).toHaveText(label);
+  await page.locator(".sort-toggle-dropdown").hover();
+  await expect(page.locator(".sort-toggle-option").nth(position - 1)).toHaveText(label);
 });
 
 When("I click the {string} sort button", async ({ page }, label: string) => {
-  const btn = page.locator(".sort-toggle").getByRole("button", { name: label });
-  await btn.click();
-  await expect(btn).toHaveClass(/active/);
+  await page.locator(".sort-toggle-dropdown").hover();
+  await page.locator(".sort-toggle-menu").getByRole("button", { name: label, exact: true }).click();
+  await expect(page.locator(".sort-toggle-label")).toHaveText(label);
   await page.waitForLoadState("networkidle");
 });
 

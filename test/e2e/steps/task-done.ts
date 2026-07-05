@@ -33,7 +33,9 @@ When("I click the undone button on task {string}", async ({ page }, title: strin
 });
 
 When("I switch to sort mode {string}", async ({ page }, mode: string) => {
-  await page.locator(".sort-toggle button").filter({ hasText: mode }).click();
+  await page.locator(".sort-toggle-dropdown").hover();
+  await page.locator(".sort-toggle-menu").getByRole("button", { name: mode, exact: true }).click();
+  await expect(page.locator(".sort-toggle-label")).toHaveText(mode);
   await page.waitForLoadState("networkidle");
 });
 

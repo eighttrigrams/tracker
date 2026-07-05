@@ -90,3 +90,74 @@
   font-size: 0.75em;
   border-radius: 4px;
 }
+
+/* Tasks page: sort selector collapsed into a single hover-dropdown button */
+.sort-toggle-dropdown {
+  position: relative;
+  display: inline-block;
+}
+.sort-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* 9px vertical padding matches the neighbouring .toggle-group height (35px):
+     they add 3px group padding around a 6px-padded button; this button has no
+     wrapping group, so it carries that 3px itself. */
+  padding: 9px 12px;
+  font-size: 0.8em;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+}
+.sort-toggle-button:hover,
+.sort-toggle-button.open {
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  transform: none;
+}
+.sort-toggle-caret {
+  font-size: 0.95em;
+  line-height: 1;
+  opacity: 0.7;
+}
+.sort-toggle-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+  background: var(--glass-bg-elevated);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  box-shadow: var(--glass-shadow);
+}
+.sort-toggle-option {
+  padding: 6px 12px;
+  font-size: 0.8em;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+}
+.sort-toggle-option:hover:not(.active) {
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  transform: none;
+}
+.sort-toggle-option.active {
+  background: var(--accent);
+  color: white;
+}

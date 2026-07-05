@@ -1,5 +1,6 @@
 (ns et.tr.ui.views.tasks
-  (:require [et.tr.ui.state :as state]
+  (:require [reagent.core :as r]
+            [et.tr.ui.state :as state]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
@@ -59,22 +60,42 @@
      (when (seq input-value)
        [:button.clear-search {:on-click #(state/set-filter-search "")} "x"])]))
 
-(defn- sort-mode-button [current-mode mode label-key & [tooltip-key]]
-  [:button (cond-> {:class (when (= current-mode mode) "active")
-                    :on-click #(when (not= current-mode mode) (state/set-sort-mode mode))}
-             tooltip-key (assoc :title (t tooltip-key)))
-   (t label-key)])
+(def ^:private sort-mode-options
+  "Ordered [mode label-key tooltip-key] triples for the tasks sort dropdown."
+  [[:recent     :tasks/sort-recent     :tasks/sort-recent-tooltip]
+   [:added      :tasks/sort-added      nil]
+   [:manual     :tasks/sort-manual     nil]
+   [:unassigned :tasks/sort-unassigned :tasks/sort-unassigned-tooltip]
+   [:due-date   :tasks/sort-due-date   nil]
+   [:reminder   :tasks/sort-reminders  nil]
+   [:done       :tasks/sort-done       nil]])
 
 (defn sort-mode-toggle []
-  (let [sort-mode (:sort-mode @state/*app-state)]
-    [:div.sort-toggle.toggle-group
-     [sort-mode-button sort-mode :recent :tasks/sort-recent :tasks/sort-recent-tooltip]
-     [sort-mode-button sort-mode :added :tasks/sort-added]
-     [sort-mode-button sort-mode :manual :tasks/sort-manual]
-     [sort-mode-button sort-mode :unassigned :tasks/sort-unassigned :tasks/sort-unassigned-tooltip]
-     [sort-mode-button sort-mode :due-date :tasks/sort-due-date]
-     [sort-mode-button sort-mode :reminder :tasks/sort-reminders]
-     [sort-mode-button sort-mode :done :tasks/sort-done]]))
+  (let [open? (r/atom false)]
+    (fn []
+      (let [sort-mode (:sort-mode @state/*app-state)
+            [_ active-label-key active-tooltip-key]
+            (some (fn [[mode :as triple]] (when (= mode sort-mode) triple)) sort-mode-options)]
+        [:div.sort-toggle-dropdown
+         {:on-mouse-enter #(reset! open? true)
+          :on-mouse-leave #(reset! open? false)}
+         [:button.sort-toggle-button
+          (cond-> {:class (when @open? "open")}
+            active-tooltip-key (assoc :title (t active-tooltip-key)))
+          [:span.sort-toggle-label (t active-label-key)]
+          [:span.sort-toggle-caret "⇅"]]
+         (when @open?
+           (into [:div.sort-toggle-menu]
+                 (for [[mode label-key tooltip-key] sort-mode-options]
+                   ^{:key (name mode)}
+                   [:button.sort-toggle-option
+                    (cond-> {:class (when (= sort-mode mode) "active")
+                             :on-click (fn []
+                                         (when (not= sort-mode mode)
+                                           (state/set-sort-mode mode))
+                                         (reset! open? false))}
+                      tooltip-key (assoc :title (t tooltip-key)))
+                    (t label-key)])))]))))
 
 (defn importance-filter-toggle []
   (let [importance-filter (:tasks-page/importance-filter @state/*app-state)]
