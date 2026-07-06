@@ -205,12 +205,12 @@
       (fn [_]))))
 
 (defn create-task-for-issue
-  "Create a task belonging to the issue, then associate the currently-selected
-  sidebar categories with it — mirroring how the Tasks page add form categorises
-  a freshly-created task."
-  [app-state auth-headers fetch-issues-fn categories issue-id on-success]
+  "Create a task (with the given title) belonging to the issue, then associate
+  the currently-selected sidebar categories with it — mirroring how the Tasks
+  page add form categorises a freshly-created task."
+  [app-state auth-headers fetch-issues-fn categories issue-id title on-success]
   (POST (str "/api/issues/" issue-id "/create-task")
-    {:params {}
+    {:params {:title title}
      :format :json
      :response-format :json
      :keywords? true

@@ -123,17 +123,20 @@
 
 (defn create-task-for-issue-handler
   "POST /api/issues/:id/create-task — materialize a new task that belongs to
-  this issue. The task inherits the issue's title and scope, and its issue_id
-  FK is set to the issue (mirrors the recurring-task create-task endpoint).
-  Category associations are applied by the caller afterwards, the same way the
-  Tasks page add form does. Returns 201 with the created task, or 404 {:success
-  false :error} when the issue does not exist or is not owned by the caller.
-  Records a :create event for the task."
+  this issue. Body field :title sets the task title; when it is blank or absent
+  the task falls back to the issue's title. The task inherits the issue's scope,
+  and its issue_id FK is set to the issue (mirrors the recurring-task create-task
+  endpoint). Category associations are applied by the caller afterwards, the same
+  way the Tasks page add form does. Returns 201 with the created task, or 404
+  {:success false :error} when the issue does not exist or is not owned by the
+  caller. Records a :create event for the task."
   [req]
   (let [user-id (common/get-user-id req)
-        issue-id (Integer/parseInt (get-in req [:params :id]))]
+        issue-id (Integer/parseInt (get-in req [:params :id]))
+        title (get-in req [:body :title])]
     (if-let [issue (db.issue/get-issue (common/ensure-ds) user-id issue-id)]
-      (let [task (db.task/add-task (common/ensure-ds) user-id (:title issue) (:scope issue))]
+      (let [title (if (str/blank? title) (:title issue) title)
+            task (db.task/add-task (common/ensure-ds) user-id title (:scope issue))]
         (db.issue/set-task-issue (common/ensure-ds) user-id (:id task) issue-id)
         (let [task (db.task/get-task (common/ensure-ds) user-id (:id task))]
           (events/record-create! req :task (:id task) task)

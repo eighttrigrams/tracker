@@ -202,6 +202,26 @@
 .create-date-modal .modal-footer button.confirm:disabled:hover {
   transform: none;
 }
+.create-task-modal .modal-footer button.confirm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.create-task-modal .modal-footer button.confirm:disabled:hover {
+  transform: none;
+}
+.create-task-title-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 1em;
+  outline: none;
+}
+.create-task-title-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.15);
+}
 .create-date-picker .date-picker-wrapper {
   display: flex;
   align-items: center;

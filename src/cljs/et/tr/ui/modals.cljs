@@ -841,6 +841,36 @@
         (do (reset! prev-entity nil)
             (reset! confirm-discard? false))))))
 
+(defn create-task-modal []
+  ;; Mirrors the meeting-series create-meet modal, but with a free-text title
+  ;; input instead of a date picker: confirming creates a task belonging to the
+  ;; issue with the entered title (see state/confirm-create-task-modal).
+  (let [title (r/atom "")]
+    (fn []
+      (when (state/create-task-modal-state)
+        (let [valid? (not (clojure.string/blank? @title))
+              cancel! #(do (reset! title "") (state/close-create-task-modal))
+              confirm! #(when valid?
+                          (state/confirm-create-task-modal (clojure.string/trim @title))
+                          (reset! title ""))]
+          [:div.modal-overlay {:on-click cancel!}
+           [modal-keyboard-shortcut {:on-confirm confirm! :on-escape cancel! :enabled? valid?}]
+           [:div.modal.create-task-modal {:on-click #(.stopPropagation %)}
+            [:div.modal-header (t :tasks/create-task)]
+            [:div.modal-body
+             [:input.create-task-title-input
+              {:type "text"
+               :auto-focus true
+               :auto-complete "off"
+               :placeholder (t :tasks/add-placeholder)
+               :value @title
+               :on-change #(reset! title (.. % -target -value))}]]
+            [:div.modal-footer
+             [:button.cancel {:on-click cancel!} (t :modal/cancel)]
+             [:button.confirm {:disabled (not valid?)
+                               :on-click confirm!}
+              (t :modal/create)]]]])))))
+
 (defn create-date-modal []
   (let [selected-date (r/atom nil)
         error (r/atom nil)]

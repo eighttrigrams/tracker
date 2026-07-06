@@ -116,6 +116,22 @@
       (is (= (:id issue) (task-issue-id (:id (:body resp)))) "FK persisted in the DB")
       (is (= 0 (relations-row-count)) "no generic relations row is created"))))
 
+(deftest create-task-for-issue-uses-given-title
+  (testing "a non-blank :title in the body sets the task title instead of the issue title"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Leaky roof" "work")
+          resp (POST-json (str "/api/issues/" (:id issue) "/create-task") {:title "Call the roofer"})]
+      (is (= 201 (:status resp)))
+      (is (= "Call the roofer" (:title (:body resp))) "task takes the supplied title")
+      (is (= "work" (:scope (:body resp))) "task still inherits the issue scope")
+      (is (= (:id issue) (:issue_id (:body resp))) "task still belongs to the issue"))))
+
+(deftest create-task-for-issue-blank-title-falls-back-to-issue-title
+  (testing "a blank :title falls back to the issue title"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Leaky roof" "work")
+          resp (POST-json (str "/api/issues/" (:id issue) "/create-task") {:title "   "})]
+      (is (= 201 (:status resp)))
+      (is (= "Leaky roof" (:title (:body resp))) "blank title falls back to the issue title"))))
+
 (deftest create-task-for-missing-issue-is-404
   (testing "POST /api/issues/:id/create-task returns 404 for an unknown issue"
     (let [resp (POST-json "/api/issues/999999/create-task" {})]

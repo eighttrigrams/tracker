@@ -68,13 +68,13 @@
             [issue-task-badge (:id issue) task expanded?]))))
 
 (defn- issue-create-task-button [issue]
-  ;; Mirrors the recurring-task / journal parent pattern: the collapsed parent
-  ;; card offers a button that materialises a child (a task belonging to this
-  ;; issue), rather than listing the children as mutual relation badges.
+  ;; Mirrors the meeting-series create-meet pattern: the collapsed parent card
+  ;; offers a button that opens a modal (a title input here, rather than the
+  ;; series' date picker); confirming materialises a task belonging to the issue.
   [:button.create-next-meeting-btn
    {:on-click (fn [e]
                 (.stopPropagation e)
-                (state/create-task-for-issue (:id issue)))}
+                (state/open-create-task-modal issue))}
    (t :tasks/create-task)])
 
 (defn- issue-item [issue expanded-id drag-enabled? drag-issue drag-over-issue]

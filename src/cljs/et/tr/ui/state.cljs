@@ -1128,13 +1128,27 @@
 (defn focused-issue []
   (:issues-page/focused-issue @*app-state))
 
-(defn create-task-for-issue [issue-id]
+(defn create-task-for-issue [issue-id title]
   ;; After creating the task, focus the issue so the user lands on its task
   ;; listing and sees the new task — issue cards don't list tasks themselves,
   ;; so without this the click has no visible effect.
   (issues-state/create-task-for-issue *app-state auth-headers fetch-issues
-                                      (active-filter-categories) issue-id
+                                      (active-filter-categories) issue-id title
                                       #(focus-issue issue-id)))
+
+(defn open-create-task-modal [issue]
+  (swap! *app-state assoc :create-task-modal {:issue issue}))
+
+(defn close-create-task-modal []
+  (swap! *app-state dissoc :create-task-modal))
+
+(defn create-task-modal-state []
+  (:create-task-modal @*app-state))
+
+(defn confirm-create-task-modal [title]
+  (when-let [{:keys [issue]} (:create-task-modal @*app-state)]
+    (create-task-for-issue (:id issue) title)
+    (swap! *app-state dissoc :create-task-modal)))
 
 (defn toggle-series-mode []
   (swap! *app-state (fn [s] (-> s

@@ -12,24 +12,28 @@ Feature: Issues
     And I click the issues add button
     Then I should see "Leaky roof" in the issues list
 
-  Scenario: Create-task button on a collapsed issue card creates a belonging task
+  Scenario: Create-task button creates a belonging task with the entered title
     Given I am on the app
     And an issue "Roof works" exists
     When I reload the page
     And I click the "Issues" tab
     And I click the create-task button on issue "Roof works"
+    And I enter "Patch the roof" as the task title
+    And I confirm the create-task modal
     And I click the "Tasks" tab
-    Then I should see "Roof works" in the task list
-    And the task "Roof works" shows the issue icon
+    Then I should see "Patch the roof" in the task list
+    And the task "Patch the roof" shows the issue icon
 
-  Scenario: Create-task button focuses the issue and reveals the new task
+  Scenario: Create-task button opens a title modal, then focuses the issue with the new task
     Given I am on the app
     And an issue "Gutter clean" exists
     When I reload the page
     And I click the "Issues" tab
     And I click the create-task button on issue "Gutter clean"
+    And I enter "Clear the downpipe" as the task title
+    And I confirm the create-task modal
     Then I should see the issue filter bar for "Gutter clean"
-    And I should see the task "Gutter clean" in the focused issue task listing
+    And I should see the task "Clear the downpipe" in the focused issue task listing
 
   Scenario: The issue icon on a task jumps to the focused issue task listing
     Given I am on the app
@@ -47,6 +51,8 @@ Feature: Issues
     And I click the "Issues" tab
     And I filter by place "Yard"
     And I click the create-task button on issue "Fence repair"
+    And I enter "Fence repair" as the task title
+    And I confirm the create-task modal
     And I click the "Tasks" tab
     Then the "Yard" badge on task "Fence repair" should be visible
 

@@ -45,6 +45,15 @@ When("I click the issues add button", async ({ page }) => {
 When("I click the create-task button on issue {string}", async ({ page }, issueTitle: string) => {
   const card = page.locator(".items li").filter({ hasText: issueTitle });
   await card.locator(".create-next-meeting-btn").click();
+  await expect(page.locator(".create-task-modal")).toBeVisible();
+});
+
+When("I enter {string} as the task title", async ({ page }, title: string) => {
+  await page.locator(".create-task-modal .create-task-title-input").fill(title);
+});
+
+When("I confirm the create-task modal", async ({ page }) => {
+  await page.locator(".create-task-modal .confirm").click();
   await page.waitForLoadState("networkidle");
 });
 
