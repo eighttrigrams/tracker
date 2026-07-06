@@ -15,6 +15,7 @@
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.ui.state.today-page :as today-page]
             [et.tr.ui.state.resources :as resources-state]
+            [et.tr.ui.state.issues :as issues-state]
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
@@ -39,6 +40,7 @@
    :goals []
    :messages []
    :resources []
+   :issues []
    :meets []
    :meeting-series []
    :recurring-tasks []
@@ -57,6 +59,7 @@
                             :goals []
                             :messages []
                             :resources []
+                            :issues []
                             :meets []
                             :meeting-series []
                             :recurring-tasks []
@@ -100,6 +103,10 @@
                             ;; Resources page state
                             :resources-page/collapsed-filters #{:people :places :projects :goals}
                             :resources-page/category-search {:people "" :places "" :projects "" :goals ""}
+
+                            ;; Issues page state
+                            :issues-page/collapsed-filters #{:people :places :projects :goals}
+                            :issues-page/category-search {:people "" :places "" :projects "" :goals ""}
 
                             ;; Tasks page recurring mode
                             :tasks-page/recurring-mode false
@@ -525,6 +532,132 @@
 
 (defn uncategorize-resource [resource-id category-type category-id]
   (resources-state/uncategorize-resource *app-state auth-headers fetch-resources resource-id category-type category-id))
+
+;; ── Issues ──────────────────────────────────────────────────────────────
+
+(declare add-issue-with-categories)
+
+(defn- issues-fetch-opts []
+  {:search-term (:filter-search @issues-state/*issues-page-state)
+   :importance (:importance-filter @issues-state/*issues-page-state)
+   :sort-mode (:sort-mode @issues-state/*issues-page-state)
+   :context (:work-private-mode @*app-state)
+   :strict (:strict-mode @*app-state)
+   :filter-people (:shared/filter-people @*app-state)
+   :filter-places (:shared/filter-places @*app-state)
+   :filter-projects (:shared/filter-projects @*app-state)
+   :filter-goals (:shared/filter-goals @*app-state)})
+
+(defn fetch-issues
+  ([] (fetch-issues (issues-fetch-opts)))
+  ([opts]
+   (issues-state/fetch-issues *app-state auth-headers opts)))
+
+(defn load-more-issues []
+  (fetch-issues (assoc (issues-fetch-opts)
+                       :offset (count (:issues @*app-state))
+                       :append? true)))
+
+(defn add-issue [title on-success]
+  (if (has-active-shared-filters?)
+    (add-issue-with-categories title (active-filter-categories) on-success)
+    (issues-state/add-issue *app-state auth-headers current-scope title on-success fetch-issues)))
+
+(defn add-issue-with-categories [title categories on-success]
+  (issues-state/add-issue-with-categories *app-state auth-headers fetch-issues current-scope title categories on-success))
+
+(defn update-issue
+  ([issue-id title description tags on-success]
+   (update-issue issue-id title description tags nil on-success))
+  ([issue-id title description tags expected-modified-at on-success]
+   (issues-state/update-issue *app-state auth-headers issue-id title description tags expected-modified-at on-success
+                              (edit-conflict-handler :issue "Failed to update issue"))))
+
+(defn delete-issue [issue-id]
+  (issues-state/delete-issue *app-state auth-headers issue-id))
+
+(defn set-issue-scope [issue-id scope]
+  (issues-state/set-issue-scope *app-state auth-headers issue-id scope))
+
+(defn set-issue-importance [issue-id importance]
+  (issues-state/set-issue-importance *app-state auth-headers issue-id importance))
+
+(defn set-expanded-issue [id]
+  (issues-state/set-expanded-issue id))
+
+(defn edit-issue-description [issue]
+  (open-edit-modal :issue issue))
+
+(defn set-confirm-delete-issue [issue]
+  (issues-state/set-confirm-delete-issue issue))
+
+(defn clear-confirm-delete-issue []
+  (issues-state/clear-confirm-delete-issue))
+
+(defn set-issue-filter-search [search-term]
+  (issues-state/set-filter-search fetch-issues search-term))
+
+(defn set-issue-sort-mode [mode]
+  (issues-state/set-sort-mode fetch-issues mode))
+
+(defn set-issue-importance-filter [level]
+  (issues-state/set-importance-filter fetch-issues level))
+
+(defn set-drag-issue [issue-id]
+  (issues-state/set-drag-issue *app-state issue-id))
+
+(defn set-drag-over-issue [issue-id]
+  (issues-state/set-drag-over-issue *app-state issue-id))
+
+(defn clear-issue-drag-state []
+  (issues-state/clear-issue-drag-state *app-state))
+
+(defn reorder-issue [issue-id target-issue-id position]
+  (issues-state/reorder-issue *app-state auth-headers fetch-issues issue-id target-issue-id position))
+
+(defn categorize-issue [issue-id category-type category-id]
+  (issues-state/categorize-issue *app-state auth-headers fetch-issues issue-id category-type category-id))
+
+(defn uncategorize-issue [issue-id category-type category-id]
+  (issues-state/uncategorize-issue *app-state auth-headers fetch-issues issue-id category-type category-id))
+
+(defn toggle-issues-filter-collapsed [filter-key]
+  (let [was-collapsed (contains? (:issues-page/collapsed-filters @*app-state) filter-key)
+        all-filters #{:people :places :projects :goals}]
+    (swap! *app-state update :issues-page/collapsed-filters
+           (fn [collapsed]
+             (if (contains? collapsed filter-key)
+               (disj all-filters filter-key)
+               (conj collapsed filter-key))))
+    (when was-collapsed
+      (swap! *app-state update :issues-page/category-search
+             (fn [searches]
+               (reduce #(assoc %1 %2 "") searches all-filters))))
+    (js/setTimeout
+     (fn []
+       (when-let [el (.getElementById js/document
+                                      (if was-collapsed
+                                        (str "issues-filter-" (name filter-key))
+                                        "issues-filter-search"))]
+         (.focus el)))
+     0)))
+
+(defn set-issues-category-search [category-key search-term]
+  (swap! *app-state assoc-in [:issues-page/category-search category-key] search-term))
+
+(defn clear-uncollapsed-issue-filters []
+  (let [collapsed (:issues-page/collapsed-filters @*app-state)
+        all-filters #{:people :places :projects :goals}
+        any-visible? (seq (clojure.set/difference all-filters collapsed))]
+    (when-not any-visible?
+      (swap! *app-state assoc
+             :shared/filter-people #{}
+             :shared/filter-places #{}
+             :shared/filter-projects #{}
+             :shared/filter-goals #{}
+             :issues-page/category-search {:people "" :places "" :projects "" :goals ""})
+      (.scrollTo js/window 0 0)
+      (issues-state/clear-all-issue-filters fetch-issues))))
 
 (def ^:private meets-week-limit 4)
 
@@ -1080,6 +1213,7 @@
              (fetch-recurring-tasks)
              (fetch-tasks))
     :resources (fetch-resources-or-journals)
+    :issues (fetch-issues)
     :meets (if (:meets-page/series-mode @*app-state)
              (fetch-meeting-series)
              (fetch-meets))
@@ -1729,6 +1863,7 @@
                                         :fetch-today-journal-entries fetch-today-journal-entries
                                         :fetch-messages fetch-messages
                                         :fetch-resources fetch-resources-or-journals
+                                        :fetch-issues fetch-issues
                                         :fetch-meets fetch-meets-or-series
                                         :fetch-reports fetch-reports
                                         :fetch-people fetch-people
@@ -1782,6 +1917,7 @@
   {:task "/api/tasks/"
    :meet "/api/meets/"
    :resource "/api/resources/"
+   :issue "/api/issues/"
    :journal "/api/journals/"
    :journal-entry "/api/journal-entries/"
    :recurring-task "/api/recurring-tasks/"
@@ -1833,10 +1969,10 @@
       (swap! *app-state assoc :error (get-in resp [:response :error] fallback-msg)))))
 
 (defn set-work-private-mode [mode]
-  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports mode))
+  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-issues fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports mode))
 
 (defn toggle-strict-mode []
-  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports))
+  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-issues fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))
@@ -1868,6 +2004,7 @@
   (case (:active-tab @*app-state)
     :tasks (fetch-tasks)
     :resources (fetch-resources-or-journals)
+    :issues (fetch-issues)
     :meets (if (:meets-page/series-mode @*app-state)
              (fetch-meeting-series)
              (fetch-meets))
@@ -1899,6 +2036,7 @@
                :task (str "/api/tasks/" item-id "/relation-badge-title")
                :meet (str "/api/meets/" item-id "/relation-badge-title")
                :resource (str "/api/resources/" item-id "/relation-badge-title")
+               :issue (str "/api/issues/" item-id "/relation-badge-title")
                :journal-entry (str "/api/journal-entries/" item-id "/relation-badge-title"))]
     (api/put-json path
       {:relation-badge-title (or value "")}

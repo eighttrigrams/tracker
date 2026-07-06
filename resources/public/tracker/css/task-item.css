@@ -577,3 +577,6 @@
 .item-actions:hover .task-urgency-selector {
   opacity: 1;
 }
+
+.issue-icon { background: none; border: none; cursor: pointer; font-size: 0.85em; padding: 0 4px; opacity: 0.6; }
+.issue-icon:hover { opacity: 1; }

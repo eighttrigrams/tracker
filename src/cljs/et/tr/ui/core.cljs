@@ -13,9 +13,11 @@
             [et.tr.ui.views.tasks :as tasks]
             [et.tr.ui.views.categories :as categories]
             [et.tr.ui.views.resources :as resources]
+            [et.tr.ui.views.issues :as issues]
             [et.tr.ui.views.meets :as meets]
             [et.tr.ui.views.reports :as reports]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
+            [et.tr.ui.state.issues :as issues-state]
             [et.tr.ui.state.journals :as journals-state]
             [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.components.controls :as controls]
@@ -91,12 +93,11 @@
         :else
         [:div.tabs
          [tab-button active-tab :today :nav/today]
-         [tab-button active-tab :tasks :nav/tasks]
          [tab-button active-tab :meets :nav/meets]
+         [tab-button active-tab :issues :nav/issues]
+         [tab-button active-tab :tasks :nav/tasks]
          [tab-button active-tab :resources :nav/resources]
-         [tab-button active-tab :reports :nav/reports]
-         (when (state/has-mail?)
-           [tab-button active-tab :mail :nav/mail])]))))
+         [tab-button active-tab :reports :nav/reports]]))))
 
 (defn- any-modal-open? []
   (or (:editing-modal @state/*app-state)
@@ -106,6 +107,7 @@
       (:confirm-delete-category @state/*app-state)
       (:confirm-delete-message @state/*app-state)
       (:confirm-delete-resource @state/*app-state)
+      (:confirm-delete-issue @issues-state/*issues-page-state)
       (:confirm-delete-meet @state/*app-state)
       (:confirm-delete-rtask @recurring-tasks-state/*recurring-tasks-page-state)
       (:confirm-delete-journal @journals-state/*journals-page-state)
@@ -133,6 +135,7 @@
      [modals/confirm-delete-category-modal]
      [modals/confirm-delete-message-modal]
      [modals/confirm-delete-resource-modal]
+     [modals/confirm-delete-issue-modal]
      [modals/confirm-delete-meet-modal]
      [modals/confirm-delete-meeting-series-modal]
      [modals/confirm-delete-recurring-task-modal]
@@ -157,14 +160,15 @@
         [:div.top-bar
          [tabs]
          [:div.top-bar-right
-          (when (contains? #{:today :tasks :resources :meets :reports} active-tab)
+          (when (contains? #{:today :tasks :resources :issues :meets :reports} active-tab)
             [controls/relation-mode-toggle])
-          (when (contains? #{:today :tasks :resources :meets :mail :reports} active-tab)
+          (when (contains? #{:today :tasks :resources :issues :meets :mail :reports} active-tab)
             [controls/work-private-toggle])
           [controls/user-info]]]
         (case active-tab
           :today [today/today-tab]
           :resources [resources/resources-tab]
+          :issues [issues/issues-tab]
           :meets [meets/meets-tab]
           :cat-people [categories/category-cards-page :people]
           :cat-places [categories/category-cards-page :places]
@@ -223,6 +227,7 @@
           tasks-shortcut-keys (tasks/get-tasks-category-shortcut-keys)
           today-shortcut-keys (today/get-today-category-shortcut-keys)
           resources-shortcut-keys (resources/get-resources-category-shortcut-keys)
+          issues-shortcut-keys (issues/get-issues-category-shortcut-keys)
           meets-shortcut-keys (meets/get-meets-category-shortcut-keys)
           reports-shortcut-keys (reports/get-reports-category-shortcut-keys)]
       (when (.-altKey e)
@@ -249,6 +254,11 @@
           (.preventDefault e)
           (state/set-active-tab :meets))
 
+        (= "KeyI" code)
+        (do
+          (.preventDefault e)
+          (state/set-active-tab :issues))
+
         (= "Escape" code)
         (do
           (.preventDefault e)
@@ -257,6 +267,7 @@
             (= :today active-tab) (state/clear-uncollapsed-today-filters)
             (= :mail active-tab) (state/clear-all-mail-filters)
             (= :resources active-tab) (state/clear-uncollapsed-resource-filters)
+            (= :issues active-tab) (state/clear-uncollapsed-issue-filters)
             (= :meets active-tab) (state/clear-uncollapsed-meet-filters)
             (= :reports active-tab) (state/clear-uncollapsed-report-filters)))
 
@@ -271,6 +282,10 @@
         (= :resources active-tab)
         (when-let [filter-key (resources-shortcut-keys code)]
           (handle-category-shortcut e filter-key state/toggle-resources-filter-collapsed))
+
+        (= :issues active-tab)
+        (when-let [filter-key (issues-shortcut-keys code)]
+          (handle-category-shortcut e filter-key state/toggle-issues-filter-collapsed))
 
         (= :meets active-tab)
         (when-let [filter-key (meets-shortcut-keys code)]

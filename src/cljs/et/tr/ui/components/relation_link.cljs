@@ -5,7 +5,8 @@
   {:task :tasks
    :resource :resources
    :meet :meets
-   :journal-entry :journal-entries})
+   :journal-entry :journal-entries
+   :issue :issues})
 
 (defn- already-linked? [source item-type item-id]
   (when source

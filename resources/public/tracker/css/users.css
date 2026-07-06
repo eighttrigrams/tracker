@@ -215,3 +215,37 @@
   color: white;
   background: var(--accent);
 }
+
+.inbox-group {
+  display: flex;
+  align-items: center;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  padding: 2px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+}
+.inbox-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  line-height: 1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.inbox-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-subtle);
+}
+.inbox-btn.active {
+  color: white;
+  background: var(--accent);
+}

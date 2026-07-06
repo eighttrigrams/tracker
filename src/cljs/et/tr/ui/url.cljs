@@ -4,19 +4,22 @@
   {:task "tsk"
    :resource "res"
    :meet "met"
-   :journal-entry "jen"})
+   :journal-entry "jen"
+   :issue "iss"})
 
 (def prefix->type
   {"tsk" :task
    "res" :resource
    "met" :meet
-   "jen" :journal-entry})
+   "jen" :journal-entry
+   "iss" :issue})
 
 (def prefix->api-path
   {"tsk" "/api/tasks/"
    "res" "/api/resources/"
    "met" "/api/meets/"
-   "jen" "/api/journal-entries/"})
+   "jen" "/api/journal-entries/"
+   "iss" "/api/issues/"})
 
 (defn parse-item-path [pathname]
   (when-let [[_ slug] (re-matches #"/item/(\w+)" pathname)]

@@ -5,6 +5,7 @@
             [et.tr.ui.url :as url]
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
+            [et.tr.ui.state.issues :as issues-state]
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
@@ -175,6 +176,16 @@
     :clear-fn state/clear-confirm-delete-resource
     :delete-fn state/delete-resource}))
 
+(def confirm-delete-issue-modal
+  (make-confirm-delete-modal
+   {:state-atom issues-state/*issues-page-state
+    :state-key :confirm-delete-issue
+    :header-i18n :modal/delete-issue
+    :confirm-i18n :modal/delete-issue-confirm
+    :title-key :title
+    :clear-fn state/clear-confirm-delete-issue
+    :delete-fn state/delete-issue}))
+
 (def confirm-delete-meet-modal
   (make-confirm-delete-modal
    {:state-atom meets-state/*meets-page-state
@@ -266,6 +277,10 @@
                                          :tags (r/atom (or (:tags entity) ""))
                                          :relation-badge-title (r/atom (or (:relation_badge_title entity) ""))}
                                  (seq (:link entity)) (assoc :link (r/atom (:link entity))))
+                      :issue {:title (r/atom (:title entity))
+                              :description (r/atom (or (:description entity) ""))
+                              :tags (r/atom (or (:tags entity) ""))
+                              :relation-badge-title (r/atom (or (:relation_badge_title entity) ""))}
                       {:title (r/atom (:name entity))
                        :description (r/atom (or (:description entity) ""))
                        :tags (r/atom (or (:tags entity) ""))
@@ -273,7 +288,7 @@
     (assoc field-atoms :type type :entity entity)))
 
 (defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]}]
-  (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry :message} type))
+  (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :issue :journal :journal-entry :message} type))
         title-orig (if is-category (:name entity) (:title entity))
         base-dirty (or (not= @title title-orig)
                        (not= @description (or (:description entity) ""))
@@ -335,6 +350,7 @@
       :resource (let [desc (if (or (contains? entity :description) (not= @description "")) @description nil)
                       tg (if (or (contains? entity :tags) (not= @tags "")) @tags nil)]
                   (state/update-resource id @title (when link @link) desc tg expected state/clear-editing-modal))
+      :issue (state/update-issue id @title @description @tags expected state/clear-editing-modal)
       :message (state/update-message id @title @description expected state/clear-editing-modal)
       (let [category-type (subs (name type) 9)
             update-fn (case category-type
@@ -696,11 +712,11 @@
             (reset! active-tab (or tab :edit))
             (reset! confirm-discard? false))
           (when-let [{:keys [title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]} @fields-state]
-            (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :journal :journal-entry :message} type))
+            (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :issue :journal :journal-entry :message} type))
                   preview-tab-key (case type
                                     (:task :recurring-task) :modal/tab-task
                                     (:meet :meeting-series) :modal/tab-meet
-                                    (:resource :journal :journal-entry) :modal/tab-resource
+                                    (:resource :issue :journal :journal-entry) :modal/tab-resource
                                     :message :modal/tab-message
                                     :modal/tab-category)
                   try-escape (fn []
@@ -735,7 +751,7 @@
                       [:button {:class (when (= @active-tab :time) "active")
                                 :on-click #(reset! active-tab :time)}
                        (t :modal/tab-time)])
-                    (when (#{:task :meet :resource :journal-entry} type)
+                    (when (#{:task :meet :resource :issue :journal-entry} type)
                       [:button {:class (when (= @active-tab :relations) "active")
                                 :on-click #(reset! active-tab :relations)}
                        (t :modal/tab-relations)])]

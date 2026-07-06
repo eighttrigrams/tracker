@@ -9,6 +9,7 @@
     "res" "R"
     "met" "M"
     "jen" "J"
+    "iss" "I"
     "?"))
 
 (defn- relation-key [relation]
@@ -50,6 +51,10 @@
             [:line {:x1 "10" :y1 "9" :x2 "8" :y2 "9"}]]
      "jen" [:svg icon-svg-attrs
             [:path {:d "M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"}]]
+     "iss" [:svg icon-svg-attrs
+            [:circle {:cx "12" :cy "12" :r "9"}]
+            [:line {:x1 "12" :y1 "8" :x2 "12" :y2 "13"}]
+            [:line {:x1 "12" :y1 "16" :x2 "12" :y2 "16"}]]
      nil)])
 
 (defn- relation-prefix [relation]

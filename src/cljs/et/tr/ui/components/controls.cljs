@@ -128,6 +128,19 @@
           :on-click #(state/switch-user user)}
          (:username user)]))]))
 
+(defn- envelope-icon []
+  [:svg {:width "18" :height "18" :viewBox "0 0 24 24" :fill "none" :stroke "currentColor" :stroke-width "2" :stroke-linecap "round" :stroke-linejoin "round"}
+   [:rect {:x "3" :y "5" :width "18" :height "14" :rx "2"}]
+   [:polyline {:points "3 7 12 13 21 7"}]])
+
+(defn inbox-icon []
+  (let [active-tab (:active-tab @state/*app-state)]
+    [:button.inbox-btn
+     {:class (when (= active-tab :mail) "active")
+      :title (t :nav/mail)
+      :on-click #(state/set-active-tab :mail)}
+     [envelope-icon]]))
+
 (defn- logout-icon []
   [:svg {:width "18" :height "18" :viewBox "0 0 24 24" :fill "none" :stroke "currentColor" :stroke-width "2" :stroke-linecap "round" :stroke-linejoin "round"}
    [:path {:d "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"}]
@@ -163,6 +176,8 @@
                            (or (:last-global-tab s) :tasks)
                            (or (:last-settings-tab s) :settings-profile))))}
          "\u2699"]]
+       (when (and (not is-admin) (state/has-mail?))
+         [:div.inbox-group [inbox-icon]])
        (if auth-required?
          [:button.logout-btn {:on-click state/logout} [logout-icon]]
          [:<>
