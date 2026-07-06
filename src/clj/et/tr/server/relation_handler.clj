@@ -58,11 +58,14 @@
                                      :action :relation-delete
                                      :payload {:source {:type "tsk" :id task-id :title tsk-title}
                                                :target {:type "iss" :id previous-issue-id :title prev-title}}})))
-            (events/record! req {:entity-type :relation
-                                 :entity-id nil
-                                 :action :relation-add
-                                 :payload {:source {:type "tsk" :id task-id :title tsk-title}
-                                           :target {:type "iss" :id issue-id :title iss-title}}})
+            ;; An idempotent re-link to the same issue is a no-op; only audit a
+            ;; genuine (new or reassigned) membership so the log stays truthful.
+            (when (not= previous-issue-id issue-id)
+              (events/record! req {:entity-type :relation
+                                   :entity-id nil
+                                   :action :relation-add
+                                   :payload {:source {:type "tsk" :id task-id :title tsk-title}
+                                             :target {:type "iss" :id issue-id :title iss-title}}}))
             {:status 201 :body {:success true}})
           {:status 404 :body {:success false :error "Item not found"}}))
 

@@ -244,7 +244,7 @@
                                            (.stopPropagation e)
                                            (state/set-recurring-filter {:id (:recurring_task_id task) :title (:title task)}))}
         "🔁"])
-     (when (and (:issue_id task) (not= (:id (state/issue-filter)) (:issue_id task)))
+     (when (:issue_id task)
        [:span.issue-icon {:title (t :issues/belongs-to-issue)
                           :on-click (fn [e]
                                       (.stopPropagation e)

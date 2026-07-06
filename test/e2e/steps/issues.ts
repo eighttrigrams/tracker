@@ -42,11 +42,6 @@ When("I click the issues add button", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 });
 
-When("I expand issue {string}", async ({ page }, title: string) => {
-  await page.locator(".items li").filter({ hasText: title }).locator(".item-header").click();
-  await page.waitForLoadState("networkidle");
-});
-
 When("I click the create-task button on issue {string}", async ({ page }, issueTitle: string) => {
   const card = page.locator(".items li").filter({ hasText: issueTitle });
   await card.locator(".create-next-meeting-btn").click();

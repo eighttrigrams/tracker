@@ -23,7 +23,7 @@
   params. Recognised params: q (search term), importance, context, strict
   (\"true\" toggles strict context match), people/places/projects/goals
   (comma-separated category id lists), sortMode, limit (int — caps the row
-  count; machine users default to 10 when omitted), offset (int),
+  count; machine users default to 100 when omitted), offset (int),
   paged (\"true\" wraps the response as {:items :has_more}). Returns 200 with a
   vector of rows, or the {:items :has_more} envelope when paged."
   [req]
@@ -135,7 +135,7 @@
     (if-let [issue (db.issue/get-issue (common/ensure-ds) user-id issue-id)]
       (let [task (db.task/add-task (common/ensure-ds) user-id (:title issue) (:scope issue))]
         (db.issue/set-task-issue (common/ensure-ds) user-id (:id task) issue-id)
-        (let [task (assoc task :issue_id issue-id :people [] :places [] :projects [] :goals [])]
+        (let [task (db.task/get-task (common/ensure-ds) user-id (:id task))]
           (events/record-create! req :task (:id task) task)
           {:status 201 :body task}))
       {:status 404 :body {:success false :error "Issue not found"}})))

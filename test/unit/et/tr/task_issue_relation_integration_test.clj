@@ -82,6 +82,29 @@
         (is (= (:id issue-a) (get-in (first unlinks) [:payload :target :id]))
             "the unlink targets the displaced issue A")))))
 
+(deftest relinking-to-same-issue-records-no-duplicate-add
+  (testing "an idempotent re-link to the issue the task already belongs to adds no audit event"
+    (let [{:keys [task-id issue-id]} (seed!)]
+      (POST-json "/api/relations" {:source-type "tsk" :source-id task-id
+                                   :target-type "iss" :target-id issue-id})
+      (let [resp (POST-json "/api/relations" {:source-type "tsk" :source-id task-id
+                                              :target-type "iss" :target-id issue-id})]
+        (is (= 201 (:status resp)) "the idempotent re-link still succeeds")
+        (is (= issue-id (task-issue-id task-id)) "task still belongs to the issue"))
+      (let [events (db.event/list-events-for-user *ds* *user-id*)
+            adds (filter #(and (= "relation" (:entity_type %)) (= "relation-add" (:action %))) events)]
+        (is (= 1 (count adds)) "only the first link is audited; the re-link is a no-op")))))
+
+(deftest create-task-for-issue-returns-fresh-modified-at
+  (testing "the 201 body carries the current DB modified_at, not the pre-link value"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Squeaky door" "both")
+          resp (POST-json (str "/api/issues/" (:id issue) "/create-task") {})
+          task-id (:id (:body resp))
+          fresh (db.task/get-task *ds* *user-id* task-id)]
+      (is (= 201 (:status resp)))
+      (is (= (:modified_at fresh) (:modified_at (:body resp)))
+          "response reflects the row as it stands after the FK was set"))))
+
 (deftest create-task-for-issue-sets-fk-and-inherits-title
   (testing "POST /api/issues/:id/create-task creates a task belonging to the issue"
     (let [issue (db.issue/add-issue *ds* *user-id* "Leaky roof" "work")
