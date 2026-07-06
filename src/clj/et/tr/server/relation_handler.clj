@@ -2,9 +2,19 @@
   (:require [et.tr.server.common :as common]
             [et.tr.server.events :as events]
             [et.tr.db :as db]
-            [et.tr.db.relation :as db.relation]))
+            [et.tr.db.relation :as db.relation]
+            [et.tr.db.issue :as db.issue]))
 
-(def ^:private valid-relation-types #{"tsk" "res" "met" "jen"})
+(def ^:private valid-relation-types #{"tsk" "res" "met" "jen" "iss"})
+
+(defn- task-issue-pair
+  "When a relation is between a task and an issue, return {:task-id :issue-id}
+  (order-independent); otherwise nil. Task↔issue membership is a belongs-to FK
+  on the task, not a generic bidirectional relations row."
+  [source-type source-id target-type target-id]
+  (cond
+    (and (= source-type "tsk") (= target-type "iss")) {:task-id source-id :issue-id target-id}
+    (and (= source-type "iss") (= target-type "tsk")) {:task-id target-id :issue-id source-id}))
 
 (defn add-relation-handler
   "POST /api/relations — create a relation between two items. Body fields:
@@ -31,6 +41,20 @@
 
       (and (= source-type target-type) (= source-id target-id))
       {:status 400 :body {:success false :error "An item cannot be related to itself"}}
+
+      (task-issue-pair source-type source-id target-type target-id)
+      (let [{:keys [task-id issue-id]} (task-issue-pair source-type source-id target-type target-id)]
+        (if (db.issue/set-task-issue (common/ensure-ds) user-id task-id issue-id)
+          (let [conn (db/get-conn (common/ensure-ds))
+                tsk-title (:title (db.relation/fetch-title-for-relation conn "tsk" task-id))
+                iss-title (:title (db.relation/fetch-title-for-relation conn "iss" issue-id))]
+            (events/record! req {:entity-type :relation
+                                 :entity-id nil
+                                 :action :relation-add
+                                 :payload {:source {:type "tsk" :id task-id :title tsk-title}
+                                           :target {:type "iss" :id issue-id :title iss-title}}})
+            {:status 201 :body {:success true}})
+          {:status 404 :body {:success false :error "Item not found"}}))
 
       :else
       (if-let [result (db.relation/add-relation (common/ensure-ds) user-id source-type source-id target-type target-id)]
@@ -67,6 +91,20 @@
 
       (or (nil? target-id) (not (integer? target-id)))
       {:status 400 :body {:success false :error "target-id must be an integer"}}
+
+      (task-issue-pair source-type source-id target-type target-id)
+      (let [{:keys [task-id issue-id]} (task-issue-pair source-type source-id target-type target-id)]
+        (if (db.issue/clear-task-issue (common/ensure-ds) user-id task-id issue-id)
+          (let [conn (db/get-conn (common/ensure-ds))
+                tsk-title (:title (db.relation/fetch-title-for-relation conn "tsk" task-id))
+                iss-title (:title (db.relation/fetch-title-for-relation conn "iss" issue-id))]
+            (events/record! req {:entity-type :relation
+                                 :entity-id nil
+                                 :action :relation-delete
+                                 :payload {:source {:type "tsk" :id task-id :title tsk-title}
+                                           :target {:type "iss" :id issue-id :title iss-title}}})
+            {:status 200 :body {:success true}})
+          {:status 404 :body {:success false :error "Item not found"}}))
 
       :else
       (if-let [result (db.relation/delete-relation (common/ensure-ds) user-id source-type source-id target-type target-id)]

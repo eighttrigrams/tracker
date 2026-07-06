@@ -4,7 +4,7 @@
             [taoensso.telemere :as tel]
             [et.tr.db :as db]))
 
-(def ^:private valid-relation-types #{"tsk" "res" "met" "jen"})
+(def ^:private valid-relation-types #{"tsk" "res" "met" "jen" "iss"})
 
 (defn- validate-relation-type! [type]
   (when-not (contains? valid-relation-types type)
@@ -12,7 +12,7 @@
 
 (defn- item-exists? [ds user-id type id]
   (let [conn (db/get-conn ds)
-        table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)
+        table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries "iss" :issues)
         user-where (db/user-id-where-clause user-id)]
     (some? (jdbc/execute-one! conn
              (sql/format {:select [:id]
@@ -98,7 +98,7 @@
     (fetch-bidirectional-relations (db/get-conn ds) item-type item-id)))
 
 (defn fetch-title-for-relation [conn type id]
-  (let [table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)
+  (let [table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries "iss" :issues)
         select (cond-> [:title :relation_badge_title]
                  (= type "tsk") (conj :done)
                  (= type "met") (conj :start_date))
@@ -148,7 +148,7 @@
         title-maps (into {}
                          (for [[type rels] grouped
                                :let [ids (mapv :target_id rels)
-                                     table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries)
+                                     table (case type "tsk" :tasks "res" :resources "met" :meets "jen" :journal_entries "iss" :issues)
                                      select (cond-> [:id :title :relation_badge_title]
                                               (= type "tsk") (conj :done)
                                               (= type "met") (conj :start_date))

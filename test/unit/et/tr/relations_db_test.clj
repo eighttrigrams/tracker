@@ -6,6 +6,7 @@
             [et.tr.db.meet :as db.meet]
             [et.tr.db.relation :as db.relation]
             [et.tr.db.resource :as db.resource]
+            [et.tr.db.issue :as db.issue]
             [et.tr.db.task :as db.task]
             [et.tr.test-helpers :refer [*ds* *user-id* with-in-memory-db]]))
 
@@ -187,3 +188,79 @@
         (is (some #(and (= "Meet" (:title %))
                         (= 1 (count (:relations %))))
                   meets))))))
+
+;; ── Issue relations (generic bidirectional rows) ──────────────────────────
+
+(deftest issue-meet-relation-bidirectional-test
+  (testing "an issue↔meet relation displays on both endpoints"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Roof issue")
+          meet (db.meet/add-meet *ds* *user-id* "Roofer visit")]
+      (db.relation/add-relation *ds* *user-id* "iss" (:id issue) "met" (:id meet))
+      (let [iss-rels (db.relation/get-relations-for-item *ds* *user-id* "iss" (:id issue))
+            met-rels (db.relation/get-relations-for-item *ds* *user-id* "met" (:id meet))]
+        (is (= 1 (count iss-rels)))
+        (is (= "met" (:target_type (first iss-rels))))
+        (is (= 1 (count met-rels)))
+        (is (= "iss" (:target_type (first met-rels))))))))
+
+(deftest issue-resource-relation-with-titles-test
+  (testing "issue↔resource relation resolves titles"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Research issue")
+          resource (db.resource/add-resource *ds* *user-id* "A doc" "http://example.com" nil)]
+      (db.relation/add-relation *ds* *user-id* "iss" (:id issue) "res" (:id resource))
+      (let [rels (db.relation/get-relations-with-titles *ds* *user-id* "iss" (:id issue))]
+        (is (= 1 (count rels)))
+        (is (= "A doc" (:title (first rels))))))))
+
+(deftest list-issues-includes-relations-test
+  (testing "listed issues include their generic relations"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Issue")
+          meet (db.meet/add-meet *ds* *user-id* "Meet")]
+      (db.relation/add-relation *ds* *user-id* "iss" (:id issue) "met" (:id meet))
+      (let [issues (db.issue/list-issues *ds* *user-id* {})]
+        (is (some #(and (= "Issue" (:title %))
+                        (= 1 (count (:relations %))))
+                  issues))))))
+
+(deftest delete-issue-cascades-relations-test
+  (testing "deleting an issue removes its generic relations"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Issue")
+          meet (db.meet/add-meet *ds* *user-id* "Meet")]
+      (db.relation/add-relation *ds* *user-id* "iss" (:id issue) "met" (:id meet))
+      (db.issue/delete-issue *ds* *user-id* (:id issue))
+      (is (empty? (db.relation/get-relations-for-item *ds* *user-id* "met" (:id meet)))))))
+
+;; ── Task↔issue belongs-to (FK, not generic relations rows) ────────────────
+
+(deftest task-issue-belongs-to-link-test
+  (testing "set-task-issue links a task to an issue via the FK"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Parent issue")
+          task (db.task/add-task *ds* *user-id* "Child task")]
+      (is (:success (db.issue/set-task-issue *ds* *user-id* (:id task) (:id issue))))
+      (testing "the task carries issue_id and no generic relation row is created"
+        (let [t (db.task/get-task *ds* *user-id* (:id task))]
+          (is (= (:id issue) (:issue_id t))))
+        (is (empty? (db.relation/get-relations-for-item *ds* *user-id* "tsk" (:id task))))
+        (is (empty? (db.relation/get-relations-for-item *ds* *user-id* "iss" (:id issue)))))
+      (testing "the issue surfaces the belonging task"
+        (let [iss (db.issue/get-issue *ds* *user-id* (:id issue))]
+          (is (= [(:id task)] (mapv :id (:tasks iss)))))))))
+
+(deftest task-issue-belongs-to-unlink-test
+  (testing "clear-task-issue removes the belongs-to link"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Parent")
+          task (db.task/add-task *ds* *user-id* "Child")]
+      (db.issue/set-task-issue *ds* *user-id* (:id task) (:id issue))
+      (is (:success (db.issue/clear-task-issue *ds* *user-id* (:id task) (:id issue))))
+      (is (nil? (:issue_id (db.task/get-task *ds* *user-id* (:id task)))))
+      (is (empty? (:tasks (db.issue/get-issue *ds* *user-id* (:id issue))))))))
+
+(deftest task-issue-detach-on-issue-delete-test
+  (testing "deleting an issue detaches its tasks (issue_id set null), tasks survive"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Doomed issue")
+          task (db.task/add-task *ds* *user-id* "Surviving task")]
+      (db.issue/set-task-issue *ds* *user-id* (:id task) (:id issue))
+      (db.issue/delete-issue *ds* *user-id* (:id issue))
+      (let [t (db.task/get-task *ds* *user-id* (:id task))]
+        (is (some? t))
+        (is (nil? (:issue_id t)))))))

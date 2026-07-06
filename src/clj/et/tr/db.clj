@@ -65,9 +65,11 @@
    :urgency normalize-urgency
    :time_window normalize-time-window})
 
-(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :done_at :scope :importance :urgency :today :lined_up_for :maybe :recurring_task_id :reminder :reminder_date :relation_badge_title])
+(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :done :done_at :scope :importance :urgency :today :lined_up_for :maybe :recurring_task_id :issue_id :reminder :reminder_date :relation_badge_title])
 
 (def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance :relation_badge_title])
+
+(def issue-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :relation_badge_title])
 
 (def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time :meeting_series_id :archived :maybe :over :relation_badge_title])
 
@@ -346,7 +348,7 @@
 
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
-    (doseq [table [:relations :task_categories :resource_categories :meet_categories :meeting_series_categories :recurring_task_categories :journal_entry_categories :journal_categories :tasks :messages :resources :meets :meeting_series :recurring_tasks :journal_entries :journals :mottos :people :places :projects :goals :users]]
+    (doseq [table [:relations :task_categories :resource_categories :issue_categories :meet_categories :meeting_series_categories :recurring_task_categories :journal_entry_categories :journal_categories :tasks :messages :resources :issues :meets :meeting_series :recurring_tasks :journal_entries :journals :mottos :people :places :projects :goals :users]]
       (jdbc/execute-one! conn (sql/format {:delete-from table})))
     (jdbc/execute-one! conn
       (sql/format {:insert-into :users

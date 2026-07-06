@@ -4,6 +4,7 @@
             [et.tr.server.common :as common]
             [et.tr.server.task-handler :as task-handler]
             [et.tr.server.resource-handler :as resource-handler]
+            [et.tr.server.issue-handler :as issue-handler]
             [et.tr.server.meet-handler :as meet-handler]
             [et.tr.server.meeting-series-handler :as meeting-series-handler]
             [et.tr.server.recurring-task-handler :as recurring-task-handler]
@@ -144,6 +145,7 @@
     et.tr.server.category-handler
     et.tr.server.message-handler
     et.tr.server.resource-handler
+    et.tr.server.issue-handler
     et.tr.server.meet-handler
     et.tr.server.meeting-series-handler
     et.tr.server.recurring-task-handler
@@ -280,6 +282,19 @@
       (PUT "/:id/scope" [] resource-handler/set-resource-scope-handler)
       (PUT "/:id/importance" [] resource-handler/set-resource-importance-handler)
       (PUT "/:id/relation-badge-title" [] resource-handler/set-resource-relation-badge-title-handler))
+
+    (context "/issues" []
+      (GET "/" [] issue-handler/list-issues-handler)
+      (GET "/:id" [] issue-handler/get-issue-handler)
+      (POST "/" [] issue-handler/add-issue-handler)
+      (PUT "/:id" [] issue-handler/update-issue-handler)
+      (DELETE "/:id" [] issue-handler/delete-issue-handler)
+      (POST "/:id/categorize" [] issue-handler/categorize-issue-handler)
+      (DELETE "/:id/categorize" [] issue-handler/uncategorize-issue-handler)
+      (POST "/:id/reorder" [] issue-handler/reorder-issue-handler)
+      (PUT "/:id/scope" [] issue-handler/set-issue-scope-handler)
+      (PUT "/:id/importance" [] issue-handler/set-issue-importance-handler)
+      (PUT "/:id/relation-badge-title" [] issue-handler/set-issue-relation-badge-title-handler))
 
     (context "/meets" []
       (GET "/" [] meet-handler/list-meets-handler)
