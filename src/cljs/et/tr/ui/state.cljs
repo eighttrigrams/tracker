@@ -1129,8 +1129,12 @@
   (:issues-page/focused-issue @*app-state))
 
 (defn create-task-for-issue [issue-id]
+  ;; After creating the task, focus the issue so the user lands on its task
+  ;; listing and sees the new task — issue cards don't list tasks themselves,
+  ;; so without this the click has no visible effect.
   (issues-state/create-task-for-issue *app-state auth-headers fetch-issues
-                                      (active-filter-categories) issue-id nil))
+                                      (active-filter-categories) issue-id
+                                      #(focus-issue issue-id)))
 
 (defn toggle-series-mode []
   (swap! *app-state (fn [s] (-> s

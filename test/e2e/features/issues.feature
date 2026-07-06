@@ -22,6 +22,15 @@ Feature: Issues
     Then I should see "Roof works" in the task list
     And the task "Roof works" shows the issue icon
 
+  Scenario: Create-task button focuses the issue and reveals the new task
+    Given I am on the app
+    And an issue "Gutter clean" exists
+    When I reload the page
+    And I click the "Issues" tab
+    And I click the create-task button on issue "Gutter clean"
+    Then I should see the issue filter bar for "Gutter clean"
+    And I should see the task "Gutter clean" in the focused issue task listing
+
   Scenario: The issue icon on a task jumps to the focused issue task listing
     Given I am on the app
     And a task "Replace tiles" belongs to issue "Roof works"
