@@ -154,7 +154,8 @@
       (jdbc/with-transaction [tx conn]
         (jdbc/execute-one! tx
           (sql/format {:update :tasks
-                       :set {:issue_id nil}
+                       :set {:issue_id nil
+                             :modified_at [:raw "datetime('now')"]}
                        :where [:= :issue_id issue-id]}))
         (jdbc/execute-one! tx
           (sql/format {:delete-from :issue_categories
@@ -222,16 +223,24 @@
 (defn set-task-issue
   "Establish the belongs-to link: point a task at an issue by setting the
   task's issue_id FK. Both the task and the issue must be owned by the caller.
-  Returns {:success true} on success, nil otherwise."
+  Returns {:success true :previous-issue-id <id-or-nil>} on success (where
+  :previous-issue-id is the issue the task belonged to beforehand, so callers
+  can audit an implicit reassignment), nil otherwise."
   [ds user-id task-id issue-id]
   (when (and (task-owned-by-user? ds task-id user-id)
              (issue-owned-by-user? ds issue-id user-id))
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :tasks
-                   :set {:issue_id issue-id
-                         :modified_at [:raw "datetime('now')"]}
-                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]}))
-    {:success true}))
+    (let [conn (db/get-conn ds)
+          previous-issue-id (:issue_id (jdbc/execute-one! conn
+                                         (sql/format {:select [:issue_id]
+                                                      :from [:tasks]
+                                                      :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]})
+                                         db/jdbc-opts))]
+      (jdbc/execute-one! conn
+        (sql/format {:update :tasks
+                     :set {:issue_id issue-id
+                           :modified_at [:raw "datetime('now')"]}
+                     :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]}))
+      {:success true :previous-issue-id previous-issue-id})))
 
 (defn clear-task-issue
   "Clear the belongs-to link: null out the task's issue_id FK. Only clears when

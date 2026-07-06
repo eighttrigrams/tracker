@@ -67,6 +67,16 @@
             ^{:key (:id task)}
             [issue-task-badge (:id issue) task expanded?]))))
 
+(defn- issue-create-task-button [issue]
+  ;; Mirrors the recurring-task / journal parent pattern: the collapsed parent
+  ;; card offers a button that materialises a child (a task belonging to this
+  ;; issue), rather than listing the children as mutual relation badges.
+  [:button.create-next-meeting-btn
+   {:on-click (fn [e]
+                (.stopPropagation e)
+                (state/create-task-for-issue (:id issue)))}
+   (t :tasks/create-task)])
+
 (defn- issue-item [issue expanded-id drag-enabled? drag-issue drag-over-issue]
   (let [is-expanded (= expanded-id (:id issue))
         is-dragging (= drag-issue (:id issue))
@@ -95,8 +105,7 @@
       :description {:edit-type :issue
                     :on-edit state/edit-issue-description}
       :categories {:selector-fn issue-category-selector :relations-prefix "iss"}
-      :expanded-suffix [issue-tasks issue true]
-      :readonly-extra [issue-tasks issue false]
+      :readonly-extra [issue-create-task-button issue]
       :footer {:left [{:type :scope :value (:scope issue)
                        :on-set #(state/set-issue-scope (:id issue) %)}
                       {:type :importance :value (:importance issue)
@@ -196,9 +205,31 @@
                                     :clear-fn #(state/clear-shared-filter category-type)
                                     :collapsed? (contains? collapsed-filters filter-key)}]))))
 
+(defn- issue-filter-bar []
+  ;; Mirrors the recurring-tasks / journal filter bar shown when the page is
+  ;; focused on a single parent. Clicking the label opens the issue for editing.
+  (let [f (state/issue-filter)
+        focused (state/focused-issue)]
+    [:div.series-filter-bar
+     [:span.series-filter-label
+      {:on-click #(when focused (state/open-edit-modal :issue focused))
+       :style {:cursor "pointer"}}
+      (:title f)]
+     [:button.clear-search {:on-click #(state/clear-issue-filter)} "x"]]))
+
+(defn- focused-issue-tasks []
+  ;; The task listing for the focused issue — this is where an issue's belonging
+  ;; tasks are surfaced (the issue card itself no longer shows them, matching the
+  ;; unidirectional journal↔entry model).
+  (let [issue (state/focused-issue)]
+    (if (seq (:tasks issue))
+      [issue-tasks issue false]
+      [:p.empty-message (t :issues/no-tasks)])))
+
 (defn issues-tab []
   (let [{:keys [issues drag-issue drag-over-issue]} @state/*app-state
         {:keys [expanded-issue sort-mode]} @issues-state/*issues-page-state
+        issue-filter (state/issue-filter)
         manual-mode? (= sort-mode :manual)
         any-open? (some? expanded-issue)
         drag-enabled? (and manual-mode? (not any-open?))]
@@ -206,12 +237,22 @@
      [sidebar-filters]
      [:div.main-content.issues-page
       [:div.tasks-header
-       [importance-filter-toggle]
-       [sort-mode-toggle]]
-      [search-add-form]
-      (if (empty? issues)
-        [:p.empty-message (t :issues/no-issues)]
+       (when-not issue-filter [importance-filter-toggle])
+       (when-not issue-filter [sort-mode-toggle])]
+      (cond
+        issue-filter
         [:<>
+         [issue-filter-bar]
+         [focused-issue-tasks]]
+
+        (empty? issues)
+        [:<>
+         [search-add-form]
+         [:p.empty-message (t :issues/no-issues)]]
+
+        :else
+        [:<>
+         [search-add-form]
          [:ul.items
           (for [issue issues]
             ^{:key (:id issue)}

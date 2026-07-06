@@ -244,11 +244,12 @@
                                            (.stopPropagation e)
                                            (state/set-recurring-filter {:id (:recurring_task_id task) :title (:title task)}))}
         "🔁"])
-     (when (:issue_id task)
+     (when (and (:issue_id task) (not= (:id (state/issue-filter)) (:issue_id task)))
        [:span.issue-icon {:title (t :issues/belongs-to-issue)
                           :on-click (fn [e]
                                       (.stopPropagation e)
-                                      (state/open-relation-in-modal "iss" (:issue_id task)))}
+                                      (state/focus-issue (:issue_id task))
+                                      (state/set-active-tab :issues))}
         "◈"])
      (when (or (:reminder_date task) (= "active" (:reminder task)))
        [:span.reminder-icon

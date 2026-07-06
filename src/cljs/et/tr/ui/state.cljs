@@ -1107,6 +1107,31 @@
 (defn recurring-filter []
   (:tasks-page/filter-recurring @*app-state))
 
+;; --- Issue focus/filter (mirrors the recurring-task filter mechanism) --------
+;; Clicking the ◈ icon on a task focuses the Issues page on that one issue,
+;; showing its task listing. The FK-based issue↔task link is unidirectional, so
+;; the issue card itself does not list its tasks — the focused view does.
+
+(defn focus-issue [issue-id]
+  (swap! *app-state assoc
+         :issues-page/filter-issue {:id issue-id :title nil}
+         :issues-page/focused-issue nil)
+  (issues-state/fetch-focused-issue *app-state auth-headers issue-id))
+
+(defn clear-issue-filter []
+  (swap! *app-state assoc :issues-page/filter-issue nil :issues-page/focused-issue nil)
+  (fetch-issues))
+
+(defn issue-filter []
+  (:issues-page/filter-issue @*app-state))
+
+(defn focused-issue []
+  (:issues-page/focused-issue @*app-state))
+
+(defn create-task-for-issue [issue-id]
+  (issues-state/create-task-for-issue *app-state auth-headers fetch-issues
+                                      (active-filter-categories) issue-id nil))
+
 (defn toggle-series-mode []
   (swap! *app-state (fn [s] (-> s
                                 (update :meets-page/series-mode not)

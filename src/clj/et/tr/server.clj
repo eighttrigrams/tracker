@@ -292,6 +292,7 @@
       (POST "/:id/categorize" [] issue-handler/categorize-issue-handler)
       (DELETE "/:id/categorize" [] issue-handler/uncategorize-issue-handler)
       (POST "/:id/reorder" [] issue-handler/reorder-issue-handler)
+      (POST "/:id/create-task" [] issue-handler/create-task-for-issue-handler)
       (PUT "/:id/scope" [] issue-handler/set-issue-scope-handler)
       (PUT "/:id/importance" [] issue-handler/set-issue-importance-handler)
       (PUT "/:id/relation-badge-title" [] issue-handler/set-issue-relation-badge-title-handler))

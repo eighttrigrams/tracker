@@ -3,6 +3,7 @@
             [et.tr.server.events :as events]
             [et.tr.db :as db]
             [et.tr.db.issue :as db.issue]
+            [et.tr.db.task :as db.task]
             [clojure.string :as str]))
 
 (defn get-issue-handler
@@ -118,6 +119,25 @@
     (if (:success result)
       (do (events/record-delete! req :issue issue-id snapshot)
           {:status 200 :body {:success true}})
+      {:status 404 :body {:success false :error "Issue not found"}})))
+
+(defn create-task-for-issue-handler
+  "POST /api/issues/:id/create-task — materialize a new task that belongs to
+  this issue. The task inherits the issue's title and scope, and its issue_id
+  FK is set to the issue (mirrors the recurring-task create-task endpoint).
+  Category associations are applied by the caller afterwards, the same way the
+  Tasks page add form does. Returns 201 with the created task, or 404 {:success
+  false :error} when the issue does not exist or is not owned by the caller.
+  Records a :create event for the task."
+  [req]
+  (let [user-id (common/get-user-id req)
+        issue-id (Integer/parseInt (get-in req [:params :id]))]
+    (if-let [issue (db.issue/get-issue (common/ensure-ds) user-id issue-id)]
+      (let [task (db.task/add-task (common/ensure-ds) user-id (:title issue) (:scope issue))]
+        (db.issue/set-task-issue (common/ensure-ds) user-id (:id task) issue-id)
+        (let [task (assoc task :issue_id issue-id :people [] :places [] :projects [] :goals [])]
+          (events/record-create! req :task (:id task) task)
+          {:status 201 :body task}))
       {:status 404 :body {:success false :error "Issue not found"}})))
 
 (def categorize-issue-handler

@@ -4,7 +4,7 @@
 (def ^:private capped-paths
   #{"/api/tasks" "/api/meets" "/api/messages" "/api/resources"
     "/api/journals" "/api/journal-entries"
-    "/api/recurring-tasks" "/api/meeting-series"})
+    "/api/recurring-tasks" "/api/meeting-series" "/api/issues"})
 
 (defn- normalize-uri [uri]
   (if (and (> (count uri) 1) (.endsWith ^String uri "/"))

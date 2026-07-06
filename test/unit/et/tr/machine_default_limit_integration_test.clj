@@ -5,6 +5,7 @@
             [et.tr.auth :as auth]
             [et.tr.db.user :as db.user]
             [et.tr.db.meet :as db.meet]
+            [et.tr.db.issue :as db.issue]
             [et.tr.server.common :as common]
             [et.tr.integration-helpers :refer [with-integration-db *app* *ds* *user-id*]]))
 
@@ -73,6 +74,21 @@
   (testing "regular user can still pass ?limit explicitly"
     (let [resp (get-meets {:path "/api/meets?limit=5"})]
       (is (= 5 (count (:body resp)))))))
+
+(deftest issues-list-capped-for-machine-user
+  (with-real-auth
+    (let [machine (db.user/create-user *ds* "machine" "machinepass"
+                                       {:is-machine-user true :for-user-id *user-id*})
+          token (machine-token (:id machine) *user-id*)]
+      (dotimes [i 120] (db.issue/add-issue *ds* *user-id* (str "Issue " i)))
+      (testing "machine user without ?limit gets 100 issues (endpoint is capped)"
+        (let [resp (get-meets {:token token :path "/api/issues"})]
+          (is (= 200 (:status resp)))
+          (is (= 100 (count (:body resp))))))
+      (testing "machine user can still page past the default with an explicit ?limit"
+        (let [resp (get-meets {:token token :path "/api/issues?limit=110"})]
+          (is (= 200 (:status resp)))
+          (is (= 110 (count (:body resp)))))))))
 
 (deftest single-resource-get-not-affected
   (with-real-auth

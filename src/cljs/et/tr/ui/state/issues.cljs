@@ -182,6 +182,51 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add issue")))}))
 
+(defn fetch-focused-issue
+  "Load a single issue (with its :tasks) into the focused-view state slots so the
+  Issues page can show that issue's task listing when the ◈ icon is clicked."
+  [app-state auth-headers issue-id]
+  (GET (str "/api/issues/" issue-id)
+    {:response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [issue]
+                (swap! app-state assoc
+                       :issues-page/filter-issue {:id (:id issue) :title (:title issue)}
+                       :issues-page/focused-issue issue))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to load issue")))}))
+
+(defn- categorize-task-batch [auth-headers task-id category-type ids]
+  (doseq [id ids]
+    (api/post-json (str "/api/tasks/" task-id "/categorize")
+      {:category-type category-type :category-id id}
+      (auth-headers)
+      (fn [_]))))
+
+(defn create-task-for-issue
+  "Create a task belonging to the issue, then associate the currently-selected
+  sidebar categories with it — mirroring how the Tasks page add form categorises
+  a freshly-created task."
+  [app-state auth-headers fetch-issues-fn categories issue-id on-success]
+  (POST (str "/api/issues/" issue-id "/create-task")
+    {:params {}
+     :format :json
+     :response-format :json
+     :keywords? true
+     :headers (auth-headers)
+     :handler (fn [task]
+                (let [task-id (:id task)
+                      {:keys [people places projects goals]} categories]
+                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-PERSON people)
+                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-PLACE places)
+                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-PROJECT projects)
+                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-GOAL goals)
+                  (js/setTimeout fetch-issues-fn 500)
+                  (when on-success (on-success))))
+     :error-handler (fn [resp]
+                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to create task")))}))
+
 (defn set-drag-issue [app-state issue-id]
   (swap! app-state assoc :drag-issue issue-id))
 

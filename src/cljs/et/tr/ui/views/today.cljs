@@ -71,6 +71,13 @@
                                                                   :tasks-page/recurring-mode false)
                                                            (state/set-active-tab :tasks))}
                         "🔁"])
+                     (when (:issue_id task)
+                       [:span.issue-icon {:title (t :issues/belongs-to-issue)
+                                          :on-click (fn [e]
+                                                      (.stopPropagation e)
+                                                      (state/focus-issue (:issue_id task))
+                                                      (state/set-active-tab :issues))}
+                        "◈"])
                      (when (and (not is-expanded) (or (:reminder_date task) (= "active" (:reminder task))))
                        [:span.reminder-icon "🔔"])]
       :description {:edit-type :task}

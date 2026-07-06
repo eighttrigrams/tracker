@@ -44,10 +44,20 @@
 
       (task-issue-pair source-type source-id target-type target-id)
       (let [{:keys [task-id issue-id]} (task-issue-pair source-type source-id target-type target-id)]
-        (if (db.issue/set-task-issue (common/ensure-ds) user-id task-id issue-id)
+        (if-let [result (db.issue/set-task-issue (common/ensure-ds) user-id task-id issue-id)]
           (let [conn (db/get-conn (common/ensure-ds))
+                previous-issue-id (:previous-issue-id result)
                 tsk-title (:title (db.relation/fetch-title-for-relation conn "tsk" task-id))
                 iss-title (:title (db.relation/fetch-title-for-relation conn "iss" issue-id))]
+            ;; Reassigning a task that already belonged to a different issue silently
+            ;; drops the old membership; record its unlink so the audit log stays symmetric.
+            (when (and previous-issue-id (not= previous-issue-id issue-id))
+              (let [prev-title (:title (db.relation/fetch-title-for-relation conn "iss" previous-issue-id))]
+                (events/record! req {:entity-type :relation
+                                     :entity-id nil
+                                     :action :relation-delete
+                                     :payload {:source {:type "tsk" :id task-id :title tsk-title}
+                                               :target {:type "iss" :id previous-issue-id :title prev-title}}})))
             (events/record! req {:entity-type :relation
                                  :entity-id nil
                                  :action :relation-add
