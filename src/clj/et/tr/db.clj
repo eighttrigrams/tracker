@@ -25,10 +25,19 @@
 
 (defn init-conn [{:keys [type path]}]
   (let [db-spec (case type
-                  ;; busy_timeout lets a fresh connection wait for a peer's
-                  ;; table lock (shared-cache serialises writers) instead of
-                  ;; failing immediately with SQLITE_LOCKED.
-                  :sqlite-memory {:dbtype "sqlite" :dbname "file::memory:?cache=shared&busy_timeout=5000"}
+                  ;; Per-op connections (see below) share the in-memory DB via
+                  ;; cache=shared. Two pragmas keep that safe under the SPA's
+                  ;; concurrent requests:
+                  ;;  - busy_timeout: a writer waits for a peer's write lock
+                  ;;    instead of failing immediately with SQLITE_BUSY.
+                  ;;  - read_uncommitted: readers don't take a read lock, so a
+                  ;;    read that touches a table another connection is writing
+                  ;;    no longer dies with SQLITE_LOCKED_SHAREDCACHE (which
+                  ;;    busy_timeout does NOT retry). Without it, e.g. loading
+                  ;;    the filtered issues list while a category write is in
+                  ;;    flight 500s intermittently. Dirty reads are harmless
+                  ;;    here: the DB is single-user and e2e asserts settled state.
+                  :sqlite-memory {:dbtype "sqlite" :dbname "file::memory:?cache=shared&busy_timeout=5000&read_uncommitted=true"}
                   :sqlite-file {:dbtype "sqlite" :dbname path})
         ds (jdbc/get-datasource db-spec)
         ;; A shared-cache in-memory DB is dropped the instant its last
