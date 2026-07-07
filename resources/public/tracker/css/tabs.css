@@ -91,6 +91,22 @@
   border-radius: 4px;
 }
 
+/* Work/private toggle: render the home/work emoji as a flat monochrome
+   silhouette (via the transparent-fill + zero-offset text-shadow trick) so it
+   follows the toggle's color scheme like the other monochrome top-bar icons,
+   rather than showing as a full-color emoji. */
+.work-private-toggle .scope-glyph {
+  color: transparent;
+  text-shadow: 0 0 0 var(--text-secondary);
+  font-size: 1.1em;
+}
+.work-private-toggle .toggle-option:hover:not(.active) .scope-glyph {
+  text-shadow: 0 0 0 var(--text-primary);
+}
+.work-private-toggle .toggle-option.active .scope-glyph {
+  text-shadow: 0 0 0 #fff;
+}
+
 /* Tasks page: sort selector collapsed into a single hover-dropdown button */
 .sort-toggle-dropdown {
   position: relative;

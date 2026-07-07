@@ -42,6 +42,8 @@
      (when right-crescent
        [:circle {:cx "11" :cy "10" :r "6.5" :fill "var(--glass-bg)" :stroke "none"}])]))
 
+(def ^:private scope-glyphs {"private" "🏠" "work" "👔"})
+
 (defn scope-toggle [css-class current-value on-change]
   (into [:div {:class css-class}]
         (for [scope ["private" "both" "work"]]
@@ -58,12 +60,13 @@
             [:button.toggle-option
              {:key scope
               :class (when (= current-value scope) "active")
+              :title (t (keyword "toggle" scope))
               :on-click (fn [e]
                           (.stopPropagation e)
                           (if (= current-value scope)
                             (state/toggle-strict-mode)
                             (on-change scope)))}
-             (t (keyword "toggle" scope))]))))
+             [:span.scope-glyph (get scope-glyphs scope)]]))))
 
 (defn plain-scope-toggle
   "A scope selector (private/both/work) without the global strict-mode
