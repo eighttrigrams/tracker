@@ -51,8 +51,38 @@ Given(
   },
 );
 
+Given("a resolved issue {string} exists", async ({ request }, title: string) => {
+  const issue = await (await request.post("/api/issues", { headers, data: { title } })).json();
+  await request.put(`/api/issues/${issue.id}/resolved`, { headers, data: { resolved: true } });
+});
+
 When("I type {string} in the issues search field", async ({ page }, text: string) => {
   await page.locator("#issues-filter-search").fill(text);
+});
+
+When("I expand the issue {string}", async ({ page }, title: string) => {
+  await page.locator(".items li").filter({ hasText: title }).locator(".item-header").click();
+  await page.waitForLoadState("networkidle");
+});
+
+When("I click the resolve button on issue {string}", async ({ page }, title: string) => {
+  const card = page.locator(".items li").filter({ hasText: title });
+  await card.locator(".combined-main-btn.done").click();
+  await page.waitForLoadState("networkidle");
+});
+
+When("I switch the issues sort to {string}", async ({ page }, mode: string) => {
+  await page.locator(".sort-toggle").getByRole("button", { name: mode, exact: true }).click();
+  await page.waitForLoadState("networkidle");
+});
+
+When("I open the footer dropdown on issue {string}", async ({ page }, title: string) => {
+  await page.locator(".items li").filter({ hasText: title }).locator(".combined-dropdown-btn").click();
+});
+
+When("I confirm the issue deletion", async ({ page }) => {
+  await page.locator(".modal-overlay .confirm-delete").click();
+  await page.waitForLoadState("networkidle");
 });
 
 When("I click the issues add button", async ({ page }) => {
@@ -110,6 +140,21 @@ Then("I should see the Inbox icon", async ({ page }) => {
 
 Then("I should see {string} in the issues list", async ({ page }, text: string) => {
   await expect(page.locator(".items")).toContainText(text, { timeout: 5000 });
+});
+
+Then("I should not see {string} in the issues list", async ({ page }, text: string) => {
+  await expect(page.locator(".items li").filter({ hasText: text })).toHaveCount(0, { timeout: 5000 });
+});
+
+Then("the resolve button on issue {string} is disabled", async ({ page }, title: string) => {
+  const card = page.locator(".items li").filter({ hasText: title });
+  await expect(card.locator(".combined-main-btn.done")).toBeDisabled({ timeout: 5000 });
+});
+
+Then("the create-task button on issue {string} is not present", async ({ page }, title: string) => {
+  const card = page.locator(".items li").filter({ hasText: title });
+  await expect(card).toBeVisible({ timeout: 5000 });
+  await expect(card.locator(".create-next-meeting-btn")).toHaveCount(0);
 });
 
 Then("the task {string} shows the issue icon", async ({ page }, taskTitle: string) => {

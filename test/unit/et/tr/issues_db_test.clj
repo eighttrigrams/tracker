@@ -113,3 +113,50 @@
     (let [issue (db.issue/add-issue *ds* *user-id* "Doomed")]
       (is (:success (db.issue/delete-issue *ds* *user-id* (:id issue))))
       (is (nil? (db.issue/get-issue *ds* *user-id* (:id issue)))))))
+
+(deftest issue-resolved-default-test
+  (testing "new issue defaults to unresolved with no resolved_at"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Fresh")]
+      (is (= 0 (:resolved issue)))
+      (is (nil? (:resolved_at issue))))))
+
+(deftest set-issue-resolved-round-trips-test
+  (testing "resolving stamps resolved_at; reopening clears it"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Roundtrip")
+          resolved (db.issue/set-issue-resolved *ds* *user-id* (:id issue) true)]
+      (is (= 1 (:resolved resolved)))
+      (is (some? (:resolved_at resolved)))
+      (let [reopened (db.issue/set-issue-resolved *ds* *user-id* (:id issue) false)]
+        (is (= 0 (:resolved reopened)))
+        (is (nil? (:resolved_at reopened)))))))
+
+(deftest set-issue-resolved-rejects-when-undone-task-test
+  (testing "cannot resolve while a belonging task is still undone"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Blocked")
+          task (db.task/add-task *ds* *user-id* "Still open")]
+      (db.issue/set-task-issue *ds* *user-id* (:id task) (:id issue))
+      (is (= {:error :undone-tasks}
+             (db.issue/set-issue-resolved *ds* *user-id* (:id issue) true)))
+      (is (= 0 (:resolved (db.issue/get-issue *ds* *user-id* (:id issue)))))
+      (testing "resolving succeeds once the task is done"
+        (db.task/set-task-done *ds* *user-id* (:id task) true)
+        (is (= 1 (:resolved (db.issue/set-issue-resolved *ds* *user-id* (:id issue) true))))))))
+
+(deftest set-issue-resolved-is-ownership-scoped-test
+  (testing "set-issue-resolved respects ownership"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Owned")]
+      (is (nil? (db.issue/set-issue-resolved *ds* (inc *user-id*) (:id issue) true)))
+      (is (= 0 (:resolved (db.issue/get-issue *ds* *user-id* (:id issue))))))))
+
+(deftest list-issues-resolved-partitions-test
+  (testing "non-resolved sort modes exclude resolved; the resolved mode includes only resolved"
+    (let [open-issue (db.issue/add-issue *ds* *user-id* "Open one")
+          done-issue (db.issue/add-issue *ds* *user-id* "Done one")]
+      (db.issue/set-issue-resolved *ds* *user-id* (:id done-issue) true)
+      (is (= ["Open one"] (mapv :title (db.issue/list-issues *ds* *user-id* {:sort-mode "recent"})))
+          "recent excludes the resolved issue")
+      (is (= ["Open one"] (mapv :title (db.issue/list-issues *ds* *user-id* {:sort-mode "manual"})))
+          "manual excludes the resolved issue")
+      (is (= ["Done one"] (mapv :title (db.issue/list-issues *ds* *user-id* {:sort-mode "resolved"})))
+          "resolved mode shows only the resolved issue")
+      (is (some? open-issue)))))

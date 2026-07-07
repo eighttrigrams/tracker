@@ -78,6 +78,44 @@ Feature: Issues
     And I click the "Tasks" tab
     Then the "Yard" badge on task "Fence repair" should be visible
 
+  Scenario: Resolving an issue moves it to the Resolved sort view
+    Given I am on the app
+    And an issue "Wrap up" exists
+    When I reload the page
+    And I click the "Issues" tab
+    And I expand the issue "Wrap up"
+    And I click the resolve button on issue "Wrap up"
+    Then I should not see "Wrap up" in the issues list
+    When I switch the issues sort to "Resolved"
+    Then I should see "Wrap up" in the issues list
+
+  Scenario: An issue with an undone task cannot be resolved
+    Given I am on the app
+    And a task "Loose end" belongs to issue "Still busy"
+    When I reload the page
+    And I click the "Issues" tab
+    And I expand the issue "Still busy"
+    Then the resolve button on issue "Still busy" is disabled
+
+  Scenario: A resolved issue offers no Create Task button
+    Given I am on the app
+    And a resolved issue "Signed off" exists
+    When I reload the page
+    And I click the "Issues" tab
+    And I switch the issues sort to "Resolved"
+    Then the create-task button on issue "Signed off" is not present
+
+  Scenario: Delete works from the issue footer dropdown
+    Given I am on the app
+    And an issue "Throwaway" exists
+    When I reload the page
+    And I click the "Issues" tab
+    And I expand the issue "Throwaway"
+    And I open the footer dropdown on issue "Throwaway"
+    And I click the footer dropdown item "Delete"
+    And I confirm the issue deletion
+    Then I should not see "Throwaway" in the issues list
+
   Scenario: The Inbox icon navigates to the inbox page
     Given I am on the app
     When I click the Inbox icon
