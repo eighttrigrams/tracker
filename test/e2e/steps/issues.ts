@@ -61,9 +61,17 @@ When("I click the issues add button", async ({ page }) => {
 });
 
 When("I click the create-task button on issue {string}", async ({ page }, issueTitle: string) => {
-  const card = page.locator(".items li").filter({ hasText: issueTitle });
-  await card.locator(".create-next-meeting-btn").click();
-  await expect(page.locator(".create-task-modal")).toBeVisible();
+  // The issues list re-renders when its filtered fetch resolves, which can land
+  // just as we click and detach the card mid-action ("element was detached from
+  // the DOM"). Re-attempt the click as a unit and confirm the modal opened, so
+  // we interact once the list has settled instead of racing a repaint.
+  const modal = page.locator(".create-task-modal");
+  await expect(async () => {
+    if (await modal.isVisible()) return;
+    const btn = page.locator(".items li").filter({ hasText: issueTitle }).locator(".create-next-meeting-btn");
+    await btn.click({ timeout: 3000 });
+    await expect(modal).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
 });
 
 When("I enter {string} as the task title", async ({ page }, title: string) => {
