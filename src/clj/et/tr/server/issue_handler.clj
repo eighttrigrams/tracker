@@ -138,13 +138,41 @@
         issue-id (Integer/parseInt (get-in req [:params :id]))
         title (get-in req [:body :title])]
     (if-let [issue (db.issue/get-issue (common/ensure-ds) user-id issue-id)]
-      (let [title (if (str/blank? title) (:title issue) title)
-            task (db.task/add-task (common/ensure-ds) user-id title (:scope issue))]
-        (db.issue/set-task-issue (common/ensure-ds) user-id (:id task) issue-id)
-        (let [task (db.task/get-task (common/ensure-ds) user-id (:id task))]
-          (events/record-create! req :task (:id task) task)
-          {:status 201 :body task}))
+      (if (= 1 (:resolved issue))
+        {:status 409 :body {:success false :error "Cannot create tasks for a resolved issue"}}
+        (let [title (if (str/blank? title) (:title issue) title)
+              task (db.task/add-task (common/ensure-ds) user-id title (:scope issue))]
+          (db.issue/set-task-issue (common/ensure-ds) user-id (:id task) issue-id)
+          (let [task (db.task/get-task (common/ensure-ds) user-id (:id task))]
+            (events/record-create! req :task (:id task) task)
+            {:status 201 :body task})))
       {:status 404 :body {:success false :error "Issue not found"}})))
+
+(defn set-issue-resolved-handler
+  "PUT /api/issues/:id/resolved — mark an issue resolved or reopened. Body:
+  {:resolved} as a boolean (required; 400 if absent). Refuses to resolve while
+  any belonging task is still undone, returning 409 {:error}. Returns the
+  updated row on 200, 404 if not found. Logs an :update event diffing
+  :resolved/:resolved_at."
+  [req]
+  (if-not (contains? (:body req) :resolved)
+    {:status 400 :body {:error "Missing required field: resolved"}}
+    (let [user-id (common/get-user-id req)
+          issue-id (Integer/parseInt (get-in req [:params :id]))
+          resolved? (boolean (get-in req [:body :resolved]))
+          before (events/fetch-fields :issues issue-id [:resolved :resolved_at])
+          result (db.issue/set-issue-resolved (common/ensure-ds) user-id issue-id resolved?)]
+      (cond
+        (= :undone-tasks (:error result))
+        {:status 409 :body {:error "Cannot resolve an issue while it has undone tasks"}}
+
+        result
+        (do (events/record-update! req :issue issue-id before
+                                   (select-keys result [:resolved :resolved_at]))
+            {:status 200 :body result})
+
+        :else
+        {:status 404 :body {:error "Issue not found"}}))))
 
 (def categorize-issue-handler
   "POST /api/issues/:id/categorize — link the issue to a category. Body fields:

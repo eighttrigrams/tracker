@@ -296,6 +296,7 @@
       (PUT "/:id/scope" [] issue-handler/set-issue-scope-handler)
       (PUT "/:id/importance" [] issue-handler/set-issue-importance-handler)
       (PUT "/:id/urgency" [] issue-handler/set-issue-urgency-handler)
+      (PUT "/:id/resolved" [] issue-handler/set-issue-resolved-handler)
       (PUT "/:id/relation-badge-title" [] issue-handler/set-issue-relation-badge-title-handler))
 
     (context "/meets" []

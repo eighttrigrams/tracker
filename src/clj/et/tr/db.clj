@@ -89,7 +89,7 @@
 
 (def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance :relation_badge_title])
 
-(def issue-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :urgency :relation_badge_title])
+(def issue-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :urgency :resolved :resolved_at :relation_badge_title])
 
 (def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time :meeting_series_id :archived :maybe :over :relation_badge_title])
 

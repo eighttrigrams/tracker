@@ -76,7 +76,8 @@
          urgency-clause (db/build-urgency-clause urgency)
          scope-clause (db/build-scope-clause context strict)
          category-clauses (build-issue-category-clauses categories)
-         where-clause (into [:and user-where]
+         resolved-clause [:= :resolved (if (= sort-mode "resolved") 1 0)]
+         where-clause (into [:and user-where resolved-clause]
                             (concat (filter some? [search-clause importance-clause urgency-clause scope-clause])
                                     category-clauses))
          issues (jdbc/execute! conn
@@ -86,6 +87,7 @@
                                        :order-by (case sort-mode
                                                    "added" [[:created_at :desc] [:id :desc]]
                                                    "manual" [[:sort_order :asc] [:id :asc]]
+                                                   "resolved" [[:resolved_at :desc] [:id :desc]]
                                                    [[:modified_at :desc] [:id :desc]])}
                                 limit (assoc :limit limit)
                                 offset (assoc :offset offset)))
@@ -178,6 +180,36 @@
                    :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]
                    :returning [:id field :modified_at]})
       db/jdbc-opts)))
+
+(defn- undone-task-count
+  "Number of the caller's tasks belonging to the issue that are not yet done."
+  [conn user-id issue-id]
+  (:c (jdbc/execute-one! conn
+        (sql/format {:select [[[:count :*] :c]]
+                     :from [:tasks]
+                     :where [:and (db/user-id-where-clause user-id)
+                             [:= :issue_id issue-id]
+                             [:= :done 0]]})
+        db/jdbc-opts)))
+
+(defn set-issue-resolved
+  "Toggle an issue's resolved flag (mirrors db.task/set-task-done). Resolving
+  stamps resolved_at; reopening nulls it. Refuses to resolve while any belonging
+  task is still undone, returning {:error :undone-tasks} so the handler can emit
+  a 4xx. Returns the updated row on success, or nil when no owned row matched."
+  [ds user-id issue-id resolved?]
+  (let [conn (db/get-conn ds)]
+    (if (and resolved? (pos? (undone-task-count conn user-id issue-id)))
+      {:error :undone-tasks}
+      (jdbc/execute-one! conn
+        (sql/format {:update :issues
+                     :set (cond-> {:resolved (if resolved? 1 0)
+                                   :modified_at [:raw "datetime('now')"]}
+                            resolved? (assoc :resolved_at [:raw "datetime('now')"])
+                            (not resolved?) (assoc :resolved_at nil))
+                     :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]
+                     :returning [:id :resolved :resolved_at :modified_at]})
+        db/jdbc-opts))))
 
 (defn categorize-issue [ds user-id issue-id category-type category-id]
   (db/validate-category-type! category-type)
