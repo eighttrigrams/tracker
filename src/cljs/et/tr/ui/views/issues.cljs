@@ -215,7 +215,10 @@
         done (filter #(= 1 (:done %)) tasks)
         render-task (fn [task]
                       ^{:key (:id task)}
-                      [tasks-view/task-item-content task (= expanded-task (:id task)) false {:tag :li}])]
+                      ;; Hide the per-task ◈ belongs-to-issue indicator: every task
+                      ;; in this listing already belongs to the focused issue.
+                      [tasks-view/task-item-content task (= expanded-task (:id task)) false {:tag :li}
+                       {:hide-issue-icon? true}])]
     (if (seq tasks)
       [:<>
        (into [:ul.items] (map render-task not-done))

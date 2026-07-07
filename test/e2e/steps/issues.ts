@@ -133,6 +133,15 @@ Then(
   },
 );
 
+Then(
+  "no task in the focused issue task listing shows the belongs-to-issue icon",
+  async ({ page }) => {
+    // Confirm at least one task card is present, then that none carry the ◈.
+    await expect(page.locator(".issues-page .items li").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".issues-page .items li .issue-icon")).toHaveCount(0);
+  },
+);
+
 Then("I should see the completed divider in the focused issue task listing", async ({ page }) => {
   await expect(page.locator(".issues-page .done-divider")).toBeVisible({ timeout: 5000 });
   await expect(page.locator(".issues-page .done-heading")).toBeVisible();

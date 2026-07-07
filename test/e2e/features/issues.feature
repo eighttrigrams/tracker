@@ -44,6 +44,7 @@ Feature: Issues
     Then I should see the issue filter bar for "Roof works"
     And I should see the task "Replace tiles" in the focused issue task listing
     And the task "Replace tiles" in the focused issue task listing is a task card
+    And no task in the focused issue task listing shows the belongs-to-issue icon
 
   Scenario: Done tasks are separated below a divider in the focused issue listing
     Given I am on the app

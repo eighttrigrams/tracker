@@ -216,7 +216,7 @@
        (when is-open
          [send-to-day-dropdown task assigned?])])))
 
-(defn- task-date-render [is-expanded done-mode?]
+(defn- task-date-render [is-expanded done-mode? hide-issue-icon?]
   (fn [task]
     [:<>
      (cond
@@ -244,7 +244,7 @@
                                            (.stopPropagation e)
                                            (state/set-recurring-filter {:id (:recurring_task_id task) :title (:title task)}))}
         "🔁"])
-     (when (:issue_id task)
+     (when (and (:issue_id task) (not hide-issue-icon?))
        [:span.issue-icon {:title (t :issues/belongs-to-issue)
                           :on-click (fn [e]
                                       (.stopPropagation e)
@@ -263,7 +263,10 @@
     "urgent" [:span.urgency-badge.urgent "🚨"]
     nil))
 
-(defn task-item-content [task is-expanded done-mode? container]
+(defn task-item-content
+  ([task is-expanded done-mode? container]
+   (task-item-content task is-expanded done-mode? container nil))
+  ([task is-expanded done-mode? container {:keys [hide-issue-icon?]}]
   [item-card/item-card
    {:item task
     :expanded? is-expanded
@@ -276,7 +279,7 @@
                     :title-path :tasks-page/inline-edit-title
                     :update-fn state/update-task})
     :toolbar {:calendar {:on-click #(state/open-edit-modal :task task :time)}}
-    :date {:render (task-date-render is-expanded done-mode?)}
+    :date {:render (task-date-render is-expanded done-mode? hide-issue-icon?)}
     :description {:edit-type :task}
     :categories {:selector-fn task-item/category-selector
                  :relations-prefix "tsk"
@@ -289,7 +292,7 @@
                          (when-not (:due_date task)
                            [{:type :urgency :value (:urgency task)
                              :on-set #(state/set-task-urgency (:id task) %)}]))
-             :right [{:type :done :item task}]}}])
+             :right [{:type :done :item task}]}}]))
 
 (defn- extract-date [modified-at]
   (when modified-at
