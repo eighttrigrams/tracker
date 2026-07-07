@@ -208,3 +208,15 @@
                                        {:entity-type :issue
                                         :set-fn db.issue/set-issue-field
                                         :table :issues}))
+
+(def set-issue-urgency-handler
+  "PUT /api/issues/:id/urgency — set the issue's :urgency field. Body field
+  :urgency must be one of db/valid-urgencies (\"default\", \"urgent\", or
+  \"superurgent\"). Returns 200 with the updated row, 400 {:error} on invalid
+  input, or 404 {:error} when the issue is not found. Records an :update event
+  with the field-level diff."
+  (common/make-entity-property-handler :urgency db/valid-urgencies
+                                       "Invalid urgency. Must be 'default', 'urgent', or 'superurgent'"
+                                       {:entity-type :issue
+                                        :set-fn db.issue/set-issue-field
+                                        :table :issues}))

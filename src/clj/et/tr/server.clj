@@ -295,6 +295,7 @@
       (POST "/:id/create-task" [] issue-handler/create-task-for-issue-handler)
       (PUT "/:id/scope" [] issue-handler/set-issue-scope-handler)
       (PUT "/:id/importance" [] issue-handler/set-issue-importance-handler)
+      (PUT "/:id/urgency" [] issue-handler/set-issue-urgency-handler)
       (PUT "/:id/relation-badge-title" [] issue-handler/set-issue-relation-badge-title-handler))
 
     (context "/meets" []

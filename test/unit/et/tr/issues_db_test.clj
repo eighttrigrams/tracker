@@ -60,6 +60,32 @@
       (is (nil? (db.issue/set-issue-field *ds* (inc *user-id*) (:id issue) :scope "work")))
       (is (= "both" (:scope (db.issue/get-issue *ds* *user-id* (:id issue))))))))
 
+(deftest issue-urgency-default-test
+  (testing "new issue defaults to 'default' urgency"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Fresh issue")]
+      (is (= "default" (:urgency issue))))))
+
+(deftest set-issue-urgency-test
+  (testing "set-issue-field updates urgency to valid values"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Urgent issue")]
+      (db.issue/set-issue-field *ds* *user-id* (:id issue) :urgency "urgent")
+      (is (= "urgent" (:urgency (db.issue/get-issue *ds* *user-id* (:id issue)))))
+      (db.issue/set-issue-field *ds* *user-id* (:id issue) :urgency "superurgent")
+      (is (= "superurgent" (:urgency (db.issue/get-issue *ds* *user-id* (:id issue))))))))
+
+(deftest set-issue-urgency-normalizes-invalid-test
+  (testing "an invalid urgency value is normalized to 'default'"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Weird urgency")]
+      (db.issue/set-issue-field *ds* *user-id* (:id issue) :urgency "urgent")
+      (db.issue/set-issue-field *ds* *user-id* (:id issue) :urgency "bogus")
+      (is (= "default" (:urgency (db.issue/get-issue *ds* *user-id* (:id issue))))))))
+
+(deftest set-issue-urgency-is-ownership-scoped-test
+  (testing "set-issue-field urgency respects ownership"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Owned")]
+      (is (nil? (db.issue/set-issue-field *ds* (inc *user-id*) (:id issue) :urgency "urgent")))
+      (is (= "default" (:urgency (db.issue/get-issue *ds* *user-id* (:id issue))))))))
+
 (deftest categorize-issue-test
   (testing "categorizing attaches a project to an issue"
     (let [issue (db.issue/add-issue *ds* *user-id* "Categorized")
