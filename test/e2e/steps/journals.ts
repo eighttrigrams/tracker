@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { setFieldValue } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -33,7 +34,9 @@ When("I select {string} in the journal type modal", async ({ page }, type: strin
 
 When("I pick the date {string} in the create-entry modal", async ({ page }, date: string) => {
   await page.locator(".create-date-modal").waitFor({ state: "visible", timeout: 5000 });
-  await page.locator(".create-date-modal input.date-picker-input").fill(date);
+  // Controlled reagent date input — fill() can set the DOM value without its
+  // on-change committing; setFieldValue retries until it sticks (see reminders).
+  await setFieldValue(page.locator(".create-date-modal input.date-picker-input"), date);
 });
 
 async function journalIdByTitle(request: any, title: string): Promise<number> {

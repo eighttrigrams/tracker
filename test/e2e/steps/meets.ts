@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { setFieldValue } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -32,7 +33,7 @@ When(
   async ({ page }, title: string) => {
     const meetRow = page.locator(".items li").filter({ hasText: title });
     await meetRow.locator(".item-toolbar .calendar-icon").click();
-    await page.locator(".edit-item-modal .time-tab .date-picker-input").fill(futureDateStr());
+    await setFieldValue(page.locator(".edit-item-modal .time-tab .date-picker-input"), futureDateStr());
     await page.locator(".edit-item-modal .modal-footer .confirm").click();
     await page.waitForLoadState("networkidle");
   },

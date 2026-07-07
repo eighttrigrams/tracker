@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { setFieldValue } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -55,11 +56,18 @@ When("I click {string} in the dropdown", async ({ page }, label: string) => {
 });
 
 When("I pick a reminder date 3 days from now", async ({ page }) => {
-  await page.locator(".modal .date-picker-input").fill(dateStr(3));
+  // The reminder modal's date input is a controlled reagent input; a plain
+  // fill() occasionally sets the DOM value without its on-change committing to
+  // the :selected-date atom, so confirm would send a null date and the reminder
+  // never persists. setFieldValue retries until the value sticks (a controlled
+  // input reverts if the atom didn't update), guaranteeing the date committed.
+  await setFieldValue(page.locator(".modal .date-picker-input"), dateStr(3));
 });
 
 When("I confirm the reminder modal", async ({ page }) => {
-  await page.locator(".modal .modal-footer .confirm").click();
+  const confirm = page.locator(".modal .modal-footer .confirm");
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
   await page.waitForLoadState("networkidle");
 });
 
