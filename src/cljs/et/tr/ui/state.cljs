@@ -582,6 +582,9 @@
 (defn set-issue-importance [issue-id importance]
   (issues-state/set-issue-importance *app-state auth-headers issue-id importance))
 
+(defn set-issue-urgency [issue-id urgency]
+  (issues-state/set-issue-urgency *app-state auth-headers issue-id urgency))
+
 (defn set-expanded-issue [id]
   (issues-state/set-expanded-issue id))
 
@@ -1545,7 +1548,8 @@
 (defn fetch-today-all [opts]
   (fetch-tasks opts)
   (fetch-today-meets opts)
-  (fetch-today-journal-entries opts))
+  (fetch-today-journal-entries opts)
+  (fetch-issues))
 
 (declare add-task-with-categories)
 (declare add-resource-with-categories)
@@ -1813,6 +1817,12 @@
 (defn urgent-tasks []
   (today-page/urgent-tasks *app-state))
 
+(defn superurgent-issues []
+  (today-page/superurgent-issues *app-state))
+
+(defn urgent-issues []
+  (today-page/urgent-issues *app-state))
+
 (defn today-meets []
   (today-page/today-meets *app-state))
 
@@ -2061,7 +2071,7 @@
     :meets (if (:meets-page/series-mode @*app-state)
              (fetch-meeting-series)
              (fetch-meets))
-    :today (do (fetch-tasks) (fetch-today-meets) (fetch-today-journal-entries))
+    :today (do (fetch-tasks) (fetch-today-meets) (fetch-today-journal-entries) (fetch-issues))
     :reports (fetch-reports)
     nil))
 

@@ -139,6 +139,20 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))))
 
+(defn set-issue-urgency [app-state auth-headers issue-id urgency]
+  (api/put-json (str "/api/issues/" issue-id "/urgency")
+    {:urgency urgency}
+    (auth-headers)
+    (fn [result]
+      (swap! app-state update :issues
+             (fn [issues]
+               (mapv #(if (= (:id %) issue-id)
+                        (assoc % :urgency (:urgency result))
+                        %)
+                     issues))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update urgency")))))
+
 (defn categorize-issue [app-state auth-headers fetch-issues-fn issue-id category-type category-id]
   (api/post-json (str "/api/issues/" issue-id "/categorize")
     {:category-type category-type :category-id category-id}

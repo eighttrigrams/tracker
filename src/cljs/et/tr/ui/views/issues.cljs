@@ -94,7 +94,9 @@
       :footer {:left [{:type :scope :value (:scope issue)
                        :on-set #(state/set-issue-scope (:id issue) %)}
                       {:type :importance :value (:importance issue)
-                       :on-set #(state/set-issue-importance (:id issue) %)}]
+                       :on-set #(state/set-issue-importance (:id issue) %)}
+                      {:type :urgency :value (:urgency issue)
+                       :on-set #(state/set-issue-urgency (:id issue) %)}]
                :right [{:type :delete :on-click #(state/set-confirm-delete-issue issue)}]}}]))
 
 (defn- sort-mode-toggle []

@@ -59,7 +59,8 @@
                    :sort-mode :today)
             (fetch-tasks (today-fetch-opts app-state))
             (fetch-today-meets (today-fetch-opts app-state))
-            (fetch-today-journal-entries (today-fetch-opts app-state)))
+            (fetch-today-journal-entries (today-fetch-opts app-state))
+            (fetch-issues))
    :mail (fn []
            (when (has-mail)
              (fetch-messages)))

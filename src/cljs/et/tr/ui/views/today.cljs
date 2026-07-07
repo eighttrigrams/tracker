@@ -108,6 +108,35 @@
                                            (state/set-task-today (:id task) false)
                                            (state/set-task-lined-up-for (:id task) nil)))}])}]}}]))
 
+(defn today-issue-item [issue]
+  (let [is-expanded (= (:today-page/expanded-issue @state/*app-state) (:id issue))]
+    [item-card/item-card
+     {:item issue
+      :expanded? is-expanded
+      :on-toggle #(state/toggle-expanded :today-page/expanded-issue (:id issue))
+      :container {:tag :div
+                  :class "today-task-item today-issue-item"
+                  :classes {:header "today-task-header"
+                            :title "today-task-content"
+                            :content "today-task-details"}}
+      :relation-link [:issue (:id issue)]
+      :title-content (fn [{:keys [title-el]}]
+                       [:span.task-title
+                        [:span.task-emoji-prefix "◈"]
+                        title-el])
+      :header-extra [:button.issue-filter-btn
+                     {:on-click (fn [e]
+                                  (.stopPropagation e)
+                                  (state/focus-issue (:id issue))
+                                  (state/set-active-tab :issues))
+                      :title (t :issues/show-tasks)}
+                     "⏚"]
+      :description {:edit-type :issue}
+      :footer {:left [{:type :importance :value (:importance issue)
+                       :on-set #(state/set-issue-importance (:id issue) %)}
+                      {:type :urgency :value (:urgency issue)
+                       :on-set #(state/set-issue-urgency (:id issue) %)}]}}]))
+
 (defn- meet-archivable? [meet is-today]
   (let [future? (and (:start_date meet)
                      (pos? (compare (:start_date meet) (date/today-str))))]
@@ -332,22 +361,35 @@
     (when (:lined_up_for task)
       (state/set-task-lined-up-for task-id nil))))
 
+(defn- find-issue-by-id [issue-id]
+  (first (filter #(= (:id %) issue-id) (:issues @state/*app-state))))
+
+(defn- ensure-issue-urgency [issue-id target-urgency]
+  (let [issue (find-issue-by-id issue-id)]
+    (when (not= (:urgency issue) target-urgency)
+      (state/set-issue-urgency issue-id target-urgency))))
+
+(defn- drag-source-issue? []
+  (= :issue (:drag-task-source @state/*app-state)))
+
 (defn- drag-task-overdue? []
   (let [drag-task-id (:drag-task @state/*app-state)
         today (date/today-str)]
-    (when drag-task-id
+    (when (and drag-task-id (not (drag-source-issue?)))
       (let [task (find-task-by-id drag-task-id)]
         (and task (:due_date task) (< (:due_date task) today))))))
 
 (defn- drag-task-urgent? []
   (when-let [drag-task-id (:drag-task @state/*app-state)]
-    (let [task (find-task-by-id drag-task-id)]
-      (and task (#{"urgent" "superurgent"} (:urgency task))))))
+    (when-not (drag-source-issue?)
+      (let [task (find-task-by-id drag-task-id)]
+        (and task (#{"urgent" "superurgent"} (:urgency task)))))))
 
 (defn- drag-task-other-things? []
   (when-let [drag-task-id (:drag-task @state/*app-state)]
-    (let [task (find-task-by-id drag-task-id)]
-      (and task (or (= 1 (:today task)) (:lined_up_for task))))))
+    (when-not (drag-source-issue?)
+      (let [task (find-task-by-id drag-task-id)]
+        (and task (or (= 1 (:today task)) (:lined_up_for task)))))))
 
 (defn- drag-task-reminder? []
   (= :reminder (:drag-task-source @state/*app-state)))
@@ -489,7 +531,7 @@
         from-overdue? (drag-task-overdue?)
         from-other-things? (drag-task-other-things?)
         from-reminder? (drag-task-reminder?)
-        drop-enabled? (and drag-enabled? (or from-overdue? from-other-things? from-reminder?))]
+        drop-enabled? (and drag-enabled? (not (drag-source-issue?)) (or from-overdue? from-other-things? from-reminder?))]
     [:div.day-selector.toggle-group {:class (when drop-enabled? "dragging")}
      (doall
       (for [offset (range 5)]
@@ -529,7 +571,7 @@
         from-urgent? (drag-task-urgent?)
         from-other-things? (drag-task-other-things?)
         from-reminder? (drag-task-reminder?)
-        due-drop-enabled? (and drag-enabled? (not from-urgent?) (not from-other-things?) (not from-reminder?))]
+        due-drop-enabled? (and drag-enabled? (not (drag-source-issue?)) (not from-urgent?) (not from-other-things?) (not from-reminder?))]
     [:div.today-section.today
      [:div.today-section-header
       [:h3 (date/day-formatted target-date)]]
@@ -559,7 +601,7 @@
               ^{:key (str "task-" (:id item))}
               [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳")])))]
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])]
-     (let [other-drop-enabled? (and drag-enabled? (or from-reminder? (not from-overdue?)))]
+     (let [other-drop-enabled? (and drag-enabled? (not (drag-source-issue?)) (or from-reminder? (not from-overdue?)))]
        [:div.today-subsection.other-things
         {:class (when (and other-drop-enabled? (= (:drag-over-urgency-section @state/*app-state) :other-things)) "drop-target")
          :on-drag-over (fn [e]
@@ -589,9 +631,10 @@
 (defn- draggable-urgent-task-item [task target-urgency drag-enabled?]
   (let [drag-task (:drag-task @state/*app-state)
         drag-over-task (:drag-over-task @state/*app-state)
-        is-dragging (= drag-task (:id task))
-        is-drag-over (= drag-over-task (:id task))
-        accept-drop? (and drag-enabled? (not (drag-task-overdue?)) (not (drag-task-reminder?)))]
+        is-dragging (and (not (drag-source-issue?)) (= drag-task (:id task)))
+        is-drag-over (and (not (drag-source-issue?)) (= drag-over-task (:id task)))
+        accept-drop? (and drag-enabled? (not (drag-source-issue?))
+                          (not (drag-task-overdue?)) (not (drag-task-reminder?)))]
     [:div.draggable-urgent-task
      {:class (str (when is-dragging "dragging")
                   (when is-drag-over " drag-over")
@@ -604,11 +647,37 @@
       :on-drop (drag-drop/make-urgency-task-drop-handler drag-task task target-urgency ensure-urgency state/reorder-task accept-drop?)}
      [today-task-item task]]))
 
-(defn- urgency-task-list [tasks target-urgency drag-enabled?]
+(defn- draggable-urgent-issue-item [issue target-urgency drag-enabled?]
+  (let [drag-task (:drag-task @state/*app-state)
+        drag-over-task (:drag-over-task @state/*app-state)
+        is-dragging (and (drag-source-issue?) (= drag-task (:id issue)))
+        is-drag-over (and (drag-source-issue?) (= drag-over-task (:id issue)))
+        accept-drop? (and drag-enabled? (drag-source-issue?))]
+    [:div.draggable-urgent-task.draggable-urgent-issue
+     {:class (str (when is-dragging "dragging")
+                  (when is-drag-over " drag-over")
+                  (when-not drag-enabled? " drag-disabled"))
+      :draggable drag-enabled?
+      :on-drag-start (fn [e]
+                       (when drag-enabled?
+                         (.setData (.-dataTransfer e) "text/plain" (str (:id issue)))
+                         (state/set-drag-task (:id issue))
+                         (swap! state/*app-state assoc :drag-task-source :issue)))
+      :on-drag-end (fn [_] (state/clear-drag-state))
+      :on-drag-over (drag-drop/make-drag-over-handler issue state/set-drag-over-task accept-drop?)
+      :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task issue #(state/set-drag-over-task nil))
+      :on-drop (drag-drop/make-urgency-task-drop-handler drag-task issue target-urgency ensure-issue-urgency state/reorder-issue accept-drop?)}
+     [today-issue-item issue]]))
+
+(defn- urgency-task-list [tasks issues target-urgency drag-enabled?]
   (let [drag-task (:drag-task @state/*app-state)
         drag-over-section (:drag-over-urgency-section @state/*app-state)
         is-section-drag-over (= drag-over-section target-urgency)
-        accept-drop? (and drag-enabled? (not (drag-task-overdue?)) (not (drag-task-reminder?)))]
+        from-issue? (drag-source-issue?)
+        accept-drop? (and drag-enabled? (not (drag-task-overdue?)) (not (drag-task-reminder?)))
+        section-drop (if from-issue?
+                       (drag-drop/make-urgency-section-drop-handler drag-task issues target-urgency ensure-issue-urgency state/reorder-issue state/clear-drag-state accept-drop?)
+                       (drag-drop/make-urgency-section-drop-handler drag-task tasks target-urgency ensure-urgency state/reorder-task state/clear-drag-state accept-drop?))]
     [:div.urgency-task-list
      {:class (str (when is-section-drag-over "section-drag-over")
                   (when-not drag-enabled? " drag-disabled"))
@@ -619,25 +688,30 @@
       :on-drag-leave (fn [e]
                        (when (= (.-target e) (.-currentTarget e))
                          (state/set-drag-over-urgency-section nil)))
-      :on-drop (drag-drop/make-urgency-section-drop-handler drag-task tasks target-urgency ensure-urgency state/reorder-task state/clear-drag-state accept-drop?)}
-     (if (seq tasks)
-       (doall
-        (for [task tasks]
-          ^{:key (:id task)}
-          [draggable-urgent-task-item task target-urgency drag-enabled?]))
+      :on-drop section-drop}
+     (if (or (seq tasks) (seq issues))
+       [:<>
+        (doall
+         (for [task tasks]
+           ^{:key (str "task-" (:id task))}
+           [draggable-urgent-task-item task target-urgency drag-enabled?]))
+        (doall
+         (for [issue issues]
+           ^{:key (str "issue-" (:id issue))}
+           [draggable-urgent-issue-item issue target-urgency drag-enabled?]))]
        [:p.empty-urgency-message (t :today/no-tasks-in-section)])]))
 
-(defn- today-urgent-section [superurgent urgent]
+(defn- today-urgent-section [superurgent urgent superurgent-issues urgent-issues]
   (let [expanded-task (:today-page/expanded-task @state/*app-state)
         drag-enabled? (not expanded-task)]
     [:div.today-section.urgent
      [:h3 (t :today/urgent-matters)]
      [:div.urgency-subsection.superurgent
       [:h4 "🚨🚨"]
-      [urgency-task-list superurgent "superurgent" drag-enabled?]]
+      [urgency-task-list superurgent superurgent-issues "superurgent" drag-enabled?]]
      [:div.urgency-subsection.urgent
       [:h4 "🚨"]
-      [urgency-task-list urgent "urgent" drag-enabled?]]]))
+      [urgency-task-list urgent urgent-issues "urgent" drag-enabled?]]]))
 
 (defn- draggable-reminder-task-item [task drag-enabled?]
   (let [drag-task-id (:drag-task @state/*app-state)
@@ -806,6 +880,8 @@
         today-flagged (state/today-flagged-tasks)
         superurgent (state/superurgent-tasks)
         urgent (state/urgent-tasks)
+        superurgent-issues (state/superurgent-issues)
+        urgent-issues (state/urgent-issues)
         upcoming (state/upcoming-tasks)
         upcoming-m (state/upcoming-meets)
         reminders (state/reminder-tasks)
@@ -829,7 +905,7 @@
           [today-today-section day-tasks day-meets today-flagged]
           [today-view-switcher]
           (when (= selected-view :urgent)
-            [today-urgent-section superurgent urgent])
+            [today-urgent-section superurgent urgent superurgent-issues urgent-issues])
           (when (= selected-view :upcoming)
             [today-upcoming-section upcoming upcoming-m])
           (when (= selected-view :reminders)

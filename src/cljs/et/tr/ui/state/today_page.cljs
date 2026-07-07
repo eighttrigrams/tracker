@@ -154,6 +154,17 @@
 (defn urgent-tasks [app-state]
   (tasks-by-urgency app-state "urgent"))
 
+(defn- issues-by-urgency [app-state urgency-level]
+  (->> (:issues @app-state)
+       (filter #(= urgency-level (:urgency %)))
+       (sort-by :sort_order)))
+
+(defn superurgent-issues [app-state]
+  (issues-by-urgency app-state "superurgent"))
+
+(defn urgent-issues [app-state]
+  (issues-by-urgency app-state "urgent"))
+
 (defn- sort-meets-by-date-and-time [meets]
   (sort-by (juxt :start_date #(if (:start_time %) 1 0) :start_time) meets))
 

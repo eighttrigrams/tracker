@@ -324,6 +324,9 @@ h3.reminders-heading .reminder-indicator {
 .urgency-task-list.drag-disabled {
   cursor: default;
 }
+.draggable-urgent-issue .today-issue-item {
+  border-left: 3px solid #ff9500;
+}
 .empty-urgency-message {
   color: var(--text-secondary);
   font-style: italic;
