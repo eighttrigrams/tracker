@@ -4,6 +4,26 @@ import { setFieldValue, apiCategorize } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
+// Activate a sidebar category filter (places/projects/…) robustly. The picker
+// starts collapsed, so expand it, then click the item. The sidebar re-renders
+// as categories load in and as the selected item bumps to the top of the
+// most-recently-modified ordering, which can swallow the click; retry until the
+// filter is actually applied — the "x" clear button only renders once a filter
+// is active — so downstream steps never race an un-applied filter.
+async function selectSidebarFilter(page: any, section: string, name: string) {
+  const sec = page.locator(`.filter-section.${section}`);
+  if ((await sec.locator(".filter-item").count()) === 0) {
+    await sec.locator(".collapse-toggle").click();
+  }
+  const clear = sec.locator(".clear-filter");
+  await expect(async () => {
+    if (await clear.isVisible()) return;
+    await sec.locator(".filter-item").filter({ hasText: name }).click({ timeout: 3000 });
+    await expect(clear).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+  await page.waitForLoadState("networkidle");
+}
+
 Given("I am on the app", async ({ page, request }) => {
   await request.post("/api/test/reset");
   await page.goto("/");
@@ -177,15 +197,11 @@ When(
 );
 
 When("I filter by place {string}", async ({ page }, place: string) => {
-  await page.locator(".filter-section.places .collapse-toggle").click();
-  await page.locator(".filter-section.places .filter-item").filter({ hasText: place }).click();
-  await page.waitForLoadState("networkidle");
+  await selectSidebarFilter(page, "places", place);
 });
 
 When("I filter by project {string}", async ({ page }, project: string) => {
-  await page.locator(".filter-section.projects .collapse-toggle").click();
-  await page.locator(".filter-section.projects .filter-item").filter({ hasText: project }).click();
-  await page.waitForLoadState("networkidle");
+  await selectSidebarFilter(page, "projects", project);
 });
 
 When("I switch to {string}", async ({ page }, tab: string) => {
