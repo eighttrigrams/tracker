@@ -20,7 +20,9 @@
 
 (defn list-issues-handler
   "GET /api/issues — list the caller's issues, filtered and sorted by query
-  params. Recognised params: q (search term), importance, context, strict
+  params. Recognised params: q (search term), importance, urgency
+  (\"urgent\" matches urgent+superurgent, \"superurgent\" matches only
+  superurgent), context, strict
   (\"true\" toggles strict context match), people/places/projects/goals
   (comma-separated category id lists), sortMode, limit (int — caps the row
   count; machine users default to 100 when omitted), offset (int),
@@ -30,6 +32,7 @@
   (let [user-id (common/get-user-id req)
         search-term (get-in req [:params "q"])
         importance (get-in req [:params "importance"])
+        urgency (get-in req [:params "urgency"])
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))
         people (common/parse-category-param (get-in req [:params "people"]))
@@ -43,7 +46,7 @@
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})
         rows (vec (db.issue/list-issues (common/ensure-ds) user-id
-                    {:search-term search-term :importance importance :context context :strict strict
+                    {:search-term search-term :importance importance :urgency urgency :context context :strict strict
                      :categories categories :sort-mode sort-mode
                      :limit (when limit (inc limit)) :offset offset}))
         has-more? (boolean (and limit (> (count rows) limit)))

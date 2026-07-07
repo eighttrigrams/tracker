@@ -80,6 +80,20 @@
       (db.issue/set-issue-field *ds* *user-id* (:id issue) :urgency "bogus")
       (is (= "default" (:urgency (db.issue/get-issue *ds* *user-id* (:id issue))))))))
 
+(deftest list-issues-urgency-filter-test
+  (testing ":urgency \"urgent\" returns urgent and superurgent, excludes default"
+    (let [plain (db.issue/add-issue *ds* *user-id* "Plain")
+          urgent (db.issue/add-issue *ds* *user-id* "Urgent one")
+          superurgent (db.issue/add-issue *ds* *user-id* "Superurgent one")]
+      (db.issue/set-issue-field *ds* *user-id* (:id urgent) :urgency "urgent")
+      (db.issue/set-issue-field *ds* *user-id* (:id superurgent) :urgency "superurgent")
+      (let [rows (db.issue/list-issues *ds* *user-id* {:urgency "urgent"})]
+        (is (= #{"Urgent one" "Superurgent one"} (set (map :title rows))))
+        (is (not (some #(= "Plain" (:title %)) rows))))
+      (let [rows (db.issue/list-issues *ds* *user-id* {:urgency "superurgent"})]
+        (is (= ["Superurgent one"] (mapv :title rows))))
+      (is (some? plain)))))
+
 (deftest set-issue-urgency-is-ownership-scoped-test
   (testing "set-issue-field urgency respects ownership"
     (let [issue (db.issue/add-issue *ds* *user-id* "Owned")]

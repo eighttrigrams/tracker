@@ -50,7 +50,7 @@
   (focus-tasks-search)
   (fetch-tasks-fn (tasks-fetch-opts app-state)))
 
-(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-issues fetch-meets fetch-reports fetch-people fetch-places fetch-projects fetch-goals fetch-mottos is-admin has-mail]}]
+(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-issues fetch-today-issues fetch-meets fetch-reports fetch-people fetch-places fetch-projects fetch-goals fetch-mottos is-admin has-mail]}]
   {:tasks (fn []
             (initialize-tasks-page app-state fetch-tasks))
    :today (fn []
@@ -60,7 +60,7 @@
             (fetch-tasks (today-fetch-opts app-state))
             (fetch-today-meets (today-fetch-opts app-state))
             (fetch-today-journal-entries (today-fetch-opts app-state))
-            (fetch-issues))
+            (fetch-today-issues))
    :mail (fn []
            (when (has-mail)
              (fetch-messages)))

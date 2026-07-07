@@ -17,10 +17,11 @@
 
 (def ^:private page-size 50)
 
-(defn- filtered? [{:keys [search-term importance filter-people filter-places filter-projects filter-goals]}]
+(defn- filtered? [{:keys [search-term importance urgency filter-people filter-places filter-projects filter-goals]}]
   (boolean
     (or (>= (count (str search-term)) 2)
         importance
+        urgency
         (seq filter-people)
         (seq filter-places)
         (seq filter-projects)
@@ -33,7 +34,7 @@
 
 (defn fetch-issues [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *issues-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode]} opts
+        {:keys [search-term importance urgency context strict filter-people filter-places filter-projects filter-goals sort-mode]} opts
         people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
@@ -45,6 +46,7 @@
               paginate? (str "limit=" page-size "&offset=" offset "&")
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
               importance (str "importance=" (name importance) "&")
+              urgency (str "urgency=" (name urgency) "&")
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
               (seq people-names) (str "people=" (js/encodeURIComponent (clojure.string/join "," people-names)) "&")

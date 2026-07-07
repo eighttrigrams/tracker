@@ -68,15 +68,16 @@
 (defn list-issues
   ([ds user-id] (list-issues ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories sort-mode limit offset]} opts
+   (let [{:keys [search-term importance urgency context strict categories sort-mode limit offset]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags])
          importance-clause (db/build-importance-clause importance)
+         urgency-clause (db/build-urgency-clause urgency)
          scope-clause (db/build-scope-clause context strict)
          category-clauses (build-issue-category-clauses categories)
          where-clause (into [:and user-where]
-                            (concat (filter some? [search-clause importance-clause scope-clause])
+                            (concat (filter some? [search-clause importance-clause urgency-clause scope-clause])
                                     category-clauses))
          issues (jdbc/execute! conn
                   (sql/format (cond-> {:select db/issue-select-columns

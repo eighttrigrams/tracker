@@ -553,6 +553,18 @@
   ([opts]
    (issues-state/fetch-issues *app-state auth-headers opts)))
 
+(defn- today-issues-fetch-opts []
+  {:urgency "urgent"
+   :context (:work-private-mode @*app-state)
+   :strict (:strict-mode @*app-state)
+   :filter-people (:shared/filter-people @*app-state)
+   :filter-places (:shared/filter-places @*app-state)
+   :filter-projects (:shared/filter-projects @*app-state)
+   :filter-goals (:shared/filter-goals @*app-state)})
+
+(defn fetch-today-issues []
+  (fetch-issues (today-issues-fetch-opts)))
+
 (defn load-more-issues []
   (fetch-issues (assoc (issues-fetch-opts)
                        :offset (count (:issues @*app-state))
@@ -1549,7 +1561,7 @@
   (fetch-tasks opts)
   (fetch-today-meets opts)
   (fetch-today-journal-entries opts)
-  (fetch-issues))
+  (fetch-today-issues))
 
 (declare add-task-with-categories)
 (declare add-resource-with-categories)
@@ -1927,6 +1939,7 @@
                                         :fetch-messages fetch-messages
                                         :fetch-resources fetch-resources-or-journals
                                         :fetch-issues fetch-issues
+                                        :fetch-today-issues fetch-today-issues
                                         :fetch-meets fetch-meets-or-series
                                         :fetch-reports fetch-reports
                                         :fetch-people fetch-people
@@ -2071,7 +2084,7 @@
     :meets (if (:meets-page/series-mode @*app-state)
              (fetch-meeting-series)
              (fetch-meets))
-    :today (do (fetch-tasks) (fetch-today-meets) (fetch-today-journal-entries) (fetch-issues))
+    :today (do (fetch-tasks) (fetch-today-meets) (fetch-today-journal-entries) (fetch-today-issues))
     :reports (fetch-reports)
     nil))
 
