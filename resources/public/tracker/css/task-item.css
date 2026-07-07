@@ -424,6 +424,16 @@
   background-color: #007aff;
   color: white;
 }
+.combined-main-btn.disabled,
+.combined-main-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.combined-main-btn.done.disabled:hover,
+.combined-main-btn.done:disabled:hover {
+  background-color: transparent;
+  color: #007aff;
+}
 .combined-main-btn.undone,
 .combined-dropdown-btn.undone {
   border-color: #34c759;

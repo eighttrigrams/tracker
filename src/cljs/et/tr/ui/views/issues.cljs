@@ -44,6 +44,30 @@
       :close-selector-fn state/close-category-selector
       :set-search-fn state/set-category-selector-search}]))
 
+(defn- issue-resolved-button-spec [issue]
+  ;; Split-button mirroring the task done-button: primary toggles resolved,
+  ;; the dropdown carries Delete (in red). Resolving is disabled while the
+  ;; issue still has undone tasks (business rule 1); reopening goes through a
+  ;; confirm modal, matching the task set-undone flow.
+  (let [id (:id issue)
+        resolved? (state/issue-resolved? issue)
+        blocked? (and (not resolved?) (state/issue-has-undone-tasks? issue))]
+    {:type :button
+     :label (if resolved? (t :issues/set-unresolved) (t :issues/set-resolved))
+     :variant (if resolved? :undone :done)
+     :disabled blocked?
+     :title (when blocked? (t :issues/resolve-blocked))
+     :on-click (cond
+                 resolved? #(state/set-confirm-unresolve-issue issue)
+                 blocked? nil
+                 :else #(state/set-issue-resolved id true))
+     :dropdown {:open? (= id (:issue-dropdown-open @issues-state/*issues-page-state))
+                :on-toggle #(state/set-issue-dropdown-open id)
+                :items [{:label (t :task/delete)
+                         :on-click #(do
+                                      (state/set-issue-dropdown-open nil)
+                                      (state/set-confirm-delete-issue issue))}]}}))
+
 (defn- issue-create-task-button [issue]
   ;; Mirrors the meeting-series create-meet pattern: the collapsed parent card
   ;; offers a button that opens a modal (a title input here, rather than the
@@ -90,14 +114,15 @@
       :description {:edit-type :issue
                     :on-edit state/edit-issue-description}
       :categories {:selector-fn issue-category-selector :relations-prefix "iss"}
-      :readonly-extra [issue-create-task-button issue]
+      :readonly-extra (when-not (state/issue-resolved? issue)
+                        [issue-create-task-button issue])
       :footer {:left [{:type :scope :value (:scope issue)
                        :on-set #(state/set-issue-scope (:id issue) %)}
                       {:type :importance :value (:importance issue)
                        :on-set #(state/set-issue-importance (:id issue) %)}
                       {:type :urgency :value (:urgency issue)
                        :on-set #(state/set-issue-urgency (:id issue) %)}]
-               :right [{:type :delete :on-click #(state/set-confirm-delete-issue issue)}]}}]))
+               :right [(issue-resolved-button-spec issue)]}}]))
 
 (defn- sort-mode-toggle []
   (let [sort-mode (:sort-mode @issues-state/*issues-page-state)]
@@ -110,7 +135,10 @@
       (t :resources/sort-manual)]
      [:button {:class (when (= sort-mode :added) "active")
                :on-click #(when (not= sort-mode :added) (state/set-issue-sort-mode :added))}
-      (t :resources/sort-added)]]))
+      (t :resources/sort-added)]
+     [:button {:class (when (= sort-mode :resolved) "active")
+               :on-click #(when (not= sort-mode :resolved) (state/set-issue-sort-mode :resolved))}
+      (t :issues/sort-resolved)]]))
 
 (defn- importance-filter-toggle []
   (let [importance-filter (:importance-filter @issues-state/*issues-page-state)]

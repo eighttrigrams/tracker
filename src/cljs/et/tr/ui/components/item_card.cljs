@@ -68,14 +68,14 @@
     :acknowledge "acknowledge-reminder"
     nil))
 
-(defn- footer-button [{:keys [label on-click variant dropdown class]}]
+(defn- footer-button [{:keys [label on-click variant dropdown class disabled title]}]
   (let [vclass (variant-class variant)
-        main-class (str/join " " (remove nil? [vclass class]))
+        main-class (str/join " " (remove nil? [vclass class (when disabled "disabled")]))
         {:keys [items open? on-toggle]} dropdown]
     [:div.combined-button-wrapper
      (if (seq items)
        [:<>
-        [:button.combined-main-btn {:class main-class :on-click on-click} label]
+        [:button.combined-main-btn {:class main-class :on-click on-click :disabled disabled :title title} label]
         [:button.combined-dropdown-btn {:class vclass :on-click on-toggle} "▼"]
         (when open?
           (into [:div.task-dropdown-menu]

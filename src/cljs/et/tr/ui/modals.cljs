@@ -186,6 +186,16 @@
     :clear-fn state/clear-confirm-delete-issue
     :delete-fn state/delete-issue}))
 
+(defn confirm-unresolve-issue-modal []
+  (when-let [issue (:confirm-unresolve-issue @issues-state/*issues-page-state)]
+    [generic-confirm-modal
+     {:header (t :modal/reopen-issue)
+      :body-paragraphs [{:text (t :modal/reopen-issue-confirm)}
+                        {:text (:title issue) :class "task-title"}]
+      :on-cancel state/clear-confirm-unresolve-issue
+      :on-confirm #(state/confirm-unresolve-issue (:id issue))
+      :confirm-label (t :modal/reopen)}]))
+
 (def confirm-delete-meet-modal
   (make-confirm-delete-modal
    {:state-atom meets-state/*meets-page-state

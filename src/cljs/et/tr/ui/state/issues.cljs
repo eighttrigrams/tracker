@@ -9,6 +9,8 @@
 (defonce *issues-page-state (r/atom {:expanded-issue nil
                                      :editing-issue nil
                                      :confirm-delete-issue nil
+                                     :confirm-unresolve-issue nil
+                                     :issue-dropdown-open nil
                                      :filter-search ""
                                      :importance-filter nil
                                      :sort-mode :recent
@@ -155,6 +157,22 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update urgency")))))
 
+(defn set-issue-resolved [app-state auth-headers fetch-issues-fn issue-id resolved?]
+  (api/put-json (str "/api/issues/" issue-id "/resolved")
+    {:resolved resolved?}
+    (auth-headers)
+    (fn [_]
+      (swap! *issues-page-state assoc :expanded-issue nil)
+      (fetch-issues-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update issue")))))
+
+(defn issue-resolved? [issue]
+  (= 1 (:resolved issue)))
+
+(defn issue-has-undone-tasks? [issue]
+  (boolean (some #(= 0 (:done %)) (:tasks issue))))
+
 (defn categorize-issue [app-state auth-headers fetch-issues-fn issue-id category-type category-id]
   (api/post-json (str "/api/issues/" issue-id "/categorize")
     {:category-type category-type :category-id category-id}
@@ -280,6 +298,16 @@
 
 (defn clear-confirm-delete-issue []
   (swap! *issues-page-state assoc :confirm-delete-issue nil))
+
+(defn set-issue-dropdown-open [issue-id]
+  (swap! *issues-page-state assoc :issue-dropdown-open
+         (when (not= (:issue-dropdown-open @*issues-page-state) issue-id) issue-id)))
+
+(defn set-confirm-unresolve-issue [issue]
+  (swap! *issues-page-state assoc :confirm-unresolve-issue issue))
+
+(defn clear-confirm-unresolve-issue []
+  (swap! *issues-page-state assoc :confirm-unresolve-issue nil))
 
 (defn set-filter-search [fetch-issues-fn search-term]
   (swap! *issues-page-state assoc :filter-search search-term)

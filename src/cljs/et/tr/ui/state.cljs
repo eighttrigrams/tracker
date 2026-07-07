@@ -609,6 +609,28 @@
 (defn clear-confirm-delete-issue []
   (issues-state/clear-confirm-delete-issue))
 
+(defn set-issue-resolved [issue-id resolved?]
+  (issues-state/set-issue-resolved *app-state auth-headers fetch-issues issue-id resolved?))
+
+(defn issue-resolved? [issue]
+  (issues-state/issue-resolved? issue))
+
+(defn issue-has-undone-tasks? [issue]
+  (issues-state/issue-has-undone-tasks? issue))
+
+(defn set-issue-dropdown-open [issue-id]
+  (issues-state/set-issue-dropdown-open issue-id))
+
+(defn set-confirm-unresolve-issue [issue]
+  (issues-state/set-confirm-unresolve-issue issue))
+
+(defn clear-confirm-unresolve-issue []
+  (issues-state/clear-confirm-unresolve-issue))
+
+(defn confirm-unresolve-issue [issue-id]
+  (clear-confirm-unresolve-issue)
+  (set-issue-resolved issue-id false))
+
 (defn set-issue-filter-search [search-term]
   (issues-state/set-filter-search fetch-issues search-term))
 
