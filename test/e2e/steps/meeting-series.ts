@@ -43,7 +43,14 @@ Given(
 );
 
 When("I click the {string} button", async ({ page }, name: string) => {
-  await page.getByRole("button", { name }).click();
+  // Prefer the accessible-name match, but fall back to a title lookup:
+  // some buttons (e.g. the work/private scope toggle) render a glyph as
+  // their visible content and carry the human label only in `title`, so
+  // their accessible name is the glyph, not the label.
+  const byRole = page.getByRole("button", { name });
+  const locator =
+    (await byRole.count()) > 0 ? byRole : page.locator(`button[title="${name}"]`);
+  await locator.click();
   await page.waitForLoadState("networkidle");
 });
 
