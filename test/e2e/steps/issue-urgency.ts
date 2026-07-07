@@ -98,6 +98,35 @@ When(
   },
 );
 
+When("I start dragging the issue {string}", async ({ page }, title: string) => {
+  await expect(
+    page.locator(".urgency-subsection.urgent .draggable-urgent-issue").filter({ hasText: title }),
+  ).toBeVisible({ timeout: 5000 });
+  await fireDragOnIssue(page, "urgent", title, "dragstart");
+  await page.waitForTimeout(250);
+});
+
+When("I drop the dragged issue on the due-or-happening section", async ({ page }) => {
+  const target = ".today-section.today .today-subsection:not(.other-things)";
+  await fireDragOnTarget(page, target, "dragenter");
+  await fireDragOnTarget(page, target, "dragover");
+  await fireDragOnTarget(page, target, "drop");
+  await page.waitForTimeout(250);
+  await page.waitForLoadState("networkidle");
+});
+
+Then("the Today section is shown as a disabled drop target", async ({ page }) => {
+  await expect(page.locator(".today-section.today")).toHaveClass(/drag-disabled/, { timeout: 5000 });
+});
+
+Then("the Days section is shown as a disabled drop target", async ({ page }) => {
+  await expect(page.locator(".day-selector")).toHaveClass(/drag-disabled/, { timeout: 5000 });
+});
+
+Then("no warning is shown", async ({ page }) => {
+  await expect(page.locator(".error")).toHaveCount(0);
+});
+
 Then(
   "I should see the issue {string} in the urgent subsection",
   async ({ page }, title: string) => {

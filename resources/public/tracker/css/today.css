@@ -324,6 +324,14 @@ h3.reminders-heading .reminder-indicator {
 .urgency-task-list.drag-disabled {
   cursor: default;
 }
+/* While an issue is being dragged, the Today and Days sections are not valid
+   drop targets — dim them and show the not-allowed cursor so it is clear no
+   drop will happen there. */
+.today-section.today.drag-disabled,
+.day-selector.drag-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .draggable-urgent-issue .today-issue-item {
   border-left: 3px solid #ff9500;
 }

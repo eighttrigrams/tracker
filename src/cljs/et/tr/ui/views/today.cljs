@@ -488,7 +488,7 @@
 (defn- draggable-today-flagged-task-item [task drag-task-id drag-enabled?]
   (let [drag-over-task (:drag-over-task @state/*app-state)
         is-dragging (= drag-task-id (:id task))
-        accept-drop? (and drag-enabled? (or (drag-task-reminder?) (not (drag-task-overdue?))))
+        accept-drop? (and drag-enabled? (not (drag-source-issue?)) (or (drag-task-reminder?) (not (drag-task-overdue?))))
         is-drag-over (and accept-drop? (= drag-over-task (:id task)))]
     [:div.draggable-today-task
      {:class (str (when is-dragging "dragging")
@@ -531,8 +531,10 @@
         from-overdue? (drag-task-overdue?)
         from-other-things? (drag-task-other-things?)
         from-reminder? (drag-task-reminder?)
+        issue-drag? (and drag-task (drag-source-issue?))
         drop-enabled? (and drag-enabled? (not (drag-source-issue?)) (or from-overdue? from-other-things? from-reminder?))]
-    [:div.day-selector.toggle-group {:class (when drop-enabled? "dragging")}
+    [:div.day-selector.toggle-group {:class (str (when drop-enabled? "dragging")
+                                                 (when issue-drag? " drag-disabled"))}
      (doall
       (for [offset (range 5)]
         (let [target-date (date/add-days today offset)
@@ -571,8 +573,9 @@
         from-urgent? (drag-task-urgent?)
         from-other-things? (drag-task-other-things?)
         from-reminder? (drag-task-reminder?)
+        issue-drag? (and drag-task (drag-source-issue?))
         due-drop-enabled? (and drag-enabled? (not (drag-source-issue?)) (not from-urgent?) (not from-other-things?) (not from-reminder?))]
-    [:div.today-section.today
+    [:div.today-section.today {:class (when issue-drag? "drag-disabled")}
      [:div.today-section-header
       [:h3 (date/day-formatted target-date)]]
      [:div.today-subsection

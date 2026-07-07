@@ -38,3 +38,14 @@ Feature: Issue urgency and urgent matters
     And I drag the issue "Leaky roof" onto the due-or-happening section
     Then I should see the issue "Leaky roof" in the urgent subsection
     And I should not see "Leaky roof" in the due-or-happening section
+
+  Scenario: While dragging an issue the Today and Days sections show as disabled with no warning
+    Given I am on the app
+    And an issue "Leaky roof" with urgency "urgent" exists
+    When I navigate to the "Today" tab
+    And I start dragging the issue "Leaky roof"
+    Then the Today section is shown as a disabled drop target
+    And the Days section is shown as a disabled drop target
+    When I drop the dragged issue on the due-or-happening section
+    Then no warning is shown
+    And I should see the issue "Leaky roof" in the urgent subsection
