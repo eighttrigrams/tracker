@@ -565,6 +565,17 @@
 .done-day-group:first-child .done-day-header {
   margin-top: 0;
 }
+.done-divider {
+  border: none;
+  border-top: 1px solid var(--border-color, #e0e0e0);
+  margin: 20px 0 0 0;
+}
+.done-heading {
+  margin: 8px 0 8px 0;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
 /* Hide task attribute selectors by default, show on hover over the actions row */
 .item-actions .task-scope-selector,
 .item-actions .task-importance-selector,

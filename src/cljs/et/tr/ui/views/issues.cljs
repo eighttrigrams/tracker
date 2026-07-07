@@ -210,12 +210,20 @@
   ;; scoped to this issue.
   (let [issue-id (:id (state/issue-filter))
         expanded-task (:tasks-page/expanded-task @state/*app-state)
-        tasks (filter #(= issue-id (:issue_id %)) (state/filtered-tasks))]
+        tasks (filter #(= issue-id (:issue_id %)) (state/filtered-tasks))
+        not-done (remove #(= 1 (:done %)) tasks)
+        done (filter #(= 1 (:done %)) tasks)
+        render-task (fn [task]
+                      ^{:key (:id task)}
+                      [tasks-view/task-item-content task (= expanded-task (:id task)) false {:tag :li}])]
     (if (seq tasks)
-      (into [:ul.items]
-            (for [task tasks]
-              ^{:key (:id task)}
-              [tasks-view/task-item-content task (= expanded-task (:id task)) false {:tag :li}]))
+      [:<>
+       (into [:ul.items] (map render-task not-done))
+       (when (seq done)
+         [:<>
+          [:hr.done-divider]
+          [:h4.done-heading (t :tasks/completed)]
+          (into [:ul.items] (map render-task done))])]
       [:p.empty-message (t :issues/no-tasks)])))
 
 (defn issues-tab []

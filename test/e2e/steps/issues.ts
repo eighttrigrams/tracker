@@ -22,6 +22,24 @@ Given(
 );
 
 Given(
+  "an issue {string} with an open task {string} and a completed task {string}",
+  async ({ request }, issueTitle: string, openTitle: string, doneTitle: string) => {
+    const issue = await (await request.post("/api/issues", { headers, data: { title: issueTitle } })).json();
+    const link = async (taskTitle: string) => {
+      const task = await (await request.post("/api/tasks", { headers, data: { title: taskTitle } })).json();
+      await request.post("/api/relations", {
+        headers,
+        data: { "source-type": "tsk", "source-id": task.id, "target-type": "iss", "target-id": issue.id },
+      });
+      return task;
+    };
+    await link(openTitle);
+    const done = await link(doneTitle);
+    await request.put(`/api/tasks/${done.id}/done`, { headers, data: { done: true } });
+  },
+);
+
+Given(
   "an issue {string} categorised with place {string} exists",
   async ({ request }, issueTitle: string, placeName: string) => {
     const place = await (await request.post("/api/places", { headers, data: { name: placeName } })).json();
@@ -112,6 +130,31 @@ Then(
     // The shared item-card renders an .item-header; the old plain badge did not.
     const card = page.locator(".issues-page .items li").filter({ hasText: taskTitle });
     await expect(card.locator(".item-header")).toBeVisible({ timeout: 5000 });
+  },
+);
+
+Then("I should see the completed divider in the focused issue task listing", async ({ page }) => {
+  await expect(page.locator(".issues-page .done-divider")).toBeVisible({ timeout: 5000 });
+  await expect(page.locator(".issues-page .done-heading")).toBeVisible();
+});
+
+Then(
+  "the task {string} is listed above the completed divider",
+  async ({ page }, taskTitle: string) => {
+    // The active section is the first .items list, before the divider/heading.
+    const activeSection = page.locator(".issues-page .items").first();
+    await expect(activeSection.locator("li").filter({ hasText: taskTitle })).toBeVisible({ timeout: 5000 });
+    // ...and not misplaced into the completed section.
+    const doneSection = page.locator(".issues-page .done-heading + .items");
+    await expect(doneSection.locator("li").filter({ hasText: taskTitle })).toHaveCount(0);
+  },
+);
+
+Then(
+  "the task {string} is listed under the completed heading",
+  async ({ page }, taskTitle: string) => {
+    const doneSection = page.locator(".issues-page .done-heading + .items");
+    await expect(doneSection.locator("li").filter({ hasText: taskTitle })).toBeVisible({ timeout: 5000 });
   },
 );
 

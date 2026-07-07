@@ -45,6 +45,16 @@ Feature: Issues
     And I should see the task "Replace tiles" in the focused issue task listing
     And the task "Replace tiles" in the focused issue task listing is a task card
 
+  Scenario: Done tasks are separated below a divider in the focused issue listing
+    Given I am on the app
+    And an issue "Roof works" with an open task "Open task" and a completed task "Finished task"
+    When I reload the page
+    And I click the "Issues" tab
+    And I click the show-tasks button on issue "Roof works"
+    Then I should see the completed divider in the focused issue task listing
+    And the task "Open task" is listed above the completed divider
+    And the task "Finished task" is listed under the completed heading
+
   Scenario: The issue icon on a task jumps to the focused issue task listing
     Given I am on the app
     And a task "Replace tiles" belongs to issue "Roof works"
