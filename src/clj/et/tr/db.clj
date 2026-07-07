@@ -25,14 +25,25 @@
 
 (defn init-conn [{:keys [type path]}]
   (let [db-spec (case type
-                  :sqlite-memory {:dbtype "sqlite" :dbname "file::memory:?cache=shared"}
+                  ;; busy_timeout lets a fresh connection wait for a peer's
+                  ;; table lock (shared-cache serialises writers) instead of
+                  ;; failing immediately with SQLITE_LOCKED.
+                  :sqlite-memory {:dbtype "sqlite" :dbname "file::memory:?cache=shared&busy_timeout=5000"}
                   :sqlite-file {:dbtype "sqlite" :dbname path})
         ds (jdbc/get-datasource db-spec)
-        persistent-conn (when (= type :sqlite-memory) (jdbc/get-connection ds))
-        conn-for-use (or persistent-conn ds)]
-    (migrations/migrate! conn-for-use)
-    (sync-mail-user-password! conn-for-use)
-    {:conn conn-for-use
+        ;; A shared-cache in-memory DB is dropped the instant its last
+        ;; connection closes, so we hold one connection open for the whole
+        ;; process purely to keep the database alive. We must NOT route request
+        ;; traffic through it: a java.sql.Connection is not thread-safe, and the
+        ;; SPA fans out concurrent requests — sharing one connection interleaves
+        ;; their transactions and silently loses writes (see the categorize /
+        ;; reminder e2e flakes). Instead every operation gets a fresh connection
+        ;; from the datasource (exactly like file mode); all connections see the
+        ;; same data via cache=shared. File mode needs no keep-alive connection.
+        persistent-conn (when (= type :sqlite-memory) (jdbc/get-connection ds))]
+    (migrations/migrate! ds)
+    (sync-mail-user-password! ds)
+    {:conn ds
      :persistent-conn persistent-conn
      :type type}))
 
