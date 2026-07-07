@@ -45,10 +45,15 @@
   ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
   ([ds user-id sort-mode opts]
    (let [opts (if (string? opts) {:search-term opts} opts)
-         {:keys [search-term importance context strict categories excluded-places excluded-projects recurring-task-id limit date-from date-to]} opts
+         {:keys [search-term importance context strict categories excluded-places excluded-projects recurring-task-id issue-id limit date-from date-to]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
-         base-where (case sort-mode
+         base-where (cond
+                      ;; The focused-issue task listing shows every task belonging
+                      ;; to the issue (done included), like a parent's child list.
+                      issue-id [:and user-where [:= :issue_id issue-id]]
+                      :else
+                      (case sort-mode
                       :due-date [:and user-where [:not= :due_date nil] [:= :done 0]]
                       :done [:and user-where [:= :done 1]]
                       :today [:and user-where [:= :done 0]
@@ -64,7 +69,7 @@
                                    [:= :today 0]
                                    [:= :lined_up_for nil]
                                    [:= :urgency "default"]]
-                      [:and user-where [:= :done 0]])
+                      [:and user-where [:= :done 0]]))
          search-clause (db/build-search-clause search-term)
          importance-clause (db/build-importance-clause importance)
          scope-clause (db/build-scope-clause context strict)
@@ -77,7 +82,12 @@
                             (concat (filter some? [search-clause importance-clause scope-clause recurring-clause date-range-clause])
                                     category-clauses
                                     exclusion-clauses))
-         order-by (case sort-mode
+         order-by (cond
+                    ;; Match the issue's belonging-task ordering: open first, then
+                    ;; by manual sort order.
+                    issue-id [[:done :asc] [:sort_order :asc] [:id :asc]]
+                    :else
+                    (case sort-mode
                     :manual [[:sort_order :asc] [:created_at :desc]]
                     :due-date [[:due_date :asc]
                                [[:case [:not= :due_time nil] 1 :else 0] :desc]
@@ -92,7 +102,7 @@
                                      [:= :urgency "urgent"] 1
                                      :else 2] :asc]
                              [:modified_at :desc]]
-                    [[:modified_at :desc]])
+                    [[:modified_at :desc]]))
          tasks (jdbc/execute! conn
                  (sql/format (cond-> {:select db/task-select-columns
                                       :from [:tasks]

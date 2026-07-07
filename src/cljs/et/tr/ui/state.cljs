@@ -1116,7 +1116,13 @@
   (swap! *app-state assoc
          :issues-page/filter-issue {:id issue-id :title nil}
          :issues-page/focused-issue nil)
-  (issues-state/fetch-focused-issue *app-state auth-headers issue-id))
+  ;; fetch-focused-issue supplies the issue title for the filter bar; the task
+  ;; listing itself is rendered from :tasks (full rows) so it reuses the
+  ;; Tasks-page card, hence the parallel task fetch scoped to this issue.
+  (issues-state/fetch-focused-issue *app-state auth-headers issue-id)
+  (fetch-tasks {:issue-id issue-id
+                :context (:work-private-mode @*app-state)
+                :strict (:strict-mode @*app-state)}))
 
 (defn clear-issue-filter []
   (swap! *app-state assoc :issues-page/filter-issue nil :issues-page/focused-issue nil)
@@ -1510,6 +1516,10 @@
                      :filter-goals (:shared/filter-goals @*app-state)}
              (:tasks-page/filter-recurring @*app-state)
              (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @*app-state))))
+    :issues (cond-> {:context (:work-private-mode @*app-state)
+                     :strict (:strict-mode @*app-state)}
+              (:issues-page/filter-issue @*app-state)
+              (assoc :issue-id (:id (:issues-page/filter-issue @*app-state))))
     :today {:context (:work-private-mode @*app-state)
             :strict (:strict-mode @*app-state)
             :filter-people (:shared/filter-people @*app-state)

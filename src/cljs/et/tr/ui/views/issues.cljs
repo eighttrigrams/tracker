@@ -6,6 +6,7 @@
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
+            [et.tr.ui.views.tasks :as tasks-view]
             [et.tr.i18n :refer [t]]))
 
 (def ^:private issues-category-shortcut-keys
@@ -43,30 +44,6 @@
       :close-selector-fn state/close-category-selector
       :set-search-fn state/set-category-selector-search}]))
 
-(defn- issue-task-badge [issue-id task expanded?]
-  [:span.tag.relation
-   {:key (str "tsk-" (:id task))
-    :class (when (= 1 (:done task)) "task-done")
-    :on-click (fn [e]
-                (.stopPropagation e)
-                (state/open-relation-in-modal "tsk" (:id task)))}
-   (if (= 1 (:done task)) "☑ " "☐ ")
-   (:title task)
-   (when expanded?
-     [:button.remove-tag
-      {:on-click (fn [e]
-                   (.stopPropagation e)
-                   (state/delete-relation "iss" issue-id "tsk" (:id task)))}
-      "×"])])
-
-(defn- issue-tasks [issue expanded?]
-  (when (seq (:tasks issue))
-    (into [:div.issue-tasks
-           (if expanded? {:class "relation-badges-expanded"} {:class "relation-badges-collapsed"})]
-          (for [task (:tasks issue)]
-            ^{:key (:id task)}
-            [issue-task-badge (:id issue) task expanded?]))))
-
 (defn- issue-create-task-button [issue]
   ;; Mirrors the meeting-series create-meet pattern: the collapsed parent card
   ;; offers a button that opens a modal (a title input here, rather than the
@@ -100,6 +77,14 @@
                      {:edit-id-path :issues-page/inline-edit-issue
                       :title-path :issues-page/inline-edit-title
                       :update-fn state/update-issue})
+      ;; Mirrors the meeting-series down-arrow (series-filter-btn): a top-right
+      ;; button that jumps straight to this issue's focused task listing.
+      :header-extra [:button.issue-filter-btn
+                     {:on-click (fn [e]
+                                  (.stopPropagation e)
+                                  (state/focus-issue (:id issue)))
+                      :title (t :issues/show-tasks)}
+                     "⏚"]
       :badges {:importance? true}
       :title-expanded-click (fn [i] (state/open-edit-modal :issue i))
       :description {:edit-type :issue
@@ -220,10 +205,17 @@
 (defn- focused-issue-tasks []
   ;; The task listing for the focused issue — this is where an issue's belonging
   ;; tasks are surfaced (the issue card itself no longer shows them, matching the
-  ;; unidirectional journal↔entry model).
-  (let [issue (state/focused-issue)]
-    (if (seq (:tasks issue))
-      [issue-tasks issue false]
+  ;; unidirectional journal↔entry model). Tasks are the genuine Tasks-page cards
+  ;; (tasks-view/task-item-content), driven off :tasks which focus-issue loads
+  ;; scoped to this issue.
+  (let [issue-id (:id (state/issue-filter))
+        expanded-task (:tasks-page/expanded-task @state/*app-state)
+        tasks (filter #(= issue-id (:issue_id %)) (state/filtered-tasks))]
+    (if (seq tasks)
+      (into [:ul.items]
+            (for [task tasks]
+              ^{:key (:id task)}
+              [tasks-view/task-item-content task (= expanded-task (:id task)) false {:tag :li}]))
       [:p.empty-message (t :issues/no-tasks)])))
 
 (defn issues-tab []

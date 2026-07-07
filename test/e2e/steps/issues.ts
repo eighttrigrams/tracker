@@ -57,6 +57,12 @@ When("I confirm the create-task modal", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 });
 
+When("I click the show-tasks button on issue {string}", async ({ page }, issueTitle: string) => {
+  const card = page.locator(".items li").filter({ hasText: issueTitle });
+  await card.locator(".issue-filter-btn").click();
+  await page.waitForLoadState("networkidle");
+});
+
 When("I click the issue icon on task {string}", async ({ page }, taskTitle: string) => {
   const card = page.locator(".items li").filter({ hasText: taskTitle });
   await card.locator(".issue-icon").click();
@@ -94,9 +100,18 @@ Then("I should see the issue filter bar for {string}", async ({ page }, issueTit
 Then(
   "I should see the task {string} in the focused issue task listing",
   async ({ page }, taskTitle: string) => {
-    await expect(page.locator(".issues-page .issue-tasks .tag", { hasText: taskTitle })).toBeVisible({
-      timeout: 5000,
-    });
+    await expect(
+      page.locator(".issues-page .items li").filter({ hasText: taskTitle }),
+    ).toBeVisible({ timeout: 5000 });
+  },
+);
+
+Then(
+  "the task {string} in the focused issue task listing is a task card",
+  async ({ page }, taskTitle: string) => {
+    // The shared item-card renders an .item-header; the old plain badge did not.
+    const card = page.locator(".issues-page .items li").filter({ hasText: taskTitle });
+    await expect(card.locator(".item-header")).toBeVisible({ timeout: 5000 });
   },
 );
 

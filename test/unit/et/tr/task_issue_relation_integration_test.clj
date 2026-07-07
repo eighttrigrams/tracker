@@ -11,7 +11,7 @@
             [et.tr.db.task :as db.task]
             [et.tr.db.issue :as db.issue]
             [et.tr.db.event :as db.event]
-            [et.tr.integration-helpers :refer [with-integration-db POST-json DELETE-json
+            [et.tr.integration-helpers :refer [with-integration-db POST-json PUT-json DELETE-json GET-json
                                                *ds* *user-id*]]))
 
 (use-fixtures :each with-integration-db)
@@ -131,6 +131,21 @@
           resp (POST-json (str "/api/issues/" (:id issue) "/create-task") {:title "   "})]
       (is (= 201 (:status resp)))
       (is (= "Leaky roof" (:title (:body resp))) "blank title falls back to the issue title"))))
+
+(deftest list-tasks-issue-filter-returns-issue-tasks-including-done
+  (testing "GET /api/tasks?issue= returns exactly the issue's tasks, done included"
+    (let [issue (db.issue/add-issue *ds* *user-id* "Roof works" "both")
+          open-task (db.task/add-task *ds* *user-id* "Patch the roof")
+          done-task (db.task/add-task *ds* *user-id* "Buy tiles")
+          other-task (db.task/add-task *ds* *user-id* "Unrelated task")]
+      (db.issue/set-task-issue *ds* *user-id* (:id open-task) (:id issue))
+      (db.issue/set-task-issue *ds* *user-id* (:id done-task) (:id issue))
+      (PUT-json (str "/api/tasks/" (:id done-task) "/done") {:done true})
+      (let [resp (GET-json (str "/api/tasks?issue=" (:id issue)))
+            titles (set (map :title (:body resp)))]
+        (is (= 200 (:status resp)))
+        (is (= #{"Patch the roof" "Buy tiles"} titles) "only the issue's tasks, done ones included")
+        (is (not (contains? titles "Unrelated task")) "tasks of other issues are excluded")))))
 
 (deftest create-task-for-missing-issue-is-404
   (testing "POST /api/issues/:id/create-task returns 404 for an unknown issue"

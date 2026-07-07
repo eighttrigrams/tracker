@@ -26,7 +26,11 @@
             :filter-projects (:shared/filter-projects @app-state)
             :filter-goals (:shared/filter-goals @app-state)}
      (:tasks-page/filter-recurring @app-state)
-     (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state))))))
+     (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state)))
+     ;; While viewing a focused issue, keep task re-fetches (e.g. after a done
+     ;; toggle) scoped to that issue's tasks so the listing stays consistent.
+     (and (= :issues (:active-tab @app-state)) (:issues-page/filter-issue @app-state))
+     (assoc :issue-id (:id (:issues-page/filter-issue @app-state))))))
 
 (defn- today-fetch-opts
   ([app-state]

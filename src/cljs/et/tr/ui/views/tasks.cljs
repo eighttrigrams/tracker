@@ -263,7 +263,7 @@
     "urgent" [:span.urgency-badge.urgent "🚨"]
     nil))
 
-(defn- task-item-content [task is-expanded done-mode? container]
+(defn task-item-content [task is-expanded done-mode? container]
   [item-card/item-card
    {:item task
     :expanded? is-expanded

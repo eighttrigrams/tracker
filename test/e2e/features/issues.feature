@@ -35,6 +35,16 @@ Feature: Issues
     Then I should see the issue filter bar for "Gutter clean"
     And I should see the task "Clear the downpipe" in the focused issue task listing
 
+  Scenario: The down-arrow button on an issue card jumps to its task listing
+    Given I am on the app
+    And a task "Replace tiles" belongs to issue "Roof works"
+    When I reload the page
+    And I click the "Issues" tab
+    And I click the show-tasks button on issue "Roof works"
+    Then I should see the issue filter bar for "Roof works"
+    And I should see the task "Replace tiles" in the focused issue task listing
+    And the task "Replace tiles" in the focused issue task listing is a task card
+
   Scenario: The issue icon on a task jumps to the focused issue task listing
     Given I am on the app
     And a task "Replace tiles" belongs to issue "Roof works"
@@ -43,6 +53,7 @@ Feature: Issues
     And I click the issue icon on task "Replace tiles"
     Then I should see the issue filter bar for "Roof works"
     And I should see the task "Replace tiles" in the focused issue task listing
+    And the task "Replace tiles" in the focused issue task listing is a task card
 
   Scenario: A created task inherits the currently selected sidebar category
     Given I am on the app
