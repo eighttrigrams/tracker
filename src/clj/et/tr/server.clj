@@ -234,6 +234,7 @@
       (GET "/:id" [] category-handler/get-person-handler)
       (POST "/" [] category-handler/add-person-handler)
       (PUT "/:id" [] category-handler/update-person-handler)
+      (PUT "/:id/scope" [] category-handler/set-person-scope-handler)
       (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-people "people"))))
 
     (context "/places" []
@@ -241,6 +242,7 @@
       (GET "/:id" [] category-handler/get-place-handler)
       (POST "/" [] category-handler/add-place-handler)
       (PUT "/:id" [] category-handler/update-place-handler)
+      (PUT "/:id/scope" [] category-handler/set-place-scope-handler)
       (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-places "places"))))
 
     (context "/projects" []
@@ -248,6 +250,7 @@
       (GET "/:id" [] category-handler/get-project-handler)
       (POST "/" [] category-handler/add-project-handler)
       (PUT "/:id" [] category-handler/update-project-handler)
+      (PUT "/:id/scope" [] category-handler/set-project-scope-handler)
       (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-projects "projects"))))
 
     (context "/goals" []
@@ -255,6 +258,7 @@
       (GET "/:id" [] category-handler/get-goal-handler)
       (POST "/" [] category-handler/add-goal-handler)
       (PUT "/:id" [] category-handler/update-goal-handler)
+      (PUT "/:id/scope" [] category-handler/set-goal-scope-handler)
       (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-goals "goals"))))
 
     (context "/messages" []

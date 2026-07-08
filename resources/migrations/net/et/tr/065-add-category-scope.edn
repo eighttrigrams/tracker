@@ -1,0 +1,9 @@
+{:id "065-add-category-scope"
+ :up ["ALTER TABLE people ADD COLUMN scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work'))"
+      "ALTER TABLE places ADD COLUMN scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work'))"
+      "ALTER TABLE projects ADD COLUMN scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work'))"
+      "ALTER TABLE goals ADD COLUMN scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work'))"]
+ :down ["ALTER TABLE people DROP COLUMN scope"
+        "ALTER TABLE places DROP COLUMN scope"
+        "ALTER TABLE projects DROP COLUMN scope"
+        "ALTER TABLE goals DROP COLUMN scope"]}

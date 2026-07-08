@@ -24,7 +24,7 @@
                  (sql/format {:insert-into (keyword table-name)
                               :values [{:name name :user_id user-id :sort_order new-order
                                         :modified_at [:raw "datetime('now')"]}]
-                              :returning [:id :name :tags :sort_order :badge_title :modified_at]})
+                              :returning [:id :name :tags :sort_order :badge_title :scope :modified_at]})
                  db/jdbc-opts)]
     (tel/log! {:level :info :data {:category table-name :id (:id result) :user-id user-id}} "Category added")
     result))
@@ -43,13 +43,15 @@
 
 (defn- list-category
   ([ds user-id table-name] (list-category ds user-id table-name nil))
-  ([ds user-id table-name {:keys [search-term]}]
+  ([ds user-id table-name {:keys [search-term context strict]}]
    (validate-table-name! table-name)
    (let [user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:name :badge_title :tags])
-         where-clause (if search-clause [:and user-where search-clause] user-where)]
+         scope-clause (db/build-scope-clause context strict)
+         where-clause (into [:and user-where]
+                            (filter some? [search-clause scope-clause]))]
      (jdbc/execute! (db/get-conn ds)
-       (sql/format {:select [:id :name :description :tags :sort_order :badge_title :modified_at]
+       (sql/format {:select [:id :name :description :tags :sort_order :badge_title :scope :modified_at]
                     :from [(keyword table-name)]
                     :where where-clause
                     :order-by [[:modified_at :desc] [:name :asc]]})
@@ -74,7 +76,7 @@
 (defn get-category [ds user-id category-id table-name]
   (validate-table-name! table-name)
   (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:select [:id :name :description :tags :sort_order :badge_title :modified_at]
+    (sql/format {:select [:id :name :description :tags :sort_order :badge_title :scope :modified_at]
                  :from [(keyword table-name)]
                  :where [:and [:= :id category-id] (db/user-id-where-clause user-id)]})
     db/jdbc-opts))
@@ -89,7 +91,7 @@
                   :set {:name name :description description :tags tags :badge_title (or badge-title "")
                         :modified_at [:raw "datetime('now')"]}
                   :where (db/update-where category-id user-id expected-modified-at)
-                  :returning [:id :name :description :tags :badge_title :modified_at]})
+                  :returning [:id :name :description :tags :badge_title :scope :modified_at]})
      db/jdbc-opts)))
 
 (defn update-person
@@ -153,3 +155,27 @@
                  :set {:sort_order new-sort-order}
                  :where [:and [:= :id category-id] (db/user-id-where-clause user-id)]}))
   {:success true :sort_order new-sort-order})
+
+(defn- set-category-field [ds user-id category-id field value table-name]
+  (validate-table-name! table-name)
+  (let [normalize-fn (get db/field-normalizers field identity)
+        valid-value (normalize-fn value)]
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update (keyword table-name)
+                   :set {field valid-value
+                         :modified_at [:raw "datetime('now')"]}
+                   :where [:and [:= :id category-id] (db/user-id-where-clause user-id)]
+                   :returning [:id field :modified_at]})
+      db/jdbc-opts)))
+
+(defn set-person-field [ds user-id category-id field value]
+  (set-category-field ds user-id category-id field value "people"))
+
+(defn set-place-field [ds user-id category-id field value]
+  (set-category-field ds user-id category-id field value "places"))
+
+(defn set-project-field [ds user-id category-id field value]
+  (set-category-field ds user-id category-id field value "projects"))
+
+(defn set-goal-field [ds user-id category-id field value]
+  (set-category-field ds user-id category-id field value "goals"))

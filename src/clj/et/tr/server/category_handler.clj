@@ -1,17 +1,24 @@
 (ns et.tr.server.category-handler
   (:require [et.tr.server.common :as common]
             [et.tr.server.events :as events]
+            [et.tr.db :as db]
             [et.tr.db.category :as db.category]
             [clojure.string :as str]))
 
+(defn- list-opts [req]
+  {:search-term (get-in req [:params "q"])
+   :context (get-in req [:params "context"])
+   :strict (= "true" (get-in req [:params "strict"]))})
+
 (defn list-people-handler
-  "GET /api/people?q= — list people for the authenticated user, ordered by
-  sort_order. Optional `q` filters across name/badge_title/tags. Returns the
-  rows as produced by db.category/list-people."
+  "GET /api/people?q=&context=&strict= — list people for the authenticated
+  user, ordered by sort_order. Optional `q` filters across name/badge_title/
+  tags; `context` (\"private\"/\"work\") plus `strict` restrict the rows to
+  those matching the requested scope. Returns the rows as produced by
+  db.category/list-people."
   [req]
-  (let [user-id (common/get-user-id req)
-        search-term (get-in req [:params "q"])]
-    {:status 200 :body (db.category/list-people (common/ensure-ds) user-id {:search-term search-term})}))
+  (let [user-id (common/get-user-id req)]
+    {:status 200 :body (db.category/list-people (common/ensure-ds) user-id (list-opts req))}))
 
 (defn add-person-handler
   "POST /api/people — create a new person. Body: {:name}. Rejects blank names
@@ -36,9 +43,8 @@
   sort_order. Optional `q` filters across name/badge_title/tags. Returns the
   rows as produced by db.category/list-places."
   [req]
-  (let [user-id (common/get-user-id req)
-        search-term (get-in req [:params "q"])]
-    {:status 200 :body (db.category/list-places (common/ensure-ds) user-id {:search-term search-term})}))
+  (let [user-id (common/get-user-id req)]
+    {:status 200 :body (db.category/list-places (common/ensure-ds) user-id (list-opts req))}))
 
 (defn add-place-handler
   "POST /api/places — create a new place. Body: {:name}. Rejects blank names
@@ -63,9 +69,8 @@
   by sort_order. Optional `q` filters across name/badge_title/tags. Returns
   the rows as produced by db.category/list-projects."
   [req]
-  (let [user-id (common/get-user-id req)
-        search-term (get-in req [:params "q"])]
-    {:status 200 :body (db.category/list-projects (common/ensure-ds) user-id {:search-term search-term})}))
+  (let [user-id (common/get-user-id req)]
+    {:status 200 :body (db.category/list-projects (common/ensure-ds) user-id (list-opts req))}))
 
 (defn add-project-handler
   "POST /api/projects — create a new project. Body: {:name}. Rejects blank
@@ -90,9 +95,8 @@
   sort_order. Optional `q` filters across name/badge_title/tags. Returns the
   rows as produced by db.category/list-goals."
   [req]
-  (let [user-id (common/get-user-id req)
-        search-term (get-in req [:params "q"])]
-    {:status 200 :body (db.category/list-goals (common/ensure-ds) user-id {:search-term search-term})}))
+  (let [user-id (common/get-user-id req)]
+    {:status 200 :body (db.category/list-goals (common/ensure-ds) user-id (list-opts req))}))
 
 (defn add-goal-handler
   "POST /api/goals — create a new goal. Body: {:name}. Rejects blank names
@@ -204,6 +208,47 @@
   200 with the row, or 404 when not found or not owned."
   [req]
   (get-category-handler* req "goals" "Goal"))
+
+(def set-person-scope-handler
+  "PUT /api/people/:id/scope — set the person's :scope field. Body field
+  :scope must be one of db/valid-scopes (\"private\", \"both\", or \"work\").
+  Returns 200 with the updated row, 400 {:error} on an invalid value, or 404
+  {:error} when the person does not exist or is not owned by the caller."
+  (common/make-entity-property-handler :scope db/valid-scopes
+                                       "Invalid scope. Must be 'private', 'both', or 'work'"
+                                       {:entity-type :person
+                                        :set-fn db.category/set-person-field
+                                        :table :people}))
+
+(def set-place-scope-handler
+  "PUT /api/places/:id/scope — set the place's :scope field. Body field
+  :scope must be one of db/valid-scopes. Returns 200 with the updated row,
+  400 on an invalid value, or 404 when the place is not found."
+  (common/make-entity-property-handler :scope db/valid-scopes
+                                       "Invalid scope. Must be 'private', 'both', or 'work'"
+                                       {:entity-type :place
+                                        :set-fn db.category/set-place-field
+                                        :table :places}))
+
+(def set-project-scope-handler
+  "PUT /api/projects/:id/scope — set the project's :scope field. Body field
+  :scope must be one of db/valid-scopes. Returns 200 with the updated row,
+  400 on an invalid value, or 404 when the project is not found."
+  (common/make-entity-property-handler :scope db/valid-scopes
+                                       "Invalid scope. Must be 'private', 'both', or 'work'"
+                                       {:entity-type :project
+                                        :set-fn db.category/set-project-field
+                                        :table :projects}))
+
+(def set-goal-scope-handler
+  "PUT /api/goals/:id/scope — set the goal's :scope field. Body field
+  :scope must be one of db/valid-scopes. Returns 200 with the updated row,
+  400 on an invalid value, or 404 when the goal is not found."
+  (common/make-entity-property-handler :scope db/valid-scopes
+                                       "Invalid scope. Must be 'private', 'both', or 'work'"
+                                       {:entity-type :goal
+                                        :set-fn db.category/set-goal-field
+                                        :table :goals}))
 
 (def ^:private category-config
   {"people" {:type "person" :table "people"}
