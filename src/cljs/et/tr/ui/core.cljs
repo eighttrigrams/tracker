@@ -77,11 +77,17 @@
        [tab-button active-tab :users :nav/users]]
       (cond
         (contains? category-tabs active-tab)
-        [:div.tabs
-         [tab-button active-tab :cat-people :category/people]
-         [tab-button active-tab :cat-places :category/places]
-         [tab-button active-tab :cat-projects :category/projects]
-         [tab-button active-tab :cat-goals :category/goals]]
+        [:div.tabs-group-row
+         [:div.nav-back-group
+          [:button.tab.nav-back-btn
+           {:title (t :nav/back)
+            :on-click #(state/set-active-tab (or (:last-global-tab @state/*app-state) :tasks))}
+           "←"]]
+         [:div.tabs
+          [tab-button active-tab :cat-people :category/people]
+          [tab-button active-tab :cat-places :category/places]
+          [tab-button active-tab :cat-projects :category/projects]
+          [tab-button active-tab :cat-goals :category/goals]]]
 
         (contains? settings-tabs active-tab)
         [:div.tabs
