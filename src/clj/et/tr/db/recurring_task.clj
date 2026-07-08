@@ -121,7 +121,7 @@
                                           :from [:recurring_task_categories]
                                           :where [:in :recurring_task_id rtask-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-rtask (group-by :recurring_task_id categories-data)]
      (associate-categories-with-recurring-tasks rtasks categories-by-rtask people-by-id places-by-id projects-by-id goals-by-id))))
 

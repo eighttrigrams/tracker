@@ -181,3 +181,29 @@
       (is (= 3 (count (db.category/list-people *ds* *user-id*)))))
     (testing "context both (non-strict) returns all categories"
       (is (= 3 (count (db.category/list-people *ds* *user-id* {:context "both"})))))))
+
+(deftest card-badges-filtered-by-scope-test
+  (let [task (db.task/add-task *ds* *user-id* "Fix roof")
+        boss (db.category/add-person *ds* *user-id* "Boss")
+        mum  (db.category/add-person *ds* *user-id* "Mum")
+        sam  (db.category/add-person *ds* *user-id* "Sam")]
+    (db.category/set-person-field *ds* *user-id* (:id boss) :scope "work")
+    (db.category/set-person-field *ds* *user-id* (:id mum) :scope "private")
+    ;; Sam stays "both".
+    (db.task/categorize-task *ds* *user-id* (:id task) "person" (:id boss))
+    (db.task/categorize-task *ds* *user-id* (:id task) "person" (:id mum))
+    (db.task/categorize-task *ds* *user-id* (:id task) "person" (:id sam))
+    (testing "work scope drops the private-only badge, keeps work + both"
+      (let [t (first (db.task/list-tasks *ds* *user-id* :recent {:context "work"}))]
+        (is (= #{"Boss" "Sam"} (set (map :name (:people t)))))))
+    (testing "private scope drops the work-only badge, keeps private + both"
+      (let [t (first (db.task/list-tasks *ds* *user-id* :recent {:context "private"}))]
+        (is (= #{"Mum" "Sam"} (set (map :name (:people t)))))))
+    (testing "no scope keeps all badges"
+      (let [t (first (db.task/list-tasks *ds* *user-id* :recent {}))]
+        (is (= #{"Boss" "Mum" "Sam"} (set (map :name (:people t)))))))
+    (testing "strict work scope keeps only the work-scoped badge"
+      ;; the task itself must be in scope under strict work to be listed
+      (db.task/set-task-field *ds* *user-id* (:id task) :scope "work")
+      (let [t (first (db.task/list-tasks *ds* *user-id* :recent {:context "work" :strict true}))]
+        (is (= #{"Boss"} (set (map :name (:people t)))))))))

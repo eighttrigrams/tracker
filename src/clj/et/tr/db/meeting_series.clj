@@ -94,7 +94,7 @@
                                           :from [:meeting_series_categories]
                                           :where [:in :meeting_series_id series-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-series (group-by :meeting_series_id categories-data)]
      (associate-categories-with-meeting-series series categories-by-series people-by-id places-by-id projects-by-id goals-by-id))))
 

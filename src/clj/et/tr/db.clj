@@ -188,33 +188,45 @@
                                [:= (keyword (str (name join-table) ".category_type")) category-type]
                                [:in (keyword (str (name table-name) ".name")) category-names]]}]]))))
 
-(defn fetch-category-lookups [conn user-id-where-clause]
+(declare build-scope-clause)
+
+(defn fetch-category-lookups
+  "Build {:people-by-id :places-by-id :projects-by-id :goals-by-id} maps of
+  category-id -> {:name :badge_title}, used to decorate entity rows with their
+  category badges. When opts carries a :context (with optional :strict), the
+  lookups are restricted to categories matching that scope, so out-of-scope
+  category badges never reach the entity cards. Callers that must see every
+  category (e.g. single-item edit fetches) omit opts."
+  ([conn user-id-where-clause] (fetch-category-lookups conn user-id-where-clause nil))
+  ([conn user-id-where-clause {:keys [context strict]}]
   (let [cols [:id :name :badge_title]
+        scope-clause (build-scope-clause context strict)
+        where (if scope-clause [:and user-id-where-clause scope-clause] user-id-where-clause)
         people (jdbc/execute! conn
                  (sql/format {:select cols
                               :from [:people]
-                              :where user-id-where-clause})
+                              :where where})
                  jdbc-opts)
         places (jdbc/execute! conn
                  (sql/format {:select cols
                               :from [:places]
-                              :where user-id-where-clause})
+                              :where where})
                  jdbc-opts)
         projects (jdbc/execute! conn
                    (sql/format {:select cols
                                 :from [:projects]
-                                :where user-id-where-clause})
+                                :where where})
                    jdbc-opts)
         goals (jdbc/execute! conn
                 (sql/format {:select cols
                               :from [:goals]
-                              :where user-id-where-clause})
+                              :where where})
                 jdbc-opts)
         to-map (fn [items] (into {} (map (fn [i] [(:id i) (select-keys i [:name :badge_title])]) items)))]
     {:people-by-id (to-map people)
      :places-by-id (to-map places)
      :projects-by-id (to-map projects)
-     :goals-by-id (to-map goals)}))
+     :goals-by-id (to-map goals)})))
 
 (defn build-importance-clause [importance]
   (case importance

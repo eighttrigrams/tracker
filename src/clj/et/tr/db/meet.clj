@@ -92,7 +92,7 @@
                                           :from [:meet_categories]
                                           :where [:in :meet_id meet-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-meet (group-by :meet_id categories-data)
          meets-with-categories (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id goals-by-id)
          series-ids (->> meets (keep :meeting_series_id) distinct vec)

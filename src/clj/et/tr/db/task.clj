@@ -117,7 +117,7 @@
                                      :from [:task_categories]
                                      :where [:in :task_id task-ids]})
                         db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-task (group-by :task_id categories)
          tasks-with-categories (db/associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id)]
      (relation/associate-relations-with-items tasks-with-categories "tsk" conn))))

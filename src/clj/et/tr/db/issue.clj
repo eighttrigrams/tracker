@@ -99,7 +99,7 @@
                                           :from [:issue_categories]
                                           :where [:in :issue_id issue-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-issue (group-by :issue_id categories-data)
          issues-with-categories (associate-categories-with-issues issues categories-by-issue people-by-id places-by-id projects-by-id goals-by-id)
          issues-with-tasks (associate-tasks-with-issues issues-with-categories conn)]

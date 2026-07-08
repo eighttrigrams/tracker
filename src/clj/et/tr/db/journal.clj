@@ -75,7 +75,7 @@
                                           :from [:journal_categories]
                                           :where [:in :journal_id journal-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-journal (group-by :journal_id categories-data)]
      (associate-categories-with-journals journals categories-by-journal people-by-id places-by-id projects-by-id goals-by-id))))
 

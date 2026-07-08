@@ -55,7 +55,7 @@
                                           :from [:journal_entry_categories]
                                           :where [:in :journal_entry_id entry-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-entry (group-by :journal_entry_id categories-data)]
      (-> (associate-categories-with-journal-entries entries categories-by-entry people-by-id places-by-id projects-by-id goals-by-id)
          (relation/associate-relations-with-items "jen" conn)))))
@@ -103,7 +103,7 @@
                                          :from [:journal_entry_categories]
                                          :where [:in :journal_entry_id entry-ids]})
                             db/jdbc-opts))
-        {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+        {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
         categories-by-entry (group-by :journal_entry_id categories-data)]
     (-> (associate-categories-with-journal-entries entries categories-by-entry people-by-id places-by-id projects-by-id goals-by-id)
         (relation/associate-relations-with-items "jen" conn))))

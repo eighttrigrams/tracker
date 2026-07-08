@@ -68,3 +68,31 @@
       (testing "private context hides the work project"
         (let [{:keys [body]} (GET-json "/api/projects?context=private")]
           (is (= #{"Alpha"} (set (map :name body)))))))))
+
+(deftest card-category-badges-filtered-by-scope-on-backend
+  (testing "a task's category badges are filtered by the request scope, so a
+            card in work scope carries no private-only category badge (and vice
+            versa); both-scoped badges always show"
+    (let [task-id (:id (:body (POST-json "/api/tasks" {:title "Fix roof"})))
+          boss (:id (create! "/api/people" "Boss"))
+          mum  (:id (create! "/api/people" "Mum"))
+          sam  (:id (create! "/api/people" "Sam"))]
+      (PUT-json (str "/api/people/" boss "/scope") {:scope "work"})
+      (PUT-json (str "/api/people/" mum "/scope") {:scope "private"})
+      ;; Sam stays 'both'.
+      (doseq [pid [boss mum sam]]
+        (POST-json (str "/api/tasks/" task-id "/categorize")
+                   {:category-type "person" :category-id pid}))
+      (letfn [(names [ctx]
+                (let [{:keys [body]} (GET-json (str "/api/tasks?sort=recent" ctx))]
+                  (set (map :name (:people (first body))))))]
+        (testing "work scope: private-only badge dropped"
+          (is (= #{"Boss" "Sam"} (names "&context=work"))))
+        (testing "private scope: work-only badge dropped"
+          (is (= #{"Mum" "Sam"} (names "&context=private"))))
+        (testing "no scope: all badges present"
+          (is (= #{"Boss" "Mum" "Sam"} (names ""))))
+        (testing "strict work scope: only the work badge"
+          ;; the task itself must be in scope under strict work to be listed
+          (PUT-json (str "/api/tasks/" task-id "/scope") {:scope "work"})
+          (is (= #{"Boss"} (names "&context=work&strict=true"))))))))

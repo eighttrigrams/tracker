@@ -100,7 +100,7 @@
                                           :from [:resource_categories]
                                           :where [:in :resource_id resource-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-resource (group-by :resource_id categories-data)
          resources-with-categories (associate-categories-with-resources resources categories-by-resource people-by-id places-by-id projects-by-id goals-by-id)]
      (relation/associate-relations-with-items resources-with-categories "res" conn))))

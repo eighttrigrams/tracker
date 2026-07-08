@@ -32,3 +32,19 @@ Then("I should see the scope switcher", async ({ page }) => {
 Then("I should not see {string} in the category cards", async ({ page }, name: string) => {
   await expect(page.locator(".category-cards-grid")).not.toContainText(name);
 });
+
+Then(
+  "task {string} shows the category badge {string}",
+  async ({ page }, task: string, badge: string) => {
+    const row = page.locator(".items li").filter({ hasText: task }).first();
+    await expect(row.locator(".tag").filter({ hasText: badge })).toBeVisible();
+  },
+);
+
+Then(
+  "task {string} does not show the category badge {string}",
+  async ({ page }, task: string, badge: string) => {
+    const row = page.locator(".items li").filter({ hasText: task }).first();
+    await expect(row.locator(".tag").filter({ hasText: badge })).toHaveCount(0);
+  },
+);
