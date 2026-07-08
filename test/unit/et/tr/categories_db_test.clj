@@ -140,3 +140,44 @@
       (is (= 3 (count (db.category/list-people *ds* *user-id* {:search-term ""})))))
     (testing "no opts behaves like no filter (backward compatible)"
       (is (= 3 (count (db.category/list-people *ds* *user-id*)))))))
+
+(deftest category-scope-defaults-to-both-test
+  (testing "a freshly added category defaults to scope both"
+    (let [person (db.category/add-person *ds* *user-id* "Alice")]
+      (is (= "both" (:scope person)))
+      (is (= "both" (:scope (first (db.category/list-people *ds* *user-id*))))))))
+
+(deftest set-category-scope-round-trips-test
+  (testing "set-person-field :scope persists and appears in listings"
+    (let [person (db.category/add-person *ds* *user-id* "Alice")
+          result (db.category/set-person-field *ds* *user-id* (:id person) :scope "work")]
+      (is (= "work" (:scope result)))
+      (is (= "work" (:scope (first (db.category/list-people *ds* *user-id*)))))))
+  (testing "an invalid scope is normalized to both"
+    (let [place (db.category/add-place *ds* *user-id* "Home")
+          result (db.category/set-place-field *ds* *user-id* (:id place) :scope "bogus")]
+      (is (= "both" (:scope result))))))
+
+(deftest list-category-filters-by-scope-test
+  (let [alice (db.category/add-person *ds* *user-id* "Alice")
+        bob   (db.category/add-person *ds* *user-id* "Bob")
+        carol (db.category/add-person *ds* *user-id* "Carol")]
+    (db.category/set-person-field *ds* *user-id* (:id alice) :scope "private")
+    (db.category/set-person-field *ds* *user-id* (:id bob) :scope "work")
+    ;; carol stays "both"
+    (testing "context work returns work + both categories"
+      (is (= #{"Bob" "Carol"}
+             (set (map :name (db.category/list-people *ds* *user-id* {:context "work"}))))))
+    (testing "context private returns private + both categories"
+      (is (= #{"Alice" "Carol"}
+             (set (map :name (db.category/list-people *ds* *user-id* {:context "private"}))))))
+    (testing "strict work returns only work-scoped categories"
+      (is (= #{"Bob"}
+             (set (map :name (db.category/list-people *ds* *user-id* {:context "work" :strict true}))))))
+    (testing "strict private returns only private-scoped categories"
+      (is (= #{"Alice"}
+             (set (map :name (db.category/list-people *ds* *user-id* {:context "private" :strict true}))))))
+    (testing "no context returns all categories"
+      (is (= 3 (count (db.category/list-people *ds* *user-id*)))))
+    (testing "context both (non-strict) returns all categories"
+      (is (= 3 (count (db.category/list-people *ds* *user-id* {:context "both"})))))))

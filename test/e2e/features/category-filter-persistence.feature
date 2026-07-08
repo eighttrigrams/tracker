@@ -18,6 +18,26 @@ Feature: Category filter persistence across tab switches
     Then I should see "Fix plumbing" in the task list
     And I should not see "Paint walls" in the task list
 
+  Scenario: A selected filter that falls out of scope is dropped on scope switch
+    Given I am on the app
+    When I click the "Categories" button
+    And I click the "Places" category tab
+    And I add a category entry called "Lagos"
+    And I expand the card "Lagos"
+    And I set the card "Lagos" scope to "work"
+    And I click the "Back" button
+    And I click the "Tasks" tab
+    And I add a task called "Fix plumbing"
+    And I add a task called "Paint walls"
+    And I assign the place "Lagos" to task "Fix plumbing"
+    And I switch scope to "work"
+    And I filter by place "Lagos"
+    Then I should see "Fix plumbing" in the task list
+    And I should not see "Paint walls" in the task list
+    When I switch scope to "private"
+    Then I should see "Fix plumbing" in the task list
+    And I should see "Paint walls" in the task list
+
   Scenario: Filter by project persists when switching to Today and back
     Given I am on the app
     And test data with categorized tasks exists

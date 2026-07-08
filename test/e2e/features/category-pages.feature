@@ -68,3 +68,19 @@ Feature: Category pages
     Given I am on the app
     When I click the "Tasks" tab
     Then I should not see the categories back button
+
+  Scenario: The scope switcher is visible on category pages
+    Given I am on the app
+    When I click the "Categories" button
+    Then I should see the scope switcher
+
+  Scenario: A category set to work scope is hidden when viewing private scope
+    Given I am on the app
+    And a person "Alice" exists
+    When I click the "Categories" button
+    And I expand the card "Alice"
+    And I set the card "Alice" scope to "work"
+    And I switch scope to "private"
+    Then I should not see "Alice" in the category cards
+    When I switch scope to "work"
+    Then I should see "Alice" in the category cards
