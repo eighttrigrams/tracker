@@ -290,15 +290,15 @@
     :categories {:selector-fn task-item/category-selector
                  :relations-prefix "tsk"
                  :readonly-fn (fn [t] [task-item/task-categories-readonly t])}
-    :footer {:left (into [{:type :custom :render [send-to-day-selector task]}
-                          {:type :scope :value (:scope task)
-                           :on-set #(state/set-task-scope (:id task) %)}
-                          {:type :importance :value (:importance task)
-                           :on-set #(state/set-task-importance (:id task) %)}]
-                         (when-not (:due_date task)
-                           [{:type :urgency :value (:urgency task)
-                             :on-set #(state/set-task-urgency (:id task) %)}]))
-             :right [{:type :done :item task}]}}]))
+    :footer {:left [send-to-day-selector task]
+             :scope {:value (:scope task)
+                     :on-set #(state/set-task-scope (:id task) %)}
+             :importance {:value (:importance task)
+                          :on-set #(state/set-task-importance (:id task) %)}
+             :urgency (when-not (:due_date task)
+                        {:value (:urgency task)
+                         :on-set #(state/set-task-urgency (:id task) %)})
+             :main-actions (task-item/done-button-spec task nil)}}]))
 
 (defn- extract-date [modified-at]
   (when modified-at
@@ -398,7 +398,7 @@
     [rtask-category-selector rtask state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
    [:div.item-actions
     [rtask-scope-selector rtask]
-    [item-card/footer-widget {:type :delete
+    [item-card/footer-button {:label (t :task/delete) :variant :delete
                               :on-click #(state/set-confirm-delete-rtask rtask)}]]])
 
 (defn- rtask-inline-title-edit [rtask]

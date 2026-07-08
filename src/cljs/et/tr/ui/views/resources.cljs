@@ -129,11 +129,12 @@
                     :loaded-fn #(contains? % :description)}
       :expanded-prefix (when video-id [youtube-embed video-id])
       :categories {:selector-fn resource-category-selector :relations-prefix "res"}
-      :footer {:left [{:type :scope :value (:scope resource)
+      :footer {:scope {:value (:scope resource)
                        :on-set #(state/set-resource-scope (:id resource) %)}
-                      {:type :importance :value (:importance resource)
-                       :on-set #(state/set-resource-importance (:id resource) %)}]
-               :right [{:type :delete :on-click #(state/set-confirm-delete-resource resource)}]}}]))
+               :importance {:value (:importance resource)
+                            :on-set #(state/set-resource-importance (:id resource) %)}
+               :main-actions {:label (t :task/delete) :variant :delete
+                              :on-click #(state/set-confirm-delete-resource resource)}}}]))
 
 (defn- sort-mode-toggle []
   (let [sort-mode (:sort-mode @resources-state/*resources-page-state)]
@@ -326,9 +327,10 @@
       :date {:render journal-date-render}
       :description {:edit-type :journal}
       :categories {:selector-fn journal-category-selector}
-      :footer {:left [{:type :scope :value (:scope journal)
-                       :on-set #(state/set-journal-scope (:id journal) %)}]
-               :right [{:type :delete :on-click #(state/set-confirm-delete-journal journal)}]}
+      :footer {:scope {:value (:scope journal)
+                       :on-set #(state/set-journal-scope (:id journal) %)}
+               :main-actions {:label (t :task/delete) :variant :delete
+                              :on-click #(state/set-confirm-delete-journal journal)}}
       :readonly-extra [journal-create-entry-button journal]}]))
 
 (defn- journal-search-add-form []
@@ -449,11 +451,12 @@
       :date {:render journal-entry-date-render}
       :description {:edit-type :journal-entry}
       :categories {:selector-fn resource-category-selector :relations-prefix "jen"}
-      :footer {:left [{:type :scope :value (:scope entry)
+      :footer {:scope {:value (:scope entry)
                        :on-set #(state/set-journal-entry-scope (:id entry) %)}
-                      {:type :importance :value (:importance entry)
-                       :on-set #(state/set-journal-entry-importance (:id entry) %)}]
-               :right [{:type :delete :on-click #(state/set-confirm-delete-journal-entry entry)}]}}]))
+               :importance {:value (:importance entry)
+                            :on-set #(state/set-journal-entry-importance (:id entry) %)}
+               :main-actions {:label (t :task/delete) :variant :delete
+                              :on-click #(state/set-confirm-delete-journal-entry entry)}}}]))
 
 (defn- journal-entries-list []
   (let [{:keys [journal-entries people places projects goals]} @state/*app-state

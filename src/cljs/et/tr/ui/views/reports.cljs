@@ -119,8 +119,7 @@
   ;; renders through item-card/footer-button and inherits its close-on-unmount
   ;; guarantee — a collapsed/re-expanded report card can no longer show a
   ;; stale-open menu. Red delete-variant main button + a "Change done date" item.
-  {:type :button
-   :variant :delete
+  {:variant :delete
    :label (t :task/delete)
    :on-click #(state/set-confirm-delete-task task)
    :dropdown {:open? (= (:id task) (:reports-task-dropdown-open @state/*app-state))
@@ -148,9 +147,9 @@
       :categories {:selector-fn task-item/category-selector
                    :relations-prefix "tsk"
                    :readonly-fn (fn [t] [task-item/task-categories-readonly t])}
-      :footer {:left [{:type :scope :value (:scope task)
-                       :on-set #(state/set-task-scope (:id task) %)}]
-               :right [(task-actions-spec task)]}}]))
+      :footer {:scope {:value (:scope task)
+                       :on-set #(state/set-task-scope (:id task) %)}
+               :main-actions (task-actions-spec task)}}]))
 
 (defn- report-meet-item [meet]
   (let [is-expanded (= (:expanded-meet @reports-state/*reports-page-state) (:id meet))]
@@ -173,9 +172,10 @@
       :description {:edit-type :meet}
       :categories {:selector-fn task-item/meet-category-selector
                    :relations-prefix "met"}
-      :footer {:left [{:type :scope :value (:scope meet)
-                       :on-set #(state/set-meet-scope (:id meet) %)}]
-               :right [{:type :delete :on-click #(state/set-confirm-delete-meet meet)}]}}]))
+      :footer {:scope {:value (:scope meet)
+                       :on-set #(state/set-meet-scope (:id meet) %)}
+               :main-actions {:label (t :task/delete) :variant :delete
+                              :on-click #(state/set-confirm-delete-meet meet)}}}]))
 
 (defn- report-journal-entry-item [entry]
   (let [is-expanded (= (:expanded-journal-entry @reports-state/*reports-page-state) (:id entry))
@@ -202,9 +202,10 @@
       :description {:edit-type :journal-entry}
       :categories {:selector-fn task-item/journal-entry-category-selector
                    :relations-prefix "jen"}
-      :footer {:left [{:type :scope :value (:scope entry)
-                       :on-set #(state/set-journal-entry-scope (:id entry) %)}]
-               :right [{:type :delete :on-click #(state/set-confirm-delete-journal-entry entry)}]}}]))
+      :footer {:scope {:value (:scope entry)
+                       :on-set #(state/set-journal-entry-scope (:id entry) %)}
+               :main-actions {:label (t :task/delete) :variant :delete
+                              :on-click #(state/set-confirm-delete-journal-entry entry)}}}]))
 
 (defn- day-section [day-date day-tasks day-meets day-entries]
   [:div.report-day-group {:key day-date}

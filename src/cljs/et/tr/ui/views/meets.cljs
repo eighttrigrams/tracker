@@ -74,11 +74,12 @@
       :date {:render meet-date-render}
       :description {:edit-type :meet}
       :categories {:selector-fn meet-category-selector :relations-prefix "met"}
-      :footer {:left [{:type :scope :value (:scope meet)
+      :footer {:scope {:value (:scope meet)
                        :on-set #(state/set-meet-scope (:id meet) %)}
-                      {:type :importance :value (:importance meet)
-                       :on-set #(state/set-meet-importance (:id meet) %)}]
-               :right [{:type :delete :on-click #(state/set-confirm-delete-meet meet)}]}}]))
+               :importance {:value (:importance meet)
+                            :on-set #(state/set-meet-importance (:id meet) %)}
+               :main-actions {:label (t :task/delete) :variant :delete
+                              :on-click #(state/set-confirm-delete-meet meet)}}}]))
 
 (defn- meet-week-section [week-key week-meets expanded-meet people places projects goals]
   (let [[_ week-num] week-key]
@@ -243,9 +244,10 @@
                      "⏚"]
       :description {:edit-type :meeting-series}
       :categories {:selector-fn series-category-selector}
-      :footer {:left [{:type :scope :value (:scope series)
-                       :on-set #(state/set-meeting-series-scope (:id series) %)}]
-               :right [{:type :delete :on-click #(state/set-confirm-delete-series series)}]}
+      :footer {:scope {:value (:scope series)
+                       :on-set #(state/set-meeting-series-scope (:id series) %)}
+               :main-actions {:label (t :task/delete) :variant :delete
+                              :on-click #(state/set-confirm-delete-series series)}}
       :readonly-extra [series-create-meeting-button series]}]))
 
 (defn- series-search-add-form []

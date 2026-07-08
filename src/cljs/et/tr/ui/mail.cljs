@@ -49,7 +49,7 @@
                               (state/convert-message-to-task id))]
     (cond
       (not= done 1)
-      {:type :button :variant :done
+      {:variant :done
        :label (t :mail/archive)
        :on-click #(state/set-message-done id true)
        :dropdown {:open? dropdown-open?
@@ -63,7 +63,7 @@
                                  :on-click convert-to-task!}])}}
 
       url
-      {:type :button :variant :done
+      {:variant :done
        :label (t :mail/convert-to)
        :on-click toggle-dropdown!
        :dropdown {:open? dropdown-open?
@@ -76,31 +76,25 @@
                            :on-click convert-to-task!}]}}
 
       :else
-      {:type :button :variant :done
+      {:variant :done
        :label (t :mail/convert-to-task)
        :on-click convert-to-task!})))
 
 (defn- mail-footer [message]
   (let [{:keys [id title description sender]} message
         url (first-url title description)
-        scope-spec {:type :scope :value (:scope message)
-                    :on-set #(state/set-message-scope id %)}
-        importance-spec {:type :importance :value (:importance message)
-                         :on-set #(state/set-message-importance id %)}
-        urgency-spec {:type :urgency :value (:urgency message)
-                      :on-set #(state/set-message-urgency id %)}
-        delete-spec {:type :delete :on-click #(state/set-confirm-delete-message message)}]
-    (if (#{"YouTube" "Podcasts"} sender)
-      {:left (into [(when url
-                      {:type :button :variant :done
-                       :label (t :mail/convert-to-resource)
-                       :on-click #(state/convert-message-to-resource id url)})
-                    scope-spec importance-spec urgency-spec]
-                   [])
-       :right [delete-spec]}
-      {:left [(archive-button-spec message)
-              scope-spec importance-spec urgency-spec]
-       :right [delete-spec]})))
+        left (if (#{"YouTube" "Podcasts"} sender)
+               (when url
+                 [item-card/footer-button {:variant :done
+                                           :label (t :mail/convert-to-resource)
+                                           :on-click #(state/convert-message-to-resource id url)}])
+               [item-card/footer-button (archive-button-spec message)])]
+    {:left left
+     :scope {:value (:scope message) :on-set #(state/set-message-scope id %)}
+     :importance {:value (:importance message) :on-set #(state/set-message-importance id %)}
+     :urgency {:value (:urgency message) :on-set #(state/set-message-urgency id %)}
+     :main-actions {:label (t :task/delete) :variant :delete
+                    :on-click #(state/set-confirm-delete-message message)}}))
 
 (defn- mail-expanded-prefix [{:keys [title description type] :as message}]
   [:<>

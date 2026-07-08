@@ -88,7 +88,7 @@
                         (reset! close-ref close!)
                         child)})))
 
-(defn- footer-button
+(defn footer-button
   "Split action button with an optional dropdown menu. The open state is held
   externally (a per-item key in an app atom) through :open?/:on-toggle; the
   dropdown is wrapped in `close-on-unmount` so the menu can never outlive its own
@@ -116,23 +116,6 @@
                       item-label])
                    items)))]
         [:button.combined-main-btn.standalone {:class main-class :on-click on-click} label])]]))
-
-(defn footer-widget [spec]
-  (case (:type spec)
-    :scope [scope-selector spec]
-    :importance [importance-selector spec]
-    :urgency [urgency-selector spec]
-    :delete [footer-button {:label (t :task/delete) :variant :delete :on-click (:on-click spec)}]
-    :done [footer-button (task-item/done-button-spec (:item spec) (:extra-dropdown-items spec))]
-    :button [footer-button spec]
-    ;; Escape hatch for bespoke widgets only. Any action dropdown (a main action
-    ;; plus a ▼ menu of item actions) MUST be declared as a :button/:done/:delete
-    ;; spec so it renders through footer-button and inherits the close-on-unmount
-    ;; guarantee. A :custom widget that carries its own open-state dropdown must
-    ;; wrap it in `close-on-unmount` itself (see send-to-day-selector) — otherwise
-    ;; it reintroduces the stale-open-dropdown bug this indirection prevents.
-    :custom (:render spec)
-    nil))
 
 (defn- card-title-el [{:keys [item expanded? inline-edit title-expanded-click title-text-class]}]
   (let [editing? (inline-editing? inline-edit item)
@@ -284,11 +267,15 @@
                        :selector-fn (:selector-fn categories)
                        :relations-prefix (:relations-prefix categories)}])
    (when footer
-     [:div.item-actions
-      (into [:div.item-actions-left]
-            (map-indexed (fn [i spec] ^{:key (str "l-" i)} [footer-widget spec]) (:left footer)))
-      (into [:div.item-actions-right]
-            (map-indexed (fn [i spec] ^{:key (str "r-" i)} [footer-widget spec]) (:right footer)))])
+     (let [{:keys [left scope importance urgency main-actions]} footer]
+       [:div.item-actions
+        [:div.item-actions-left
+         left
+         (when (:on-set scope) [scope-selector scope])
+         (when (:on-set importance) [importance-selector importance])
+         (when (:on-set urgency) [urgency-selector urgency])]
+        [:div.item-actions-right
+         (when main-actions [footer-button main-actions])]]))
    expanded-suffix])
 
 (defn- card-readonly-body [{:keys [item categories readonly-extra]}]

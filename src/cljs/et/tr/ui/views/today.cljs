@@ -84,29 +84,29 @@
       :categories {:selector-fn task-item/category-selector
                    :relations-prefix "tsk"
                    :readonly-fn (fn [_] nil)}
-      :footer {:left (into [{:type :scope :value (:scope task)
-                             :on-set #(state/set-task-scope (:id task) %)}
-                            {:type :importance :value (:importance task)
-                             :on-set #(state/set-task-importance (:id task) %)}]
-                           (when-not (:due_date task)
-                             [{:type :urgency :value (:urgency task)
-                               :on-set #(state/set-task-urgency (:id task) %)}]))
-               :right [{:type :done
-                        :item task
-                        :extra-dropdown-items
-                        (when show-unlink?
-                          [{:label (if maybe? (t :task/unset-maybe) (t :task/set-maybe))
-                            :class "toggle-maybe"
-                            :on-click #(do
-                                         (state/set-task-dropdown-open nil)
-                                         (state/set-task-maybe (:id task) (not maybe?)))}
-                           {:label (t :task/unlink-today)
-                            :class "unlink-today"
-                            :on-click #(let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
-                                         (state/set-task-dropdown-open nil)
-                                         (if (zero? selected-day)
-                                           (state/set-task-today (:id task) false)
-                                           (state/set-task-lined-up-for (:id task) nil)))}])}]}}]))
+      :footer {:scope {:value (:scope task)
+                       :on-set #(state/set-task-scope (:id task) %)}
+               :importance {:value (:importance task)
+                            :on-set #(state/set-task-importance (:id task) %)}
+               :urgency (when-not (:due_date task)
+                          {:value (:urgency task)
+                           :on-set #(state/set-task-urgency (:id task) %)})
+               :main-actions
+               (task-item/done-button-spec
+                 task
+                 (when show-unlink?
+                   [{:label (if maybe? (t :task/unset-maybe) (t :task/set-maybe))
+                     :class "toggle-maybe"
+                     :on-click #(do
+                                  (state/set-task-dropdown-open nil)
+                                  (state/set-task-maybe (:id task) (not maybe?)))}
+                    {:label (t :task/unlink-today)
+                     :class "unlink-today"
+                     :on-click #(let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
+                                  (state/set-task-dropdown-open nil)
+                                  (if (zero? selected-day)
+                                    (state/set-task-today (:id task) false)
+                                    (state/set-task-lined-up-for (:id task) nil)))}]))}}]))
 
 (defn today-issue-item [issue]
   (let [is-expanded (= (:today-page/expanded-issue @state/*app-state) (:id issue))]
@@ -132,10 +132,10 @@
                       :title (t :issues/show-tasks)}
                      "⏚"]
       :description {:edit-type :issue}
-      :footer {:left [{:type :importance :value (:importance issue)
-                       :on-set #(state/set-issue-importance (:id issue) %)}
-                      {:type :urgency :value (:urgency issue)
-                       :on-set #(state/set-issue-urgency (:id issue) %)}]}}]))
+      :footer {:importance {:value (:importance issue)
+                            :on-set #(state/set-issue-importance (:id issue) %)}
+               :urgency {:value (:urgency issue)
+                         :on-set #(state/set-issue-urgency (:id issue) %)}}}]))
 
 (defn- meet-archivable? [meet is-today]
   (let [future? (and (:start_date meet)
@@ -176,8 +176,7 @@
                          :on-click #(do (close!) (state/set-confirm-delete-meet meet))}))
         anchor (first actions)
         items (rest actions)]
-    (cond-> {:type :button
-             :variant (:variant anchor)
+    (cond-> {:variant (:variant anchor)
              :label (:label anchor)
              :on-click (:on-click anchor)}
       (:class anchor) (assoc :class (:class anchor))
@@ -239,11 +238,11 @@
       :categories {:selector-fn task-item/meet-category-selector
                    :relations-prefix "met"
                    :readonly-fn (fn [_] nil)}
-      :footer {:left [{:type :scope :value (:scope meet)
+      :footer {:scope {:value (:scope meet)
                        :on-set #(state/set-meet-scope (:id meet) %)}
-                      {:type :importance :value (:importance meet)
-                       :on-set #(state/set-meet-importance (:id meet) %)}]
-               :right [(meet-footer-spec meet is-today gray-when-maybe)]}}]))
+               :importance {:value (:importance meet)
+                            :on-set #(state/set-meet-importance (:id meet) %)}
+               :main-actions (meet-footer-spec meet is-today gray-when-maybe)}}]))
 
 (defn- interleave-by-date [tasks meets]
   (sort-by (fn [item]

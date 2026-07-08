@@ -52,8 +52,7 @@
   (let [id (:id issue)
         resolved? (state/issue-resolved? issue)
         blocked? (and (not resolved?) (state/issue-has-undone-tasks? issue))]
-    {:type :button
-     :label (if resolved? (t :issues/set-unresolved) (t :issues/set-resolved))
+    {:label (if resolved? (t :issues/set-unresolved) (t :issues/set-resolved))
      :variant (if resolved? :undone :done)
      :disabled blocked?
      :title (when blocked? (t :issues/resolve-blocked))
@@ -116,13 +115,13 @@
       :categories {:selector-fn issue-category-selector :relations-prefix "iss"}
       :readonly-extra (when-not (state/issue-resolved? issue)
                         [issue-create-task-button issue])
-      :footer {:left [{:type :scope :value (:scope issue)
+      :footer {:scope {:value (:scope issue)
                        :on-set #(state/set-issue-scope (:id issue) %)}
-                      {:type :importance :value (:importance issue)
-                       :on-set #(state/set-issue-importance (:id issue) %)}
-                      {:type :urgency :value (:urgency issue)
-                       :on-set #(state/set-issue-urgency (:id issue) %)}]
-               :right [(issue-resolved-button-spec issue)]}}]))
+               :importance {:value (:importance issue)
+                            :on-set #(state/set-issue-importance (:id issue) %)}
+               :urgency {:value (:urgency issue)
+                         :on-set #(state/set-issue-urgency (:id issue) %)}
+               :main-actions (issue-resolved-button-spec issue)}}]))
 
 (defn- sort-mode-toggle []
   (let [sort-mode (:sort-mode @issues-state/*issues-page-state)]
