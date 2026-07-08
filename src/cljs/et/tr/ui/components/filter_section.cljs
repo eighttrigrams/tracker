@@ -9,18 +9,27 @@
 
 (defn category-badge-toggle []
   (let [showing? (state/show-collapsed-categories?)]
-    [:button.category-badge-toggle
-     {:class (when-not showing? "struck")
-      :title (if showing?
-               "Hide category badges on collapsed cards"
-               "Show category badges on collapsed cards")
-      :on-click #(state/toggle-show-collapsed-categories)}
-     [:span.eye-icon
+    [:div.sidebar-top-row
+     [:button.category-nav-pencil
+      {:title (t :nav/categories)
+       :on-click #(state/set-active-tab (or (:last-category-tab @state/*app-state) :cat-people))}
       [:svg {:viewBox "0 0 24 24" :fill "none" :stroke "currentColor"
              :stroke-width "2" :stroke-linecap "round" :stroke-linejoin "round"
              :width "20" :height "20"}
-       [:path {:d "M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"}]
-       [:circle {:cx "12" :cy "12" :r "3"}]]]]))
+       [:path {:d "M12 20h9"}]
+       [:path {:d "M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"}]]]
+     [:button.category-badge-toggle
+      {:class (when-not showing? "struck")
+       :title (if showing?
+                "Hide category badges on collapsed cards"
+                "Show category badges on collapsed cards")
+       :on-click #(state/toggle-show-collapsed-categories)}
+      [:span.eye-icon
+       [:svg {:viewBox "0 0 24 24" :fill "none" :stroke "currentColor"
+              :stroke-width "2" :stroke-linecap "round" :stroke-linejoin "round"
+              :width "20" :height "20"}
+        [:path {:d "M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"}]
+        [:circle {:cx "12" :cy "12" :r "3"}]]]]]))
 
 (def ^:private filter-key->entity-type
   {:people   :category-person

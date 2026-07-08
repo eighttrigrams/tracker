@@ -1,16 +1,28 @@
-.category-badge-toggle {
-  width: 100%;
+.sidebar-top-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.category-badge-toggle,
+.category-nav-pencil {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 8px 12px;
-  margin-bottom: 20px;
   background: var(--surface-subtle);
   border-radius: 8px;
   color: var(--text-secondary);
   line-height: 1;
 }
-.category-badge-toggle:hover { background: rgba(0, 0, 0, 0.06); transform: none; }
+.category-badge-toggle { flex: 1; }
+.category-nav-pencil {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+.category-badge-toggle:hover,
+.category-nav-pencil:hover { background: rgba(0, 0, 0, 0.06); transform: none; }
 .category-badge-toggle .eye-icon {
   position: relative;
   display: inline-block;
