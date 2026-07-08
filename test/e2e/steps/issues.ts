@@ -125,17 +125,8 @@ When("I click the issue icon on task {string}", async ({ page }, taskTitle: stri
   await page.waitForLoadState("networkidle");
 });
 
-When("I click the Inbox icon", async ({ page }) => {
-  await page.locator(".inbox-btn").click();
-  await page.waitForLoadState("networkidle");
-});
-
 Then("I should see the {string} tab in the navbar", async ({ page }, name: string) => {
   await expect(page.locator(".top-bar .tabs").getByRole("button", { name })).toBeVisible();
-});
-
-Then("I should see the Inbox icon", async ({ page }) => {
-  await expect(page.locator(".inbox-btn")).toBeVisible();
 });
 
 Then("I should see {string} in the issues list", async ({ page }, text: string) => {

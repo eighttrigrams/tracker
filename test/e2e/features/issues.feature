@@ -1,9 +1,9 @@
 Feature: Issues
 
-  Scenario: Issues tab appears in the main navbar and Inbox is a right-side icon
+  Scenario: Issues tab appears in the main navbar and Inbox is the last main tab
     Given I am on the app
     Then I should see the "Issues" tab in the navbar
-    And I should see the Inbox icon
+    And I should see the "Inbox" tab in the navbar
 
   Scenario: User adds an issue and sees it in the list
     Given I am on the app
@@ -129,7 +129,7 @@ Feature: Issues
     And I expand the issue "Alpha matter"
     Then the footer dropdown on issue "Alpha matter" is closed
 
-  Scenario: The Inbox icon navigates to the inbox page
+  Scenario: The Inbox tab navigates to the inbox page
     Given I am on the app
-    When I click the Inbox icon
+    When I click the "Inbox" tab
     Then I should see the inbox page

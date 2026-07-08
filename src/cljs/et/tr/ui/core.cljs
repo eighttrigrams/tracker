@@ -103,7 +103,9 @@
          [tab-button active-tab :issues :nav/issues]
          [tab-button active-tab :tasks :nav/tasks]
          [tab-button active-tab :resources :nav/resources]
-         [tab-button active-tab :reports :nav/reports]]))))
+         [tab-button active-tab :reports :nav/reports]
+         (when (state/has-mail?)
+           [tab-button active-tab :mail :nav/mail])]))))
 
 (defn- any-modal-open? []
   (or (:editing-modal @state/*app-state)
