@@ -159,16 +159,6 @@
     (when current-user
       [:<>
        [:div.user-info
-        (when-not is-admin
-          [:button.categories-btn
-           {:class (when (contains? #{:cat-people :cat-places :cat-projects :cat-goals} active-tab) "active")
-            :on-click #(let [s @state/*app-state]
-                         (state/set-active-tab
-                           (if (contains? #{:cat-people :cat-places :cat-projects :cat-goals}
-                                          (:active-tab s))
-                             (or (:last-global-tab s) :tasks)
-                             (or (:last-category-tab s) :cat-people))))}
-           (t :nav/categories)])
         [dark-mode-toggle]
         [:button.settings-btn
          {:class (when (contains? #{:settings-profile :settings-mottos :settings-shortcuts :settings-history} active-tab) "active")
