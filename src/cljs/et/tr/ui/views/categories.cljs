@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [et.tr.ui.state :as state]
             [et.tr.ui.components.task-item :as task-item]
+            [et.tr.ui.components.item-card :as item-card]
             [et.tr.i18n :refer [t]]))
 
 (defn- matches-search? [item search-term]
@@ -101,28 +102,32 @@
        (when (seq (:description item))
          [:span.category-description [task-item/markdown (:description item)]])]))
 
+(def ^:private state-key->set-scope
+  {:people state/set-people-scope :places state/set-places-scope
+   :projects state/set-projects-scope :goals state/set-goals-scope})
+
 (defn- category-card [item category-type state-key]
   (let [expanded? (let [exp (:categories-page/expanded @state/*app-state)]
-                    (and exp (= (:type exp) state-key) (= (:id exp) (:id item))))]
-    [:div.category-card {:class (when expanded? "expanded")}
-     [:div.category-card-header
-      {:on-click #(state/toggle-category-item-expanded state-key (:id item))}
-      [:span.category-card-name (:name item)]
-      (when (seq (:badge_title item))
-        [:span.category-card-badge (:badge_title item)])
-      (when (seq (:tags item))
-        [:span.category-card-tags (:tags item)])]
-     (when expanded?
-       [:div.category-card-body
-        (if (seq (:description item))
-          [task-item/clampable-description
-           {:text (:description item)
-            :on-click #(state/open-edit-modal (keyword (str "category-" category-type)) item)}]
-          [:button.edit-icon.description-placeholder
-           {:on-click (fn [e]
-                        (.stopPropagation e)
-                        (state/open-edit-modal (keyword (str "category-" category-type)) item))}
-           "✎"])])]))
+                    (and exp (= (:type exp) state-key) (= (:id exp) (:id item))))
+        set-scope (state-key->set-scope state-key)]
+    [item-card/item-card
+     {:item item
+      :expanded? expanded?
+      :on-toggle #(state/toggle-category-item-expanded state-key (:id item))
+      :container {:tag :div :class "category-card"
+                  :classes {:header "category-card-header"
+                            :title "category-card-title"
+                            :content "category-card-body"}}
+      :title-content (fn [_]
+                       [:<>
+                        [:span.category-card-name (:name item)]
+                        (when (seq (:badge_title item))
+                          [:span.category-card-badge (:badge_title item)])
+                        (when (seq (:tags item))
+                          [:span.category-card-tags (:tags item)])])
+      :description {:edit-type (keyword (str "category-" category-type))}
+      :footer {:scope {:value (:scope item)
+                       :on-set #(set-scope (:id item) %)}}}]))
 
 (defn category-cards-page [category-type]
   (let [search-term (get-in @state/*app-state [:categories-page/filter-search category-type])

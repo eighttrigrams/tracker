@@ -48,6 +48,14 @@
   gap: 10px;
 }
 
+.category-card-header .category-card-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .category-card-name {
   font-size: 1em;
   font-weight: 600;

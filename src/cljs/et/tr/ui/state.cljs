@@ -2,6 +2,7 @@
   (:require [clojure.set]
             [clojure.string]
             [reagent.core :as r]
+            [et.tr.filters :as filters]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.url :as url]
             [et.tr.ui.api :as api]
@@ -1442,6 +1443,18 @@
 (defn fetch-goals []
   (categories/fetch-goals *app-state auth-headers))
 
+(defn set-people-scope [id scope]
+  (categories/set-people-scope *app-state auth-headers id scope))
+
+(defn set-places-scope [id scope]
+  (categories/set-places-scope *app-state auth-headers id scope))
+
+(defn set-projects-scope [id scope]
+  (categories/set-projects-scope *app-state auth-headers id scope))
+
+(defn set-goals-scope [id scope]
+  (categories/set-goals-scope *app-state auth-headers id scope))
+
 (defn set-categories-filter-search [category-type search-term]
   (swap! *app-state assoc-in [:categories-page/filter-search category-type] search-term))
 
@@ -2066,11 +2079,38 @@
                  {:type entity-type :entity (merge prev current) :tab tab})))
       (swap! *app-state assoc :error (get-in resp [:response :error] fallback-msg)))))
 
+(defn- prune-shared-category-filters!
+  "After a scope change, drop any selected sidebar category-filter ids whose
+  category no longer matches the active scope so out-of-scope filters stop
+  filtering the entity lists. Relies on the (still current-scope) local
+  category lists carrying :scope; a filter id was only selectable while its
+  category was in scope, so it is present here to be re-tested."
+  [mode strict?]
+  (doseq [[list-key filter-key] [[:people :shared/filter-people]
+                                 [:places :shared/filter-places]
+                                 [:projects :shared/filter-projects]
+                                 [:goals :shared/filter-goals]]]
+    (let [in-scope-ids (->> (get @*app-state list-key)
+                            (filter #(filters/matches-scope? % mode strict?))
+                            (map :id)
+                            set)]
+      (swap! *app-state update filter-key #(into #{} (filter in-scope-ids) %)))))
+
 (defn set-work-private-mode [mode]
-  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-issues fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports mode))
+  (prune-shared-category-filters! mode (:strict-mode @*app-state))
+  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-issues fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports mode)
+  (fetch-people)
+  (fetch-places)
+  (fetch-projects)
+  (fetch-goals))
 
 (defn toggle-strict-mode []
-  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-issues fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports))
+  (prune-shared-category-filters! (:work-private-mode @*app-state) (not (:strict-mode @*app-state)))
+  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-issues fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports)
+  (fetch-people)
+  (fetch-places)
+  (fetch-projects)
+  (fetch-goals))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))

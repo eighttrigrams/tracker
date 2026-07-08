@@ -172,7 +172,8 @@
          [:div.top-bar-right
           (when (contains? #{:today :tasks :resources :issues :meets :reports} active-tab)
             [controls/relation-mode-toggle])
-          (when (contains? #{:today :tasks :resources :issues :meets :mail :reports} active-tab)
+          (when (contains? #{:today :tasks :resources :issues :meets :mail :reports
+                             :cat-people :cat-places :cat-projects :cat-goals} active-tab)
             [controls/work-private-toggle])
           [controls/user-info]]]
         (case active-tab

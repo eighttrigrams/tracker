@@ -1,9 +1,16 @@
 (ns et.tr.ui.state.categories
   (:require [ajax.core :refer [GET]]
+            [et.tr.filters :as filters]
             [et.tr.ui.api :as api]))
 
+(defn- scope-query-string [app-state]
+  (let [mode (:work-private-mode @app-state)
+        strict? (:strict-mode @app-state)]
+    (cond-> (str "?context=" (name mode))
+      strict? (str "&strict=true"))))
+
 (defn- fetch-collection [auth-headers endpoint state-key app-state]
-  (GET endpoint
+  (GET (str endpoint (scope-query-string app-state))
     {:response-format :json
      :keywords? true
      :headers (auth-headers)
@@ -20,6 +27,35 @@
 
 (defn fetch-goals [app-state auth-headers]
   (fetch-collection auth-headers "/api/goals" :goals app-state))
+
+(defn- set-category-scope [app-state auth-headers endpoint state-key id scope]
+  (api/put-json (str endpoint id "/scope")
+    {:scope scope}
+    (auth-headers)
+    (fn [result]
+      (let [mode (:work-private-mode @app-state)
+            strict? (:strict-mode @app-state)]
+        (swap! app-state update state-key
+               (fn [coll]
+                 (->> coll
+                      (mapv #(if (= (:id %) id)
+                               (assoc % :scope (:scope result) :modified_at (:modified_at result))
+                               %))
+                      (filterv #(filters/matches-scope? % mode strict?)))))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
+
+(defn set-people-scope [app-state auth-headers id scope]
+  (set-category-scope app-state auth-headers "/api/people/" :people id scope))
+
+(defn set-places-scope [app-state auth-headers id scope]
+  (set-category-scope app-state auth-headers "/api/places/" :places id scope))
+
+(defn set-projects-scope [app-state auth-headers id scope]
+  (set-category-scope app-state auth-headers "/api/projects/" :projects id scope))
+
+(defn set-goals-scope [app-state auth-headers id scope]
+  (set-category-scope app-state auth-headers "/api/goals/" :goals id scope))
 
 (defn- sort-by-modified [items]
   (->> items (sort-by :modified_at #(compare %2 %1)) vec))
