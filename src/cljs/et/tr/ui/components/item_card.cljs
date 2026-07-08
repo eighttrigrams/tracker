@@ -1,5 +1,6 @@
 (ns et.tr.ui.components.item-card
   (:require [clojure.string :as str]
+            [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.relation-link :as relation-link]
@@ -68,24 +69,46 @@
     :acknowledge "acknowledge-reminder"
     nil))
 
-(defn- footer-button [{:keys [label on-click variant dropdown class disabled title]}]
-  (let [vclass (variant-class variant)
-        main-class (str/join " " (remove nil? [vclass class (when disabled "disabled")]))
-        {:keys [items open? on-toggle]} dropdown]
-    [:div.combined-button-wrapper
-     (if (seq items)
-       [:<>
-        [:button.combined-main-btn {:class main-class :on-click on-click :disabled disabled :title title} label]
-        [:button.combined-dropdown-btn {:class vclass :on-click on-toggle} "▼"]
-        (when open?
-          (into [:div.task-dropdown-menu]
-                (map-indexed
-                  (fn [i {item-label :label item-click :on-click item-class :class item-title :title}]
-                    ^{:key i}
-                    [:button.dropdown-item {:class item-class :title item-title :on-click item-click}
-                     item-label])
-                  items)))]
-       [:button.combined-main-btn.standalone {:class main-class :on-click on-click} label])]))
+(defn- footer-button
+  "Split action button with an optional dropdown menu. The open state is held
+  externally (a per-item key in an app atom) through :open?/:on-toggle, but the
+  component guarantees the menu never outlives its own card: on unmount — which
+  is exactly what a card collapse does, swapping the expanded body for the
+  read-only body — it closes its own dropdown. That ties the dropdown's open
+  lifetime to the component's mount lifetime, so a re-expanded card can never
+  show a stale-open menu. Because every card dropdown (tasks, issues, mail,
+  meets, …) renders through this one component, the guarantee covers them all,
+  including any future dropdown, without each call site having to remember to
+  clear its state on collapse."
+  [_]
+  (let [latest-spec (atom nil)]
+    (r/create-class
+     {:display-name "footer-button"
+      :component-will-unmount
+      (fn [_]
+        (let [{:keys [open? on-toggle]} (:dropdown @latest-spec)]
+          (when (and open? on-toggle)
+            (on-toggle))))
+      :reagent-render
+      (fn [{:keys [label on-click variant dropdown class disabled title] :as spec}]
+        (reset! latest-spec spec)
+        (let [vclass (variant-class variant)
+              main-class (str/join " " (remove nil? [vclass class (when disabled "disabled")]))
+              {:keys [items open? on-toggle]} dropdown]
+          [:div.combined-button-wrapper
+           (if (seq items)
+             [:<>
+              [:button.combined-main-btn {:class main-class :on-click on-click :disabled disabled :title title} label]
+              [:button.combined-dropdown-btn {:class vclass :on-click on-toggle} "▼"]
+              (when open?
+                (into [:div.task-dropdown-menu]
+                      (map-indexed
+                        (fn [i {item-label :label item-click :on-click item-class :class item-title :title}]
+                          ^{:key i}
+                          [:button.dropdown-item {:class item-class :title item-title :on-click item-click}
+                           item-label])
+                        items)))]
+             [:button.combined-main-btn.standalone {:class main-class :on-click on-click} label])]))})))
 
 (defn footer-widget [spec]
   (case (:type spec)

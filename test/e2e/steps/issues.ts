@@ -157,6 +157,17 @@ Then("the create-task button on issue {string} is not present", async ({ page },
   await expect(card.locator(".create-next-meeting-btn")).toHaveCount(0);
 });
 
+Then("the footer dropdown on issue {string} is open", async ({ page }, title: string) => {
+  const card = page.locator(".items li").filter({ hasText: title });
+  await expect(card.locator(".task-dropdown-menu")).toBeVisible({ timeout: 5000 });
+});
+
+Then("the footer dropdown on issue {string} is closed", async ({ page }, title: string) => {
+  const card = page.locator(".items li").filter({ hasText: title });
+  await expect(card).toBeVisible({ timeout: 5000 });
+  await expect(card.locator(".task-dropdown-menu")).toHaveCount(0);
+});
+
 Then("the task {string} shows the issue icon", async ({ page }, taskTitle: string) => {
   const card = page.locator(".items li").filter({ hasText: taskTitle });
   await expect(card.locator(".issue-icon")).toBeVisible({ timeout: 5000 });

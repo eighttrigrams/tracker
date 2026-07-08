@@ -116,6 +116,19 @@ Feature: Issues
     And I confirm the issue deletion
     Then I should not see "Throwaway" in the issues list
 
+  Scenario: The footer dropdown does not reopen stale after collapsing and re-expanding a card
+    Given I am on the app
+    And an issue "Alpha matter" exists
+    And an issue "Beta matter" exists
+    When I reload the page
+    And I click the "Issues" tab
+    And I expand the issue "Alpha matter"
+    And I open the footer dropdown on issue "Alpha matter"
+    Then the footer dropdown on issue "Alpha matter" is open
+    When I expand the issue "Beta matter"
+    And I expand the issue "Alpha matter"
+    Then the footer dropdown on issue "Alpha matter" is closed
+
   Scenario: The Inbox icon navigates to the inbox page
     Given I am on the app
     When I click the Inbox icon
