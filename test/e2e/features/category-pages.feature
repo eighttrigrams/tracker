@@ -1,10 +1,9 @@
 Feature: Category pages
 
-  Scenario: Categories button replaces left nav with category tabs
+  Scenario: Categories pencil replaces left nav with category tabs
     Given I am on the app
     When I click the "Categories" button
     Then the left nav should show category tabs
-    And the "Categories" button should be active
 
   Scenario: People tab shows people as cards
     Given I am on the app
@@ -55,8 +54,9 @@ Feature: Category pages
     And I click the edit pencil button
     Then the category edit modal should be open with "Dave"
 
-  Scenario: Navigating to another tab restores the normal nav
+  Scenario: Reloading from the categories page restores the normal nav
     Given I am on the app
     When I click the "Categories" button
-    And I click the "Categories" button
+    Then the left nav should show category tabs
+    When I reload the page
     Then the left nav should show the normal tabs

@@ -5,7 +5,7 @@ Feature: Filter tasks by place
     When I click the "Categories" button
     And I click the "Places" category tab
     And I add a category entry called "Test Office"
-    And I click the "Categories" button
+    And I reload the page
     And I click the "Tasks" tab
     And I add a task called "Task with place"
     And I add a task called "Task without place"
