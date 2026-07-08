@@ -65,6 +65,19 @@ Then("the {string} button should be active", async ({ page }, name: string) => {
   await expect(btn).toHaveClass(/active/);
 });
 
+Then("the {string} tab should be active", async ({ page }, name: string) => {
+  const tab = page.locator(".top-bar .tabs").getByRole("button", { name, exact: true });
+  await expect(tab).toHaveClass(/active/);
+});
+
+Then("I should see the categories back button", async ({ page }) => {
+  await expect(page.locator(".top-bar .nav-back-btn")).toBeVisible();
+});
+
+Then("I should not see the categories back button", async ({ page }) => {
+  await expect(page.locator(".top-bar .nav-back-btn")).toHaveCount(0);
+});
+
 Then("I should see {string} in the category cards", async ({ page }, name: string) => {
   await expect(page.locator(".category-cards-grid")).toContainText(name);
 });

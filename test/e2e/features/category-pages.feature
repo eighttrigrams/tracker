@@ -54,9 +54,17 @@ Feature: Category pages
     And I click the edit pencil button
     Then the category edit modal should be open with "Dave"
 
-  Scenario: Reloading from the categories page restores the normal nav
+  Scenario: Back button returns from categories to the previous main view
     Given I am on the app
-    When I click the "Categories" button
+    When I click the "Tasks" tab
+    And I click the "Categories" button
     Then the left nav should show category tabs
-    When I reload the page
+    And I should see the categories back button
+    When I click the "Back" button
     Then the left nav should show the normal tabs
+    And the "Tasks" tab should be active
+
+  Scenario: Back button does not appear on normal pages
+    Given I am on the app
+    When I click the "Tasks" tab
+    Then I should not see the categories back button

@@ -5,7 +5,7 @@ Feature: Category filter persistence across tab switches
     When I click the "Categories" button
     And I click the "Places" category tab
     And I add a category entry called "Lagos"
-    And I reload the page
+    And I click the "Back" button
     And I click the "Tasks" tab
     And I add a task called "Fix plumbing"
     And I add a task called "Paint walls"
