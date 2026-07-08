@@ -205,16 +205,22 @@
                       (= 1 (:today task)) (t :today/today)
                       (:lined_up_for task) (date/get-day-label (:lined_up_for task))
                       :else "←")]
-      [:div.send-to-day-wrapper
-       [:button.link-today-btn
-        {:class (when assigned? "assigned")
-         :on-click (fn [e]
-                     (.stopPropagation e)
-                     (swap! state/*app-state assoc :tasks-page/send-to-day-open
-                            (when-not is-open (:id task))))}
-        btn-label]
-       (when is-open
-         [send-to-day-dropdown task assigned?])])))
+      ;; This is a :custom footer widget with its own open-state dropdown, so it
+      ;; does not pass through footer-button. Wrap it in close-on-unmount so the
+      ;; picker still closes when the card collapses (unmounts) — same
+      ;; stale-open guarantee the footer-button dropdowns get.
+      [item-card/close-on-unmount
+       (fn [] (when is-open (swap! state/*app-state assoc :tasks-page/send-to-day-open nil)))
+       [:div.send-to-day-wrapper
+        [:button.link-today-btn
+         {:class (when assigned? "assigned")
+          :on-click (fn [e]
+                      (.stopPropagation e)
+                      (swap! state/*app-state assoc :tasks-page/send-to-day-open
+                             (when-not is-open (:id task))))}
+         btn-label]
+        (when is-open
+          [send-to-day-dropdown task assigned?])]])))
 
 (defn- task-date-render [is-expanded done-mode? hide-issue-icon?]
   (fn [task]

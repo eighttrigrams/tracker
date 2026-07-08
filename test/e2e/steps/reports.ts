@@ -46,8 +46,35 @@ Given("a report day with a task, a meet, and a journal entry exists", async ({ r
   await request.post(`/api/journals/${journal.id}/create-entry`, { headers, data: { date: day } });
 });
 
+Given(
+  "done report tasks {string} and {string} exist",
+  async ({ request }, first: string, second: string) => {
+    const today = new Date().toISOString().slice(0, 10);
+    for (const title of [first, second]) {
+      const task = await (await request.post("/api/tasks", { headers, data: { title } })).json();
+      await request.put(`/api/tasks/${task.id}/done`, { headers, data: { done: true } });
+      await request.put(`/api/tasks/${task.id}/done-at`, { headers, data: { "done-date": today } });
+    }
+  },
+);
+
 Then("I should not see any report type sub-headings", async ({ page }) => {
   await expect(page.locator(".report-section-label")).toHaveCount(0);
+});
+
+When("I open the action dropdown on report item {string}", async ({ page }, title: string) => {
+  await page.locator(".report-item").filter({ hasText: title }).locator(".combined-dropdown-btn").click();
+});
+
+Then("the action dropdown on report item {string} is open", async ({ page }, title: string) => {
+  const card = page.locator(".report-item").filter({ hasText: title });
+  await expect(card.locator(".task-dropdown-menu")).toBeVisible({ timeout: 5000 });
+});
+
+Then("the action dropdown on report item {string} is closed", async ({ page }, title: string) => {
+  const card = page.locator(".report-item").filter({ hasText: title });
+  await expect(card).toBeVisible({ timeout: 5000 });
+  await expect(card.locator(".task-dropdown-menu")).toHaveCount(0);
 });
 
 When("I select the {string} reports filter", async ({ page }, label: string) => {

@@ -114,20 +114,21 @@
   (when date-str
     (.substring date-str 0 10)))
 
-(defn- task-actions [task]
-  [:div.combined-button-wrapper
-   [:button.combined-main-btn.delete-btn {:on-click #(state/set-confirm-delete-task task)}
-    (t :task/delete)]
-   [:button.combined-dropdown-btn.delete-btn
-    {:on-click #(state/set-reports-task-dropdown-open (:id task))}
-    "▼"]
-   (when (= (:id task) (:reports-task-dropdown-open @state/*app-state))
-     [:div.task-dropdown-menu
-      [:button.dropdown-item
-       {:on-click #(do
-                     (state/set-reports-task-dropdown-open nil)
-                     (state/open-done-date-modal task))}
-       (t :task/change-done-date)]])])
+(defn- task-actions-spec [task]
+  ;; Declared as a footer-button spec (not hand-rolled markup) so the dropdown
+  ;; renders through item-card/footer-button and inherits its close-on-unmount
+  ;; guarantee — a collapsed/re-expanded report card can no longer show a
+  ;; stale-open menu. Red delete-variant main button + a "Change done date" item.
+  {:type :button
+   :variant :delete
+   :label (t :task/delete)
+   :on-click #(state/set-confirm-delete-task task)
+   :dropdown {:open? (= (:id task) (:reports-task-dropdown-open @state/*app-state))
+              :on-toggle #(state/set-reports-task-dropdown-open (:id task))
+              :items [{:label (t :task/change-done-date)
+                       :on-click #(do
+                                    (state/set-reports-task-dropdown-open nil)
+                                    (state/open-done-date-modal task))}]}})
 
 (defn- report-task-item [task]
   (let [is-expanded (= (:expanded-task @reports-state/*reports-page-state) (:id task))]
@@ -149,7 +150,7 @@
                    :readonly-fn (fn [t] [task-item/task-categories-readonly t])}
       :footer {:left [{:type :scope :value (:scope task)
                        :on-set #(state/set-task-scope (:id task) %)}]
-               :right [{:type :custom :render [task-actions task]}]}}]))
+               :right [(task-actions-spec task)]}}]))
 
 (defn- report-meet-item [meet]
   (let [is-expanded (= (:expanded-meet @reports-state/*reports-page-state) (:id meet))]
