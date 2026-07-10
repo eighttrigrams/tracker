@@ -109,7 +109,6 @@
                       :title (t :issues/show-tasks)}
                      "⏚"]
       :badges {:importance? true}
-      :title-expanded-click (fn [i] (state/open-edit-modal :issue i))
       :description {:edit-type :issue
                     :on-edit state/edit-issue-description}
       :categories {:selector-fn issue-category-selector :relations-prefix "iss"}

@@ -447,7 +447,6 @@
                       :title-path :journal-entries-page/inline-edit-title
                       :update-fn state/update-journal-entry})
       :badges {:importance? true}
-      :title-expanded-click (fn [e] (state/open-edit-modal :journal-entry e))
       :date {:render journal-entry-date-render}
       :description {:edit-type :journal-entry}
       :categories {:selector-fn resource-category-selector :relations-prefix "jen"}

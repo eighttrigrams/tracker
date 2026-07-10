@@ -117,7 +117,7 @@
                    items)))]
         [:button.combined-main-btn.standalone {:class main-class :on-click on-click} label])]]))
 
-(defn- card-title-el [{:keys [item expanded? inline-edit title-expanded-click title-text-class]}]
+(defn- card-title-el [{:keys [item expanded? inline-edit title-text-class]}]
   (let [editing? (inline-editing? inline-edit item)
         {:keys [edit-id-path title-path update-fn build-args]} inline-edit
         a (ie-atom inline-edit)
@@ -133,25 +133,23 @@
                                         #(swap! a dissoc edit-id-path title-path))))
         :on-cancel #(swap! a dissoc edit-id-path title-path)}]
       [(keyword (str "span." text-class))
+       ;; Alt/Option-click a title on an expanded card to inline-edit it.
+       ;; A plain click falls through (no stopPropagation) to the header's
+       ;; on-click, which toggles expand/collapse — the title never opens the
+       ;; modal (that is the pencil's and the body/description's job).
        (when inline-edit
          {:on-click (fn [e]
-                      (cond
-                        (and expanded? (.-altKey e))
-                        (do (.stopPropagation e)
-                            (swap! a assoc
-                                   edit-id-path (:id item)
-                                   title-path (:title item)))
-
-                        (and expanded? title-expanded-click)
-                        (do (.stopPropagation e)
-                            (title-expanded-click item))))})
+                      (when (and expanded? (.-altKey e))
+                        (.stopPropagation e)
+                        (swap! a assoc
+                               edit-id-path (:id item)
+                               title-path (:title item))))})
        (:title item)])))
 
-(defn- card-title-area [{:keys [item expanded? title-class relation-link inline-edit badges title-extra title-expanded-click title-content title-text-class title-icon]}]
+(defn- card-title-area [{:keys [item expanded? title-class relation-link inline-edit badges title-extra title-content title-text-class title-icon]}]
   (let [title-el [card-title-el {:item item
                                  :expanded? expanded?
                                  :inline-edit inline-edit
-                                 :title-expanded-click title-expanded-click
                                  :title-text-class title-text-class}]
         title-icon-el (when title-icon [:span.item-title-icon title-icon])]
     (if title-content
@@ -174,7 +172,7 @@
        title-el])))
 
 (defn- card-header [{:keys [item expanded? on-toggle inline-edit header-class title-class
-                            relation-link badges title-extra title-expanded-click title-content title-text-class title-icon
+                            relation-link badges title-extra title-content title-text-class title-icon
                             toolbar date date-class header-extra]}]
   (let [editing? (inline-editing? inline-edit item)]
     [(keyword (str "div." header-class))
@@ -189,7 +187,6 @@
                        :inline-edit inline-edit
                        :badges badges
                        :title-extra title-extra
-                       :title-expanded-click title-expanded-click
                        :title-content title-content
                        :title-text-class title-text-class
                        :title-icon title-icon}]
@@ -303,7 +300,7 @@
 (defn item-card [{:keys [item expanded? on-toggle container
                          relation-link inline-edit badges toolbar date
                          description categories footer
-                         title-extra title-expanded-click title-content title-text-class title-icon
+                         title-extra title-content title-text-class title-icon
                          header-wrapper header-extra readonly-extra
                          expanded-prefix expanded-suffix]}]
   (let [{:keys [tag class attrs classes]} container
@@ -322,7 +319,6 @@
                              :relation-link relation-link
                              :badges badges
                              :title-extra title-extra
-                             :title-expanded-click title-expanded-click
                              :title-content title-content
                              :title-text-class title-text-class
                              :title-icon title-icon
