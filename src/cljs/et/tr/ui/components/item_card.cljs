@@ -171,15 +171,33 @@
        title-icon-el
        title-el])))
 
+;; Pointer position captured on the header's mousedown, read back on the
+;; ensuing click to tell a plain click apart from a text-selection drag.
+;; Only one pointer gesture is ever in flight, so a single shared atom is safe.
+(defonce ^:private header-press-xy (atom nil))
+
+(def ^:private header-drag-threshold-px 5)
+
 (defn- card-header [{:keys [item expanded? on-toggle inline-edit header-class title-class
                             relation-link badges title-extra title-content title-text-class title-icon
                             toolbar date date-class header-extra]}]
   (let [editing? (inline-editing? inline-edit item)]
     [(keyword (str "div." header-class))
-     {:on-click (fn [_]
-                  (when-not (or editing?
-                                (and expanded? (not (.. js/window getSelection -isCollapsed))))
-                    (on-toggle)))}
+     {:on-mouse-down (fn [e] (reset! header-press-xy [(.-clientX e) (.-clientY e)]))
+      ;; Toggle expand/collapse on a plain click. When the card is expanded we
+      ;; skip the toggle if the pointer travelled more than a few pixels between
+      ;; mousedown and click — that is a text-selection drag (e.g. selecting the
+      ;; title), and collapsing would clobber the selection. Checking movement
+      ;; (rather than window.getSelection) means an ordinary click with a 1-2px
+      ;; drift still collapses instead of being swallowed by a stray 1-char
+      ;; selection.
+      :on-click (fn [e]
+                  (let [[dx dy] @header-press-xy
+                        dragged? (and dx (> (+ (js/Math.abs (- (.-clientX e) dx))
+                                               (js/Math.abs (- (.-clientY e) dy)))
+                                            header-drag-threshold-px))]
+                    (when-not (or editing? (and expanded? dragged?))
+                      (on-toggle))))}
      [card-title-area {:item item
                        :expanded? expanded?
                        :title-class title-class
