@@ -58,3 +58,18 @@ Then("the reports From anchor is a fixed week", async ({ page }) => {
   // A shifted anchor shows a concrete "CW n", never the dynamic "This Week".
   await expect(page.locator(".week-control-from .week-control-label")).not.toContainText("This Week");
 });
+
+Then("the {string} reports filter is selected", async ({ page }, label: string) => {
+  await expect(page.locator(".items-filter-toggle button.active")).toHaveText(label);
+});
+
+Then("the reports journals view shows text mode", async ({ page }) => {
+  await expect(page.locator(".journal-entries-summary")).toBeVisible({ timeout: 5000 });
+  await expect(page.locator(".report-journal-entry")).toHaveCount(0);
+});
+
+// Journals default to text mode; click the active 📋 toggle to fall back to cards.
+When("I switch the journals view to cards", async ({ page }) => {
+  await page.locator(".journal-summary-btn.active").click();
+  await expect(page.locator(".report-journal-entry").first()).toBeVisible({ timeout: 5000 });
+});

@@ -44,6 +44,25 @@ Feature: Reports week(s) picker and resolved issues
     Then the reports scope shows "2 Weeks"
     And the reports From anchor is a fixed week
 
+  Scenario: Reports remembers the week, scope and selection after leaving and returning
+    Given I am on the app
+    When I click the "Reports" tab
+    And I shift the reports From anchor back
+    And I increase the reports scope
+    And I select the "Issues & Tasks" reports filter
+    And I click the "Tasks" tab
+    And I click the "Reports" tab
+    Then the reports scope shows "2 Weeks"
+    And the reports From anchor is a fixed week
+    And the "Issues & Tasks" reports filter is selected
+
+  Scenario: The Journals view defaults to text mode
+    Given I am on the app
+    And a report day with a task, a meet, and a journal entry exists
+    When I click the "Reports" tab
+    And I select the "Journals" reports filter
+    Then the reports journals view shows text mode
+
   Scenario: The Issues and Tasks filter keeps resolved issues visible
     Given I am on the app
     And a resolved issue "Fixed the boiler" exists

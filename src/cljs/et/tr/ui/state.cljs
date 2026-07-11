@@ -125,8 +125,9 @@
                             :reports-page/collapsed-filters #{:people :places :projects :goals}
                             :reports-page/category-search {:people "" :places "" :projects "" :goals ""}
                             :reports-page/items-filter :all
-                            :reports-page/journals-summary-mode false
-                            :reports-data {:tasks [] :meets [] :journal_entries []}
+                            ;; Journals view defaults to text (summary) mode, not cards.
+                            :reports-page/journals-summary-mode true
+                            :reports-data {:issues [] :tasks [] :meets [] :journal_entries []}
 
                             ;; Meets page state
                             :meets-page/series-mode false
@@ -1889,8 +1890,10 @@
    :week-limit (:week-limit @reports-state/*reports-page-state)})
 
 (defn fetch-reports
+  ;; Leaving Reports and coming back re-runs this via the tab initializer; it
+  ;; must NOT reset the week anchor/scope/selection — those persist in the page
+  ;; state so the view is remembered. Just refetch with the current opts.
   ([]
-   (swap! reports-state/*reports-page-state assoc :week-offset 0)
    (fetch-reports (reports-fetch-opts)))
   ([opts]
    (reports-state/fetch-reports *app-state auth-headers opts)))

@@ -24,4 +24,5 @@ Feature: Item type icons and ordering on the Reports page
     When I click the "Reports" tab
     Then the report journal title carries the notepad glyph
     When I select the "Journals" reports filter
+    And I switch the journals view to cards
     Then the report journal title carries no notepad glyph
