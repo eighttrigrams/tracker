@@ -1931,8 +1931,10 @@
      0)))
 
 (defn set-reports-items-filter [items-filter]
+  ;; Keep the current week window (offset + scope) when switching item filters —
+  ;; use the opts-taking fetch, not the no-arg one that resets the From anchor.
   (swap! *app-state assoc :reports-page/items-filter items-filter)
-  (fetch-reports))
+  (fetch-reports (reports-fetch-opts)))
 
 (defn toggle-reports-journals-summary-mode []
   (swap! *app-state update :reports-page/journals-summary-mode not))

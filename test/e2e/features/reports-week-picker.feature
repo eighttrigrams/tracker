@@ -35,6 +35,15 @@ Feature: Reports week(s) picker and resolved issues
     Then I should see "Fixed the boiler" in the reports
     And the report shows a resolved issue card
 
+  Scenario: Switching the item filter preserves the From anchor and scope
+    Given I am on the app
+    When I click the "Reports" tab
+    And I shift the reports From anchor back
+    And I increase the reports scope
+    And I select the "Journals" reports filter
+    Then the reports scope shows "2 Weeks"
+    And the reports From anchor is a fixed week
+
   Scenario: The Issues and Tasks filter keeps resolved issues visible
     Given I am on the app
     And a resolved issue "Fixed the boiler" exists

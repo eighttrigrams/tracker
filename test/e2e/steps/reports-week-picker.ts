@@ -49,3 +49,12 @@ Then("I should not see a report week divider", async ({ page }) => {
 Then("the report shows a resolved issue card", async ({ page }) => {
   await expect(page.locator(".report-issue").first()).toBeVisible({ timeout: 5000 });
 });
+
+Then("the reports scope shows {string}", async ({ page }, text: string) => {
+  await expect(page.locator(".week-control-scope .week-control-label")).toContainText(text);
+});
+
+Then("the reports From anchor is a fixed week", async ({ page }) => {
+  // A shifted anchor shows a concrete "CW n", never the dynamic "This Week".
+  await expect(page.locator(".week-control-from .week-control-label")).not.toContainText("This Week");
+});
