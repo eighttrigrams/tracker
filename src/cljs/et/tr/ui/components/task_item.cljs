@@ -196,6 +196,30 @@
         :close-selector-fn state/close-category-selector
         :set-search-fn state/set-category-selector-search}])))
 
+(defn issue-category-selector [_issue _category-type _entities _label]
+  (fn [issue* category-type* entities* label*]
+    (let [current (case category-type*
+                    state/CATEGORY-TYPE-PERSON (:people issue*)
+                    state/CATEGORY-TYPE-PLACE (:places issue*)
+                    state/CATEGORY-TYPE-PROJECT (:projects issue*)
+                    state/CATEGORY-TYPE-GOAL (:goals issue*)
+                    [])]
+      [category-selector/category-selector
+       {:entity issue*
+        :entity-id-key :id
+        :category-type category-type*
+        :entities entities*
+        :label label*
+        :current-categories current
+        :on-categorize #(state/categorize-issue (:id issue*) category-type* %)
+        :on-uncategorize #(state/uncategorize-issue (:id issue*) category-type* %)
+        :on-close-focus-fn nil
+        :open-selector-state (:category-selector/open @state/*app-state)
+        :search-state (:category-selector/search @state/*app-state)
+        :open-selector-fn state/open-category-selector
+        :close-selector-fn state/close-category-selector
+        :set-search-fn state/set-category-selector-search}])))
+
 (defn journal-entry-category-selector [_entry _category-type _entities _label]
   (fn [entry* category-type* entities* label*]
     (let [current (case category-type*

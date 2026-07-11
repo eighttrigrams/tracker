@@ -1877,8 +1877,6 @@
   (today-page/upcoming-meets *app-state))
 
 
-(def ^:private reports-week-limit 4)
-
 (defn- reports-fetch-opts []
   {:context (:work-private-mode @*app-state)
    :strict (:strict-mode @*app-state)
@@ -1888,7 +1886,7 @@
    :filter-projects (:shared/filter-projects @*app-state)
    :filter-goals (:shared/filter-goals @*app-state)
    :week-offset (:week-offset @reports-state/*reports-page-state)
-   :week-limit reports-week-limit})
+   :week-limit (:week-limit @reports-state/*reports-page-state)})
 
 (defn fetch-reports
   ([]
@@ -1897,9 +1895,19 @@
   ([opts]
    (reports-state/fetch-reports *app-state auth-headers opts)))
 
-(defn load-more-reports []
-  (let [next-offset (+ (:week-offset @reports-state/*reports-page-state) reports-week-limit)]
-    (fetch-reports (assoc (reports-fetch-opts) :week-offset next-offset :append? true))))
+(defn set-reports-week-offset
+  "Move the report's 'From' anchor. offset 0 = This Week; larger = older.
+  Clamped at 0 (can't go newer than the current week). Refetches."
+  [offset]
+  (swap! reports-state/*reports-page-state assoc :week-offset (max 0 offset))
+  (fetch-reports (reports-fetch-opts)))
+
+(defn set-reports-week-scope
+  "Set the report's 'Scope' (number of weeks shown, extending backward).
+  Floored at 1. Refetches."
+  [scope]
+  (swap! reports-state/*reports-page-state assoc :week-limit (max 1 scope))
+  (fetch-reports (reports-fetch-opts)))
 
 (defn toggle-reports-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:reports-page/collapsed-filters @*app-state) filter-key)

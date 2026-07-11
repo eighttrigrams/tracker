@@ -68,7 +68,7 @@
 (defn list-issues
   ([ds user-id] (list-issues ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance urgency context strict categories sort-mode limit offset]} opts
+   (let [{:keys [search-term importance urgency context strict categories sort-mode limit offset date-from date-to]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags])
@@ -76,9 +76,14 @@
          urgency-clause (db/build-urgency-clause urgency)
          scope-clause (db/build-scope-clause context strict)
          category-clauses (build-issue-category-clauses categories)
-         resolved-clause [:= :resolved (if (= sort-mode "resolved") 1 0)]
+         ;; A date window always targets resolved issues (mirrors how the
+         ;; report windows tasks on done_at): windowing over resolved_at only
+         ;; makes sense for resolved rows.
+         resolved? (or (= sort-mode "resolved") (some? date-from) (some? date-to))
+         resolved-clause [:= :resolved (if resolved? 1 0)]
+         date-range-clause (db/build-date-range-clause :resolved_at date-from date-to)
          where-clause (into [:and user-where resolved-clause]
-                            (concat (filter some? [search-clause importance-clause urgency-clause scope-clause])
+                            (concat (filter some? [search-clause importance-clause urgency-clause scope-clause date-range-clause])
                                     category-clauses))
          issues (jdbc/execute! conn
                   (sql/format (cond-> {:select db/issue-select-columns

@@ -30,98 +30,133 @@
                  :values [{:title title :user_id *user-id* :entry_date entry-date
                            :sort_order 1.0 :scope "both"}]})))
 
+(defn- insert-issue! [title resolved resolved-at]
+  (jdbc/execute-one! (db/get-conn *ds*)
+    (sql/format {:insert-into :issues
+                 :values [{:title title :user_id *user-id* :resolved resolved
+                           :resolved_at resolved-at
+                           :modified_at (or resolved-at (str (days-ago 0) " 12:00:00"))
+                           :sort_order 1.0 :scope "both"}]})))
+
 (defn- titles [coll] (set (map :title coll)))
 
+;; 7 days ago is always exactly one ISO week back (same weekday), so it lands
+;; in the immediately-previous week regardless of which day the suite runs.
+;; 35 days ago is five weeks back — outside any window we exercise here.
+;; Reports only ever show *past* meets (a meet dated today is not yet past), so
+;; the meet fixtures live one week back, where they are both past and land in
+;; the previous ISO week — never in the current-week default window.
 (defn- seed-spread! []
   (insert-task! "task-now" (str (days-ago 0) " 12:00:00") (str (days-ago 0) " 12:00:00"))
   (insert-task! "task-recent" (str (days-ago 7) " 12:00:00") (str (days-ago 7) " 12:00:00"))
-  (insert-task! "task-null-done" nil (str (days-ago 7) " 12:00:00"))
   (insert-meet! "meet-recent" (days-ago 7))
-  (insert-journal-entry! "journal-recent" (days-ago 0))
+  (insert-journal-entry! "journal-now" (days-ago 0))
+  (insert-journal-entry! "journal-recent" (days-ago 7))
+  (insert-issue! "issue-now" 1 (str (days-ago 0) " 12:00:00"))
+  (insert-issue! "issue-recent" 1 (str (days-ago 7) " 12:00:00"))
   (insert-task! "task-old" (str (days-ago 35) " 12:00:00") (str (days-ago 35) " 12:00:00"))
-  (insert-meet! "meet-old" (days-ago 35))
-  (insert-journal-entry! "journal-old" (days-ago 35)))
+  (insert-issue! "issue-old" 1 (str (days-ago 35) " 12:00:00")))
 
 (deftest envelope-shape
-  (testing "response keeps the three sources and adds :has_more"
+  (testing "response carries the four sources and :has_more"
     (seed-spread!)
-    (let [{:keys [status body]} (GET-json "/api/reports?weekOffset=0&weekLimit=4")]
+    (let [{:keys [status body]} (GET-json "/api/reports?weekOffset=0&weekLimit=1")]
       (is (= 200 status))
+      (is (contains? body :issues))
       (is (contains? body :tasks))
       (is (contains? body :meets))
       (is (contains? body :journal_entries))
       (is (contains? body :has_more)))))
 
-(deftest first-window-is-most-recent-four-weeks
-  (testing "weekOffset=0 returns only the most recent 4 weeks across all sources"
+(deftest default-window-is-current-week-only
+  (testing "without params the endpoint returns the current week (scope 1 default)"
     (seed-spread!)
-    (let [{:keys [body]} (GET-json "/api/reports?weekOffset=0&weekLimit=4")]
-      (is (= #{"task-now" "task-recent" "task-null-done"} (titles (:tasks body))))
+    (let [{:keys [body]} (GET-json "/api/reports")]
+      (is (= #{"task-now"} (titles (:tasks body))))
+      (is (= #{"journal-now"} (titles (:journal_entries body))))
+      (is (= #{"issue-now"} (titles (:issues body))))
+      (testing "last week's items (incl. past meets) are not in the default window"
+        (is (empty? (:meets body)))
+        (is (not (contains? (titles (:tasks body)) "task-recent")))
+        (is (not (contains? (titles (:issues body)) "issue-recent")))))))
+
+(deftest scope-widens-window-backward
+  (testing "weekLimit=2 pulls the previous week in alongside the current one"
+    (seed-spread!)
+    (let [{:keys [body]} (GET-json "/api/reports?weekOffset=0&weekLimit=2")]
+      (is (= #{"task-now" "task-recent"} (titles (:tasks body))))
+      (is (= #{"meet-recent"} (titles (:meets body))))
+      (is (= #{"journal-now" "journal-recent"} (titles (:journal_entries body))))
+      (is (= #{"issue-now" "issue-recent"} (titles (:issues body))))
+      (testing "five-weeks-old items stay out"
+        (is (not (contains? (titles (:tasks body)) "task-old")))
+        (is (not (contains? (titles (:issues body)) "issue-old")))))))
+
+(deftest offset-shifts-window-backward
+  (testing "weekOffset=1&weekLimit=1 shows only the previous week, disjoint from this week"
+    (seed-spread!)
+    (let [{:keys [body]} (GET-json "/api/reports?weekOffset=1&weekLimit=1")]
+      (is (= #{"task-recent"} (titles (:tasks body))))
       (is (= #{"meet-recent"} (titles (:meets body))))
       (is (= #{"journal-recent"} (titles (:journal_entries body))))
-      (is (true? (:has_more body))))))
+      (is (= #{"issue-recent"} (titles (:issues body))))
+      (is (not (contains? (titles (:tasks body)) "task-now"))))))
 
-(deftest leading-week-may-be-partial
-  (testing "a task completed today (mid-week) appears in the first window"
-    (insert-task! "task-now" (str (days-ago 0) " 09:00:00") (str (days-ago 0) " 09:00:00"))
-    (let [{:keys [body]} (GET-json "/api/reports?weekOffset=0&weekLimit=4")]
-      (is (contains? (titles (:tasks body)) "task-now")))))
-
-(deftest second-window-pages-back-without-overlap
-  (testing "weekOffset=4 returns the next 4 weeks back, disjoint from the first window"
+(deftest items-filter-selects-sources
+  (testing "the items param controls which sources come back"
     (seed-spread!)
-    (let [w0 (:body (GET-json "/api/reports?weekOffset=0&weekLimit=4"))
-          w1 (:body (GET-json "/api/reports?weekOffset=4&weekLimit=4"))]
-      (is (= #{"task-old"} (titles (:tasks w1))))
-      (is (= #{"meet-old"} (titles (:meets w1))))
-      (is (= #{"journal-old"} (titles (:journal_entries w1))))
-      (testing "no overlap between adjacent windows"
-        (is (empty? (clojure.set/intersection (titles (:tasks w0)) (titles (:tasks w1)))))
-        (is (empty? (clojure.set/intersection (titles (:meets w0)) (titles (:meets w1)))))
-        (is (empty? (clojure.set/intersection (titles (:journal_entries w0)) (titles (:journal_entries w1))))))
-      (testing "no gap: union of both windows covers every seeded item"
-        (is (= #{"task-now" "task-recent" "task-null-done" "task-old"}
-               (clojure.set/union (titles (:tasks w0)) (titles (:tasks w1)))))
-        (is (= #{"meet-recent" "meet-old"}
-               (clojure.set/union (titles (:meets w0)) (titles (:meets w1)))))
-        (is (= #{"journal-recent" "journal-old"}
-               (clojure.set/union (titles (:journal_entries w0)) (titles (:journal_entries w1)))))))))
+    ;; weekLimit=2 so the previous-week (past) meet fixture is in-window.
+    (let [g (fn [items] (:body (GET-json (str "/api/reports?weekOffset=0&weekLimit=2"
+                                              (when items (str "&items=" items))))))]
+      (testing "all includes every source"
+        (let [b (g "all")]
+          (is (seq (:issues b))) (is (seq (:tasks b)))
+          (is (seq (:meets b))) (is (seq (:journal_entries b)))))
+      (testing "issues-tasks-meets drops journals"
+        (let [b (g "issues-tasks-meets")]
+          (is (seq (:issues b))) (is (seq (:tasks b))) (is (seq (:meets b)))
+          (is (empty? (:journal_entries b)))))
+      (testing "issues-tasks drops meets and journals"
+        (let [b (g "issues-tasks")]
+          (is (seq (:issues b))) (is (seq (:tasks b)))
+          (is (empty? (:meets b))) (is (empty? (:journal_entries b)))))
+      (testing "journals keeps only journals"
+        (let [b (g "journals")]
+          (is (empty? (:issues b))) (is (empty? (:tasks b))) (is (empty? (:meets b)))
+          (is (seq (:journal_entries b))))))))
+
+(deftest only-resolved-issues-appear
+  (testing "unresolved issues are never reported, even inside the window"
+    (insert-issue! "issue-resolved" 1 (str (days-ago 0) " 12:00:00"))
+    (insert-issue! "issue-open" 0 nil)
+    (let [{:keys [body]} (GET-json "/api/reports?weekOffset=0&weekLimit=1")]
+      (is (= #{"issue-resolved"} (titles (:issues body))))
+      (is (not (contains? (titles (:issues body)) "issue-open"))))))
+
+(deftest issues-windowed-on-resolved-at
+  (testing "resolved issues page back by week just like tasks"
+    (seed-spread!)
+    (let [wide (:body (GET-json "/api/reports?weekOffset=0&weekLimit=6"))]
+      (is (contains? (titles (:issues wide)) "issue-old"))
+      (is (contains? (titles (:issues wide)) "issue-now"))
+      (is (contains? (titles (:issues wide)) "issue-recent")))))
 
 (deftest has-more-true-iff-older-items-exist
   (testing "has_more is true while older items remain and false once past them"
     (seed-spread!)
-    (is (true? (:has_more (:body (GET-json "/api/reports?weekOffset=0&weekLimit=4")))))
-    (is (false? (:has_more (:body (GET-json "/api/reports?weekOffset=4&weekLimit=4")))))
-    (is (false? (:has_more (:body (GET-json "/api/reports?weekOffset=8&weekLimit=4")))))))
+    (is (true? (:has_more (:body (GET-json "/api/reports?weekOffset=0&weekLimit=1")))))
+    (is (false? (:has_more (:body (GET-json "/api/reports?weekOffset=0&weekLimit=52")))))))
 
-(deftest has-more-respects-items-filter
-  (testing "with items=journals, has_more reflects only older journal entries"
+(deftest has-more-reflects-only-selected-sources
+  (testing "with items=journals, has_more ignores older issues/tasks"
     (insert-task! "task-old" (str (days-ago 35) " 12:00:00") (str (days-ago 35) " 12:00:00"))
-    (insert-journal-entry! "journal-recent" (days-ago 0))
-    (let [{:keys [body]} (GET-json "/api/reports?weekOffset=0&weekLimit=4&items=journals")]
+    (insert-issue! "issue-old" 1 (str (days-ago 35) " 12:00:00"))
+    (insert-journal-entry! "journal-now" (days-ago 0))
+    (let [{:keys [body]} (GET-json "/api/reports?weekOffset=0&weekLimit=1&items=journals")]
       (is (empty? (:tasks body)))
+      (is (empty? (:issues body)))
       (is (false? (:has_more body))))
     (testing "an older journal entry flips has_more back on"
       (insert-journal-entry! "journal-old" (days-ago 35))
-      (let [{:keys [body]} (GET-json "/api/reports?weekOffset=0&weekLimit=4&items=journals")]
+      (let [{:keys [body]} (GET-json "/api/reports?weekOffset=0&weekLimit=1&items=journals")]
         (is (true? (:has_more body)))))))
-
-(deftest no-params-returns-bounded-default-window
-  (testing "without pagination params the endpoint returns the most-recent default window, not full history"
-    (seed-spread!)
-    (let [{:keys [body]} (GET-json "/api/reports")]
-      (is (= #{"task-now" "task-recent" "task-null-done"} (titles (:tasks body))))
-      (is (= #{"meet-recent"} (titles (:meets body))))
-      (is (= #{"journal-recent"} (titles (:journal_entries body))))
-      (is (not (contains? (titles (:tasks body)) "task-old")))
-      (is (not (contains? (titles (:meets body)) "meet-old")))
-      (is (not (contains? (titles (:journal_entries body)) "journal-old")))
-      (is (true? (:has_more body))))))
-
-(deftest paramless-older-data-reachable-by-paging
-  (testing "the default window's older items remain reachable by paging weekOffset (no unbounded fetch needed)"
-    (seed-spread!)
-    (let [{:keys [body]} (GET-json "/api/reports?weekOffset=4")]
-      (is (= #{"task-old"} (titles (:tasks body))))
-      (is (= #{"meet-old"} (titles (:meets body))))
-      (is (= #{"journal-old"} (titles (:journal_entries body)))))))

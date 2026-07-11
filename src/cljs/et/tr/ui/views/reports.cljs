@@ -58,18 +58,59 @@
     :filter-state-key :shared/filter-goals
     :category-type state/CATEGORY-TYPE-GOAL}])
 
+(def ^:private items-filter-options
+  [[:all :reports/filter-all]
+   [:issues-tasks-meets :reports/filter-issues-tasks-meets]
+   [:issues-tasks :reports/filter-issues-tasks]
+   [:journals :reports/filter-journals]])
+
 (defn- items-filter-toggle []
   (let [items-filter (:reports-page/items-filter @state/*app-state)]
-    [:div.items-filter-toggle.toggle-group
-     [:button {:class (when (= items-filter :all) "active")
-               :on-click #(when (not= items-filter :all) (state/set-reports-items-filter :all))}
-      (t :reports/filter-all)]
-     [:button {:class (when (= items-filter :tasks-meets) "active")
-               :on-click #(when (not= items-filter :tasks-meets) (state/set-reports-items-filter :tasks-meets))}
-      (t :reports/filter-tasks-meets)]
-     [:button {:class (when (= items-filter :journals) "active")
-               :on-click #(when (not= items-filter :journals) (state/set-reports-items-filter :journals))}
-      (t :reports/filter-journals)]]))
+    (into [:div.items-filter-toggle.toggle-group]
+          (for [[kw label-key] items-filter-options]
+            [:button {:class (when (= items-filter kw) "active")
+                      :on-click #(when (not= items-filter kw) (state/set-reports-items-filter kw))}
+             (t label-key)]))))
+
+(defn- from-week-key
+  "ISO [year week] of the week 'offset' weeks before the current week."
+  [offset]
+  (let [this-monday (date/week-monday (date/today-str))
+        target-monday (date/add-days this-monday (* -7 offset))]
+    (date/iso-week-key target-monday)))
+
+(defn- from-label
+  "Label for the 'From' anchor. offset 0 → 'This Week (CW n)'; older offsets →
+  the concrete 'CW n', with ', year' appended only when that week's ISO year
+  differs from the current week's."
+  [offset]
+  (let [[this-year _] (date/iso-week-key (date/today-str))
+        [year week-num] (from-week-key offset)
+        cw (i18n/tf :reports/week week-num)
+        cw+year (if (= year this-year) cw (str cw ", " year))]
+    (if (zero? offset)
+      (str (t :reports/this-week) " (" cw+year ")")
+      cw+year)))
+
+(defn- scope-label [scope]
+  (i18n/tf (if (= scope 1) :reports/n-week :reports/n-weeks) scope))
+
+(defn- week-picker []
+  (let [offset (:week-offset @reports-state/*reports-page-state)
+        scope (:week-limit @reports-state/*reports-page-state)]
+    [:div.reports-week-picker
+     [:div.week-control.week-control-from
+      [:span.week-control-label (str (t :reports/from) " " (from-label offset))]
+      [:div.week-control-buttons
+       [:button.week-control-up {:disabled (zero? offset)
+                                 :on-click #(state/set-reports-week-offset (dec offset))} "▲"]
+       [:button.week-control-down {:on-click #(state/set-reports-week-offset (inc offset))} "▼"]]]
+     [:div.week-control.week-control-scope
+      [:span.week-control-label (str (t :reports/scope) " " (scope-label scope))]
+      [:div.week-control-buttons
+       [:button.week-control-up {:on-click #(state/set-reports-week-scope (inc scope))} "▲"]
+       [:button.week-control-down {:disabled (<= scope 1)
+                                   :on-click #(state/set-reports-week-scope (dec scope))} "▼"]]]]))
 
 (defn- journals-summary-toggle []
   (let [summary-mode? (:reports-page/journals-summary-mode @state/*app-state)]
@@ -151,6 +192,27 @@
                        :on-set #(state/set-task-scope (:id task) %)}
                :main-actions (task-actions-spec task)}}]))
 
+(defn- report-issue-item [issue]
+  (let [is-expanded (= (:expanded-issue @reports-state/*reports-page-state) (:id issue))]
+    [item-card/item-card
+     {:item issue
+      :expanded? is-expanded
+      :on-toggle #(swap! reports-state/*reports-page-state assoc :expanded-issue
+                         (when-not is-expanded (:id issue)))
+      :container {:tag :li :class "report-item report-issue"}
+      :title-icon "◈"
+      :relation-link [:issue (:id issue)]
+      :inline-edit (item-card/make-inline-edit
+                     {:edit-id-path :reports-page/inline-edit-issue
+                      :title-path :reports-page/inline-edit-issue-title
+                      :update-fn state/update-issue})
+      :badges {:importance? true}
+      :description {:edit-type :issue}
+      :categories {:selector-fn task-item/issue-category-selector
+                   :relations-prefix "iss"}
+      :footer {:scope {:value (:scope issue)
+                       :on-set #(state/set-issue-scope (:id issue) %)}}}]))
+
 (defn- report-meet-item [meet]
   (let [is-expanded (= (:expanded-meet @reports-state/*reports-page-state) (:id meet))]
     [item-card/item-card
@@ -207,26 +269,30 @@
                :main-actions {:label (t :task/delete) :variant :delete
                               :on-click #(state/set-confirm-delete-journal-entry entry)}}}]))
 
-(defn- day-section [day-date day-tasks day-meets day-entries]
+(defn- day-section [day-date day-issues day-tasks day-meets day-entries]
   [:div.report-day-group {:key day-date}
    [:h4.done-day-header (date/day-formatted day-date)]
    (when (seq day-entries)
      (into [:ul.items] (map report-journal-entry-item day-entries)))
+   (when (seq day-issues)
+     (into [:ul.items] (map report-issue-item day-issues)))
    (when (seq day-tasks)
      (into [:ul.items] (map report-task-item day-tasks)))
    (when (seq day-meets)
      (into [:ul.items] (map report-meet-item day-meets)))])
 
-(defn- week-section [week-key week-dates tasks-by-day meets-by-day daily-entries-by-day weekly-entries]
+(defn- week-section [week-key week-dates issues-by-day tasks-by-day meets-by-day daily-entries-by-day weekly-entries show-week-header?]
   (let [[_ week-num] week-key]
     [:div.report-week-group {:key (str (first week-key) "-" (second week-key))}
-     [:h3.report-week-header (i18n/tf :reports/week week-num)]
+     (when show-week-header?
+       [:h3.report-week-header (i18n/tf :reports/week week-num)])
      (when (seq weekly-entries)
        [:div.report-weekly-journals
         (into [:ul.items] (map report-journal-entry-item weekly-entries))])
      (for [d week-dates]
        ^{:key d}
        [day-section d
+        (get issues-by-day d)
         (get tasks-by-day d)
         (get meets-by-day d)
         (get daily-entries-by-day d)])]))
@@ -234,18 +300,22 @@
 (defn reports-tab []
   (let [{:keys [reports-data]} @state/*app-state
         items-filter (:reports-page/items-filter @state/*app-state)
+        scope (:week-limit @reports-state/*reports-page-state)
+        show-week-header? (> scope 1)
         summary-mode? (and (= items-filter :journals)
                            (:reports-page/journals-summary-mode @state/*app-state))
+        issues (:issues reports-data)
         tasks (:tasks reports-data)
         meets (:meets reports-data)
         journal-entries (:journal_entries reports-data)
         daily-entries (filter #(not= (:schedule_type %) "weekly") journal-entries)
         weekly-entries (filter #(= (:schedule_type %) "weekly") journal-entries)
+        issues-by-day (group-by #(extract-date (:resolved_at %)) issues)
         tasks-by-day (group-by #(extract-date (or (:done_at %) (:modified_at %))) tasks)
         meets-by-day (group-by #(extract-date (:start_date %)) meets)
         daily-entries-by-day (group-by :entry_date daily-entries)
         weekly-entries-by-week (group-by #(date/iso-week-key (:entry_date %)) weekly-entries)
-        all-dates (->> (concat (keys tasks-by-day) (keys meets-by-day) (keys daily-entries-by-day))
+        all-dates (->> (concat (keys issues-by-day) (keys tasks-by-day) (keys meets-by-day) (keys daily-entries-by-day))
                        (filter some?)
                        distinct)
         dates-by-week (group-by date/iso-week-key all-dates)
@@ -259,9 +329,11 @@
      [sidebar-filters]
      [:div.main-content.reports-page
       [:div.tasks-header
-       [items-filter-toggle]
-       (when (= items-filter :journals)
-         [journals-summary-toggle])]
+       [week-picker]
+       [:div.reports-header-right
+        (when (= items-filter :journals)
+          [journals-summary-toggle])
+        [items-filter-toggle]]]
       (cond
         summary-mode?
         (if (empty? journal-entries)
@@ -272,15 +344,11 @@
         [:p.empty-message (t :reports/no-data)]
 
         :else
-        [:<>
-         (into [:div.report-weeks]
-           (for [wk all-week-keys]
-             ^{:key (str (first wk) "-" (second wk))}
-             [week-section wk
-              (get sorted-dates-by-week wk [])
-              tasks-by-day meets-by-day daily-entries-by-day
-              (get weekly-entries-by-week wk)]))
-         (when (:has-more? @reports-state/*reports-page-state)
-           [:div.load-more
-            [:button.load-more-btn {:on-click #(state/load-more-reports)}
-             (t :reports/see-more)]])])]]))
+        (into [:div.report-weeks]
+          (for [wk all-week-keys]
+            ^{:key (str (first wk) "-" (second wk))}
+            [week-section wk
+             (get sorted-dates-by-week wk [])
+             issues-by-day tasks-by-day meets-by-day daily-entries-by-day
+             (get weekly-entries-by-week wk)
+             show-week-header?])))]]))

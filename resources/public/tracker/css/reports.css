@@ -1,3 +1,52 @@
+/* The item selector is pushed to the right of the header; the week(s) picker
+   takes the left where the selector used to live. */
+.reports-page .reports-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reports-week-picker {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.reports-week-picker .week-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reports-week-picker .week-control-label {
+  font-size: 0.9em;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.reports-week-picker .week-control-buttons {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.reports-week-picker .week-control-buttons button {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  margin: 0;
+  font-size: 0.7em;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-primary);
+  opacity: 0.7;
+}
+.reports-week-picker .week-control-buttons button:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--accent);
+}
+.reports-week-picker .week-control-buttons button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
 .reports-page .report-weeks {
   margin: 0;
 }
