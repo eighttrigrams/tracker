@@ -65,18 +65,23 @@
            (when (has-mail)
              (fetch-messages)))
    :resources (fn []
-                (fetch-resources))
+                (fetch-resources)
+                (focus-input! "resources-filter-search"))
    :issues (fn []
-             (fetch-issues))
+             (fetch-issues)
+             (focus-input! "issues-filter-search"))
    :meets (fn []
-            (fetch-meets))
+            (fetch-meets)
+            (focus-input! "meets-filter-search"))
    :reports (fn []
               (fetch-reports))
    :cat-people   (fn [] (fetch-people))
    :cat-places   (fn [] (fetch-places))
    :cat-projects (fn [] (fetch-projects))
    :cat-goals    (fn [] (fetch-goals))
-   :settings-mottos (fn [] (fetch-mottos))})
+   :settings-mottos (fn []
+                      (fetch-mottos)
+                      (focus-input! "mottos-filter-search"))})
 
 (def ^:private global-tabs #{:today :tasks :meets :resources :issues :reports :mail})
 (def ^:private category-tabs #{:cat-people :cat-places :cat-projects :cat-goals})
