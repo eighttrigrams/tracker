@@ -2,6 +2,7 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
+            [et.tr.clock :as clock]
             [et.tr.db :as db])
   (:import [java.time LocalDate DayOfWeek]
            [java.time.temporal TemporalAdjusters]))
@@ -247,7 +248,7 @@
                                      :from [:journals]
                                      :where (db/user-id-where-clause user-id)})
                         db/jdbc-opts)
-         today (LocalDate/now)
+         today (clock/today)
          today-str (str today)
          monday-str (str (monday-of-week today))
          created (atom [])]

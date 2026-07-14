@@ -1,16 +1,12 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { setFieldValue } from "./helpers";
+import { setFieldValue, offsetDateStr } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
 
-function dateStr(daysOffset: number = 0): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysOffset);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+const dateStr = (daysOffset: number = 0): string => offsetDateStr(daysOffset);
 
 Given(
   "a task {string} with an active reminder exists",

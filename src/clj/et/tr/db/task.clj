@@ -2,6 +2,7 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
+            [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.db.recurring-task :as db.recurring-task]
             [et.tr.db.relation :as relation]))
@@ -22,7 +23,7 @@
          values (cond-> {:title title
                          :sort_order new-order
                          :user_id user-id
-                         :modified_at [:raw "datetime('now')"]
+                         :modified_at (clock/sql-now)
                          :scope valid-scope}
                   (contains? db/valid-importances importance) (assoc :importance importance))
          result (jdbc/execute-one! conn
@@ -162,7 +163,7 @@
                        :do-nothing true}))
         (jdbc/execute-one! tx
           (sql/format {:update :tasks
-                       :set {:modified_at [:raw "datetime('now')"]}
+                       :set {:modified_at (clock/sql-now)}
                        :where [:= :id task-id]}))))))
 
 (defn uncategorize-task [ds user-id task-id category-type category-id]
@@ -179,14 +180,14 @@
                                [:= :category_id category-id]]}))
         (jdbc/execute-one! tx
           (sql/format {:update :tasks
-                       :set {:modified_at [:raw "datetime('now')"]}
+                       :set {:modified_at (clock/sql-now)}
                        :where [:= :id task-id]}))))))
 
 (defn update-task
   ([ds user-id task-id fields] (update-task ds user-id task-id fields nil))
   ([ds user-id task-id fields expected-modified-at]
    (let [field-names (keys fields)
-         set-map (assoc fields :modified_at [:raw "datetime('now')"])
+         set-map (assoc fields :modified_at (clock/sql-now))
          return-cols (into [:id :created_at :modified_at] field-names)]
      (jdbc/execute-one! (db/get-conn ds)
        (sql/format {:update :tasks
@@ -213,13 +214,13 @@
   (let [set-map (if (nil? due-date)
                   {:due_date due-date
                    :due_time nil
-                   :modified_at [:raw "datetime('now')"]}
+                   :modified_at (clock/sql-now)}
                   {:due_date due-date
                    :today 0
                    :lined_up_for nil
                    :maybe 0
                    :urgency "default"
-                   :modified_at [:raw "datetime('now')"]})]
+                   :modified_at (clock/sql-now)})]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set set-map
@@ -232,7 +233,7 @@
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set {:due_time normalized-time
-                         :modified_at [:raw "datetime('now')"]}
+                         :modified_at (clock/sql-now)}
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
                    :returning [:id :due_date :due_time :modified_at]})
       db/jdbc-opts)))
@@ -269,9 +270,9 @@
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set (cond-> {:done done-val
-                                 :modified_at [:raw "datetime('now')"]}
+                                 :modified_at (clock/sql-now)}
                           done? (assoc :today 0 :lined_up_for nil :maybe 0
-                                       :done_at [:raw "datetime('now')"])
+                                       :done_at (clock/sql-now))
                           (not done?) (assoc :done_at nil))
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
                    :returning [:id :done :modified_at :done_at]})
@@ -281,7 +282,7 @@
   (let [today-val (if today? 1 0)
         set-map (cond-> {:today today-val
                          :lined_up_for nil
-                         :modified_at [:raw "datetime('now')"]}
+                         :modified_at (clock/sql-now)}
                   (not today?) (assoc :maybe 0))]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
@@ -293,7 +294,7 @@
 (defn set-task-lined-up-for [ds user-id task-id date]
   (let [set-map (cond-> {:lined_up_for date
                          :today 0
-                         :modified_at [:raw "datetime('now')"]}
+                         :modified_at (clock/sql-now)}
                   (nil? date) (assoc :maybe 0))]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
@@ -307,7 +308,7 @@
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set {:maybe maybe-val
-                         :modified_at [:raw "datetime('now')"]}
+                         :modified_at (clock/sql-now)}
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
                    :returning [:id :maybe :modified_at]})
       db/jdbc-opts)))
@@ -317,9 +318,9 @@
     (sql/format {:update :tasks
                  :set {:today 1
                        :lined_up_for nil
-                       :modified_at [:raw "datetime('now')"]}
+                       :modified_at (clock/sql-now)}
                  :where [:and
-                         [:= :lined_up_for [:raw "date('now','localtime')"]]
+                         [:= :lined_up_for (clock/sql-today)]
                          (db/user-id-where-clause user-id)]})
     db/jdbc-opts))
 
@@ -329,7 +330,7 @@
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set {field valid-value
-                         :modified_at [:raw "datetime('now')"]}
+                         :modified_at (clock/sql-now)}
                    :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
                    :returning [:id field :modified_at]})
       db/jdbc-opts)))
@@ -338,7 +339,7 @@
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update :tasks
                  :set {:done_at [:|| done-date " " [:coalesce [:time :done_at] "12:00:00"]]
-                       :modified_at [:raw "datetime('now')"]}
+                       :modified_at (clock/sql-now)}
                  :where [:and [:= :id task-id]
                          [:= :done 1]
                          (db/user-id-where-clause user-id)]
@@ -349,7 +350,7 @@
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update :tasks
                  :set {:reminder_date reminder-date
-                       :modified_at [:raw "datetime('now')"]}
+                       :modified_at (clock/sql-now)}
                  :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
                  :returning [:id :reminder :reminder_date :modified_at]})
     db/jdbc-opts))
@@ -359,7 +360,7 @@
     (sql/format {:update :tasks
                  :set {:reminder nil
                        :reminder_date nil
-                       :modified_at [:raw "datetime('now')"]}
+                       :modified_at (clock/sql-now)}
                  :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
                  :returning [:id :reminder :reminder_date :modified_at]})
     db/jdbc-opts))
@@ -368,11 +369,11 @@
   (jdbc/execute! (db/get-conn ds)
     (sql/format {:update :tasks
                  :set {:reminder "active"
-                       :modified_at [:raw "datetime('now')"]}
+                       :modified_at (clock/sql-now)}
                  :where [:and
                          [:not= :reminder_date nil]
                          [:is :reminder nil]
-                         [:<= :reminder_date [:raw "date('now','localtime')"]]
+                         [:<= :reminder_date (clock/sql-today)]
                          (db/user-id-where-clause user-id)]})
     db/jdbc-opts))
 
@@ -397,7 +398,7 @@
                                   :values [{:title (:title message)
                                             :sort_order new-order
                                             :user_id user-id
-                                            :modified_at [:raw "datetime('now')"]
+                                            :modified_at (clock/sql-now)
                                             :scope (or (:scope message) "both")
                                             :importance (or (:importance message) "normal")
                                             :urgency (or (:urgency message) "default")}]
@@ -406,7 +407,7 @@
           (when (seq description)
             (jdbc/execute-one! tx
               (sql/format {:update :tasks
-                           :set {:description description :modified_at [:raw "datetime('now')"]}
+                           :set {:description description :modified_at (clock/sql-now)}
                            :where [:and [:= :id (:id task)] (db/user-id-where-clause user-id)]})
               db/jdbc-opts))
           (jdbc/execute-one! tx

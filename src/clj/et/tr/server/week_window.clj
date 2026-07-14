@@ -1,5 +1,6 @@
 (ns et.tr.server.week-window
-  (:import [java.time LocalDate DayOfWeek]
+  (:require [et.tr.clock :as clock])
+  (:import [java.time DayOfWeek]
            [java.time.temporal TemporalAdjusters]))
 
 (defn parse-week-param [v default]
@@ -8,7 +9,7 @@
     default))
 
 (defn week-window [week-offset week-limit direction]
-  (let [current-monday (.with (LocalDate/now) (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY))]
+  (let [current-monday (.with (clock/today) (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY))]
     (case direction
       :forward {:date-from (str (.plusDays current-monday (* 7 week-offset)))
                 :date-to (str (.plusDays current-monday (* 7 (+ week-offset week-limit))))}

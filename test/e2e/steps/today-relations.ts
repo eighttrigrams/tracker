@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { apiCategorize } from "./helpers";
+import { apiCategorize, offsetDateStr } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -30,14 +30,6 @@ async function findResourceByTitle(request: any, title: string): Promise<number>
 
 const meetIds = new Map<string, number>();
 const journalEntryIds = new Map<string, number>();
-
-function offsetDateStr(daysOffset: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysOffset);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
 
 function todayBadge(page: any, title: string, target: string) {
   return todayItem(page, title).locator(".tag.relation", { hasText: target });

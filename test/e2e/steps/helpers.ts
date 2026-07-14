@@ -1,5 +1,29 @@
 import { expect, Locator, APIRequestContext } from "@playwright/test";
 
+// Single "today" for all e2e date math. When TRACKER_FAKE_TODAY (yyyy-MM-dd) is
+// set (Makefile `e2e` target), the whole suite — backend clock (et.tr.clock),
+// the browser clock (Before hook in _hooks.ts), and these seeds — is anchored
+// to that pinned day so date-sensitive specs are weekday-independent. Unset (a
+// bare `npx playwright test`) falls back to the real clock. Noon UTC keeps the
+// date stable under ± day arithmetic regardless of container timezone.
+export const FAKE_TODAY = process.env.TRACKER_FAKE_TODAY;
+
+function baseDate(): Date {
+  if (FAKE_TODAY) return new Date(`${FAKE_TODAY}T12:00:00Z`);
+  const d = new Date();
+  d.setUTCHours(12, 0, 0, 0);
+  return d;
+}
+
+export function offsetDateStr(daysOffset: number): string {
+  const d = baseDate();
+  d.setUTCDate(d.getUTCDate() + daysOffset);
+  return d.toISOString().slice(0, 10);
+}
+
+export const today = () => offsetDateStr(0);
+export const daysAgo = (n: number) => offsetDateStr(-n);
+
 export async function setFieldValue(locator: Locator, value: string) {
   await expect(async () => {
     await locator.fill(value);

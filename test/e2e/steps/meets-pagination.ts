@@ -1,15 +1,12 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { offsetDateStr } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
 
-const dayStr = (offset: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+const dayStr = (offset: number) => offsetDateStr(offset);
 
 const createMeetOn = async (request: any, title: string, date: string) => {
   const meet = await (await request.post("/api/meets", { headers, data: { title } })).json();

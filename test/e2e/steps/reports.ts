@@ -1,12 +1,10 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { apiCategorize } from "./helpers";
+import { apiCategorize, today, daysAgo } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
-
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 
 Given("report data with categorized items exists", async ({ request }) => {
   const alice = await (await request.post("/api/people", { headers, data: { name: "Alice" } })).json();
@@ -20,13 +18,13 @@ Given("report data with categorized items exists", async ({ request }) => {
 
   const journal = await (await request.post("/api/journals", { headers, data: { title: "Daily log" } })).json();
   const entry = await (await request.post(`/api/journals/${journal.id}/create-entry`, {
-    headers, data: { date: new Date().toISOString().slice(0, 10) },
+    headers, data: { date: today() },
   })).json();
   await apiCategorize(request, `/api/journal-entries/${entry.id}`, "person", alice.id);
   await apiCategorize(request, `/api/journal-entries/${entry.id}`, "project", apollo.id);
 
   const meet = await (await request.post("/api/meets/", { headers, data: { title: "Standup" } })).json();
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const yesterday = daysAgo(1);
   await request.put(`/api/meets/${meet.id}/start-date`, { headers, data: { "start-date": yesterday } });
   await apiCategorize(request, `/api/meets/${meet.id}`, "person", alice.id);
   await apiCategorize(request, `/api/meets/${meet.id}`, "project", apollo.id);
@@ -49,11 +47,11 @@ Given("a report day with a task, a meet, and a journal entry exists", async ({ r
 Given(
   "done report tasks {string} and {string} exist",
   async ({ request }, first: string, second: string) => {
-    const today = new Date().toISOString().slice(0, 10);
+    const todayStr = today();
     for (const title of [first, second]) {
       const task = await (await request.post("/api/tasks", { headers, data: { title } })).json();
       await request.put(`/api/tasks/${task.id}/done`, { headers, data: { done: true } });
-      await request.put(`/api/tasks/${task.id}/done-at`, { headers, data: { "done-date": today } });
+      await request.put(`/api/tasks/${task.id}/done-at`, { headers, data: { "done-date": todayStr } });
     }
   },
 );

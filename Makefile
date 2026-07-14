@@ -24,6 +24,13 @@ endif
 #   make e2e NO_BUILD=1               skip `shadow-cljs release` (reuses
 #                                     the previously built main.js — fine
 #                                     when no cljs changed since last run)
+#
+# TRACKER_FAKE_TODAY pins "today" for the whole run (backend clock, browser
+# clock, and seeds) to a fixed mid-week Wednesday so date-sensitive specs are
+# weekday-independent — see et.tr.clock and test/e2e/steps/{helpers,_hooks}.ts.
+# It is set on the playwright process, which propagates it to the spawned
+# webServer (which inherits the parent env).
+e2e: export TRACKER_FAKE_TODAY ?= 2026-07-15
 e2e:
 	./scripts/stop.sh check && \
 	$(if $(NO_BUILD),true,npx shadow-cljs release app) && \

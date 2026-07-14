@@ -1,7 +1,5 @@
 (ns et.tr.server.today-board-handler
-  (:require [next.jdbc :as jdbc]
-            [honey.sql :as sql]
-            [et.tr.db :as db]
+  (:require [et.tr.clock :as clock]
             [et.tr.db.task :as db.task]
             [et.tr.db.meet :as db.meet]
             [et.tr.db.journal-entry :as db.journal-entry]
@@ -26,9 +24,7 @@
   (let [user-id (common/get-user-id req)
         ds (common/ensure-ds)
         days (max 0 (or (common/parse-int-opt (get-in req [:params "days"])) 0))
-        today (:today (jdbc/execute-one! (db/get-conn ds)
-                        (sql/format {:select [[[:raw "date('now','localtime')"] :today]]})
-                        db/jdbc-opts))
+        today (clock/today-str)
         end (str (.plusDays (java.time.LocalDate/parse today) days))]
     {:status 200
      :body {:tasks (db.task/list-tasks ds user-id :today nil)

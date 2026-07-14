@@ -1,5 +1,6 @@
 (ns et.tr.scheduling
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [et.tr.clock :as clock])
   (:import [java.time LocalDate]))
 
 (defn add-days [date-str days]
@@ -77,7 +78,7 @@
     {:date (str candidate) :day-num nil}))
 
 (defn first-monday-of-year []
-  (let [year (.getYear (LocalDate/now))
+  (let [year (.getYear (clock/today))
         jan1 (LocalDate/of year 1 1)
         dow (.getValue (.getDayOfWeek jan1))
         offset (if (<= dow 1) (- 1 dow) (- 8 dow))]

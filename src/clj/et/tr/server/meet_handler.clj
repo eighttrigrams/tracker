@@ -2,10 +2,10 @@
   (:require [et.tr.server.common :as common]
             [et.tr.server.events :as events]
             [et.tr.server.week-window :as week-window]
+            [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.db.meet :as db.meet]
-            [clojure.string :as str])
-  (:import [java.time LocalDate]))
+            [clojure.string :as str]))
 
 (defn get-meet-handler
   "GET /api/meets/:id — fetch a single meet by numeric id, scoped to the calling
@@ -144,7 +144,7 @@
         meet-id (Integer/parseInt (get-in req [:params :id]))
         before (events/fetch-fields :meets meet-id [:archived :start_date])]
     (if (and (:start_date before)
-             (pos? (compare (:start_date before) (str (LocalDate/now)))))
+             (pos? (compare (:start_date before) (clock/today-str))))
       {:status 400 :body {:error "Cannot archive a future-dated meet"}}
       (if-let [result (db.meet/archive-meet (common/ensure-ds) user-id meet-id)]
         (do (events/record-update! req :meet meet-id before

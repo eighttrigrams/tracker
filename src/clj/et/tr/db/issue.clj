@@ -2,6 +2,7 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
+            [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.db.relation :as relation]))
 
@@ -210,7 +211,7 @@
         (sql/format {:update :issues
                      :set (cond-> {:resolved (if resolved? 1 0)
                                    :modified_at [:raw "datetime('now')"]}
-                            resolved? (assoc :resolved_at [:raw "datetime('now')"])
+                            resolved? (assoc :resolved_at (clock/sql-now))
                             (not resolved?) (assoc :resolved_at nil))
                      :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]
                      :returning [:id :resolved :resolved_at :modified_at]})

@@ -2,6 +2,7 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
+            [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.db.relation :as relation]))
 
@@ -23,7 +24,7 @@
                                          :sort_order new-order
                                          :user_id user-id
                                          :modified_at [:raw "datetime('now')"]
-                                         :start_date [:raw "date('now','localtime')"]
+                                         :start_date (clock/sql-today)
                                          :start_time [:raw "strftime('%H:%M','now','localtime')"]
                                          :scope valid-scope}]
                                :returning (conj db/meet-select-columns :user_id)})
@@ -57,10 +58,10 @@
          date-clause (case sort-mode
                        :summary nil
                        :past [:or
-                              [:< :start_date [:raw "date('now','localtime')"]]
+                              [:< :start_date (clock/sql-today)]
                               [:= :archived 1]]
                        [:and
-                        [:>= :start_date [:raw "date('now','localtime')"]]
+                        [:>= :start_date (clock/sql-today)]
                         [:= :archived 0]])
          search-clause (db/build-search-clause search-term [:title :tags])
          importance-clause (db/build-importance-clause importance)
@@ -97,7 +98,7 @@
          meets-with-categories (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id goals-by-id)
          series-ids (->> meets (keep :meeting_series_id) distinct vec)
          series-info (when (seq series-ids)
-                       (let [today-expr [:raw "date('now','localtime')"]
+                       (let [today-expr (clock/sql-today)
                              rows (jdbc/execute! conn
                                     (sql/format {:select [:meeting_series.id
                                                           :meeting_series.schedule_days

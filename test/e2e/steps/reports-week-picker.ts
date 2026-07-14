@@ -1,11 +1,10 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { daysAgo } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
-
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 
 // Shared report seeding/assertions (also used by other reports features).
 Given(

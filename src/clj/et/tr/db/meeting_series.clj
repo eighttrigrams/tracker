@@ -3,6 +3,7 @@
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
             [clojure.string :as str]
+            [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.scheduling :as scheduling])
   (:import [java.time LocalDate]))
@@ -60,7 +61,7 @@
          where-clause (into [:and user-where]
                             (concat (filter some? [search-clause scope-clause])
                                     category-clauses))
-         today-expr [:raw "date('now','localtime')"]
+         today-expr (clock/sql-today)
          has-today-meet {:select [1]
                          :from [:meets]
                          :where [:and
@@ -281,7 +282,7 @@
   ([ds user-id] (auto-create-meetings ds user-id {}))
   ([ds user-id _opts]
    (let [conn (db/get-conn ds)
-         today-expr [:raw "date('now','localtime')"]
+         today-expr (clock/sql-today)
          all-series (jdbc/execute! conn
                       (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset :maybe]
                                    :from [:meeting_series]
@@ -289,7 +290,7 @@
                                            (db/user-id-where-clause user-id)
                                            [:!= :schedule_days ""]]})
                       db/jdbc-opts)
-         today (LocalDate/now)
+         today (clock/today)
          today-str (str today)
          created (atom [])]
      (doseq [{:keys [id schedule_days schedule_time schedule_mode biweekly_offset maybe]} all-series]

@@ -3,6 +3,7 @@
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
             [clojure.string :as str]
+            [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.scheduling :as scheduling])
   (:import [java.time LocalDate]))
@@ -60,7 +61,7 @@
          where-clause (into [:and user-where]
                             (concat (filter some? [search-clause scope-clause])
                                     category-clauses))
-         today-expr [:raw "date('now','localtime')"]
+         today-expr (clock/sql-today)
          has-today-task-due {:select [1]
                              :from [:tasks]
                              :where [:and
@@ -208,7 +209,7 @@
                               1.0)
                 new-order (- min-order 1.0)
                 today-type? (= "today" (:task_type rtask))
-                today-str (str (java.time.LocalDate/now))
+                today-str (clock/today-str)
                 is-today? (= date today-str)
                 task-values (cond-> {:title (:title rtask)
                                      :sort_order new-order
@@ -302,7 +303,7 @@
                                                         :limit 1})
                                            db/jdbc-opts))]
                    (cond-> (mapv :lined_up_for lined-up)
-                     has-today? (conj (str (java.time.LocalDate/now)))))
+                     has-today? (conj (clock/today-str))))
                  (jdbc/execute! conn
                    (sql/format {:select-distinct [:due_date]
                                 :from [:tasks]
@@ -352,7 +353,7 @@
   ([ds user-id] (auto-create-tasks ds user-id {}))
   ([ds user-id _opts]
    (let [conn (db/get-conn ds)
-         today-expr [:raw "date('now','localtime')"]
+         today-expr (clock/sql-today)
          all-rtasks (jdbc/execute! conn
                       (sql/format {:select [:id :schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type]
                                    :from [:recurring_tasks]
@@ -360,7 +361,7 @@
                                            (db/user-id-where-clause user-id)
                                            [:!= :schedule_days ""]]})
                       db/jdbc-opts)
-         today (LocalDate/now)
+         today (clock/today)
          today-str (str today)
          created (atom [])]
      (doseq [{:keys [id schedule_days schedule_time schedule_mode biweekly_offset task_type]} all-rtasks]
@@ -395,9 +396,9 @@
     (when (and rtask
                (= "today" (:task_type rtask))
                (not (str/blank? (:schedule_days rtask))))
-      (let [today-expr [:raw "date('now','localtime')"]
+      (let [today-expr (clock/sql-today)
             {:keys [has-active?]} (query-today-type-state conn rtask-id today-expr)
-            today (LocalDate/now)
+            today (clock/today)
             today-str (str today)
             mode (or (:schedule_mode rtask) "weekly")
             schedule-days-set (set (str/split (:schedule_days rtask) #","))

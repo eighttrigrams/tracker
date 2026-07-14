@@ -1,21 +1,17 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { today, offsetDateStr } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
 
 function todayIsoDayNum(): string {
-  const d = new Date();
-  const jsDay = d.getDay();
+  const jsDay = new Date(`${today()}T12:00:00Z`).getUTCDay();
   return String(jsDay === 0 ? 7 : jsDay);
 }
 
-function futureDateStr(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 7);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+const futureDateStr = (): string => offsetDateStr(7);
 
 Given("a meeting series {string} exists", async ({ request }, title: string) => {
   await request.post("/api/meeting-series", { headers, data: { title } });

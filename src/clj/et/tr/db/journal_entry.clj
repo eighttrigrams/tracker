@@ -2,9 +2,10 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
+            [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.db.relation :as relation])
-  (:import [java.time LocalDate DayOfWeek]
+  (:import [java.time DayOfWeek]
            [java.time.temporal TemporalAdjusters]))
 
 (defn- build-journal-entry-category-clauses [categories]
@@ -66,8 +67,8 @@
         conn (db/get-conn ds)
         user-where (db/user-id-where-clause user-id)
         scope-clause (db/build-scope-clause context strict)
-        today-expr [:raw "date('now','localtime')"]
-        monday-expr [:raw "date('now','localtime','-6 days','weekday 1')"]
+        today-expr (clock/sql-today)
+        monday-expr (clock/sql-today "-6 days" "weekday 1")
         where-clause (into [:and user-where]
                            (filter some?
                                    [scope-clause
@@ -239,7 +240,7 @@
 
 (defn prune-empty-entries [ds user-id]
   (let [conn (db/get-conn ds)
-        today (LocalDate/now)
+        today (clock/today)
         yesterday-str (str (.minusDays today 1))
         monday-this (.with today (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY))
         monday-last-str (str (.minusWeeks monday-this 1))
@@ -251,7 +252,7 @@
                                           [:= :je.user_id user-id]
                                           [:!= :je.entry_date nil]
                                           [:or [:= :je.description nil] [:= :je.description ""]]
-                                          [:< :je.created_at [:raw "datetime('now','-24 hours')"]]
+                                          [:< :je.created_at (clock/sql-now "-24 hours")]
                                           [:or
                                            [:and [:= :j.schedule_type "weekly"] [:< :je.entry_date monday-last-str]]
                                            [:and [:= :j.schedule_type "daily"] [:< :je.entry_date yesterday-str]]]]})

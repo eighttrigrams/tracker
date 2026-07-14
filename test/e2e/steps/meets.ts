@@ -1,16 +1,12 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { setFieldValue } from "./helpers";
+import { setFieldValue, offsetDateStr } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
 
-function futureDateStr(daysFromNow: number = 7): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromNow);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+const futureDateStr = (daysFromNow: number = 7): string => offsetDateStr(daysFromNow);
 
 Given(
   "a meet {string} with start date 7 days from now exists",
