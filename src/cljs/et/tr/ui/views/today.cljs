@@ -827,7 +827,10 @@
          [:span.journal-entry-summary-date (date/format-date-localized (:entry_date entry))])]
       (if (seq (:description entry))
         [:div.journal-entry-summary-description
-         {:on-click #(state/open-edit-modal :journal-entry entry)}
+         {:on-mouse-down item-card/capture-press-xy
+          :on-click (fn [e]
+                      (when-not (item-card/pointer-dragged? e)
+                        (state/open-edit-modal :journal-entry entry)))}
          [task-item/markdown (:description entry)]]
         [:button.edit-icon.description-placeholder
          {:on-click (fn [e]

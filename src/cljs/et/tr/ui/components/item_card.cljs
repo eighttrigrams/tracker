@@ -175,16 +175,25 @@
 ;; Pointer position captured on the header's mousedown, read back on the
 ;; ensuing click to tell a plain click apart from a text-selection drag.
 ;; Only one pointer gesture is ever in flight, so a single shared atom is safe.
-(defonce ^:private header-press-xy (atom nil))
+(defonce ^:private press-xy (atom nil))
 
-(def ^:private header-drag-threshold-px 5)
+(def ^:private drag-threshold-px 5)
+
+(defn capture-press-xy [e]
+  (reset! press-xy [(.-clientX e) (.-clientY e)]))
+
+(defn pointer-dragged? [e]
+  (let [[dx dy] @press-xy]
+    (and dx (> (+ (js/Math.abs (- (.-clientX e) dx))
+                  (js/Math.abs (- (.-clientY e) dy)))
+               drag-threshold-px))))
 
 (defn- card-header [{:keys [item expanded? on-toggle inline-edit header-class title-class
                             relation-link badges title-extra title-content title-text-class title-icon
                             toolbar date date-class header-extra]}]
   (let [editing? (inline-editing? inline-edit item)]
     [(keyword (str "div." header-class))
-     {:on-mouse-down (fn [e] (reset! header-press-xy [(.-clientX e) (.-clientY e)]))
+     {:on-mouse-down capture-press-xy
       ;; Toggle expand/collapse on a plain click. When the card is expanded we
       ;; skip the toggle if the pointer travelled more than a few pixels between
       ;; mousedown and click — that is a text-selection drag (e.g. selecting the
@@ -193,12 +202,8 @@
       ;; drift still collapses instead of being swallowed by a stray 1-char
       ;; selection.
       :on-click (fn [e]
-                  (let [[dx dy] @header-press-xy
-                        dragged? (and dx (> (+ (js/Math.abs (- (.-clientX e) dx))
-                                               (js/Math.abs (- (.-clientY e) dy)))
-                                            header-drag-threshold-px))]
-                    (when-not (or editing? (and expanded? dragged?))
-                      (on-toggle))))}
+                  (when-not (or editing? (and expanded? (pointer-dragged? e)))
+                    (on-toggle)))}
      [card-title-area {:item item
                        :expanded? expanded?
                        :title-class title-class
