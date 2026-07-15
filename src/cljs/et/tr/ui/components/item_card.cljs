@@ -133,13 +133,14 @@
                                         #(swap! a dissoc edit-id-path title-path))))
         :on-cancel #(swap! a dissoc edit-id-path title-path)}]
       [(keyword (str "span." text-class))
-       ;; Alt/Option-click a title on an expanded card to inline-edit it.
+       ;; Alt/Option-click a title to inline-edit it, whether the card is
+       ;; expanded or collapsed.
        ;; A plain click falls through (no stopPropagation) to the header's
        ;; on-click, which toggles expand/collapse — the title never opens the
        ;; modal (that is the pencil's and the body/description's job).
        (when inline-edit
          {:on-click (fn [e]
-                      (when (and expanded? (.-altKey e))
+                      (when (.-altKey e)
                         (.stopPropagation e)
                         (swap! a assoc
                                edit-id-path (:id item)
