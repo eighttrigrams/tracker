@@ -119,7 +119,7 @@
 
                             ;; Today page journals mode
                             :today-page/journals-mode false
-                            :today-page/journal-summary-mode false
+                            :today-page/journal-summary-mode true
 
                             ;; Reports page state
                             :reports-page/collapsed-filters #{:people :places :projects :goals}
