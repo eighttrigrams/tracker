@@ -131,3 +131,61 @@
   white-space: pre-wrap;
 }
 .entity-list .item-edit-form { cursor: default; }
+
+.rules-page {
+  max-width: 640px;
+}
+
+.rule-add-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.rule-add-form .rule-picker {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+}
+
+.rule-arrow {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+.rules-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rule-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  padding: 10px 14px;
+  box-shadow: var(--glass-shadow);
+}
+
+.rule-row .rule-source,
+.rule-row .rule-target {
+  color: var(--text-primary);
+}
+
+.rule-row .rule-delete {
+  margin-left: auto;
+}

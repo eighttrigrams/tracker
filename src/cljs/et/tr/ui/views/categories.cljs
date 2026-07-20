@@ -1,5 +1,6 @@
 (ns et.tr.ui.views.categories
   (:require [clojure.string :as str]
+            [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.item-card :as item-card]
@@ -148,3 +149,83 @@
          (for [item items]
            ^{:key (:id item)}
            [category-card item category-type-str category-type])))]]))
+
+(def ^:private rule-type->label-key
+  {"person" :category/person
+   "place" :category/place
+   "project" :category/project
+   "goal" :category/goal})
+
+(defn- rule-category-label [type name]
+  (str (t (rule-type->label-key type)) ": " name))
+
+(defn- rules-category-options []
+  (let [s @state/*app-state
+        collect (fn [type coll]
+                  (map (fn [c] {:type type :id (:id c) :name (:name c)}) coll))]
+    (vec (concat (collect "person" (:rules/people s))
+                 (collect "place" (:rules/places s))
+                 (collect "project" (:rules/projects s))
+                 (collect "goal" (:rules/goals s))))))
+
+(defn- parse-rule-ref [v]
+  (when (seq v)
+    (let [[type id] (str/split v #":")]
+      {:type type :id (js/parseInt id)})))
+
+(defn- rule-picker [selected placeholder test-id options]
+  [:select.rule-picker
+   {:data-testid test-id
+    :value (or @selected "")
+    :on-change #(let [v (-> % .-target .-value)]
+                  (reset! selected (when (seq v) v)))}
+   [:option {:value ""} placeholder]
+   (doall
+    (for [{:keys [type id name]} options]
+      ^{:key (str type ":" id)}
+      [:option {:value (str type ":" id)}
+       (rule-category-label type name)]))])
+
+(defn rules-add-form []
+  (let [source (r/atom nil)
+        target (r/atom nil)]
+    (fn []
+      (let [options (rules-category-options)
+            src (parse-rule-ref @source)
+            tgt (parse-rule-ref @target)
+            self-pair? (and src tgt (= (:type src) (:type tgt)) (= (:id src) (:id tgt)))
+            can-add? (and src tgt (not self-pair?))
+            do-add (fn []
+                     (when can-add?
+                       (state/add-rule (:type src) (:id src) (:type tgt) (:id tgt)
+                                       (fn [] (reset! source nil) (reset! target nil)))))]
+        [:div.rule-add-form
+         [rule-picker source (t :rules/source-placeholder) "rules-source-picker" options]
+         [:span.rule-arrow "→"]
+         [rule-picker target (t :rules/target-placeholder) "rules-target-picker" options]
+         [:button {:data-testid "rules-add-button"
+                   :disabled (not can-add?)
+                   :on-click do-add}
+          (t :rules/add)]]))))
+
+(defn- rule-row [rule]
+  [:li.rule-row {:data-testid "rule-row"}
+   [:span.rule-source (rule-category-label (:source_type rule) (:source_name rule))]
+   [:span.rule-arrow "→"]
+   [:span.rule-target (rule-category-label (:target_type rule) (:target_name rule))]
+   [:button.rule-delete {:data-testid "rule-delete"
+                         :title (t :category/delete)
+                         :on-click #(state/delete-rule (:id rule))}
+    "x"]])
+
+(defn rules-page []
+  (let [rules (:rules @state/*app-state)]
+    [:div.category-cards-page.rules-page {:key "rules"}
+     [rules-add-form]
+     [:ul.rules-list
+      (if (empty? rules)
+        [:li.category-cards-empty (t :rules/no-rules)]
+        (doall
+         (for [rule rules]
+           ^{:key (:id rule)}
+           [rule-row rule])))]]))

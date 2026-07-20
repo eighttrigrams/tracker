@@ -12,6 +12,7 @@
             [et.tr.ui.state.sources :as sources]
             [et.tr.ui.state.users :as users]
             [et.tr.ui.state.categories :as categories]
+            [et.tr.ui.state.rules :as rules]
             [et.tr.ui.state.tasks :as tasks]
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.ui.state.today-page :as today-page]
@@ -1309,10 +1310,27 @@
     :today (fetch-today-all (today-fetch-opts))
     nil))
 
-(defn toggle-shared-filter [filter-type id]
-  (swap! *app-state update (shared-filter-key filter-type)
-         #(if (contains? % id) (disj % id) (conj % id)))
+(defn- apply-filter-closure [categories]
+  (doseq [{:keys [category-type category-id]} categories]
+    (when-let [k (shared-filter-key category-type)]
+      (swap! *app-state update k conj category-id)))
   (refetch-current-tab))
+
+(defn toggle-shared-filter [filter-type id]
+  (let [k (shared-filter-key filter-type)
+        adding? (not (contains? (get @*app-state k) id))]
+    (swap! *app-state update k
+           #(if (contains? % id) (disj % id) (conj % id)))
+    (if adding?
+      ;; Selecting a filter also auto-selects the rule targets of that category
+      ;; (resolved server-side), so they show as selected and scope the refetch.
+      ;; Deselecting fires no rules.
+      (rules/resolve-filter-closure auth-headers filter-type id
+        (fn [categories]
+          (if (seq categories)
+            (apply-filter-closure categories)
+            (refetch-current-tab))))
+      (refetch-current-tab))))
 
 (defn clear-shared-filter [filter-type]
   (swap! *app-state assoc (shared-filter-key filter-type) #{})
@@ -1458,6 +1476,15 @@
 
 (defn set-categories-filter-search [category-type search-term]
   (swap! *app-state assoc-in [:categories-page/filter-search category-type] search-term))
+
+(defn fetch-rules-page []
+  (rules/fetch-rules-page *app-state auth-headers))
+
+(defn add-rule [source-type source-id target-type target-id on-success]
+  (rules/add-rule *app-state auth-headers source-type source-id target-type target-id on-success))
+
+(defn delete-rule [rule-id]
+  (rules/delete-rule *app-state auth-headers rule-id))
 
 (defn add-person [name on-success]
   (categories/add-person *app-state auth-headers name on-success))
@@ -1994,6 +2021,7 @@
                                         :fetch-places fetch-places
                                         :fetch-projects fetch-projects
                                         :fetch-goals fetch-goals
+                                        :fetch-rules-page fetch-rules-page
                                         :fetch-mottos fetch-mottos
                                         :is-admin is-admin?
                                         :has-mail has-mail?}))

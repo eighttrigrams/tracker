@@ -67,7 +67,7 @@
      :on-click #(state/set-active-tab tab-key)}
     (t translation-key)]))
 
-(def ^:private category-tabs #{:cat-people :cat-places :cat-projects :cat-goals})
+(def ^:private category-tabs #{:cat-people :cat-places :cat-projects :cat-goals :cat-rules})
 (def ^:private settings-tabs #{:settings-profile :settings-mottos :settings-shortcuts :settings-history})
 
 (defn tabs []
@@ -87,7 +87,8 @@
           [tab-button active-tab :cat-people :category/people]
           [tab-button active-tab :cat-places :category/places]
           [tab-button active-tab :cat-projects :category/projects]
-          [tab-button active-tab :cat-goals :category/goals]]]
+          [tab-button active-tab :cat-goals :category/goals]
+          [tab-button active-tab :cat-rules :category/rules]]]
 
         (contains? settings-tabs active-tab)
         [:div.tabs
@@ -187,6 +188,7 @@
           :cat-places [categories/category-cards-page :places]
           :cat-projects [categories/category-cards-page :projects]
           :cat-goals [categories/category-cards-page :goals]
+          :cat-rules [categories/rules-page]
           :reports [reports/reports-tab]
           :mail [mail/mail-page]
           :users [users/users-tab]
