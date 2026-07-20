@@ -1322,9 +1322,6 @@
     (swap! *app-state update k
            #(if (contains? % id) (disj % id) (conj % id)))
     (if adding?
-      ;; Selecting a filter also auto-selects the rule targets of that category
-      ;; (resolved server-side), so they show as selected and scope the refetch.
-      ;; Deselecting fires no rules.
       (rules/resolve-filter-closure auth-headers filter-type id
         (fn [categories]
           (if (seq categories)

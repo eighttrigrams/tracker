@@ -17,8 +17,6 @@
      :handler #(swap! app-state assoc state-key %)}))
 
 (defn fetch-rules-page [app-state auth-headers]
-  ;; Pickers span every category of all four types regardless of scope, so the
-  ;; category lists are fetched without a scope query string.
   (fetch-rules app-state auth-headers)
   (fetch-all-of app-state auth-headers "/api/people" :rules/people)
   (fetch-all-of app-state auth-headers "/api/places" :rules/places)
