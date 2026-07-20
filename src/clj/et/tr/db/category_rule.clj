@@ -92,6 +92,18 @@
              :target_name (get lookup [target_type target_id])})
           (load-rules conn user-id))))
 
+(defn- find-rule [conn user-id source-type source-id target-type target-id]
+  (jdbc/execute-one! conn
+    (sql/format {:select [:id :source_type :source_id :target_type :target_id]
+                 :from [:category_rules]
+                 :where [:and
+                         (db/user-id-where-clause user-id)
+                         [:= :source_type source-type]
+                         [:= :source_id source-id]
+                         [:= :target_type target-type]
+                         [:= :target_id target-id]]})
+    db/jdbc-opts))
+
 (defn add-rule [ds user-id source-type source-id target-type target-id]
   (db/validate-category-type! source-type)
   (db/validate-category-type! target-type)
@@ -110,8 +122,11 @@
                                 :do-nothing true
                                 :returning [:id :source_type :source_id :target_type :target_id]})
                    db/jdbc-opts)]
-      (tel/log! {:level :info :data {:user-id user-id :source [source-type source-id] :target [target-type target-id]}} "Category rule added")
-      result)))
+      (if result
+        (do
+          (tel/log! {:level :info :data {:user-id user-id :source [source-type source-id] :target [target-type target-id]}} "Category rule added")
+          result)
+        (find-rule conn user-id source-type source-id target-type target-id)))))
 
 (defn delete-rule [ds user-id rule-id]
   (let [result (jdbc/execute-one! (db/get-conn ds)

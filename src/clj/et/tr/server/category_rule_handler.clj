@@ -1,8 +1,7 @@
 (ns et.tr.server.category-rule-handler
   (:require [et.tr.server.common :as common]
             [et.tr.db :as db]
-            [et.tr.db.category-rule :as db.category-rule]
-            [clojure.string :as str]))
+            [et.tr.db.category-rule :as db.category-rule]))
 
 (defn list-rules-handler
   "GET /api/category-rules — list the caller's rules, each enriched with the
@@ -59,8 +58,8 @@
   (let [user-id (common/get-user-id req)
         {:keys [category-type category-id]} (:body req)]
     (cond
-      (or (nil? category-type) (str/blank? category-type))
-      {:status 400 :body {:success false :error "category-type is required"}}
+      (not (valid-type? category-type))
+      {:status 400 :body {:success false :error "Invalid category type"}}
 
       (or (not (integer? category-id)) (< category-id 1))
       {:status 400 :body {:success false :error "category-id must be a positive integer"}}

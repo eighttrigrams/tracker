@@ -194,7 +194,14 @@
             src (parse-rule-ref @source)
             tgt (parse-rule-ref @target)
             self-pair? (and src tgt (= (:type src) (:type tgt)) (= (:id src) (:id tgt)))
-            can-add? (and src tgt (not self-pair?))
+            duplicate? (and src tgt
+                            (some (fn [r]
+                                    (and (= (:source_type r) (:type src))
+                                         (= (:source_id r) (:id src))
+                                         (= (:target_type r) (:type tgt))
+                                         (= (:target_id r) (:id tgt))))
+                                  (:rules @state/*app-state)))
+            can-add? (and src tgt (not self-pair?) (not duplicate?))
             do-add (fn []
                      (when can-add?
                        (state/add-rule (:type src) (:id src) (:type tgt) (:id tgt)
