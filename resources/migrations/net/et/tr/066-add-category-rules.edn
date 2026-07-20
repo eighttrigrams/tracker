@@ -1,0 +1,16 @@
+{:id "066-add-category-rules"
+ :up ["CREATE TABLE category_rules (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         source_type TEXT NOT NULL,
+         source_id INTEGER NOT NULL,
+         target_type TEXT NOT NULL,
+         target_id INTEGER NOT NULL,
+         created_at DATETIME DEFAULT (datetime('now')),
+         UNIQUE(user_id, source_type, source_id, target_type, target_id)
+       )"
+      "CREATE INDEX idx_category_rules_user ON category_rules (user_id)"
+      "CREATE INDEX idx_category_rules_source ON category_rules (user_id, source_type, source_id)"]
+ :down ["DROP INDEX IF EXISTS idx_category_rules_source"
+        "DROP INDEX IF EXISTS idx_category_rules_user"
+        "DROP TABLE IF EXISTS category_rules"]}

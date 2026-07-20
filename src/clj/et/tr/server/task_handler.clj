@@ -95,10 +95,10 @@
       {:status 400 :body {:success false :error "category-id must be a positive integer"}}
 
       :else
-      (do (db.task/categorize-task (common/ensure-ds) user-id task-id category-type category-id)
-          (events/record-link! req :task task-id category-type category-id
-                               (events/fetch-category-title category-type category-id))
-          {:status 200 :body {:success true}}))))
+      (let [applied (db.task/categorize-task (common/ensure-ds) user-id task-id category-type category-id)]
+        (events/record-link! req :task task-id category-type category-id
+                             (events/fetch-category-title category-type category-id))
+        {:status 200 :body {:success true :categories applied}}))))
 
 (defn uncategorize-task-handler
   "DELETE /api/tasks/:id/categorize — remove a task's link to a single

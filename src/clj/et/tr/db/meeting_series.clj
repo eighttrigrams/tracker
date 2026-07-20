@@ -5,6 +5,7 @@
             [clojure.string :as str]
             [et.tr.clock :as clock]
             [et.tr.db :as db]
+            [et.tr.db.category-rule :as db.category-rule]
             [et.tr.scheduling :as scheduling])
   (:import [java.time LocalDate]))
 
@@ -233,19 +234,15 @@
   (db/validate-category-type! category-type)
   (when (and (meeting-series-owned-by-user? ds series-id user-id)
              (db/category-owned-by-user? ds category-type category-id user-id))
-    (let [conn (db/get-conn ds)]
+    (let [conn (db/get-conn ds)
+          closure (db.category-rule/resolve-closure ds user-id [[category-type category-id]])]
       (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:insert-into :meeting_series_categories
-                       :values [{:meeting_series_id series-id
-                                 :category_type category-type
-                                 :category_id category-id}]
-                       :on-conflict []
-                       :do-nothing true}))
-        (jdbc/execute-one! tx
-          (sql/format {:update :meeting_series
-                       :set {:modified_at [:raw "datetime('now')"]}
-                       :where [:= :id series-id]}))))))
+        (let [applied (db.category-rule/apply-closure! tx :meeting_series_categories :meeting_series_id series-id closure)]
+          (jdbc/execute-one! tx
+            (sql/format {:update :meeting_series
+                         :set {:modified_at [:raw "datetime('now')"]}
+                         :where [:= :id series-id]}))
+          applied)))))
 
 (defn uncategorize-meeting-series [ds user-id series-id category-type category-id]
   (db/validate-category-type! category-type)

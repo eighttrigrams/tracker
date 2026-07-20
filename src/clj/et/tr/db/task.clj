@@ -5,6 +5,7 @@
             [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.db.recurring-task :as db.recurring-task]
+            [et.tr.db.category-rule :as db.category-rule]
             [et.tr.db.relation :as relation]))
 
 (defn add-task
@@ -152,19 +153,15 @@
   (db/validate-category-type! category-type)
   (when (and (task-owned-by-user? ds task-id user-id)
              (db/category-owned-by-user? ds category-type category-id user-id))
-    (let [conn (db/get-conn ds)]
+    (let [conn (db/get-conn ds)
+          closure (db.category-rule/resolve-closure ds user-id [[category-type category-id]])]
       (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:insert-into :task_categories
-                       :values [{:task_id task-id
-                                 :category_type category-type
-                                 :category_id category-id}]
-                       :on-conflict []
-                       :do-nothing true}))
-        (jdbc/execute-one! tx
-          (sql/format {:update :tasks
-                       :set {:modified_at (clock/sql-now)}
-                       :where [:= :id task-id]}))))))
+        (let [applied (db.category-rule/apply-closure! tx :task_categories :task_id task-id closure)]
+          (jdbc/execute-one! tx
+            (sql/format {:update :tasks
+                         :set {:modified_at (clock/sql-now)}
+                         :where [:= :id task-id]}))
+          applied)))))
 
 (defn uncategorize-task [ds user-id task-id category-type category-id]
   (db/validate-category-type! category-type)

@@ -3,7 +3,8 @@
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
             [et.tr.clock :as clock]
-            [et.tr.db :as db])
+            [et.tr.db :as db]
+            [et.tr.db.category-rule :as db.category-rule])
   (:import [java.time LocalDate DayOfWeek]
            [java.time.temporal TemporalAdjusters]))
 
@@ -149,19 +150,15 @@
   (db/validate-category-type! category-type)
   (when (and (journal-owned-by-user? ds journal-id user-id)
              (db/category-owned-by-user? ds category-type category-id user-id))
-    (let [conn (db/get-conn ds)]
+    (let [conn (db/get-conn ds)
+          closure (db.category-rule/resolve-closure ds user-id [[category-type category-id]])]
       (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:insert-into :journal_categories
-                       :values [{:journal_id journal-id
-                                 :category_type category-type
-                                 :category_id category-id}]
-                       :on-conflict []
-                       :do-nothing true}))
-        (jdbc/execute-one! tx
-          (sql/format {:update :journals
-                       :set {:modified_at [:raw "datetime('now')"]}
-                       :where [:= :id journal-id]}))))))
+        (let [applied (db.category-rule/apply-closure! tx :journal_categories :journal_id journal-id closure)]
+          (jdbc/execute-one! tx
+            (sql/format {:update :journals
+                         :set {:modified_at [:raw "datetime('now')"]}
+                         :where [:= :id journal-id]}))
+          applied)))))
 
 (defn uncategorize-journal [ds user-id journal-id category-type category-id]
   (db/validate-category-type! category-type)

@@ -293,11 +293,10 @@
          {:status 400 :body {:success false :error "category-id must be a positive integer"}}
 
          :else
-         (do
-           (db-fn (ensure-ds) user-id entity-id category-type category-id)
+         (let [applied (db-fn (ensure-ds) user-id entity-id category-type category-id)]
            (when entity-type
              (record-link-event! req entity-type entity-id :link category-type category-id))
-           {:status 200 :body {:success true}}))))))
+           {:status 200 :body {:success true :categories applied}}))))))
 
 (defn make-uncategorize-handler
   ([db-fn] (make-uncategorize-handler db-fn nil))

@@ -5,6 +5,7 @@
             [clojure.string :as str]
             [et.tr.clock :as clock]
             [et.tr.db :as db]
+            [et.tr.db.category-rule :as db.category-rule]
             [et.tr.scheduling :as scheduling])
   (:import [java.time LocalDate]))
 
@@ -245,19 +246,15 @@
   (db/validate-category-type! category-type)
   (when (and (recurring-task-owned-by-user? ds rtask-id user-id)
              (db/category-owned-by-user? ds category-type category-id user-id))
-    (let [conn (db/get-conn ds)]
+    (let [conn (db/get-conn ds)
+          closure (db.category-rule/resolve-closure ds user-id [[category-type category-id]])]
       (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:insert-into :recurring_task_categories
-                       :values [{:recurring_task_id rtask-id
-                                 :category_type category-type
-                                 :category_id category-id}]
-                       :on-conflict []
-                       :do-nothing true}))
-        (jdbc/execute-one! tx
-          (sql/format {:update :recurring_tasks
-                       :set {:modified_at [:raw "datetime('now')"]}
-                       :where [:= :id rtask-id]}))))))
+        (let [applied (db.category-rule/apply-closure! tx :recurring_task_categories :recurring_task_id rtask-id closure)]
+          (jdbc/execute-one! tx
+            (sql/format {:update :recurring_tasks
+                         :set {:modified_at [:raw "datetime('now')"]}
+                         :where [:= :id rtask-id]}))
+          applied)))))
 
 (defn uncategorize-recurring-task [ds user-id rtask-id category-type category-id]
   (db/validate-category-type! category-type)

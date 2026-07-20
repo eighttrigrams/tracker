@@ -4,6 +4,7 @@
             [taoensso.telemere :as tel]
             [et.tr.clock :as clock]
             [et.tr.db :as db]
+            [et.tr.db.category-rule :as db.category-rule]
             [et.tr.db.relation :as relation]))
 
 (defn add-meet
@@ -248,19 +249,15 @@
   (db/validate-category-type! category-type)
   (when (and (meet-owned-by-user? ds meet-id user-id)
              (db/category-owned-by-user? ds category-type category-id user-id))
-    (let [conn (db/get-conn ds)]
+    (let [conn (db/get-conn ds)
+          closure (db.category-rule/resolve-closure ds user-id [[category-type category-id]])]
       (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:insert-into :meet_categories
-                       :values [{:meet_id meet-id
-                                 :category_type category-type
-                                 :category_id category-id}]
-                       :on-conflict []
-                       :do-nothing true}))
-        (jdbc/execute-one! tx
-          (sql/format {:update :meets
-                       :set {:modified_at [:raw "datetime('now')"]}
-                       :where [:= :id meet-id]}))))))
+        (let [applied (db.category-rule/apply-closure! tx :meet_categories :meet_id meet-id closure)]
+          (jdbc/execute-one! tx
+            (sql/format {:update :meets
+                         :set {:modified_at [:raw "datetime('now')"]}
+                         :where [:= :id meet-id]}))
+          applied)))))
 
 (defn uncategorize-meet [ds user-id meet-id category-type category-id]
   (db/validate-category-type! category-type)

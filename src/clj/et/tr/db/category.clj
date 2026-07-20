@@ -2,7 +2,8 @@
   (:require [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [taoensso.telemere :as tel]
-            [et.tr.db :as db]))
+            [et.tr.db :as db]
+            [et.tr.db.category-rule :as db.category-rule]))
 
 (def ^:private valid-category-tables #{"people" "places" "projects" "goals"})
 
@@ -134,6 +135,7 @@
                                     [:in entity-col {:select [:id]
                                                      :from [entity-table]
                                                      :where (db/user-id-where-clause user-id)}])})))
+      (db.category-rule/delete-rules-for-category tx user-id category-type category-id)
       (let [result (jdbc/execute-one! tx
                      (sql/format {:delete-from (keyword table-name)
                                   :where [:and [:= :id category-id] (db/user-id-where-clause user-id)]}))]

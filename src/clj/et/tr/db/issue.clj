@@ -4,6 +4,7 @@
             [taoensso.telemere :as tel]
             [et.tr.clock :as clock]
             [et.tr.db :as db]
+            [et.tr.db.category-rule :as db.category-rule]
             [et.tr.db.relation :as relation]))
 
 (defn add-issue
@@ -221,19 +222,15 @@
   (db/validate-category-type! category-type)
   (when (and (issue-owned-by-user? ds issue-id user-id)
              (db/category-owned-by-user? ds category-type category-id user-id))
-    (let [conn (db/get-conn ds)]
+    (let [conn (db/get-conn ds)
+          closure (db.category-rule/resolve-closure ds user-id [[category-type category-id]])]
       (jdbc/with-transaction [tx conn]
-        (jdbc/execute-one! tx
-          (sql/format {:insert-into :issue_categories
-                       :values [{:issue_id issue-id
-                                 :category_type category-type
-                                 :category_id category-id}]
-                       :on-conflict []
-                       :do-nothing true}))
-        (jdbc/execute-one! tx
-          (sql/format {:update :issues
-                       :set {:modified_at [:raw "datetime('now')"]}
-                       :where [:= :id issue-id]}))))))
+        (let [applied (db.category-rule/apply-closure! tx :issue_categories :issue_id issue-id closure)]
+          (jdbc/execute-one! tx
+            (sql/format {:update :issues
+                         :set {:modified_at [:raw "datetime('now')"]}
+                         :where [:= :id issue-id]}))
+          applied)))))
 
 (defn uncategorize-issue [ds user-id issue-id category-type category-id]
   (db/validate-category-type! category-type)

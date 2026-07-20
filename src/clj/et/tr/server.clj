@@ -18,6 +18,7 @@
             [et.tr.server.events :as events]
             [et.tr.server.today-board-handler :as today-board-handler]
             [et.tr.server.category-handler :as category-handler]
+            [et.tr.server.category-rule-handler :as category-rule-handler]
             [et.tr.server.source-handler :as source-handler]
             [et.tr.server.motto-handler :as motto-handler]
             [et.tr.auth :as auth]
@@ -408,6 +409,12 @@
       (POST "/feeds" [] source-handler/add-atom-feed-handler)
       (PUT "/feeds/:id" [] source-handler/update-atom-feed-handler)
       (DELETE "/feeds/:id" [] source-handler/delete-atom-feed-handler))
+
+    (context "/category-rules" []
+      (GET "/" [] category-rule-handler/list-rules-handler)
+      (POST "/" [] category-rule-handler/add-rule-handler)
+      (POST "/resolve" [] category-rule-handler/resolve-handler)
+      (DELETE "/:id" [] category-rule-handler/delete-rule-handler))
 
     (DELETE "/:category/:id" [] category-handler/delete-category-handler)
 
