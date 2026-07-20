@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { daysAgo } from "./helpers";
+import { latestPastDayThisWeek, previousWeekDay } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -21,7 +21,7 @@ Given("a done report task {string} exists", async ({ request }, title: string) =
   await request.put(`/api/tasks/${task.id}/done`, { headers, data: { done: true } });
   await request.put(`/api/tasks/${task.id}/done-at`, {
     headers,
-    data: { "done-date": daysAgo(1) },
+    data: { "done-date": latestPastDayThisWeek() },
   });
   ids.set(`tsk:${title}`, task.id);
 });
@@ -32,7 +32,7 @@ Given("a past report meet {string} exists", async ({ request }, title: string) =
   ).json();
   await request.put(`/api/meets/${meet.id}/start-date`, {
     headers,
-    data: { "start-date": daysAgo(1) },
+    data: { "start-date": previousWeekDay() },
   });
   ids.set(`met:${title}`, meet.id);
 });

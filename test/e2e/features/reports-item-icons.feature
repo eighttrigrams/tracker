@@ -12,12 +12,14 @@ Feature: Item type icons and ordering on the Reports page
 
   Scenario: Meet titles carry the calendar glyph and journal titles the notepad glyph
     When I click the "Reports" tab
+    And I increase the reports scope
     Then the report meet title carries the calendar glyph
     And the report journal title carries the notepad glyph
     And the report task title carries the checkbox glyph
 
   Scenario: Items under a day are ordered journals, then tasks, then meets
     When I click the "Reports" tab
+    And I increase the reports scope
     Then the report day items appear in order journals, then tasks, then meets
 
   Scenario: The journal notepad glyph is hidden in the journals-only view

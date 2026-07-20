@@ -7,6 +7,7 @@ Feature: Category badges on the Reports page
 
   Scenario: Tasks, journal entries, and meets all show category badges
     When I click the "Reports" tab
+    And I increase the reports scope
     Then I should see "Alice" badge on "Buy paint"
     And I should see "Apollo" badge on "Buy paint"
     And I should see "Alice" badge on "Daily log"

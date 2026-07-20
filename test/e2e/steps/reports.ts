@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { apiCategorize, today, daysAgo } from "./helpers";
+import { apiCategorize, today, latestPastDayThisWeek, previousWeekDay } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -24,21 +24,20 @@ Given("report data with categorized items exists", async ({ request }) => {
   await apiCategorize(request, `/api/journal-entries/${entry.id}`, "project", apollo.id);
 
   const meet = await (await request.post("/api/meets/", { headers, data: { title: "Standup" } })).json();
-  const yesterday = daysAgo(1);
-  await request.put(`/api/meets/${meet.id}/start-date`, { headers, data: { "start-date": yesterday } });
+  await request.put(`/api/meets/${meet.id}/start-date`, { headers, data: { "start-date": previousWeekDay() } });
   await apiCategorize(request, `/api/meets/${meet.id}`, "person", alice.id);
   await apiCategorize(request, `/api/meets/${meet.id}`, "project", apollo.id);
 });
 
 Given("a report day with a task, a meet, and a journal entry exists", async ({ request }) => {
-  const day = daysAgo(1);
+  const day = latestPastDayThisWeek();
 
   const task = await (await request.post("/api/tasks", { headers, data: { title: "Buy paint" } })).json();
   await request.put(`/api/tasks/${task.id}/done`, { headers, data: { done: true } });
   await request.put(`/api/tasks/${task.id}/done-at`, { headers, data: { "done-date": day } });
 
   const meet = await (await request.post("/api/meets/", { headers, data: { title: "Standup" } })).json();
-  await request.put(`/api/meets/${meet.id}/start-date`, { headers, data: { "start-date": day } });
+  await request.put(`/api/meets/${meet.id}/start-date`, { headers, data: { "start-date": previousWeekDay() } });
 
   const journal = await (await request.post("/api/journals", { headers, data: { title: "Daily log" } })).json();
   await request.post(`/api/journals/${journal.id}/create-entry`, { headers, data: { date: day } });

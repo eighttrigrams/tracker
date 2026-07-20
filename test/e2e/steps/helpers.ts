@@ -24,6 +24,16 @@ export function offsetDateStr(daysOffset: number): string {
 export const today = () => offsetDateStr(0);
 export const daysAgo = (n: number) => offsetDateStr(-n);
 
+export const latestPastDayThisWeek = () => {
+  const daysSinceMonday = (baseDate().getUTCDay() + 6) % 7;
+  return offsetDateStr(daysSinceMonday === 0 ? 0 : -1);
+};
+
+export const previousWeekDay = () => {
+  const daysSinceMonday = (baseDate().getUTCDay() + 6) % 7;
+  return offsetDateStr(-daysSinceMonday - 5);
+};
+
 export async function setFieldValue(locator: Locator, value: string) {
   await expect(async () => {
     await locator.fill(value);
