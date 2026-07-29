@@ -24,9 +24,10 @@ When("I set the urgency of issue {string} to superurgent", async ({ page }, titl
 
 // HTML5 drag-and-drop is not driven by Playwright's mouse-based dragTo, so we
 // dispatch the native drag events ourselves, sharing one DataTransfer across
-// them. A short pause after dragstart lets reagent re-render the drop target so
-// its handler sees the active drag source. The source is found by its urgency
-// subsection + title text (native querySelector has no :has-text).
+// them. Waiting for the source's "dragging" class after dragstart lets reagent
+// re-render the drop target so its handler sees the active drag source — a drop
+// dispatched before that render is a silent no-op. The source is found by its
+// urgency subsection + title text (native querySelector has no :has-text).
 async function fireDragOnIssue(page: any, section: string, title: string, type: string) {
   await page.evaluate(
     ({ section, title, type }: { section: string; title: string; type: string }) => {
@@ -71,16 +72,21 @@ async function fireDragOnTarget(page: any, selector: string, type: string) {
   );
 }
 
-async function dragIssueTo(page: any, title: string, targetSelector: string) {
+async function startDragOnIssue(page: any, title: string) {
   await expect(
     page.locator(".urgency-subsection.urgent .draggable-urgent-issue").filter({ hasText: title }),
   ).toBeVisible({ timeout: 5000 });
   await fireDragOnIssue(page, "urgent", title, "dragstart");
-  await page.waitForTimeout(250);
+  await expect(
+    page.locator(".draggable-urgent-issue.dragging").filter({ hasText: title }),
+  ).toBeVisible({ timeout: 5000 });
+}
+
+async function dragIssueTo(page: any, title: string, targetSelector: string) {
+  await startDragOnIssue(page, title);
   await fireDragOnTarget(page, targetSelector, "dragenter");
   await fireDragOnTarget(page, targetSelector, "dragover");
   await fireDragOnTarget(page, targetSelector, "drop");
-  await page.waitForTimeout(250);
   await page.waitForLoadState("networkidle");
 }
 
@@ -99,11 +105,7 @@ When(
 );
 
 When("I start dragging the issue {string}", async ({ page }, title: string) => {
-  await expect(
-    page.locator(".urgency-subsection.urgent .draggable-urgent-issue").filter({ hasText: title }),
-  ).toBeVisible({ timeout: 5000 });
-  await fireDragOnIssue(page, "urgent", title, "dragstart");
-  await page.waitForTimeout(250);
+  await startDragOnIssue(page, title);
 });
 
 When("I drop the dragged issue on the due-or-happening section", async ({ page }) => {
@@ -111,7 +113,6 @@ When("I drop the dragged issue on the due-or-happening section", async ({ page }
   await fireDragOnTarget(page, target, "dragenter");
   await fireDragOnTarget(page, target, "dragover");
   await fireDragOnTarget(page, target, "drop");
-  await page.waitForTimeout(250);
   await page.waitForLoadState("networkidle");
 });
 
