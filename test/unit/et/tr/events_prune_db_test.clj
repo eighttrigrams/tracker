@@ -20,6 +20,12 @@
                       :returning [:id]})
          db/jdbc-opts)))
 
+;; Both prune functions delete anything older than datetime('now','-2 months'),
+;; so fixtures that stand in for "recent" have to be dated relative to now — a
+;; fixed calendar date silently crosses the cutoff as time passes.
+(defn- days-ago [n]
+  [:raw (str "datetime('now','-" n " days')")])
+
 (defn- exists? [id]
   (some? (jdbc/execute-one! (db/get-conn *ds*)
            (sql/format {:select [:id] :from [:events] :where [:= :id id]})
@@ -35,8 +41,8 @@
       (is (exists? recent-id)))))
 
 (deftest prune-caps-to-newest-events-per-user
-  (let [ids (mapv (fn [n] (insert-event! *user-id* (str "2026-06-0" n " 00:00:00")))
-                  [1 2 3 4 5])]
+  (let [ids (mapv (fn [n] (insert-event! *user-id* (days-ago n)))
+                  [5 4 3 2 1])]
     (db.event/prune-events! *ds* *user-id* 3)
     (testing "only the newest cap events are kept"
       (is (not (exists? (nth ids 0))))
@@ -64,8 +70,8 @@
       (is (exists? recent-sys)))))
 
 (deftest prune-system-events-not-capped
-  (let [ids (mapv (fn [n] (insert-event! nil (str "2026-06-0" n " 00:00:00")))
-                  [1 2 3 4 5])]
+  (let [ids (mapv (fn [n] (insert-event! nil (days-ago n)))
+                  [5 4 3 2 1])]
     (db.event/prune-system-events! *ds*)
     (testing "recent NULL-effective events are all kept regardless of count"
       (is (every? exists? ids)))))
