@@ -55,9 +55,7 @@
 (deftest list-tasks-manual-mode-test
   (testing "manual mode orders by sort_order ASC"
     (db.task/add-task *ds* *user-id* "First")
-    (Thread/sleep 10)
     (db.task/add-task *ds* *user-id* "Second")
-    (Thread/sleep 10)
     (db.task/add-task *ds* *user-id* "Third")
     (let [tasks (db.task/list-tasks *ds* *user-id* :manual)]
       (is (= ["Third" "Second" "First"] (map :title tasks))))))
@@ -705,13 +703,15 @@
     (let [task (db.task/add-task *ds* *user-id* "Already active")]
       (db.task/set-task-reminder *ds* *user-id* (:id task) "2020-01-01")
       (db.task/activate-reminders! *ds* *user-id*)
-      (let [first-activation (db.task/get-task *ds* *user-id* (:id task))
-            first-modified (:modified_at first-activation)]
-        (Thread/sleep 10)
-        (db.task/activate-reminders! *ds* *user-id*)
-        (let [second-activation (db.task/get-task *ds* *user-id* (:id task))]
-          (is (= "active" (:reminder second-activation)))
-          (is (= first-modified (:modified_at second-activation))))))))
+      ;; modified_at has 1-second resolution, so a second activation writing the
+      ;; row again would be invisible within the same second — pin the timestamp
+      ;; far back instead, where any re-write shows up.
+      (jdbc/execute! (db/get-conn *ds*)
+        ["UPDATE tasks SET modified_at = '2020-01-01 00:00:00' WHERE id = ?" (:id task)])
+      (db.task/activate-reminders! *ds* *user-id*)
+      (let [second-activation (db.task/get-task *ds* *user-id* (:id task))]
+        (is (= "active" (:reminder second-activation)))
+        (is (= "2020-01-01 00:00:00" (:modified_at second-activation)))))))
 
 (deftest list-tasks-today-mode-includes-active-reminders-test
   (testing "today mode includes tasks with active reminders"
