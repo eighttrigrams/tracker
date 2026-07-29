@@ -49,27 +49,25 @@ const categoryKey: Record<string, string> = {
   goal: "goals",
 };
 
+// POSTs the categorize and reads the item back once to confirm it landed. The
+// read-back used to sit in a retry loop, added when categorize writes were
+// rarely lost under the full suite; the cause was the shared in-memory DB
+// connection interleaving transactions, fixed since by giving every request its
+// own connection (see et.tr.db/init-conn). Retrying would hide a regression of
+// that, so a single check that fails loudly at the setup step is what we keep.
 export async function apiCategorize(
   request: APIRequestContext,
   itemUrl: string,
   categoryType: string,
   categoryId: number,
 ) {
-  const key = categoryKey[categoryType];
-  const attached = async () => {
-    const item = await (await request.get(itemUrl, { headers: apiHeaders })).json();
-    return (item[key] ?? []).some((c: any) => c.id === categoryId);
-  };
-  for (let attempt = 1; attempt <= 8; attempt++) {
-    await request.post(`${itemUrl}/categorize`, {
-      headers: apiHeaders,
-      data: { "category-type": categoryType, "category-id": categoryId },
-    });
-    if (await attached()) {
-      if (attempt > 1) console.log(`apiCategorize: recovered ${itemUrl} ${categoryType}:${categoryId} after ${attempt} attempts`);
-      return;
-    }
-    console.log(`apiCategorize: MISS ${itemUrl} ${categoryType}:${categoryId} attempt ${attempt}`);
+  await request.post(`${itemUrl}/categorize`, {
+    headers: apiHeaders,
+    data: { "category-type": categoryType, "category-id": categoryId },
+  });
+  const item = await (await request.get(itemUrl, { headers: apiHeaders })).json();
+  const attached = (item[categoryKey[categoryType]] ?? []).some((c: any) => c.id === categoryId);
+  if (!attached) {
+    throw new Error(`apiCategorize: ${categoryType}:${categoryId} did not persist on ${itemUrl}`);
   }
-  throw new Error(`apiCategorize: failed to persist ${categoryType}:${categoryId} on ${itemUrl}`);
 }
