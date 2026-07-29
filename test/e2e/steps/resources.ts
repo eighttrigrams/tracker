@@ -95,21 +95,24 @@ When(
   },
 );
 
+// The modal only renders once open-edit-modal's fresh-row fetch lands, which is
+// after the click returns — so wait for the modal itself, not for networkidle
+// (which resolves at once while the fetch is still unregistered). A snapshot
+// check here would skip the save, leaving the modal open and its /item/… URL in
+// history, and the next reload would restore it over the page.
 When(
   "I open the description editor for resource {string}",
   async ({ page }, title: string) => {
     const card = page.locator(".items li").filter({ hasText: title });
     await card.locator(".description-placeholder, .item-description").first().click();
-    await page.waitForLoadState("networkidle");
+    await expect(page.locator(".edit-item-modal")).toBeVisible();
   },
 );
 
 When("I save the open description editor", async ({ page }) => {
-  if (await page.locator(".edit-item-modal").count()) {
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.locator(".modal-overlay")).toHaveCount(0);
-  }
-  await page.waitForLoadState("networkidle");
+  await expect(page.locator(".edit-item-modal")).toBeVisible();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.locator(".modal-overlay")).toHaveCount(0);
 });
 
 Then("the expanded resource has an empty description", async ({ page }) => {
