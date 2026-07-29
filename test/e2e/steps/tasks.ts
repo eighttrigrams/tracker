@@ -273,7 +273,6 @@ Given("an urgent task {string} was added earlier", async ({ request }, title: st
 });
 
 Given("a normal task {string} was added later", async ({ request }, title: string) => {
-  await new Promise((resolve) => setTimeout(resolve, 1500));
   await request.post("/api/tasks", { headers: apiHeaders, data: { title } });
 });
 

@@ -1,5 +1,7 @@
 (ns et.tr.tasks-db-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
+            [next.jdbc :as jdbc]
+            [et.tr.db :as db]
             [et.tr.db.task :as db.task]
             [et.tr.db.category :as db.category]
             [et.tr.test-helpers :refer [*ds* *user-id* with-in-memory-db]]))
@@ -70,6 +72,16 @@
       (let [tasks (db.task/list-tasks *ds* *user-id* :added)]
         (is (= ["Late normal" "Early urgent"] (map :title tasks)))
         (is (= "Late normal" (:title (first tasks))))))))
+
+(deftest list-tasks-added-mode-tiebreaker-test
+  (testing "rows sharing the created_at second fall back to a deterministic :id order"
+    (let [first-task (db.task/add-task *ds* *user-id* "First")
+          second-task (db.task/add-task *ds* *user-id* "Second")
+          third-task (db.task/add-task *ds* *user-id* "Third")]
+      (jdbc/execute! (db/get-conn *ds*) ["UPDATE tasks SET created_at = '2026-01-01 00:00:00'"])
+      (is (= [(:id third-task) (:id second-task) (:id first-task)]
+             (map :id (db.task/list-tasks *ds* *user-id* :added)))
+          "newest-added first, even when created_at ties"))))
 
 (deftest reorder-task-updates-sort-order-test
   (testing "updates task sort_order"
