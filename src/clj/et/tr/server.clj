@@ -160,18 +160,35 @@
     et.tr.server.source-handler
     et.tr.server.motto-handler])
 
+(def ^:private skill-resource "tracker-user/SKILL.md")
+
+(defn- strip-frontmatter
+  "Drop a leading YAML frontmatter block, so what /api/describe serves starts
+  at the markdown itself."
+  [md]
+  (str/replace-first md #"(?s)\A---\n.*?\n---\n" ""))
+
+(def ^:private skill-md
+  (delay
+    (when-let [r (io/resource skill-resource)]
+      (str/trim (strip-frontmatter (slurp r))))))
+
+(defn- describe-endpoints []
+  (->> describe-namespaces
+       (mapcat (fn [ns-sym] (when-let [n (find-ns ns-sym)] (ns-publics n))))
+       (keep (fn [[sym v]]
+               (when-let [doc (:doc (meta v))]
+                 {:name (str sym)
+                  :ns (str (ns-name (.ns ^clojure.lang.Var v)))
+                  :arglists (pr-str (:arglists (meta v)))
+                  :doc doc})))
+       (sort-by (juxt :ns :name))
+       vec))
+
 (defn describe-handler [_req]
   {:status 200
-   :body (->> describe-namespaces
-              (mapcat (fn [ns-sym] (when-let [n (find-ns ns-sym)] (ns-publics n))))
-              (keep (fn [[sym v]]
-                      (when-let [doc (:doc (meta v))]
-                        {:name (str sym)
-                         :ns (str (ns-name (.ns ^clojure.lang.Var v)))
-                         :arglists (pr-str (:arglists (meta v)))
-                         :doc doc})))
-              (sort-by (juxt :ns :name))
-              vec)})
+   :body {:endpoints (describe-endpoints)
+          :skill @skill-md}})
 
 (defroutes api-routes
   (context "/api" []

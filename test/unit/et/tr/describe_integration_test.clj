@@ -6,11 +6,18 @@
 (use-fixtures :each with-integration-db)
 
 (deftest describe-endpoint-returns-the-api-surface
-  (let [{:keys [status body]} (GET-json "/api/describe")]
-    (testing "returns 200 with a non-empty JSON array"
+  (let [{:keys [status] :as response} (GET-json "/api/describe")
+        body (:endpoints (:body response))]
+    (testing "returns 200 with a non-empty endpoints array"
       (is (= 200 status))
       (is (sequential? body))
       (is (pos? (count body))))
+
+    (testing "the usage skill rides along under :skill"
+      (let [skill (:skill (:body response))]
+        (is (string? skill))
+        (is (str/starts-with? skill "# Using tracker effectively"))
+        (is (not (str/includes? skill "---\nname: tracker-user")))))
 
     (testing "every entry has the rhizome-style shape {:name :ns :arglists :doc}"
       (doseq [entry body]
