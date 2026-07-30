@@ -4,6 +4,11 @@
             [et.tr.db.category-rule :as db.category-rule]
             [et.tr.db.task :as db.task]
             [et.tr.db.issue :as db.issue]
+            [et.tr.db.resource :as db.resource]
+            [et.tr.db.journal :as db.journal]
+            [et.tr.db.journal-entry :as db.journal-entry]
+            [et.tr.db.meeting-series :as db.meeting-series]
+            [et.tr.db.recurring-task :as db.recurring-task]
             [et.tr.test-helpers :refer [*ds* *user-id* with-in-memory-db]]))
 
 (use-fixtures :each with-in-memory-db)
@@ -143,3 +148,42 @@
       (is (= #{"Plain issue"}
              (set (map :title (db.issue/list-issues *ds* *user-id*
                                 {:excluded-categories {:projects ["plurama"]}}))))))))
+
+(def ^:private remaining-wirings
+  "The list fns whose exclusion clause nothing else covers. Each one wires its
+  own join table into the same shape, so the risk is a wrong or dropped clause
+  in a single entity type — hence one case per type rather than one for all."
+  [{:label "resources"
+    :add #(db.resource/add-resource *ds* *user-id* % nil "both")
+    :categorize #(db.resource/categorize-resource *ds* *user-id* %1 %2 %3)
+    :titles #(set (map :title (db.resource/list-resources *ds* *user-id* {:excluded-categories %})))}
+   {:label "journals"
+    :add #(db.journal/add-journal *ds* *user-id* %)
+    :categorize #(db.journal/categorize-journal *ds* *user-id* %1 %2 %3)
+    :titles #(set (map :title (db.journal/list-journals *ds* *user-id* {:excluded-categories %})))}
+   {:label "journal entries"
+    :add #(db.journal-entry/add-journal-entry *ds* *user-id* % "both")
+    :categorize #(db.journal-entry/categorize-journal-entry *ds* *user-id* %1 %2 %3)
+    :titles #(set (map :title (db.journal-entry/list-journal-entries *ds* *user-id* {:excluded-categories %})))}
+   {:label "meeting series"
+    :add #(db.meeting-series/add-meeting-series *ds* *user-id* %)
+    :categorize #(db.meeting-series/categorize-meeting-series *ds* *user-id* %1 %2 %3)
+    :titles #(set (map :title (db.meeting-series/list-meeting-series *ds* *user-id* {:excluded-categories %})))}
+   {:label "recurring tasks"
+    :add #(db.recurring-task/add-recurring-task *ds* *user-id* %)
+    :categorize #(db.recurring-task/categorize-recurring-task *ds* *user-id* %1 %2 %3)
+    :titles #(set (map :title (db.recurring-task/list-recurring-tasks *ds* *user-id* {:excluded-categories %})))}])
+
+(deftest exclusion-is-wired-for-every-list-fn-test
+  (let [plurama (db.category/add-project *ds* *user-id* "plurama")
+        tracker (db.category/add-project *ds* *user-id* "tracker")]
+    (db.category-rule/add-rule *ds* *user-id* "project" (:id plurama) "project" (:id tracker))
+    (doseq [{:keys [label add categorize titles]} remaining-wirings]
+      (testing (str label " honour the exclusion, rules included")
+        (let [seeded (add (str label " seeded"))
+              implied (add (str label " implied"))
+              plain (add (str label " plain"))]
+          (categorize (:id seeded) "project" (:id plurama))
+          (categorize (:id implied) "project" (:id tracker))
+          (is (= #{(:title plain)} (titles {:projects ["plurama"]})))
+          (is (= #{(:title seeded) (:title implied) (:title plain)} (titles nil))))))))
