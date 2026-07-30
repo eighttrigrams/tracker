@@ -106,7 +106,7 @@
     (db.meet/set-meet-start-date *ds* *user-id* (:id m1) "2099-01-01")
     (db.meet/set-meet-start-date *ds* *user-id* (:id m2) "2099-01-01")
     (db.meet/categorize-meet *ds* *user-id* (:id m1) "place" (:id place))
-    (let [meets (db.meet/list-meets *ds* *user-id* {:excluded-places ["Office"]})]
+    (let [meets (db.meet/list-meets *ds* *user-id* {:excluded-categories {:places ["Office"]}})]
       (is (= 1 (count meets)))
       (is (= "Remote" (:title (first meets)))))))
 
@@ -117,7 +117,7 @@
     (db.meet/set-meet-start-date *ds* *user-id* (:id m1) "2099-01-01")
     (db.meet/set-meet-start-date *ds* *user-id* (:id m2) "2099-01-01")
     (db.meet/categorize-meet *ds* *user-id* (:id m1) "project" (:id project))
-    (let [meets (db.meet/list-meets *ds* *user-id* {:excluded-projects ["Alpha"]})]
+    (let [meets (db.meet/list-meets *ds* *user-id* {:excluded-categories {:projects ["Alpha"]}})]
       (is (= ["General"] (mapv :title meets))))))
 
 (deftest list-meets-honors-limit-test

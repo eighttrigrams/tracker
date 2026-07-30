@@ -6,6 +6,7 @@
             [et.tr.db :as db]
             [et.tr.db.recurring-task :as db.recurring-task]
             [et.tr.db.category-rule :as db.category-rule]
+            [et.tr.db.category-exclusion :as db.category-exclusion]
             [et.tr.db.relation :as relation]))
 
 (defn add-task
@@ -47,7 +48,7 @@
   ([ds user-id sort-mode] (list-tasks ds user-id sort-mode nil))
   ([ds user-id sort-mode opts]
    (let [opts (if (string? opts) {:search-term opts} opts)
-         {:keys [search-term importance context strict categories excluded-places excluded-projects recurring-task-id issue-id limit date-from date-to]} opts
+         {:keys [search-term importance context strict categories excluded-categories recurring-task-id issue-id limit date-from date-to]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          base-where (cond
@@ -78,8 +79,7 @@
          category-clauses (build-category-clauses categories)
          recurring-clause (when recurring-task-id [:= :recurring_task_id recurring-task-id])
          date-range-clause (db/build-date-range-clause [:coalesce :done_at :modified_at] date-from date-to)
-         exclusion-clauses (filterv some? [(db/build-exclusion-subquery "place" excluded-places)
-                                           (db/build-exclusion-subquery "project" excluded-projects)])
+         exclusion-clauses (db.category-exclusion/build-exclusion-clauses ds user-id excluded-categories)
          where-clause (into [:and base-where]
                             (concat (filter some? [search-clause importance-clause scope-clause recurring-clause date-range-clause])
                                     category-clauses

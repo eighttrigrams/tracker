@@ -5,6 +5,7 @@
             [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.db.category-rule :as db.category-rule]
+            [et.tr.db.category-exclusion :as db.category-exclusion]
             [et.tr.db.relation :as relation]))
 
 (defn add-meet
@@ -53,7 +54,7 @@
 (defn list-meets
   ([ds user-id] (list-meets ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories sort-mode excluded-places excluded-projects series-id limit date-from date-to]} opts
+   (let [{:keys [search-term importance context strict categories sort-mode excluded-categories series-id limit date-from date-to]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          date-clause (case sort-mode
@@ -70,8 +71,7 @@
          category-clauses (build-meet-category-clauses categories)
          series-clause (when series-id [:= :meeting_series_id series-id])
          date-range-clause (db/build-date-range-clause :start_date date-from date-to)
-         exclusion-clauses (filterv some? [(db/build-exclusion-subquery :meet_categories :meet_id :meets "place" excluded-places)
-                                           (db/build-exclusion-subquery :meet_categories :meet_id :meets "project" excluded-projects)])
+         exclusion-clauses (db.category-exclusion/build-exclusion-clauses ds user-id :meet_categories :meet_id :meets excluded-categories)
          where-clause (into [:and user-where]
                             (concat (filter some? [date-clause search-clause importance-clause scope-clause series-clause date-range-clause])
                                     category-clauses

@@ -172,22 +172,6 @@
                          [:= (keyword (str (name join-table) ".category_type")) category-type]
                          [:in (keyword (str (name table-name) ".name")) category-names]]}]))))
 
-(defn build-exclusion-subquery
-  ([category-type category-names]
-   (build-exclusion-subquery :task_categories :task_id :tasks category-type category-names))
-  ([join-table entity-id-col entity-ref category-type category-names]
-   (when (seq category-names)
-     (let [table-name (case category-type
-                        "place" :places
-                        "project" :projects)]
-       [:not [:exists {:select [1]
-                       :from [join-table]
-                       :join [[table-name] [:= (keyword (str (name table-name) ".id")) (keyword (str (name join-table) ".category_id"))]]
-                       :where [:and
-                               [:= (keyword (str (name join-table) "." (name entity-id-col))) (keyword (str (name entity-ref) ".id"))]
-                               [:= (keyword (str (name join-table) ".category_type")) category-type]
-                               [:in (keyword (str (name table-name) ".name")) category-names]]}]]))))
-
 (declare build-scope-clause)
 
 (defn fetch-category-lookups

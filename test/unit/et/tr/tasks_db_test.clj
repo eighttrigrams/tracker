@@ -618,7 +618,7 @@
       (db.task/set-task-due-date *ds* *user-id* (:id task3) "2026-03-03")
       (db.task/categorize-task *ds* *user-id* (:id task1) "place" (:id home))
       (db.task/categorize-task *ds* *user-id* (:id task2) "place" (:id office))
-      (let [tasks (db.task/list-tasks *ds* *user-id* :today {:excluded-places ["Home"]})]
+      (let [tasks (db.task/list-tasks *ds* *user-id* :today {:excluded-categories {:places ["Home"]}})]
         (is (= 2 (count tasks)))
         (is (not (some #(= "Home task" (:title %)) tasks)))
         (is (some #(= "Office task" (:title %)) tasks))
@@ -632,7 +632,7 @@
       (db.task/set-task-due-date *ds* *user-id* (:id task1) "2026-03-01")
       (db.task/set-task-due-date *ds* *user-id* (:id task2) "2026-03-02")
       (db.task/categorize-task *ds* *user-id* (:id task1) "project" (:id alpha))
-      (let [tasks (db.task/list-tasks *ds* *user-id* :today {:excluded-projects ["Alpha"]})]
+      (let [tasks (db.task/list-tasks *ds* *user-id* :today {:excluded-categories {:projects ["Alpha"]}})]
         (is (not (some #(= "Alpha task" (:title %)) tasks)))
         (is (some #(= "Beta task" (:title %)) tasks))))))
 
@@ -648,14 +648,14 @@
       (db.task/set-task-due-date *ds* *user-id* (:id task3) "2026-03-03")
       (db.task/categorize-task *ds* *user-id* (:id task1) "place" (:id home))
       (db.task/categorize-task *ds* *user-id* (:id task2) "project" (:id alpha))
-      (let [tasks (db.task/list-tasks *ds* *user-id* :today {:excluded-places ["HomeX"] :excluded-projects ["AlphaX"]})]
+      (let [tasks (db.task/list-tasks *ds* *user-id* :today {:excluded-categories {:places ["HomeX"] :projects ["AlphaX"]}})]
         (is (= 1 (count tasks)))
         (is (= "Plain task" (:title (first tasks)))))))
 
   (testing "tasks without categories are never excluded"
     (let [task1 (db.task/add-task *ds* *user-id* "Unassigned")]
       (db.task/set-task-due-date *ds* *user-id* (:id task1) "2026-03-01")
-      (let [tasks (db.task/list-tasks *ds* *user-id* :today {:excluded-places ["NonExistent"] :excluded-projects ["NonExistent"]})]
+      (let [tasks (db.task/list-tasks *ds* *user-id* :today {:excluded-categories {:places ["NonExistent"] :projects ["NonExistent"]}})]
         (is (some #(= "Unassigned" (:title %)) tasks))))))
 
 (deftest set-task-reminder-test
