@@ -2159,16 +2159,24 @@
   catch up with what was written — above all :modified_at, which the next save's
   optimistic-concurrency guard is read from. Merges rather than replaces so
   display-only fields the row does not carry (e.g. :relations) survive, and does
-  nothing once the modal has been closed or moved on to another item."
+  nothing once the modal has been closed or moved on to another item.
+  A read that fails leaves the modal un-rearmed after a save that already
+  flashed its checkmark, so it says so: the next save would otherwise conflict
+  with no visible cause. open-edit-modal can fall back to the in-memory entity
+  instead because there the row has not just been written."
   [entity-type id after-refresh]
   (when-let [api-path (edit-modal-api-paths entity-type)]
-    (api/fetch-json (str api-path id) (auth-headers)
+    (api/fetch-json-with-error (str api-path id) (auth-headers)
       (fn [fresh]
         (let [{:keys [type entity]} (:editing-modal @*app-state)]
           (when (and fresh (= type entity-type) (= id (:id entity)))
             (let [merged (merge entity fresh)]
               (swap! *app-state assoc-in [:editing-modal :entity] merged)
-              (after-refresh merged))))))))
+              (after-refresh merged)))))
+      (fn [resp]
+        (swap! *app-state assoc :error
+               (get-in resp [:response :error]
+                       "Reloading the item failed — reopen it before saving again"))))))
 
 (defn- edit-conflict-handler
   "Error handler for optimistic-concurrency PUTs issued from the edit modal.
