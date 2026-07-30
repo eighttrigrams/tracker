@@ -52,7 +52,8 @@
    :mottos []
    :today-meets []
    :today-journal-entries []
-   :upcoming-horizon nil})
+   :upcoming-horizon nil
+   :working-on-task-id nil})
 
 (defonce *app-state (r/atom {;; Data collections
                             :tasks []
