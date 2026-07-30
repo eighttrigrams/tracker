@@ -4,7 +4,8 @@
             [reagent.core :as r]
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
+            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
+            [et.tr.ui.state.exclusions :as exclusions]))
 
 (defonce *resources-page-state (r/atom {:expanded-resource nil
                                         :editing-resource nil
@@ -43,6 +44,7 @@
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
         goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
+        excluded-params (exclusions/query-params app-state)
         domain (:domain opts)
         excluded-domains (:excluded-domains opts)
         paginate? (not (filtered? opts))
@@ -60,6 +62,7 @@
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
               (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&")
+              (seq excluded-params) (str (str/join "&" excluded-params) "&")
               sort-mode (str "sortMode=" (name sort-mode) "&"))]
     (GET url
       {:response-format :json

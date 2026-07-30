@@ -4,7 +4,8 @@
             [reagent.core :as r]
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
+            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
+            [et.tr.ui.state.exclusions :as exclusions]))
 
 (defonce *issues-page-state (r/atom {:expanded-issue nil
                                      :editing-issue nil
@@ -41,6 +42,7 @@
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
         goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
+        excluded-params (exclusions/query-params app-state)
         paginate? (not (filtered? opts))
         offset (or (:offset opts) 0)
         append? (boolean (:append? opts))
@@ -55,6 +57,7 @@
               (seq place-names) (str "places=" (js/encodeURIComponent (clojure.string/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (clojure.string/join "," project-names)) "&")
               (seq goal-names) (str "goals=" (js/encodeURIComponent (clojure.string/join "," goal-names)) "&")
+              (seq excluded-params) (str (clojure.string/join "&" excluded-params) "&")
               sort-mode (str "sortMode=" (name sort-mode) "&"))]
     (GET url
       {:response-format :json

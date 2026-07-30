@@ -62,20 +62,36 @@
                      nil))
     :on-blur (fn [_] (on-commit))}])
 
+(defn badge-click
+  "Gate matrix for a category badge. Shift-click adds a negative filter, but
+  only from a clean slate — no positive filter selected in any of the four
+  groups — or once negatives already exist. A plain click toggles the positive
+  filter for the badge's type as before, and goes inert while any negative
+  filter is active. Returns [clickable? handler]; handler is nil when neither
+  path is open."
+  [category toggle-fn has-filter-fn]
+  (let [negative-active? (state/negative-filter-active?)
+        excludable? (or negative-active? (not (state/has-active-filters?)))
+        toggleable? (and (not negative-active?) (not (has-filter-fn (:type category))))]
+    [(or excludable? toggleable?)
+     (when (or excludable? toggleable?)
+       (fn [e]
+         (.stopPropagation e)
+         (if (and (.-shiftKey e) excludable?)
+           (state/toggle-negative-filter (:type category) (:id category))
+           (when toggleable?
+             (toggle-fn (:type category) (:id category))))))]))
+
 (defn category-badges [{:keys [item category-types toggle-fn has-filter-fn force-show?]}]
   (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]
     (when (and (or force-show? (state/show-collapsed-categories?)) (seq all-categories))
       (into [:div.task-badges]
             (for [category all-categories]
-              (let [type-has-filter? (has-filter-fn (:type category))
-                    clickable? (not type-has-filter?)]
+              (let [[clickable? on-click] (badge-click category toggle-fn has-filter-fn)]
                 ^{:key (str (:type category) "-" (:id category))}
                 [:span.tag {:class (:type category)
                             :style (when clickable? {:cursor "pointer"})
-                            :on-click (when clickable?
-                                        (fn [e]
-                                          (.stopPropagation e)
-                                          (toggle-fn (:type category) (:id category))))}
+                            :on-click on-click}
                  (filters/badge-label category)]))))))
 
 (defn task-category-badges [task]
@@ -100,15 +116,11 @@
        (when show-categories?
          (into [:<>]
                (for [category (mapcat (fn [[type k]] (map #(assoc % :type type) (get task k))) all-types)]
-                 (let [type-has-filter? (state/has-filter-for-type? (:type category))
-                       clickable? (not type-has-filter?)]
+                 (let [[clickable? on-click] (badge-click category state/toggle-shared-filter state/has-filter-for-type?)]
                    ^{:key (str (:type category) "-" (:id category))}
                    [:span.tag {:class (:type category)
                                :style (when clickable? {:cursor "pointer"})
-                               :on-click (when clickable?
-                                           (fn [e]
-                                             (.stopPropagation e)
-                                             (state/toggle-shared-filter (:type category) (:id category))))}
+                               :on-click on-click}
                     (filters/badge-label category)]))))])))
 
 (defn done-button-spec [task extra-dropdown-items]

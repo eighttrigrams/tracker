@@ -4,7 +4,8 @@
             [reagent.core :as r]
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
+            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
+            [et.tr.ui.state.exclusions :as exclusions]))
 
 (defonce *meets-page-state (r/atom {:expanded-meet nil
                                      :editing-meet nil
@@ -31,6 +32,7 @@
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
         goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
+        excluded-params (exclusions/query-params app-state)
         url (cond-> "/api/meets?"
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
               importance (str "importance=" (name importance) "&")
@@ -43,6 +45,7 @@
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
               (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&")
+              (seq excluded-params) (str (str/join "&" excluded-params) "&")
               paged? (str "paged=true&")
               paged? (str "weekOffset=" (or week-offset 0) "&")
               paged? (str "weekLimit=" (or week-limit 4) "&"))]
@@ -296,13 +299,15 @@
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
         goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
+        excluded-params (exclusions/query-params app-state)
         url (cond-> "/api/meets?"
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
               (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
-              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&"))]
+              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&")
+              (seq excluded-params) (str (str/join "&" excluded-params) "&"))]
     (GET url
       {:response-format :json
        :keywords? true

@@ -1,7 +1,8 @@
 (ns et.tr.ui.state.reports
   (:require [ajax.core :refer [GET]]
             [clojure.string :as str]
-            [reagent.core :as r]))
+            [reagent.core :as r]
+            [et.tr.ui.state.exclusions :as exclusions]))
 
 (defonce *reports-page-state (r/atom {:expanded-task nil
                                       :expanded-meet nil
@@ -24,6 +25,7 @@
         place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
         project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
         goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
+        excluded-params (exclusions/query-params app-state)
         url (cond-> "/api/reports?"
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
@@ -32,6 +34,7 @@
               (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
               (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
               (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&")
+              (seq excluded-params) (str (str/join "&" excluded-params) "&")
               true (str "weekOffset=" (or week-offset 0) "&")
               true (str "weekLimit=" (or week-limit 1) "&"))]
     (GET url

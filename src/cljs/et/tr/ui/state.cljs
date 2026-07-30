@@ -13,6 +13,7 @@
             [et.tr.ui.state.users :as users]
             [et.tr.ui.state.categories :as categories]
             [et.tr.ui.state.rules :as rules]
+            [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.tasks :as tasks]
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.ui.state.today-page :as today-page]
@@ -77,6 +78,15 @@
                             :shared/filter-places #{}
                             :shared/filter-projects #{}
                             :shared/filter-goals #{}
+
+                            ;; Shared negative category filters (across all
+                            ;; tabs). Mutually exclusive with the positive ones:
+                            ;; while any of these is set the sidebar shows them
+                            ;; instead of the four groups.
+                            :shared/exclude-people #{}
+                            :shared/exclude-places #{}
+                            :shared/exclude-projects #{}
+                            :shared/exclude-goals #{}
 
                             ;; Tasks page state
                             :tasks-page/filter-search ""
@@ -1331,6 +1341,24 @@
 
 (defn clear-shared-filter [filter-type]
   (swap! *app-state assoc (shared-filter-key filter-type) #{})
+  (refetch-current-tab))
+
+(defn negative-filter-active? []
+  (exclusions/active? *app-state))
+
+(defn negative-filter-categories []
+  (exclusions/excluded-categories *app-state))
+
+(defn toggle-negative-filter
+  "Add (or, from a chip's x, remove) one negative category. Only the seed is
+  kept — the rule closure it hides through is resolved server-side on every
+  fetch, so no closure request is made here."
+  [filter-type id]
+  (exclusions/toggle *app-state filter-type id)
+  (refetch-current-tab))
+
+(defn clear-negative-filters []
+  (exclusions/clear *app-state)
   (refetch-current-tab))
 
 (defn clear-uncollapsed-resource-filters []
