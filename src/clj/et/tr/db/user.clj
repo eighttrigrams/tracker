@@ -3,7 +3,8 @@
             [honey.sql :as sql]
             [buddy.hashers :as hashers]
             [taoensso.telemere :as tel]
-            [et.tr.db :as db]))
+            [et.tr.db :as db]
+            [et.tr.db.working-on :as db.working-on]))
 
 (defn create-user
   ([ds username password]
@@ -75,6 +76,7 @@
           (jdbc/execute-one! tx
             (sql/format {:delete-from :task_categories
                          :where [:in :task_id task-ids]})))
+        (db.working-on/clear-for-user! tx user-id)
         (jdbc/execute-one! tx (sql/format {:delete-from :tasks :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :messages :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :people :where [:= :user_id user-id]}))

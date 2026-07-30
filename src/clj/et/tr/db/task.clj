@@ -7,7 +7,8 @@
             [et.tr.db.recurring-task :as db.recurring-task]
             [et.tr.db.category-rule :as db.category-rule]
             [et.tr.db.category-exclusion :as db.category-exclusion]
-            [et.tr.db.relation :as relation]))
+            [et.tr.db.relation :as relation]
+            [et.tr.db.working-on :as db.working-on]))
 
 (defn add-task
   ([ds user-id title] (add-task ds user-id title "both"))
@@ -248,6 +249,7 @@
                    (jdbc/execute-one! tx
                      (sql/format {:delete-from :task_categories
                                   :where [:= :task_id task-id]}))
+                   (db.working-on/clear-if-task! tx user-id task-id)
                    (jdbc/execute-one! tx
                      (sql/format {:delete-from :relations
                                   :where [:or
@@ -263,17 +265,21 @@
       result)))
 
 (defn set-task-done [ds user-id task-id done?]
-  (let [done-val (if done? 1 0)]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :tasks
-                   :set (cond-> {:done done-val
-                                 :modified_at (clock/sql-now)}
-                          done? (assoc :today 0 :lined_up_for nil :maybe 0
-                                       :done_at (clock/sql-now))
-                          (not done?) (assoc :done_at nil))
-                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :done :modified_at :done_at]})
-      db/jdbc-opts)))
+  (let [done-val (if done? 1 0)
+        result (jdbc/execute-one! (db/get-conn ds)
+                 (sql/format {:update :tasks
+                              :set (cond-> {:done done-val
+                                            :modified_at (clock/sql-now)}
+                                     done? (assoc :today 0 :lined_up_for nil :maybe 0
+                                                  :done_at (clock/sql-now))
+                                     (not done?) (assoc :done_at nil))
+                              :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                              :returning [:id :done :modified_at :done_at]})
+                 db/jdbc-opts)]
+    ;; Un-doing does not restore the marker, so only the done? direction clears.
+    (when (and done? result)
+      (db.working-on/clear-if-task! ds user-id task-id))
+    result))
 
 (defn set-task-today [ds user-id task-id today?]
   (let [today-val (if today? 1 0)

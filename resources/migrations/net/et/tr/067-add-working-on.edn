@@ -1,0 +1,7 @@
+{:id "067-add-working-on"
+ :up ["CREATE TABLE working_on (
+         user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+         task_id INTEGER NOT NULL REFERENCES tasks(id),
+         set_on TEXT NOT NULL
+       )"]
+ :down ["DROP TABLE IF EXISTS working_on"]}

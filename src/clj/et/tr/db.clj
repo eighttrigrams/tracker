@@ -364,7 +364,7 @@
 
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
-    (doseq [table [:relations :task_categories :resource_categories :issue_categories :meet_categories :meeting_series_categories :recurring_task_categories :journal_entry_categories :journal_categories :tasks :messages :resources :issues :meets :meeting_series :recurring_tasks :journal_entries :journals :mottos :people :places :projects :goals :users]]
+    (doseq [table [:relations :working_on :task_categories :resource_categories :issue_categories :meet_categories :meeting_series_categories :recurring_task_categories :journal_entry_categories :journal_categories :tasks :messages :resources :issues :meets :meeting_series :recurring_tasks :journal_entries :journals :mottos :people :places :projects :goals :users]]
       (jdbc/execute-one! conn (sql/format {:delete-from table})))
     (jdbc/execute-one! conn
       (sql/format {:insert-into :users
