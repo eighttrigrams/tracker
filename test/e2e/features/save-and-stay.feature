@@ -23,6 +23,20 @@ Feature: Saving without leaving the edit modal
     And the modal title field should show "Saved twice"
     And the task "Saved twice" should be stored
 
+  Scenario: A save-and-stay that succeeds clears the conflict banner of the one before
+    Given I am on the app
+    When I click the "Tasks" tab
+    And I add a task called "Banner original"
+    And I open the edit modal for task "Banner original"
+    And the task "Banner original" is changed to "Changed in tab B" out of band
+    And I change the modal title to "Stale stay edit" and save without closing, hitting a conflict
+    Then the conflict banner should be visible
+    And the save checkmark should not be visible
+    When I change the modal title to "Recovered stay edit" and save without closing
+    Then the conflict banner should not be visible
+    And the modal title field should show "Recovered stay edit"
+    And the task "Recovered stay edit" should be stored
+
   Scenario: A save-and-stay leaves the open form alone
     Given I am on the app
     When I click the "Tasks" tab

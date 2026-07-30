@@ -50,6 +50,17 @@ When(
   },
 );
 
+// A refused save flashes no checkmark, so this step has nothing of its own to
+// synchronise on — the banner assertion that follows it in the feature is what
+// waits for the round trip.
+When(
+  "I change the modal title to {string} and save without closing, hitting a conflict",
+  async ({ page }, newTitle: string) => {
+    await setFieldValue(page.locator(modalTitle).first(), newTitle);
+    await page.keyboard.press("Meta+Shift+S");
+  },
+);
+
 When(
   "I change the modal title to {string} and save with the keyboard",
   async ({ page }, newTitle: string) => {

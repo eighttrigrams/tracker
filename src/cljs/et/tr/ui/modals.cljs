@@ -344,11 +344,19 @@
   re-read once the last has landed: re-arming the optimistic-concurrency guard
   from an earlier response would make the next save conflict with this one. A
   write that fails leaves the latch closed — no flash, no re-arm, and the error
-  banner explains itself."
+  banner explains itself.
+  Clearing :error is part of a save having landed: closing the modal is what used
+  to clear the banner (clear-editing-modal), and a save-and-stay never closes it,
+  so a resolved conflict would otherwise keep telling the user to save again with
+  its × unreachable behind the modal overlay. Only this save's own success clears
+  it — deliberately, even in the two-saves-in-one-round-trip case, where the
+  winner can clear the banner the loser's 409 just raised: the loser wrote
+  nothing, the winner's data is stored, and the next save succeeds."
   [writes type id on-refreshed]
   (let [pending (atom writes)]
     (fn []
       (when (zero? (swap! pending dec))
+        (state/clear-error)
         (save-flash/flash!)
         (state/refresh-editing-modal-entity! type id on-refreshed)))))
 
