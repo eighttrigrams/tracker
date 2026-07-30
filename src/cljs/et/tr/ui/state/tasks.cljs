@@ -127,7 +127,7 @@
     (auth-headers)
     (fn [_] (fetch-tasks-fn))))
 
-(defn set-task-due-date [app-state auth-headers task-id due-date on-success]
+(defn set-task-due-date [app-state auth-headers task-id due-date on-success on-error]
   (api/put-json (str "/api/tasks/" task-id "/due-date")
     {:due-date due-date}
     (auth-headers)
@@ -140,9 +140,10 @@
                      tasks)))
       (when on-success (on-success)))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due date")))))
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due date"))
+      (when on-error (on-error)))))
 
-(defn set-task-due-time [app-state auth-headers task-id due-time on-success]
+(defn set-task-due-time [app-state auth-headers task-id due-time on-success on-error]
   (api/put-json (str "/api/tasks/" task-id "/due-time")
     {:due-time due-time}
     (auth-headers)
@@ -155,7 +156,8 @@
                      tasks)))
       (when on-success (on-success)))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due time")))))
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due time"))
+      (when on-error (on-error)))))
 
 (defn set-confirm-delete-task [app-state task]
   (swap! app-state assoc :confirm-delete-task task))

@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { setFieldValue } from "./helpers";
+import { setFieldValue, today } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -50,9 +50,9 @@ When(
   },
 );
 
-// A refused save flashes no checkmark, so this step has nothing of its own to
-// synchronise on — the banner assertion that follows it in the feature is what
-// waits for the round trip.
+// A save that is refused, or whose date write fails, flashes no checkmark — so
+// these two steps have nothing of their own to synchronise on: the banner
+// assertion that follows them in the feature is what waits for the round trip.
 When(
   "I change the modal title to {string} and save without closing, hitting a conflict",
   async ({ page }, newTitle: string) => {
@@ -60,6 +60,30 @@ When(
     await page.keyboard.press("Meta+Shift+S");
   },
 );
+
+When(
+  "I set the modal due date to today and save without closing, hitting a failed write",
+  async ({ page }) => {
+    await setFieldValue(page.locator(".edit-item-modal .date-picker-input"), today());
+    await page.keyboard.press("Meta+Shift+S");
+  },
+);
+
+// The content PUT of that save lands and bumps modified_at while this one fails,
+// which is what used to doom the save after it: the modal kept the pre-save
+// modified_at, so its next save was bound to conflict.
+When("the next due-date write fails once", async ({ page }) => {
+  await page.route(
+    "**/api/tasks/*/due-date",
+    (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Injected due-date failure" }),
+      }),
+    { times: 1 },
+  );
+});
 
 When(
   "I change the modal title to {string} and save with the keyboard",
@@ -136,6 +160,19 @@ Then("the save checkmark should disappear on its own", async ({ page }) => {
 
 Then("the save checkmark should not be visible", async ({ page }) => {
   await expect(page.locator("#save-flash")).toHaveCount(0);
+});
+
+Then("the error banner should say {string}", async ({ page }, message: string) => {
+  await expect(page.locator(".error")).toContainText(message);
+});
+
+// The date the failed write never stored: the save after it has to be the one
+// that gets it there, which it only can once its guard has been re-armed.
+Then("the task {string} should have its due date set", async ({ request }, title: string) => {
+  const tasks = await (await request.get("/api/tasks", { headers })).json();
+  const match = tasks.find((t: any) => t.title === title);
+  if (!match) throw new Error(`no task titled "${title}"`);
+  expect(match.due_date).toBe(today());
 });
 
 Then("the task {string} should be stored", async ({ request }, title: string) => {

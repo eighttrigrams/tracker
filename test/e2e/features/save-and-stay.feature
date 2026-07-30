@@ -37,6 +37,21 @@ Feature: Saving without leaving the edit modal
     And the modal title field should show "Recovered stay edit"
     And the task "Recovered stay edit" should be stored
 
+  Scenario: A save whose date write fails leaves the next save able to succeed
+    Given I am on the app
+    When I click the "Tasks" tab
+    And I add a task called "Half saved"
+    And I open the edit modal for task "Half saved"
+    And I click the "Time" tab in the modal
+    And a full second passes
+    And the next due-date write fails once
+    And I set the modal due date to today and save without closing, hitting a failed write
+    Then the error banner should say "Injected due-date failure"
+    And the save checkmark should not be visible
+    When I save without closing
+    Then the conflict banner should not be visible
+    And the task "Half saved" should have its due date set
+
   Scenario: A save-and-stay leaves the open form alone
     Given I am on the app
     When I click the "Tasks" tab

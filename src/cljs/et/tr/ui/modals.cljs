@@ -339,12 +339,17 @@
       :else false)))
 
 (defn- stay-write-latch
-  "Returns the callback a save-and-stay hands to each of the `writes` requests it
-  issues. Every one of them bumps modified_at, so the modal's entity may only be
-  re-read once the last has landed: re-arming the optimistic-concurrency guard
-  from an earlier response would make the next save conflict with this one. A
-  write that fails leaves the latch closed — no flash, no re-arm, and the error
-  banner explains itself.
+  "Returns the [on-success on-error] pair a save-and-stay hands to each of the
+  `writes` requests it issues, one of the two to be called per write. Every write
+  bumps modified_at, so the modal's entity may only be re-read once the last one
+  has settled: re-arming the optimistic-concurrency guard from an earlier
+  response would make the next save conflict with this one.
+  A save with a failed write among its writes still re-reads the row. Its
+  failure signals stay honest — the failing write's error banner, no checkmark —
+  but the entity has to catch up with the writes that did land, or the next save
+  is bound to conflict and its re-seed would discard whatever was typed since.
+  The re-read does not re-seed the form, so the write that failed stays dirty and
+  visible, which is the point.
   Clearing :error is part of a save having landed: closing the modal is what used
   to clear the banner (clear-editing-modal), and a save-and-stay never closes it,
   so a resolved conflict would otherwise keep telling the user to save again with
@@ -353,12 +358,18 @@
   winner can clear the banner the loser's 409 just raised: the loser wrote
   nothing, the winner's data is stored, and the next save succeeds."
   [writes type id on-refreshed]
-  (let [pending (atom writes)]
-    (fn []
-      (when (zero? (swap! pending dec))
-        (state/clear-error)
-        (save-flash/flash!)
-        (state/refresh-editing-modal-entity! type id on-refreshed)))))
+  (let [pending (atom writes)
+        failed? (atom false)
+        settled! (fn []
+                   (when (zero? (swap! pending dec))
+                     (when-not @failed?
+                       (state/clear-error)
+                       (save-flash/flash!))
+                     (state/refresh-editing-modal-entity! type id on-refreshed)))]
+    [settled!
+     (fn []
+       (reset! failed? true)
+       (settled!))]))
 
 (defn- edit-modal-save
   ([fields] (edit-modal-save fields nil))
@@ -374,17 +385,17 @@
          start-time-change? (and start-time (not= @start-time (or (:start_time entity) "")))
          ;; on-refreshed is what makes this a save-and-stay: given one, the modal
          ;; stays open and gets its entity refreshed instead of being closed.
-         written! (when on-refreshed
-                    (stay-write-latch (cond-> 1
-                                        badge-change? inc
-                                        due-date-change? inc
-                                        due-time-change? inc
-                                        start-date-change? inc
-                                        start-time-change? inc)
-                                      type id on-refreshed))
+         [written! write-failed!] (when on-refreshed
+                                    (stay-write-latch (cond-> 1
+                                                        badge-change? inc
+                                                        due-date-change? inc
+                                                        due-time-change? inc
+                                                        start-date-change? inc
+                                                        start-time-change? inc)
+                                                      type id on-refreshed))
          saved! (or written! state/clear-editing-modal)]
      (when badge-change?
-       (state/set-relation-badge-title type id @relation-badge-title written!))
+       (state/set-relation-badge-title type id @relation-badge-title written! write-failed!))
      (case type
        ;; :task / :meet chain the date/time setters after the OC-guarded content
        ;; PUT succeeds. If the content PUT commits (200) but a follow-up date/time
@@ -395,16 +406,16 @@
        :task (state/update-task id @title @description @tags expected
                (fn []
                  (when due-date-change?
-                   (state/set-task-due-date id (when (seq @due-date) @due-date) written!))
+                   (state/set-task-due-date id (when (seq @due-date) @due-date) written! write-failed!))
                  (when due-time-change?
-                   (state/set-task-due-time id (when (seq @due-time) @due-time) written!))
+                   (state/set-task-due-time id (when (seq @due-time) @due-time) written! write-failed!))
                  (saved!)))
        :meet (state/update-meet id @title @description @tags expected
                (fn []
                  (when start-date-change?
-                   (state/set-meet-start-date id (when (seq @start-date) @start-date) written!))
+                   (state/set-meet-start-date id (when (seq @start-date) @start-date) written! write-failed!))
                  (when start-time-change?
-                   (state/set-meet-start-time id (when (seq @start-time) @start-time) written!))
+                   (state/set-meet-start-time id (when (seq @start-time) @start-time) written! write-failed!))
                  (saved!)))
        :meeting-series (state/update-meeting-series id @title @description @tags expected
                          {:schedule-days @schedule-days :schedule-time @schedule-time

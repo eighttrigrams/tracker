@@ -781,16 +781,18 @@
 
 (defn set-meet-start-date
   ([meet-id start-date] (set-meet-start-date meet-id start-date nil))
-  ([meet-id start-date on-success]
-   (meets-state/set-meet-start-date *app-state auth-headers fetch-meets-and-today-meets meet-id start-date on-success)))
+  ([meet-id start-date on-success] (set-meet-start-date meet-id start-date on-success nil))
+  ([meet-id start-date on-success on-error]
+   (meets-state/set-meet-start-date *app-state auth-headers fetch-meets-and-today-meets meet-id start-date on-success on-error)))
 
 (defn archive-meet [meet-id]
   (meets-state/archive-meet *app-state auth-headers fetch-meets-and-today-meets meet-id))
 
 (defn set-meet-start-time
   ([meet-id start-time] (set-meet-start-time meet-id start-time nil))
-  ([meet-id start-time on-success]
-   (meets-state/set-meet-start-time *app-state auth-headers fetch-meets-and-today-meets meet-id start-time on-success)))
+  ([meet-id start-time on-success] (set-meet-start-time meet-id start-time on-success nil))
+  ([meet-id start-time on-success on-error]
+   (meets-state/set-meet-start-time *app-state auth-headers fetch-meets-and-today-meets meet-id start-time on-success on-error)))
 
 (defn set-meets-sort-mode [mode]
   (meets-state/set-sort-mode fetch-meets mode))
@@ -1699,13 +1701,15 @@
 
 (defn set-task-due-date
   ([task-id due-date] (set-task-due-date task-id due-date nil))
-  ([task-id due-date on-success]
-   (tasks/set-task-due-date *app-state auth-headers task-id due-date on-success)))
+  ([task-id due-date on-success] (set-task-due-date task-id due-date on-success nil))
+  ([task-id due-date on-success on-error]
+   (tasks/set-task-due-date *app-state auth-headers task-id due-date on-success on-error)))
 
 (defn set-task-due-time
   ([task-id due-time] (set-task-due-time task-id due-time nil))
-  ([task-id due-time on-success]
-   (tasks/set-task-due-time *app-state auth-headers task-id due-time on-success)))
+  ([task-id due-time on-success] (set-task-due-time task-id due-time on-success nil))
+  ([task-id due-time on-success on-error]
+   (tasks/set-task-due-time *app-state auth-headers task-id due-time on-success on-error)))
 
 (defn set-confirm-delete-task [task]
   (tasks/set-confirm-delete-task *app-state task))
@@ -2300,7 +2304,8 @@
 
 (defn set-relation-badge-title
   ([item-type item-id value] (set-relation-badge-title item-type item-id value nil))
-  ([item-type item-id value on-success]
+  ([item-type item-id value on-success] (set-relation-badge-title item-type item-id value on-success nil))
+  ([item-type item-id value on-success on-error]
    (let [path (case item-type
                 :task (str "/api/tasks/" item-id "/relation-badge-title")
                 :meet (str "/api/meets/" item-id "/relation-badge-title")
@@ -2313,8 +2318,10 @@
        (fn [_]
          (refetch-for-active-tab)
          (when on-success (on-success)))
-       (fn [resp] (swap! *app-state assoc :error
-                         (get-in resp [:response :error] "Failed to set relation badge title")))))))
+       (fn [resp]
+         (swap! *app-state assoc :error
+                (get-in resp [:response :error] "Failed to set relation badge title"))
+         (when on-error (on-error)))))))
 
 (defn open-create-date-modal [entity-type entity]
   (swap! *app-state assoc :create-date-modal {:type entity-type :entity entity :taken-dates nil :loading? true})

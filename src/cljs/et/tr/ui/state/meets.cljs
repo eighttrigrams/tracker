@@ -187,7 +187,7 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update over flag")))))
 
-(defn set-meet-start-date [app-state auth-headers fetch-meets-fn meet-id start-date on-success]
+(defn set-meet-start-date [app-state auth-headers fetch-meets-fn meet-id start-date on-success on-error]
   (api/put-json (str "/api/meets/" meet-id "/start-date")
     {:start-date start-date}
     (auth-headers)
@@ -195,9 +195,10 @@
       (fetch-meets-fn)
       (when on-success (on-success)))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set start date")))))
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set start date"))
+      (when on-error (on-error)))))
 
-(defn set-meet-start-time [app-state auth-headers fetch-meets-fn meet-id start-time on-success]
+(defn set-meet-start-time [app-state auth-headers fetch-meets-fn meet-id start-time on-success on-error]
   (api/put-json (str "/api/meets/" meet-id "/start-time")
     {:start-time start-time}
     (auth-headers)
@@ -205,7 +206,8 @@
       (fetch-meets-fn)
       (when on-success (on-success)))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set start time")))))
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set start time"))
+      (when on-error (on-error)))))
 
 (defn categorize-meet [app-state auth-headers fetch-meets-fn meet-id category-type category-id]
   (api/post-json (str "/api/meets/" meet-id "/categorize")
