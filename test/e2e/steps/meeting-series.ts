@@ -78,8 +78,17 @@ When("I toggle day {string} in the schedule", async ({ page }, day: string) => {
 });
 
 When("I click {string} in the modal", async ({ page }, label: string) => {
+  // Both modals reached by this step dismiss optimistically — see
+  // confirm-create-date-modal and clear-editing-modal — so a hidden footer does
+  // not mean the write landed, and neither does networkidle (it resolves before
+  // the click's request is registered). Wait for the write's own response, or
+  // the API-reading Then steps race it.
+  const saved = page.waitForResponse(
+    (r) => r.request().method() !== "GET" && new URL(r.url()).pathname.startsWith("/api/"),
+  );
   await page.locator(".modal-footer button").filter({ hasText: label }).click();
   await page.locator(".modal-footer").waitFor({ state: "hidden" });
+  await saved;
   await page.waitForLoadState("networkidle");
 });
 
