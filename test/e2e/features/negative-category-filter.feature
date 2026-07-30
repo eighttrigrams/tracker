@@ -13,6 +13,15 @@ Feature: Negative category filtering
     And I should not see "Implied task" in the task list
     And I should see "Plain task" in the task list
 
+  Scenario: A category created after page load excludes without a reload
+    Given I am on the app
+    And a project "Latecomer" on task "Late task" exists
+    When I click the "Tasks" tab
+    Then I should see "Late task" in the task list
+    When I shift-click the "Latecomer" badge on task "Late task"
+    Then the sidebar should show "Latecomer" as excluded
+    And I should not see "Late task" in the task list
+
   Scenario: A plain badge click does nothing while a negative filter is up
     Given I am on the app
     And test data for negative filtering exists

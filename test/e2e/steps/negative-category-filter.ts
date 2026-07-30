@@ -6,10 +6,11 @@ const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
 
-// The four sidebar category lists load once at app start, and the negative
-// filter resolves its ids to names against them (the same idiom the positive
-// filters use), so a reload after seeding is what puts the seeded categories
-// within the frontend's reach.
+// The four sidebar category lists load once at app start, and the positive
+// filter is picked out of them and resolves its ids to names against them, so a
+// reload after seeding is what puts the seeded categories within reach of the
+// "I filter by project" step. The negative filter needs no reload: it stores the
+// name off the badge it was shift-clicked on.
 async function reloadForSeededCategories(page: any) {
   await page.reload();
   await page.waitForLoadState("networkidle");
@@ -49,13 +50,22 @@ Given("test data for negative filtering exists", async ({ page, request }) => {
 
 Given(
   "a work-only place {string} on task {string} exists",
-  async ({ page, request }, place: string, task: string) => {
+  async ({ request }, place: string, task: string) => {
     const created = await (await request.post("/api/places", { headers, data: { name: place } })).json();
     await request.put(`/api/places/${created.id}/scope`, { headers, data: { scope: "work" } });
     const item = await (await request.post("/api/tasks", { headers, data: { title: task } })).json();
     await apiCategorize(request, `/api/tasks/${item.id}`, "place", created.id);
+  },
+);
 
-    await reloadForSeededCategories(page);
+// Seeded without a reload, so the sidebar's projects list never sees this one:
+// only the name the shift-click stores off the badge can carry the exclusion.
+Given(
+  "a project {string} on task {string} exists",
+  async ({ request }, project: string, task: string) => {
+    const created = await (await request.post("/api/projects", { headers, data: { name: project } })).json();
+    const item = await (await request.post("/api/tasks", { headers, data: { title: task } })).json();
+    await apiCategorize(request, `/api/tasks/${item.id}`, "project", created.id);
   },
 );
 
