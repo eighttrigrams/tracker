@@ -34,14 +34,24 @@
 (defn clear [app-state]
   (swap! app-state merge (zipmap (state-keys) (repeat {}))))
 
+(defn- current-name
+  "The name to filter and label by. The stored one is a snapshot taken at
+  shift-click time, so a rename made in this client would leave it pointing at a
+  category the API no longer knows; the in-memory list is the live copy and wins
+  wherever it knows the id. It only knows categories that existed at app start,
+  hence the fallback."
+  [app-state list-key id stored-name]
+  (or (some #(when (= id (:id %)) (:name %)) (get @app-state list-key))
+      stored-name))
+
 (defn excluded-categories
   "The negative filters as badge-shaped maps for the sidebar, grouped by type in
   the groups' order. Only the shift-clicked seeds appear — the rule closure they
   expand into lives in the backend and is never shown."
   [app-state]
-  (vec (for [{:keys [type state-key]} groups
-             [id category-name] (get @app-state state-key)]
-         {:id id :name category-name :type type})))
+  (vec (for [{:keys [type state-key list-key]} groups
+             [id stored-name] (get @app-state state-key)]
+         {:id id :name (current-name app-state list-key id stored-name) :type type})))
 
 (defn query-params
   "The `excluded-*` query params as \"name=value\" strings, for each URL builder
@@ -51,7 +61,8 @@
   sets, stored there at shift-click time — the API takes seed names and expands
   them through the category rules itself."
   [app-state]
-  (vec (for [{:keys [state-key param]} groups
-             :let [names (vals (get @app-state state-key))]
+  (vec (for [{:keys [state-key list-key param]} groups
+             :let [names (for [[id stored-name] (get @app-state state-key)]
+                           (current-name app-state list-key id stored-name))]
              :when (seq names)]
          (str param "=" (js/encodeURIComponent (str/join "," names))))))

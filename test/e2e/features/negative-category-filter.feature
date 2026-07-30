@@ -34,6 +34,22 @@ Feature: Negative category filtering
     When I press Option+Escape
     Then I should see "Late task" in the task list
 
+  Scenario: Renaming an excluded category keeps it excluded
+    Given I am on the app
+    And test data for negative filtering exists
+    When I click the "Tasks" tab
+    And I shift-click the "Plurama" badge on task "Seeded task"
+    Then the sidebar should show "Plurama" as excluded
+    And I should not see "Seeded task" in the task list
+    When I click the "Categories" button
+    And I click the "Projects" category tab
+    And I expand the card "Plurama"
+    And I click the edit pencil button
+    And I change the modal title to "Renamed" and save
+    And I click the "Back" button
+    Then the sidebar should show "Renamed" as excluded
+    And I should not see "Seeded task" in the task list
+
   Scenario: A plain badge click does nothing while a negative filter is up
     Given I am on the app
     And test data for negative filtering exists
