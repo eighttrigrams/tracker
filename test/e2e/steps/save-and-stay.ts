@@ -85,6 +85,85 @@ When("the next due-date write fails once", async ({ page }) => {
   );
 });
 
+// A stay save's writes can land after the modal that issued them is gone, and
+// both of the things the latch does then are app-wide: it clears :error and
+// flashes the checkmark. Holding the content PUT open is the only way a test can
+// act inside that window — nothing else happens between the keypress and the
+// response. The scenario raises a banner of its own in there, and the pin is
+// that the landing save leaves it standing.
+// Why the scenario searches the row up before asserting: a clear of :error renders
+// a frame after the response that triggered it, so a banner assertion made right
+// after the response still sees the old DOM and would pass against the unguarded
+// code. Waiting for the searched row to appear is a render of the app's own, and
+// it flushes any pending clear ahead of the banner assertion that follows.
+let releaseHeldWrite: (() => void) | null = null;
+
+When("the next content write is held", async ({ page }) => {
+  let holding = false;
+  await page.route("**/api/tasks/*", async (route) => {
+    // Only the first PUT is held: the refresh GET the same save issues afterwards
+    // has to reach the server untouched.
+    if (holding || route.request().method() !== "PUT") return route.fallback();
+    holding = true;
+    await new Promise<void>((resolve) => (releaseHeldWrite = resolve));
+    await route.continue();
+  });
+});
+
+When("the held write lands", async ({ page }) => {
+  if (!releaseHeldWrite) throw new Error("no held write to release");
+  const itemUrl = /\/api\/tasks\/\d+$/;
+  const write = page.waitForResponse((r) => r.request().method() === "PUT" && itemUrl.test(r.url()));
+  // The refresh read the latch issues once the write has settled, i.e. in the same
+  // tick as — and just after — the two actions this pins. Waiting for it is what
+  // puts the assertions that follow behind them. waitForLoadState("networkidle")
+  // does not: a request parked in a route handler counts as no traffic at all, so
+  // it returns before the write has even been let go.
+  const refresh = page.waitForResponse((r) => r.request().method() === "GET" && itemUrl.test(r.url()));
+  releaseHeldWrite();
+  releaseHeldWrite = null;
+  await write;
+  await refresh;
+});
+
+When(
+  "I change the modal title to {string} and press the save-and-stay shortcut",
+  async ({ page }, newTitle: string) => {
+    await setFieldValue(page.locator(modalTitle).first(), newTitle);
+    // No checkmark to wait for here: this save's write is held, and by the time it
+    // lands the modal is gone, which is exactly when it must flash nothing.
+    await page.keyboard.press("Meta+Shift+S");
+  },
+);
+
+// Escape with the typed title still unsaved goes through the unsaved-changes
+// prompt; discarding is what runs clear-editing-modal, i.e. what makes the modal
+// really gone rather than merely covered.
+When("I discard the unsaved changes", async ({ page }) => {
+  await page.locator(".modal-footer button.confirm-delete").click();
+});
+
+When("the next task creation fails once", async ({ page }) => {
+  let failed = false;
+  await page.route("**/api/tasks", async (route) => {
+    if (failed || route.request().method() !== "POST") return route.fallback();
+    failed = true;
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Injected add failure" }),
+    });
+  });
+});
+
+// The banner this raises belongs to no modal, which is the point: the save still
+// in flight has no business taking it down. A refused add has nothing of its own
+// to synchronise on — the banner assertion that follows in the feature is the wait.
+When("I try to add a task called {string}", async ({ page }, title: string) => {
+  await setFieldValue(page.locator("#tasks-filter-search"), title);
+  await page.locator(".combined-search-add-form button").first().click();
+});
+
 When(
   "I change the modal title to {string} and save with the keyboard",
   async ({ page }, newTitle: string) => {

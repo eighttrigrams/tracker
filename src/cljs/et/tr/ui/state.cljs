@@ -2156,6 +2156,15 @@
   (swap! *app-state assoc :editing-modal nil :error nil)
   (url/push-state! "/"))
 
+(defn editing-modal-on?
+  "True while the edit modal is open on exactly this row. A save-and-stay's
+  responses can land after the modal has been closed or moved on to another
+  item, and what they then have to say about a save belongs to a modal that is
+  no longer the one that asked for it."
+  [entity-type id]
+  (let [{:keys [type entity]} (:editing-modal @*app-state)]
+    (and (= type entity-type) (= id (:id entity)))))
+
 (defn refresh-editing-modal-entity!
   "Re-reads the row behind the open edit modal and merges the fresh copy over
   the modal's entity, then hands the merged entity to after-refresh. Used by
@@ -2178,9 +2187,10 @@
               (swap! *app-state assoc-in [:editing-modal :entity] merged)
               (after-refresh merged)))))
       (fn [resp]
-        (swap! *app-state assoc :error
-               (get-in resp [:response :error]
-                       "Reloading the item failed — reopen it before saving again"))))))
+        (when (editing-modal-on? entity-type id)
+          (swap! *app-state assoc :error
+                 (get-in resp [:response :error]
+                         "Reloading the item failed — reopen it before saving again")))))))
 
 (defn- edit-conflict-handler
   "Error handler for optimistic-concurrency PUTs issued from the edit modal.

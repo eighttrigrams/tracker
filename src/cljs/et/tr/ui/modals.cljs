@@ -362,7 +362,11 @@
         failed? (atom false)
         settled! (fn []
                    (when (zero? (swap! pending dec))
-                     (when-not @failed?
+                     ;; Both actions are app-wide — the :error banner and the
+                     ;; checkmark indicator — so a save that outlived its own modal
+                     ;; would wipe a banner it never raised and vouch for whatever
+                     ;; item the modal moved on to. It stays silent instead.
+                     (when (and (not @failed?) (state/editing-modal-on? type id))
                        (state/clear-error)
                        (save-flash/flash!))
                      (state/refresh-editing-modal-entity! type id on-refreshed)))]

@@ -52,6 +52,26 @@ Feature: Saving without leaving the edit modal
     Then the conflict banner should not be visible
     And the task "Half saved" should have its due date set
 
+  Scenario: A save-and-stay that lands after its modal is gone leaves other banners alone
+    Given I am on the app
+    When I click the "Tasks" tab
+    And I add a task called "Outlives its modal"
+    And I open the edit modal for task "Outlives its modal"
+    And the next content write is held
+    And I change the modal title to "Saved after closing" and press the save-and-stay shortcut
+    And I press Escape in the modal
+    And I discard the unsaved changes
+    Then no modal should be open
+    When the next task creation fails once
+    And I try to add a task called "Unrelated add"
+    Then the error banner should say "Injected add failure"
+    When the held write lands
+    And I type "Saved after closing" in the search field
+    Then I should see "Saved after closing" in the task list
+    And the error banner should say "Injected add failure"
+    And the save checkmark should not be visible
+    And the task "Saved after closing" should be stored
+
   Scenario: A save-and-stay leaves the open form alone
     Given I am on the app
     When I click the "Tasks" tab
