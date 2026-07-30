@@ -1,6 +1,5 @@
 (ns et.tr.ui.components.filter-section
   (:require [reagent.core :as r]
-            [et.tr.filters :as filters]
             [et.tr.ui.state :as state]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.tasks-page :as tasks-page]
@@ -59,9 +58,9 @@
                    (for [item items]
                      ^{:key (:id item)}
                      [:span.filter-item-label
-                      (filters/badge-label item)
+                      (:name item)
                       [:button.remove-item
-                       {:on-click #(state/toggle-negative-filter type (:id item))}
+                       {:on-click #(state/toggle-negative-filter type (:id item) (:name item))}
                        "x"]]))]))))
 
 (defn category-filter-section

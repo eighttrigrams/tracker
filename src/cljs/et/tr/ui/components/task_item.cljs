@@ -78,7 +78,7 @@
        (fn [e]
          (.stopPropagation e)
          (if (and (.-shiftKey e) excludable?)
-           (state/toggle-negative-filter (:type category) (:id category))
+           (state/toggle-negative-filter (:type category) (:id category) (:name category))
            (when toggleable?
              (toggle-fn (:type category) (:id category))))))]))
 

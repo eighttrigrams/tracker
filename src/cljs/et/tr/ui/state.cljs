@@ -83,10 +83,10 @@
                             ;; tabs). Mutually exclusive with the positive ones:
                             ;; while any of these is set the sidebar shows them
                             ;; instead of the four groups.
-                            :shared/exclude-people #{}
-                            :shared/exclude-places #{}
-                            :shared/exclude-projects #{}
-                            :shared/exclude-goals #{}
+                            :shared/exclude-people {}
+                            :shared/exclude-places {}
+                            :shared/exclude-projects {}
+                            :shared/exclude-goals {}
 
                             ;; Tasks page state
                             :tasks-page/filter-search ""
@@ -1353,8 +1353,8 @@
   "Add (or, from a chip's x, remove) one negative category. Only the seed is
   kept — the rule closure it hides through is resolved server-side on every
   fetch, so no closure request is made here."
-  [filter-type id]
-  (exclusions/toggle *app-state filter-type id)
+  [filter-type id category-name]
+  (exclusions/toggle *app-state filter-type id category-name)
   (refetch-current-tab))
 
 (defn clear-negative-filters []
@@ -2152,24 +2152,20 @@
   category lists carrying :scope; a filter id was only selectable while its
   category was in scope, so it is present here to be re-tested."
   [mode strict?]
-  (doseq [[list-key filter-key] [[:people :shared/filter-people]
-                                 [:places :shared/filter-places]
-                                 [:projects :shared/filter-projects]
-                                 [:goals :shared/filter-goals]
-                                 ;; The negative filters prune on the same test:
-                                 ;; a negative id was only selectable while its
-                                 ;; category was in scope, on an in-scope item's
-                                 ;; badge. Pruning them all away drops the
-                                 ;; sidebar back to the four groups by itself.
-                                 [:people :shared/exclude-people]
-                                 [:places :shared/exclude-places]
-                                 [:projects :shared/exclude-projects]
-                                 [:goals :shared/exclude-goals]]]
+  (doseq [[list-key filter-key exclude-key] [[:people :shared/filter-people :shared/exclude-people]
+                                             [:places :shared/filter-places :shared/exclude-places]
+                                             [:projects :shared/filter-projects :shared/exclude-projects]
+                                             [:goals :shared/filter-goals :shared/exclude-goals]]]
     (let [in-scope-ids (->> (get @*app-state list-key)
                             (filter #(filters/matches-scope? % mode strict?))
                             (map :id)
                             set)]
-      (swap! *app-state update filter-key #(into #{} (filter in-scope-ids) %)))))
+      (swap! *app-state update filter-key #(into #{} (filter in-scope-ids) %))
+      ;; The negative filters prune on the same test: a negative id was only
+      ;; selectable while its category was in scope, on an in-scope item's
+      ;; badge. Pruning them all away drops the sidebar back to the four groups
+      ;; by itself.
+      (swap! *app-state update exclude-key #(select-keys % (filter in-scope-ids (keys %)))))))
 
 (defn set-work-private-mode [mode]
   (prune-shared-category-filters! mode (:strict-mode @*app-state))
