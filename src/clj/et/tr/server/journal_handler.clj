@@ -19,10 +19,13 @@
 (defn list-journals-handler
   "GET /api/journals/ — list journals for the current user. Query params: q
   (search term), context, strict (\"true\"/\"false\"), comma-separated category
-  id lists people/places/projects/goals, and limit (int — caps the row count;
-  machine users default to 10 when omitted). Categories are only forwarded to
-  the query when at least one list is provided. Always returns 200 with the
-  result vector."
+  name lists people/places/projects/goals to filter by, comma-separated
+  category name lists excluded-people/excluded-places/excluded-projects/
+  excluded-goals to hide (expanded through the user's category rules —
+  excluding a rule's source also hides its targets), and limit (int — caps the
+  row count; machine users default to 10 when omitted). Categories are only
+  forwarded to the query when at least one list is provided. Always returns 200
+  with the result vector."
   [req]
   (let [user-id (common/get-user-id req)
         search-term (get-in req [:params "q"])
@@ -32,10 +35,11 @@
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
+        excluded-categories (common/parse-excluded-categories (:params req))
         limit (common/parse-int-opt (get-in req [:params "limit"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.journal/list-journals (common/ensure-ds) user-id {:search-term search-term :context context :strict strict :categories categories :limit limit})}))
+    {:status 200 :body (db.journal/list-journals (common/ensure-ds) user-id {:search-term search-term :context context :strict strict :categories categories :excluded-categories excluded-categories :limit limit})}))
 
 (defn add-journal-handler
   "POST /api/journals/ — create a journal. Body fields: :title (required,

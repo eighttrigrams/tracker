@@ -22,7 +22,10 @@
   "GET /api/meets/ — list meets for the calling user. Query params: q (search
   term), importance, context, strict (\"true\" toggles strict mode), sort
   (\"past\" | \"summary\" | default \"upcoming\"), people, places, projects,
-  goals, excluded-places, excluded-projects (all CSV id lists), series-id
+  goals (CSV category names to filter by), excluded-people, excluded-places,
+  excluded-projects, excluded-goals (CSV category names to hide, expanded
+  through the user's category rules — excluding a rule's source also hides its
+  targets), series-id
   (int), limit (int — caps the row count; machine users default to 10 when
   omitted), paged (\"true\" opts into the week-windowed envelope), weekOffset
   /weekLimit (units=weeks; default weekLimit=4). When paged with sort past or
@@ -45,14 +48,13 @@
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
-        excluded-places (common/parse-category-param (get-in req [:params "excluded-places"]))
-        excluded-projects (common/parse-category-param (get-in req [:params "excluded-projects"]))
+        excluded-categories (common/parse-excluded-categories (:params req))
         series-id (when-let [s (get-in req [:params "series-id"])] (Integer/parseInt s))
         limit (common/parse-int-opt (get-in req [:params "limit"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})
         paged (= "true" (get-in req [:params "paged"]))
-        base-opts {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :excluded-places excluded-places :excluded-projects excluded-projects :series-id series-id :limit limit}]
+        base-opts {:search-term search-term :importance importance :context context :strict strict :categories categories :excluded-categories excluded-categories :sort-mode sort-mode :series-id series-id :limit limit}]
     (if (and paged (contains? #{:past :upcoming} sort-mode))
       (let [direction (if (= sort-mode :past) :backward :forward)
             window (week-window/week-window (week-window/parse-week-param (get-in req [:params "weekOffset"]) 0)

@@ -16,9 +16,11 @@
       {:status 404 :body {:error "Task not found"}})))
 
 (defn list-tasks-handler
-  "GET /api/tasks/?sort=&q=&importance=&context=&strict=&people=&places=&projects=&goals=&excluded-places=&excluded-projects=&recurring-task-id=&issue=&limit=
+  "GET /api/tasks/?sort=&q=&importance=&context=&strict=&people=&places=&projects=&goals=&excluded-people=&excluded-places=&excluded-projects=&excluded-goals=&recurring-task-id=&issue=&limit=
   — list tasks for the current user. Query: sort defaults to `recent`; q is a
-  free-text search; people/places/projects/goals/excluded-* are CSV ids;
+  free-text search; people/places/projects/goals are CSV category names to
+  filter by; excluded-* are CSV category names to hide, expanded through the
+  user's category rules (excluding a rule's source also hides its targets);
   strict=true requires every category to match; recurring-task-id filters
   to instances of one recurring task; issue filters to the tasks belonging to
   one issue (done included, ignoring sort); limit caps the row count (machine
@@ -34,14 +36,13 @@
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
-        excluded-places (common/parse-category-param (get-in req [:params "excluded-places"]))
-        excluded-projects (common/parse-category-param (get-in req [:params "excluded-projects"]))
+        excluded-categories (common/parse-excluded-categories (:params req))
         recurring-task-id (when-let [s (get-in req [:params "recurring-task-id"])] (Integer/parseInt s))
         issue-id (when-let [s (get-in req [:params "issue"])] (Integer/parseInt s))
         limit (common/parse-int-opt (get-in req [:params "limit"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.task/list-tasks (common/ensure-ds) user-id sort-mode {:search-term search-term :importance importance :context context :strict strict :categories categories :excluded-places excluded-places :excluded-projects excluded-projects :recurring-task-id recurring-task-id :issue-id issue-id :limit limit})}))
+    {:status 200 :body (db.task/list-tasks (common/ensure-ds) user-id sort-mode {:search-term search-term :importance importance :context context :strict strict :categories categories :excluded-categories excluded-categories :recurring-task-id recurring-task-id :issue-id issue-id :limit limit})}))
 
 (defn add-task-handler
   "POST /api/tasks/ — create a new task for the current user. Body: {:title

@@ -24,7 +24,10 @@
   (\"urgent\" matches urgent+superurgent, \"superurgent\" matches only
   superurgent), context, strict
   (\"true\" toggles strict context match), people/places/projects/goals
-  (comma-separated category id lists), sortMode, limit (int — caps the row
+  (comma-separated category names to filter by), excluded-people/
+  excluded-places/excluded-projects/excluded-goals (comma-separated category
+  names to hide, expanded through the user's category rules — excluding a
+  rule's source also hides its targets), sortMode, limit (int — caps the row
   count; machine users default to 100 when omitted), offset (int),
   paged (\"true\" wraps the response as {:items :has_more}). Returns 200 with a
   vector of rows, or the {:items :has_more} envelope when paged."
@@ -39,6 +42,7 @@
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
+        excluded-categories (common/parse-excluded-categories (:params req))
         sort-mode (get-in req [:params "sortMode"])
         limit (common/parse-int-opt (get-in req [:params "limit"]))
         offset (common/parse-int-opt (get-in req [:params "offset"]))
@@ -47,7 +51,7 @@
                      {:people people :places places :projects projects :goals goals})
         rows (vec (db.issue/list-issues (common/ensure-ds) user-id
                     {:search-term search-term :importance importance :urgency urgency :context context :strict strict
-                     :categories categories :sort-mode sort-mode
+                     :categories categories :excluded-categories excluded-categories :sort-mode sort-mode
                      :limit (when limit (inc limit)) :offset offset}))
         has-more? (boolean (and limit (> (count rows) limit)))
         items (if has-more? (subvec rows 0 limit) rows)]

@@ -28,8 +28,11 @@
   "GET /api/reports — list resolved issues, completed/past tasks, meets, and
   journal entries for reporting. Query params: context (filter by context
   title), strict (\"true\" for strict context match), items (\"all\" |
-  \"issues-tasks-meets\" | \"issues-tasks\" | \"journals\"), and
-  people/places/projects/goals (comma-separated category filters). Returns
+  \"issues-tasks-meets\" | \"issues-tasks\" | \"journals\"),
+  people/places/projects/goals (comma-separated category names to filter by),
+  and excluded-people/excluded-places/excluded-projects/excluded-goals
+  (comma-separated category names to hide, expanded through the user's category
+  rules — excluding a rule's source also hides its targets). Returns
   {:issues :tasks :meets :journal_entries}, with journal entries annotated by
   :schedule_type. Resolved issues are windowed on resolved_at, tasks on
   done_at, meets/entries on their dates."
@@ -49,12 +52,13 @@
         goals (common/parse-category-param (get-in req [:params "goals"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})
+        excluded-categories (common/parse-excluded-categories (:params req))
         week-offset-param (get-in req [:params "weekOffset"])
         week-limit-param (get-in req [:params "weekLimit"])
         window (week-window/week-window (week-window/parse-week-param week-offset-param 0)
                                         (week-window/parse-week-param week-limit-param 1)
                                         :backward)
-        shared-opts {:context context :strict strict :categories categories}
+        shared-opts {:context context :strict strict :categories categories :excluded-categories excluded-categories}
         window-opts (merge shared-opts (when window {:date-from (:date-from window)
                                                      :date-to (:date-to window)}))
         issues (if include-issues?

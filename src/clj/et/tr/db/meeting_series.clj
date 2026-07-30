@@ -6,6 +6,7 @@
             [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.db.category-rule :as db.category-rule]
+            [et.tr.db.category-exclusion :as db.category-exclusion]
             [et.tr.scheduling :as scheduling])
   (:import [java.time LocalDate]))
 
@@ -53,15 +54,17 @@
 (defn list-meeting-series
   ([ds user-id] (list-meeting-series ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term context strict categories limit]} opts
+   (let [{:keys [search-term context strict categories excluded-categories limit]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags])
          scope-clause (db/build-scope-clause context strict)
          category-clauses (build-meeting-series-category-clauses categories)
+         exclusion-clauses (db.category-exclusion/build-exclusion-clauses ds user-id :meeting_series_categories :meeting_series_id :meeting_series excluded-categories)
          where-clause (into [:and user-where]
                             (concat (filter some? [search-clause scope-clause])
-                                    category-clauses))
+                                    category-clauses
+                                    exclusion-clauses))
          today-expr (clock/sql-today)
          has-today-meet {:select [1]
                          :from [:meets]

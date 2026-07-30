@@ -19,8 +19,11 @@
 (defn list-journal-entries-handler
   "GET /api/journal-entries/ — list journal entries for the current user.
   Query params: q (search term), importance, context, strict (\"true\"/
-  \"false\"), comma-separated category id lists people/places/projects/goals,
-  sortMode, journalId (parsed as an int,
+  \"false\"), comma-separated category name lists people/places/projects/goals
+  to filter by, comma-separated category name lists excluded-people/
+  excluded-places/excluded-projects/excluded-goals to hide (expanded through
+  the user's category rules — excluding a rule's source also hides its
+  targets), sortMode, journalId (parsed as an int,
   ignored if non-numeric), limit (int — caps the row count; machine users
   default to 10 when omitted). Categories are only forwarded when at least
   one list is provided. Always returns 200 with the result vector."
@@ -34,13 +37,14 @@
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
+        excluded-categories (common/parse-excluded-categories (:params req))
         sort-mode (get-in req [:params "sortMode"])
         journal-id (when-let [jid (get-in req [:params "journalId"])]
                      (try (Integer/parseInt jid) (catch Exception _ nil)))
         limit (common/parse-int-opt (get-in req [:params "limit"]))
         categories (when (or people places projects goals)
                      {:people people :places places :projects projects :goals goals})]
-    {:status 200 :body (db.journal-entry/list-journal-entries (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :sort-mode sort-mode :journal-id journal-id :limit limit})}))
+    {:status 200 :body (db.journal-entry/list-journal-entries (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :excluded-categories excluded-categories :sort-mode sort-mode :journal-id journal-id :limit limit})}))
 
 (defn list-today-journal-entries-handler
   "GET /api/journal-entries/today — list today's journal entries for the

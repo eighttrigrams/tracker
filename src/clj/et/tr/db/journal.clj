@@ -4,7 +4,8 @@
             [taoensso.telemere :as tel]
             [et.tr.clock :as clock]
             [et.tr.db :as db]
-            [et.tr.db.category-rule :as db.category-rule])
+            [et.tr.db.category-rule :as db.category-rule]
+            [et.tr.db.category-exclusion :as db.category-exclusion])
   (:import [java.time LocalDate DayOfWeek]
            [java.time.temporal TemporalAdjusters]))
 
@@ -54,15 +55,17 @@
 (defn list-journals
   ([ds user-id] (list-journals ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term context strict categories limit]} opts
+   (let [{:keys [search-term context strict categories excluded-categories limit]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags])
          scope-clause (db/build-scope-clause context strict)
          category-clauses (build-journal-category-clauses categories)
+         exclusion-clauses (db.category-exclusion/build-exclusion-clauses ds user-id :journal_categories :journal_id :journals excluded-categories)
          where-clause (into [:and user-where]
                             (concat (filter some? [search-clause scope-clause])
-                                    category-clauses))
+                                    category-clauses
+                                    exclusion-clauses))
          journals (jdbc/execute! conn
                     (sql/format (cond-> {:select db/journal-select-columns
                                          :from [:journals]

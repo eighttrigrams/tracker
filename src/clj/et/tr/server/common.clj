@@ -131,6 +131,18 @@
   (when (and param (not (str/blank? param)))
     (vec (str/split param #","))))
 
+(defn parse-excluded-categories
+  "Read the four `excluded-*` query params into the {:people/:places/:projects/
+  :goals [name...]} seed map the db layer's exclusion clauses take. Nil when a
+  request carries none of them, so unfiltered lists skip the rule expansion."
+  [params]
+  (let [seeds {:people (parse-category-param (get params "excluded-people"))
+               :places (parse-category-param (get params "excluded-places"))
+               :projects (parse-category-param (get params "excluded-projects"))
+               :goals (parse-category-param (get params "excluded-goals"))}]
+    (when (some some? (vals seeds))
+      seeds)))
+
 (defn parse-int-opt [s]
   (when (and s (not (str/blank? s)))
     (try (Integer/parseInt (str/trim s))

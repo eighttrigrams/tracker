@@ -20,7 +20,10 @@
   "GET /api/resources — list the caller's resources, filtered and sorted by
   query params. Recognised params: q (search term), importance, context,
   strict (\"true\" toggles strict context match), people/places/projects/goals
-  (comma-separated category id lists), domain, excludedDomains
+  (comma-separated category names to filter by), excluded-people/
+  excluded-places/excluded-projects/excluded-goals (comma-separated category
+  names to hide, expanded through the user's category rules — excluding a
+  rule's source also hides its targets), domain, excludedDomains
   (comma-separated), sortMode, limit (int — caps the row count; machine users
   default to 10 when omitted), offset (int — skip rows for pagination), detail
   (\"full\" includes :description; otherwise rows are lean), paged (\"true\"
@@ -36,6 +39,7 @@
         places (common/parse-category-param (get-in req [:params "places"]))
         projects (common/parse-category-param (get-in req [:params "projects"]))
         goals (common/parse-category-param (get-in req [:params "goals"]))
+        excluded-categories (common/parse-excluded-categories (:params req))
         domain (get-in req [:params "domain"])
         excluded-domains-param (get-in req [:params "excludedDomains"])
         excluded-domains (when (and excluded-domains-param (not (str/blank? excluded-domains-param)))
@@ -49,7 +53,7 @@
                      {:people people :places places :projects projects :goals goals})
         rows (vec (db.resource/list-resources (common/ensure-ds) user-id
                     {:search-term search-term :importance importance :context context :strict strict
-                     :categories categories :domain domain :excluded-domains excluded-domains
+                     :categories categories :excluded-categories excluded-categories :domain domain :excluded-domains excluded-domains
                      :sort-mode sort-mode :limit (when limit (inc limit)) :offset offset :lean? lean?}))
         has-more? (boolean (and limit (> (count rows) limit)))
         items (if has-more? (subvec rows 0 limit) rows)]

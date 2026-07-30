@@ -5,6 +5,7 @@
             [et.tr.clock :as clock]
             [et.tr.db :as db]
             [et.tr.db.category-rule :as db.category-rule]
+            [et.tr.db.category-exclusion :as db.category-exclusion]
             [et.tr.db.relation :as relation])
   (:import [java.time DayOfWeek]
            [java.time.temporal TemporalAdjusters]))
@@ -29,7 +30,7 @@
 (defn list-journal-entries
   ([ds user-id] (list-journal-entries ds user-id {}))
   ([ds user-id opts]
-   (let [{:keys [search-term importance context strict categories sort-mode journal-id limit date-from date-to]} opts
+   (let [{:keys [search-term importance context strict categories excluded-categories sort-mode journal-id limit date-from date-to]} opts
          conn (db/get-conn ds)
          user-where (db/user-id-where-clause user-id)
          search-clause (db/build-search-clause search-term [:title :tags])
@@ -38,9 +39,11 @@
          journal-clause (when journal-id [:= :journal_id journal-id])
          date-range-clause (db/build-date-range-clause :entry_date date-from date-to)
          category-clauses (build-journal-entry-category-clauses categories)
+         exclusion-clauses (db.category-exclusion/build-exclusion-clauses ds user-id :journal_entry_categories :journal_entry_id :journal_entries excluded-categories)
          where-clause (into [:and user-where]
                             (concat (filter some? [search-clause importance-clause scope-clause journal-clause date-range-clause])
-                                    category-clauses))
+                                    category-clauses
+                                    exclusion-clauses))
          entries (jdbc/execute! conn
                    (sql/format (cond-> {:select db/journal-entry-select-columns
                                         :from [:journal_entries]
