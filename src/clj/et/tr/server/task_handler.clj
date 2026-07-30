@@ -3,6 +3,7 @@
             [et.tr.server.events :as events]
             [et.tr.db :as db]
             [et.tr.db.task :as db.task]
+            [et.tr.db.working-on :as db.working-on]
             [clojure.string :as str]))
 
 (defn get-task-handler
@@ -359,6 +360,43 @@
                                  (select-keys result [:relation_badge_title]))
           {:status 200 :body result})
       {:status 404 :body {:error "Task not found"}})))
+
+(defn- working-on-body
+  "The marker with both keys always present, so a cleared marker reads as
+  {:task-id nil} rather than an empty body the client has to special-case."
+  [marker]
+  {:task-id (:task-id marker) :set-on (:set-on marker)})
+
+(defn get-working-on-handler
+  "GET /api/working-on — the one task the current user marked as the one they
+  are working on, as {:task-id N :set-on YYYY-MM-DD}. The marker expires with
+  the day it was set on, so {:task-id nil :set-on nil} comes back once the
+  day has turned, without anything having to unset it."
+  [req]
+  (let [user-id (common/get-user-id req)]
+    {:status 200 :body (working-on-body (db.working-on/get-working-on (common/ensure-ds) user-id))}))
+
+(defn set-task-work-on-handler
+  "PUT /api/tasks/:id/work-on — mark this task as the one the current user is
+  working on, or stop working on it. Body: {:work-on} as a boolean (required;
+  400 if absent). Only one task can carry the marker, so setting it moves it
+  off whichever task held it. Returns the resulting {:task-id :set-on} — the
+  singleton, not the task row, since the toggle changes how two tasks render.
+  404 if the task is not the current user's."
+  [req]
+  (if-not (contains? (:body req) :work-on)
+    {:status 400 :body {:error "Missing required field: work-on"}}
+    (let [user-id (common/get-user-id req)
+          task-id (Integer/parseInt (get-in req [:params :id]))
+          ds (common/ensure-ds)]
+      (if (get-in req [:body :work-on])
+        (if-let [marker (db.working-on/set-working-on! ds user-id task-id)]
+          {:status 200 :body (working-on-body marker)}
+          {:status 404 :body {:error "Task not found"}})
+        (if (db.task/task-owned-by-user? ds task-id user-id)
+          (do (db.working-on/clear-if-task! ds user-id task-id)
+              {:status 200 :body (working-on-body (db.working-on/get-working-on ds user-id))})
+          {:status 404 :body {:error "Task not found"}})))))
 
 (defn delete-task-handler
   "DELETE /api/tasks/:id — delete a task owned by the current user. Returns

@@ -198,6 +198,7 @@
     (GET "/reports" [] report-handler/reports-handler)
     (POST "/recording-mode/toggle" [] toggle-recording-mode-handler)
     (GET "/today-board" [] today-board-handler/today-board-handler)
+    (GET "/working-on" [] task-handler/get-working-on-handler)
     (GET "/events" [] event-handler/list-events-handler)
 
     (context "/auth" []
@@ -243,6 +244,7 @@
       (PUT "/:id/today" [] task-handler/set-task-today-handler)
       (PUT "/:id/lined-up-for" [] task-handler/set-task-lined-up-for-handler)
       (PUT "/:id/maybe" [] task-handler/set-task-maybe-handler)
+      (PUT "/:id/work-on" [] task-handler/set-task-work-on-handler)
       (PUT "/:id/reminder" [] task-handler/set-reminder-handler)
       (PUT "/:id/acknowledge-reminder" [] task-handler/acknowledge-reminder-handler)
       (PUT "/:id/relation-badge-title" [] task-handler/set-task-relation-badge-title-handler))
