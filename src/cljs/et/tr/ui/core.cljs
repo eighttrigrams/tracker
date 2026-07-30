@@ -4,6 +4,7 @@
             [et.tr.ui.state :as state]
             [et.tr.ui.modals :as modals]
             [et.tr.ui.recording-mode :as recording-mode]
+            [et.tr.ui.save-flash :as save-flash]
             [et.tr.ui.mail :as mail]
             [et.tr.ui.views.settings :as settings]
             [et.tr.ui.views.mottos :as mottos]
@@ -140,6 +141,7 @@
     [:div
      (body-scroll-lock)
      [recording-mode/indicator]
+     [save-flash/indicator]
      [modals/confirm-undone-modal]
      [modals/confirm-delete-modal]
      [modals/confirm-delete-user-modal]

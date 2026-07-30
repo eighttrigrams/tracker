@@ -249,3 +249,26 @@
 .time-tab-clear { margin-top: 4px; width: fit-content; padding: 4px 8px; font-size: 0.85em; }
 .relations-list li.relation-task-done { color: var(--text-secondary); }
 .relations-list .relation-task-checkmark { margin-right: 4px; }
+#save-flash {
+  position: fixed;
+  top: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 10000;
+  pointer-events: none;
+}
+/* fade-in-out (task-item.css) animates transform, so the horizontal centering
+   has to sit on the flex parent rather than on the animated mark itself. */
+.save-flash-mark {
+  padding: 2px 14px;
+  border-radius: 999px;
+  background: rgba(52, 199, 89, 0.14);
+  color: #34c759;
+  font-size: 1.6em;
+  line-height: 1.3;
+  text-shadow: 0 0 8px rgba(52, 199, 89, 0.7);
+  box-shadow: 0 0 12px rgba(52, 199, 89, 0.6), 0 0 28px rgba(52, 199, 89, 0.3);
+  animation: fade-in-out 1.5s ease;
+}
