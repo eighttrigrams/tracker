@@ -193,7 +193,13 @@
        [:span.shortcut-desc (t :settings/shortcut-clear-uncollapsed)]]
       [:div.shortcut-item
        [:span.shortcut-key "Enter"]
-       [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]]]
+       [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]
+      [:div.shortcut-item
+       [:span.shortcut-key "Shift+Click"]
+       [:span.shortcut-desc (t :settings/shortcut-exclude-category)]]
+      [:div.shortcut-item
+       [:span.shortcut-key "Option(+Shift)+Esc"]
+       [:span.shortcut-desc (t :settings/shortcut-clear-excluded)]]]]
     [:div.shortcuts-subsection
      [:h4 (t :settings/shortcuts-tasks)]
      [:div.shortcuts-list

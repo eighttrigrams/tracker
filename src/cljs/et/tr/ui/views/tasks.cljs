@@ -154,16 +154,20 @@
 (defn sidebar-filters []
   (let [app-state @state/*app-state
         collapsed-filters (:tasks-page/collapsed-filters app-state)]
-    (into [:div.sidebar [filter-section/category-badge-toggle]]
-          (for [{:keys [filter-key title-key items-key filter-state-key category-type]} sidebar-filter-configs]
-            [filter-section {:title (t title-key)
-                             :filter-key filter-key
-                             :items (get app-state items-key)
-                             :selected-ids (get app-state filter-state-key)
-                             :toggle-fn #(state/toggle-shared-filter category-type %)
-                             :clear-fn #(state/clear-shared-filter category-type)
-                             :collapsed? (contains? collapsed-filters filter-key)
-                             :number (tasks-category-shortcut-numbers filter-key)}]))))
+    (if (state/negative-filter-active?)
+      [:div.sidebar
+       [filter-section/category-badge-toggle]
+       [filter-section/negative-filter-section]]
+      (into [:div.sidebar [filter-section/category-badge-toggle]]
+            (for [{:keys [filter-key title-key items-key filter-state-key category-type]} sidebar-filter-configs]
+              [filter-section {:title (t title-key)
+                               :filter-key filter-key
+                               :items (get app-state items-key)
+                               :selected-ids (get app-state filter-state-key)
+                               :toggle-fn #(state/toggle-shared-filter category-type %)
+                               :clear-fn #(state/clear-shared-filter category-type)
+                               :collapsed? (contains? collapsed-filters filter-key)
+                               :number (tasks-category-shortcut-numbers filter-key)}])))))
 
 
 (defn- send-to-day-option [task-id offset target-date]

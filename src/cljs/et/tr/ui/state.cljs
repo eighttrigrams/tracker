@@ -2155,7 +2155,16 @@
   (doseq [[list-key filter-key] [[:people :shared/filter-people]
                                  [:places :shared/filter-places]
                                  [:projects :shared/filter-projects]
-                                 [:goals :shared/filter-goals]]]
+                                 [:goals :shared/filter-goals]
+                                 ;; The negative filters prune on the same test:
+                                 ;; a negative id was only selectable while its
+                                 ;; category was in scope, on an in-scope item's
+                                 ;; badge. Pruning them all away drops the
+                                 ;; sidebar back to the four groups by itself.
+                                 [:people :shared/exclude-people]
+                                 [:places :shared/exclude-places]
+                                 [:projects :shared/exclude-projects]
+                                 [:goals :shared/exclude-goals]]]
     (let [in-scope-ids (->> (get @*app-state list-key)
                             (filter #(filters/matches-scope? % mode strict?))
                             (map :id)

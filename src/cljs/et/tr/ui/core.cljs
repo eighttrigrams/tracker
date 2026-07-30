@@ -231,9 +231,12 @@
 
 (defn- handle-category-shortcut [e filter-key toggle-fn]
   (.preventDefault e)
-  (when (.-shiftKey e)
-    (state/clear-shared-filter (filter-key->category-type filter-key)))
-  (toggle-fn filter-key))
+  ;; The group this would collapse/expand is not on screen while the negative
+  ;; filter has replaced the sidebar, so the shortcut does nothing.
+  (when-not (state/negative-filter-active?)
+    (when (.-shiftKey e)
+      (state/clear-shared-filter (filter-key->category-type filter-key)))
+    (toggle-fn filter-key)))
 
 (defn- handle-keyboard-shortcuts [e]
   (when-not (any-modal-open?)
@@ -278,6 +281,9 @@
         (do
           (.preventDefault e)
           (cond
+            ;; With or without shift: while a negative filter is up it is the
+            ;; only thing the sidebar shows, so it is what Escape clears.
+            (state/negative-filter-active?) (state/clear-negative-filters)
             (= :tasks active-tab) (state/clear-uncollapsed-task-filters)
             (= :today active-tab) (state/clear-uncollapsed-today-filters)
             (= :mail active-tab) (state/clear-all-mail-filters)

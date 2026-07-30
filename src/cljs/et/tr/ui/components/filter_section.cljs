@@ -1,6 +1,8 @@
 (ns et.tr.ui.components.filter-section
   (:require [reagent.core :as r]
+            [et.tr.filters :as filters]
             [et.tr.ui.state :as state]
+            [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.i18n :refer [t]]))
 
@@ -36,6 +38,31 @@
    :places   :category-place
    :projects :category-project
    :goals    :category-goal})
+
+(defn negative-filter-section
+  "Replaces the sidebar's four filter groups while a negative category filter is
+  active: the excluded categories as struck-through chips, colour-grouped by
+  type, each with an x that drops just that one, plus an x on the header that
+  clears them all. Only the shift-clicked seeds appear — the categories the
+  rules expand them into are hidden by the backend and never listed here."
+  []
+  (let [by-type (group-by :type (state/negative-filter-categories))]
+    (into [:div.exclusion-filters
+           [:div.filter-header
+            [:span.filter-title (t :filter/excluded)]
+            [:button.clear-filter {:on-click #(state/clear-negative-filters)} "x"]]]
+          (for [{:keys [type list-key]} exclusions/groups
+                :let [items (get by-type type)]
+                :when (seq items)]
+            [:div.filter-section.exclusion-filter {:class (name list-key)}
+             (into [:div.filter-items.collapsed]
+                   (for [item items]
+                     ^{:key (:id item)}
+                     [:span.filter-item-label
+                      (filters/badge-label item)
+                      [:button.remove-item
+                       {:on-click #(state/toggle-negative-filter type (:id item))}
+                       "x"]]))]))))
 
 (defn category-filter-section
   "Sidebar category picker. Form-2 so the keyboard pre-selection index survives

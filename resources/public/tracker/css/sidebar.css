@@ -187,3 +187,32 @@
   color: var(--cat-project-color);
   text-decoration: line-through;
 }
+
+.filter-section.people.exclusion-filter .filter-item.excluded {
+  background: rgba(var(--cat-person-rgb), 0.2);
+  color: var(--cat-person-color);
+  text-decoration: line-through;
+}
+.filter-section.people.exclusion-filter .filter-item-label {
+  background: rgba(var(--cat-person-rgb), 0.2);
+  color: var(--cat-person-color);
+  text-decoration: line-through;
+}
+
+.filter-section.goals.exclusion-filter .filter-item.excluded {
+  background: rgba(var(--cat-goal-rgb), 0.2);
+  color: var(--cat-goal-color);
+  text-decoration: line-through;
+}
+.filter-section.goals.exclusion-filter .filter-item-label {
+  background: rgba(var(--cat-goal-rgb), 0.2);
+  color: var(--cat-goal-color);
+  text-decoration: line-through;
+}
+
+/* The negative filter replaces the four groups: one "Excluded" header over the
+   per-type chip groups, which sit closer together than the groups they stand
+   in for. */
+.exclusion-filters .filter-section { margin-bottom: 8px; }
+.exclusion-filters .filter-section:last-child { margin-bottom: 0; }
+.exclusion-filters .filter-item-label .remove-item { text-decoration: none; }
