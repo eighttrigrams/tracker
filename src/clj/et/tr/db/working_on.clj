@@ -4,11 +4,12 @@
             [et.tr.clock :as clock]
             [et.tr.db :as db]))
 
-(defn- task-owned? [conn user-id task-id]
+(defn- owned-open-task? [conn user-id task-id]
   (some? (jdbc/execute-one! conn
            (sql/format {:select [:id]
                         :from [:tasks]
-                        :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]})
+                        :where [:and [:= :id task-id] [:= :done 0]
+                                (db/user-id-where-clause user-id)]})
            db/jdbc-opts)))
 
 (defn get-working-on
@@ -29,10 +30,12 @@
 (defn set-working-on!
   "Point the user's marker at task-id, stamped with today, replacing whatever it
   pointed at before. Returns the resulting singleton, or nil when the task is
-  not this user's."
+  not this user's or is already done: the done hook clears the marker on the
+  transition, and refusing done tasks here makes that an invariant on the state
+  rather than only on the transition."
   [ds user-id task-id]
   (let [conn (db/get-conn ds)]
-    (when (task-owned? conn user-id task-id)
+    (when (owned-open-task? conn user-id task-id)
       (let [existing (jdbc/execute-one! conn
                        (sql/format {:select [:user_id]
                                     :from [:working_on]

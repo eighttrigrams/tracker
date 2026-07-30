@@ -18,6 +18,15 @@
                  :set {:set_on date}
                  :where [:= :user_id *user-id*]})))
 
+;; Not PUT /done: that clears the marker, and the point is a marker that
+;; outlived its task being done — the shape a row written before the doneness
+;; clause existed still has.
+(defn- stamp-task-done! [task-id]
+  (jdbc/execute-one! (db/get-conn *ds*)
+    (sql/format {:update :tasks
+                 :set {:done 1}
+                 :where [:= :id task-id]})))
+
 (deftest working-on-starts-empty
   (testing "GET /api/working-on reports both keys with nothing set"
     (let [{:keys [status body]} (GET-json "/api/working-on")]
@@ -71,6 +80,26 @@
     (let [id (add-task! "Finish up")]
       (PUT-json (str "/api/tasks/" id "/work-on") {:work-on true})
       (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/done") {:done true}))))
+      (is (= {:task-id nil :set-on nil} (:body (GET-json "/api/working-on")))))))
+
+(deftest set-work-on-done-task-404
+  (testing "a done task is refused exactly like a task that is not the user's"
+    (let [id (add-task! "Already finished")]
+      (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/done") {:done true}))))
+      (let [{:keys [status body]} (PUT-json (str "/api/tasks/" id "/work-on") {:work-on true})]
+        (is (= 404 status))
+        (is (= {:error "Task not found"} body)))
+      (is (= {:task-id nil :set-on nil} (:body (GET-json "/api/working-on")))))))
+
+(deftest clear-work-on-works-on-a-done-task
+  (testing "a marker that outlived its task being done is still removable"
+    (let [id (add-task! "Finish up")]
+      (PUT-json (str "/api/tasks/" id "/work-on") {:work-on true})
+      (stamp-task-done! id)
+      (is (= {:task-id id :set-on (clock/today-str)} (:body (GET-json "/api/working-on"))))
+      (let [{:keys [status body]} (PUT-json (str "/api/tasks/" id "/work-on") {:work-on false})]
+        (is (= 200 status))
+        (is (= {:task-id nil :set-on nil} body)))
       (is (= {:task-id nil :set-on nil} (:body (GET-json "/api/working-on")))))))
 
 (deftest deleting-the-task-clears-the-marker

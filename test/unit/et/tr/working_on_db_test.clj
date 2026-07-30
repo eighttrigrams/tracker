@@ -17,6 +17,15 @@
                  :set {:set_on date}
                  :where [:= :user_id user-id]})))
 
+;; Not db.task/set-task-done: that clears the marker, and the point is a marker
+;; that outlived its task being done — the shape a row written before the
+;; doneness clause existed still has.
+(defn- stamp-task-done! [task-id]
+  (jdbc/execute-one! (db/get-conn *ds*)
+    (sql/format {:update :tasks
+                 :set {:done 1}
+                 :where [:= :id task-id]})))
+
 (deftest no-marker-by-default-test
   (testing "a user with no row is working on nothing"
     (is (nil? (db.working-on/get-working-on *ds* *user-id*)))))
@@ -49,6 +58,26 @@
     (let [other (db.user/create-user *ds* "other-user" "testpass")
           their-task (db.task/add-task *ds* (:id other) "Not yours")]
       (is (nil? (db.working-on/set-working-on! *ds* *user-id* (:id their-task))))
+      (is (nil? (db.working-on/get-working-on *ds* *user-id*))))))
+
+(deftest set-working-on-refuses-done-task-test
+  (testing "an already-done task is refused and stores nothing"
+    (let [task (db.task/add-task *ds* *user-id* "Already finished")]
+      (db.task/set-task-done *ds* *user-id* (:id task) true)
+      (is (nil? (db.working-on/set-working-on! *ds* *user-id* (:id task))))
+      (is (nil? (db.working-on/get-working-on *ds* *user-id*)))
+      (is (= 0 (:cnt (jdbc/execute-one! (db/get-conn *ds*)
+                       (sql/format {:select [[[:count :*] :cnt]] :from [:working_on]})
+                       db/jdbc-opts)))))))
+
+(deftest clear-if-task-works-on-a-done-task-test
+  (testing "a marker already pointing at a task stays removable after it is done"
+    (let [task (db.task/add-task *ds* *user-id* "Finish up")]
+      (db.working-on/set-working-on! *ds* *user-id* (:id task))
+      (stamp-task-done! (:id task))
+      (is (= {:task-id (:id task) :set-on (clock/today-str)}
+             (db.working-on/get-working-on *ds* *user-id*)))
+      (db.working-on/clear-if-task! *ds* *user-id* (:id task))
       (is (nil? (db.working-on/get-working-on *ds* *user-id*))))))
 
 (deftest stale-marker-is-not-reported-test
