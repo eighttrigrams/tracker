@@ -55,11 +55,12 @@
 
 (defn query-params
   "The `excluded-*` query params as \"name=value\" strings, for each URL builder
-  to join into its own shape. Read straight from app-state rather than from
-  fetch opts: unlike the positive filters no caller ever passes a doctored set,
-  and every filtered list must carry them. The names come straight out of the
-  sets, stored there at shift-click time — the API takes seed names and expands
-  them through the category rules itself."
+  to join into its own shape. Read straight from app-state rather than from fetch
+  opts, which makes the excludes global: they apply even to a caller that passes
+  a doctored opts map to sidestep the positive filters. `state/focus-issue` is
+  the one such caller today, and its focused-issue task listing is meant to
+  honour them — the chips stay on screen in the issues sidebar while it is up.
+  The API takes seed names and expands them through the category rules itself."
   [app-state]
   (vec (for [{:keys [state-key list-key param]} groups
              :let [names (for [[id stored-name] (get @app-state state-key)]
