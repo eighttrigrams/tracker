@@ -187,19 +187,23 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update over flag")))))
 
-(defn set-meet-start-date [app-state auth-headers fetch-meets-fn meet-id start-date]
+(defn set-meet-start-date [app-state auth-headers fetch-meets-fn meet-id start-date on-success]
   (api/put-json (str "/api/meets/" meet-id "/start-date")
     {:start-date start-date}
     (auth-headers)
-    (fn [_] (fetch-meets-fn))
+    (fn [_]
+      (fetch-meets-fn)
+      (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set start date")))))
 
-(defn set-meet-start-time [app-state auth-headers fetch-meets-fn meet-id start-time]
+(defn set-meet-start-time [app-state auth-headers fetch-meets-fn meet-id start-time on-success]
   (api/put-json (str "/api/meets/" meet-id "/start-time")
     {:start-time start-time}
     (auth-headers)
-    (fn [_] (fetch-meets-fn))
+    (fn [_]
+      (fetch-meets-fn)
+      (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set start time")))))
 

@@ -779,14 +779,18 @@
   (when (= :reports (:active-tab @*app-state))
     (fetch-reports)))
 
-(defn set-meet-start-date [meet-id start-date]
-  (meets-state/set-meet-start-date *app-state auth-headers fetch-meets-and-today-meets meet-id start-date))
+(defn set-meet-start-date
+  ([meet-id start-date] (set-meet-start-date meet-id start-date nil))
+  ([meet-id start-date on-success]
+   (meets-state/set-meet-start-date *app-state auth-headers fetch-meets-and-today-meets meet-id start-date on-success)))
 
 (defn archive-meet [meet-id]
   (meets-state/archive-meet *app-state auth-headers fetch-meets-and-today-meets meet-id))
 
-(defn set-meet-start-time [meet-id start-time]
-  (meets-state/set-meet-start-time *app-state auth-headers fetch-meets-and-today-meets meet-id start-time))
+(defn set-meet-start-time
+  ([meet-id start-time] (set-meet-start-time meet-id start-time nil))
+  ([meet-id start-time on-success]
+   (meets-state/set-meet-start-time *app-state auth-headers fetch-meets-and-today-meets meet-id start-time on-success)))
 
 (defn set-meets-sort-mode [mode]
   (meets-state/set-sort-mode fetch-meets mode))
@@ -1693,11 +1697,15 @@
 (defn uncategorize-task [task-id category-type category-id]
   (tasks/uncategorize-task *app-state auth-headers fetch-tasks-and-maybe-reports task-id category-type category-id))
 
-(defn set-task-due-date [task-id due-date]
-  (tasks/set-task-due-date *app-state auth-headers task-id due-date))
+(defn set-task-due-date
+  ([task-id due-date] (set-task-due-date task-id due-date nil))
+  ([task-id due-date on-success]
+   (tasks/set-task-due-date *app-state auth-headers task-id due-date on-success)))
 
-(defn set-task-due-time [task-id due-time]
-  (tasks/set-task-due-time *app-state auth-headers task-id due-time))
+(defn set-task-due-time
+  ([task-id due-time] (set-task-due-time task-id due-time nil))
+  ([task-id due-time on-success]
+   (tasks/set-task-due-time *app-state auth-headers task-id due-time on-success)))
 
 (defn set-confirm-delete-task [task]
   (tasks/set-confirm-delete-task *app-state task))
@@ -2144,6 +2152,24 @@
   (swap! *app-state assoc :editing-modal nil :error nil)
   (url/push-state! "/"))
 
+(defn refresh-editing-modal-entity!
+  "Re-reads the row behind the open edit modal and merges the fresh copy over
+  the modal's entity, then hands the merged entity to after-refresh. Used by
+  save-and-stay: the modal outlives its own save, so the entity it holds has to
+  catch up with what was written — above all :modified_at, which the next save's
+  optimistic-concurrency guard is read from. Merges rather than replaces so
+  display-only fields the row does not carry (e.g. :relations) survive, and does
+  nothing once the modal has been closed or moved on to another item."
+  [entity-type id after-refresh]
+  (when-let [api-path (edit-modal-api-paths entity-type)]
+    (api/fetch-json (str api-path id) (auth-headers)
+      (fn [fresh]
+        (let [{:keys [type entity]} (:editing-modal @*app-state)]
+          (when (and fresh (= type entity-type) (= id (:id entity)))
+            (let [merged (merge entity fresh)]
+              (swap! *app-state assoc-in [:editing-modal :entity] merged)
+              (after-refresh merged))))))))
+
 (defn- edit-conflict-handler
   "Error handler for optimistic-concurrency PUTs issued from the edit modal.
   On HTTP 409 it surfaces the conflict and reopens the modal on the server's
@@ -2264,7 +2290,7 @@
                                    target-type target-id
                                    refetch-for-active-tab))
 
-(defn set-relation-badge-title [item-type item-id value]
+(defn set-relation-badge-title [item-type item-id value on-success]
   (let [path (case item-type
                :task (str "/api/tasks/" item-id "/relation-badge-title")
                :meet (str "/api/meets/" item-id "/relation-badge-title")
@@ -2274,7 +2300,9 @@
     (api/put-json path
       {:relation-badge-title (or value "")}
       (auth-headers)
-      (fn [_] (refetch-for-active-tab))
+      (fn [_]
+        (refetch-for-active-tab)
+        (when on-success (on-success)))
       (fn [resp] (swap! *app-state assoc :error
                         (get-in resp [:response :error] "Failed to set relation badge title"))))))
 

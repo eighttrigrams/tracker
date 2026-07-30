@@ -127,7 +127,7 @@
     (auth-headers)
     (fn [_] (fetch-tasks-fn))))
 
-(defn set-task-due-date [app-state auth-headers task-id due-date]
+(defn set-task-due-date [app-state auth-headers task-id due-date on-success]
   (api/put-json (str "/api/tasks/" task-id "/due-date")
     {:due-date due-date}
     (auth-headers)
@@ -137,11 +137,12 @@
                (mapv #(if (= (:id %) task-id)
                         (merge % (select-keys result [:due_date :due_time :today :lined_up_for :maybe :modified_at]))
                         %)
-                     tasks))))
+                     tasks)))
+      (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due date")))))
 
-(defn set-task-due-time [app-state auth-headers task-id due-time]
+(defn set-task-due-time [app-state auth-headers task-id due-time on-success]
   (api/put-json (str "/api/tasks/" task-id "/due-time")
     {:due-time due-time}
     (auth-headers)
@@ -151,7 +152,8 @@
                (mapv #(if (= (:id %) task-id)
                         (assoc % :due_date (:due_date result) :due_time (:due_time result) :modified_at (:modified_at result))
                         %)
-                     tasks))))
+                     tasks)))
+      (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to set due time")))))
 

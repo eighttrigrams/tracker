@@ -11,6 +11,7 @@
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.state.journals :as journals-state]
             [et.tr.ui.state.journal-entries :as journal-entries-state]
+            [et.tr.ui.save-flash :as save-flash]
             [et.tr.ui.components.cm-textarea :refer [cm-textarea]]
             [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t tf]]
@@ -337,55 +338,88 @@
       (and start-time (not= @start-time (or (:start_time entity) ""))) true
       :else false)))
 
-(defn- edit-modal-save [{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]}]
-  (let [id (:id entity)
-        expected (:modified_at entity)]
-    (when (and relation-badge-title
-               (not= @relation-badge-title (or (:relation_badge_title entity) "")))
-      (state/set-relation-badge-title type id @relation-badge-title))
-    (case type
-      ;; :task / :meet chain the date/time setters after the OC-guarded content
-      ;; PUT succeeds. If the content PUT commits (200) but a follow-up date/time
-      ;; setter then fails, the write is partial: title/description/tags persist
-      ;; while the date/time change does not (and the modal stays open on the
-      ;; setter's error). This is accepted — the setters run strictly after the
-      ;; content commit to preserve the due-date cascade without a self-conflict.
-      :task (state/update-task id @title @description @tags expected
-              (fn []
-                (when (and due-date (not= @due-date (or (:due_date entity) "")))
-                  (state/set-task-due-date id (when (seq @due-date) @due-date)))
-                (when (and due-time (not= @due-time (or (:due_time entity) "")))
-                  (state/set-task-due-time id (when (seq @due-time) @due-time)))
-                (state/clear-editing-modal)))
-      :meet (state/update-meet id @title @description @tags expected
-              (fn []
-                (when (and start-date (not= @start-date (or (:start_date entity) "")))
-                  (state/set-meet-start-date id (when (seq @start-date) @start-date)))
-                (when (and start-time (not= @start-time (or (:start_time entity) "")))
-                  (state/set-meet-start-time id (when (seq @start-time) @start-time)))
-                (state/clear-editing-modal)))
-      :meeting-series (state/update-meeting-series id @title @description @tags expected
-                        {:schedule-days @schedule-days :schedule-time @schedule-time
-                         :schedule-mode @schedule-mode :biweekly-offset @biweekly-offset :maybe @maybe}
-                        state/clear-editing-modal)
-      :recurring-task (state/update-recurring-task id @title @description @tags expected
-                        {:schedule-days @schedule-days :schedule-time @schedule-time
-                         :schedule-mode @schedule-mode :biweekly-offset @biweekly-offset :task-type @task-type}
-                        state/clear-editing-modal)
-      :journal (state/update-journal id @title @description @tags expected state/clear-editing-modal)
-      :journal-entry (state/update-journal-entry id @title @description @tags expected state/clear-editing-modal)
-      :resource (let [desc (if (or (contains? entity :description) (not= @description "")) @description nil)
-                      tg (if (or (contains? entity :tags) (not= @tags "")) @tags nil)]
-                  (state/update-resource id @title (when link @link) desc tg expected state/clear-editing-modal))
-      :issue (state/update-issue id @title @description @tags expected state/clear-editing-modal)
-      :message (state/update-message id @title @description expected state/clear-editing-modal)
-      (let [category-type (subs (name type) 9)
-            update-fn (case category-type
-                        "person" state/update-person
-                        "place" state/update-place
-                        "project" state/update-project
-                        "goal" state/update-goal)]
-        (update-fn id @title @description @tags @badge-title expected state/clear-editing-modal)))))
+(defn- stay-write-latch
+  "Returns the callback a save-and-stay hands to each of the `writes` requests it
+  issues. Every one of them bumps modified_at, so the modal's entity may only be
+  re-read once the last has landed: re-arming the optimistic-concurrency guard
+  from an earlier response would make the next save conflict with this one. A
+  write that fails leaves the latch closed — no flash, no re-arm, and the error
+  banner explains itself."
+  [writes type id on-refreshed]
+  (let [pending (atom writes)]
+    (fn []
+      (when (zero? (swap! pending dec))
+        (save-flash/flash!)
+        (state/refresh-editing-modal-entity! type id on-refreshed)))))
+
+(defn- edit-modal-save
+  ([fields] (edit-modal-save fields nil))
+  ([{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]}
+    on-refreshed]
+   (let [id (:id entity)
+         expected (:modified_at entity)
+         badge-change? (and relation-badge-title
+                            (not= @relation-badge-title (or (:relation_badge_title entity) "")))
+         due-date-change? (and due-date (not= @due-date (or (:due_date entity) "")))
+         due-time-change? (and due-time (not= @due-time (or (:due_time entity) "")))
+         start-date-change? (and start-date (not= @start-date (or (:start_date entity) "")))
+         start-time-change? (and start-time (not= @start-time (or (:start_time entity) "")))
+         ;; on-refreshed is what makes this a save-and-stay: given one, the modal
+         ;; stays open and gets its entity refreshed instead of being closed.
+         written! (when on-refreshed
+                    (stay-write-latch (cond-> 1
+                                        badge-change? inc
+                                        due-date-change? inc
+                                        due-time-change? inc
+                                        start-date-change? inc
+                                        start-time-change? inc)
+                                      type id on-refreshed))
+         saved! (or written! state/clear-editing-modal)]
+     (when badge-change?
+       (state/set-relation-badge-title type id @relation-badge-title written!))
+     (case type
+       ;; :task / :meet chain the date/time setters after the OC-guarded content
+       ;; PUT succeeds. If the content PUT commits (200) but a follow-up date/time
+       ;; setter then fails, the write is partial: title/description/tags persist
+       ;; while the date/time change does not (and the modal stays open on the
+       ;; setter's error). This is accepted — the setters run strictly after the
+       ;; content commit to preserve the due-date cascade without a self-conflict.
+       :task (state/update-task id @title @description @tags expected
+               (fn []
+                 (when due-date-change?
+                   (state/set-task-due-date id (when (seq @due-date) @due-date) written!))
+                 (when due-time-change?
+                   (state/set-task-due-time id (when (seq @due-time) @due-time) written!))
+                 (saved!)))
+       :meet (state/update-meet id @title @description @tags expected
+               (fn []
+                 (when start-date-change?
+                   (state/set-meet-start-date id (when (seq @start-date) @start-date) written!))
+                 (when start-time-change?
+                   (state/set-meet-start-time id (when (seq @start-time) @start-time) written!))
+                 (saved!)))
+       :meeting-series (state/update-meeting-series id @title @description @tags expected
+                         {:schedule-days @schedule-days :schedule-time @schedule-time
+                          :schedule-mode @schedule-mode :biweekly-offset @biweekly-offset :maybe @maybe}
+                         saved!)
+       :recurring-task (state/update-recurring-task id @title @description @tags expected
+                         {:schedule-days @schedule-days :schedule-time @schedule-time
+                          :schedule-mode @schedule-mode :biweekly-offset @biweekly-offset :task-type @task-type}
+                         saved!)
+       :journal (state/update-journal id @title @description @tags expected saved!)
+       :journal-entry (state/update-journal-entry id @title @description @tags expected saved!)
+       :resource (let [desc (if (or (contains? entity :description) (not= @description "")) @description nil)
+                       tg (if (or (contains? entity :tags) (not= @tags "")) @tags nil)]
+                   (state/update-resource id @title (when link @link) desc tg expected saved!))
+       :issue (state/update-issue id @title @description @tags expected saved!)
+       :message (state/update-message id @title @description expected saved!)
+       (let [category-type (subs (name type) 9)
+             update-fn (case category-type
+                         "person" state/update-person
+                         "place" state/update-place
+                         "project" state/update-project
+                         "goal" state/update-goal)]
+         (update-fn id @title @description @tags @badge-title expected saved!))))))
 
 (def ^:private day-keys
   [{:num "1" :label-key :date/mon}
@@ -749,14 +783,27 @@
                   try-escape (fn []
                                (if (edit-modal-dirty? @fields-state)
                                  (reset! confirm-discard? true)
-                                 (state/clear-editing-modal)))]
+                                 (state/clear-editing-modal)))
+                  ;; Save-and-stay hands the refreshed entity back here so the
+                  ;; re-seed guard above and the form's own copy of the entity
+                  ;; move on in the same tick as app-state: the guard would
+                  ;; otherwise rebuild fields-state (dropping whatever was typed
+                  ;; since the save and remounting the description editor),
+                  ;; while a stale copy would re-arm the next save's
+                  ;; optimistic-concurrency guard and the discard prompt with
+                  ;; values the save has already written.
+                  stay-refreshed (fn [refreshed]
+                                   (reset! prev-entity refreshed)
+                                   (swap! fields-state assoc :entity refreshed))]
               (if @confirm-discard?
                 [unsaved-changes-modal
                  {:on-go-back #(reset! confirm-discard? false)
                   :on-discard #(do (reset! confirm-discard? false)
                                    (state/clear-editing-modal))}]
                 [:div.modal-overlay
-                 [modal-keyboard-shortcut {:on-confirm #(edit-modal-save @fields-state) :on-escape try-escape :enabled? true}]
+                 [modal-keyboard-shortcut {:on-confirm #(edit-modal-save @fields-state)
+                                           :on-confirm-stay #(edit-modal-save @fields-state stay-refreshed)
+                                           :on-escape try-escape :enabled? true}]
                  [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
                   [:div.modal-body
                    [:div.edit-modal-tabs
