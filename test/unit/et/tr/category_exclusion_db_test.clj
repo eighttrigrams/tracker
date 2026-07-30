@@ -80,7 +80,7 @@
           person-task (db.task/add-task *ds* *user-id* "Person task")
           project-task (db.task/add-task *ds* *user-id* "Project task")
           goal-task (db.task/add-task *ds* *user-id* "Goal task")
-          plain (db.task/add-task *ds* *user-id* "Plain task")]
+          _plain (db.task/add-task *ds* *user-id* "Plain task")]
       (db.category-rule/add-rule *ds* *user-id* "person" (:id alice) "project" (:id alpha))
       (db.category-rule/add-rule *ds* *user-id* "project" (:id alpha) "goal" (:id launch))
       (db.task/categorize-task *ds* *user-id* (:id person-task) "person" (:id alice))
@@ -94,7 +94,7 @@
           home (db.category/add-place *ds* *user-id* "Home")
           t1 (db.task/add-task *ds* *user-id* "With Alice")
           t2 (db.task/add-task *ds* *user-id* "At home")
-          t3 (db.task/add-task *ds* *user-id* "Neither")]
+          _t3 (db.task/add-task *ds* *user-id* "Neither")]
       (db.task/categorize-task *ds* *user-id* (:id t1) "person" (:id alice))
       (db.task/categorize-task *ds* *user-id* (:id t2) "place" (:id home))
       (is (= #{"Neither"} (task-titles {:people ["Alice"] :places ["Home"]}))))
@@ -111,9 +111,9 @@
 (deftest items-without-categories-are-never-excluded-test
   (testing "an uncategorized item survives every exclusion"
     (let [alice (db.category/add-person *ds* *user-id* "Alice")
-          home (db.category/add-place *ds* *user-id* "Home")
-          alpha (db.category/add-project *ds* *user-id* "Alpha")
-          launch (db.category/add-goal *ds* *user-id* "Launch")
+          _home (db.category/add-place *ds* *user-id* "Home")
+          _alpha (db.category/add-project *ds* *user-id* "Alpha")
+          _launch (db.category/add-goal *ds* *user-id* "Launch")
           categorized (db.task/add-task *ds* *user-id* "Categorized")
           _plain (db.task/add-task *ds* *user-id* "Plain")]
       (db.task/categorize-task *ds* *user-id* (:id categorized) "person" (:id alice))
