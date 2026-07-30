@@ -188,22 +188,12 @@
   text-decoration: line-through;
 }
 
-.filter-section.people.exclusion-filter .filter-item.excluded {
-  background: rgba(var(--cat-person-rgb), 0.2);
-  color: var(--cat-person-color);
-  text-decoration: line-through;
-}
 .filter-section.people.exclusion-filter .filter-item-label {
   background: rgba(var(--cat-person-rgb), 0.2);
   color: var(--cat-person-color);
   text-decoration: line-through;
 }
 
-.filter-section.goals.exclusion-filter .filter-item.excluded {
-  background: rgba(var(--cat-goal-rgb), 0.2);
-  color: var(--cat-goal-color);
-  text-decoration: line-through;
-}
 .filter-section.goals.exclusion-filter .filter-item-label {
   background: rgba(var(--cat-goal-rgb), 0.2);
   color: var(--cat-goal-color);
