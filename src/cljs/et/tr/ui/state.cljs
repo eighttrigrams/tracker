@@ -2298,21 +2298,23 @@
                                    target-type target-id
                                    refetch-for-active-tab))
 
-(defn set-relation-badge-title [item-type item-id value on-success]
-  (let [path (case item-type
-               :task (str "/api/tasks/" item-id "/relation-badge-title")
-               :meet (str "/api/meets/" item-id "/relation-badge-title")
-               :resource (str "/api/resources/" item-id "/relation-badge-title")
-               :issue (str "/api/issues/" item-id "/relation-badge-title")
-               :journal-entry (str "/api/journal-entries/" item-id "/relation-badge-title"))]
-    (api/put-json path
-      {:relation-badge-title (or value "")}
-      (auth-headers)
-      (fn [_]
-        (refetch-for-active-tab)
-        (when on-success (on-success)))
-      (fn [resp] (swap! *app-state assoc :error
-                        (get-in resp [:response :error] "Failed to set relation badge title"))))))
+(defn set-relation-badge-title
+  ([item-type item-id value] (set-relation-badge-title item-type item-id value nil))
+  ([item-type item-id value on-success]
+   (let [path (case item-type
+                :task (str "/api/tasks/" item-id "/relation-badge-title")
+                :meet (str "/api/meets/" item-id "/relation-badge-title")
+                :resource (str "/api/resources/" item-id "/relation-badge-title")
+                :issue (str "/api/issues/" item-id "/relation-badge-title")
+                :journal-entry (str "/api/journal-entries/" item-id "/relation-badge-title"))]
+     (api/put-json path
+       {:relation-badge-title (or value "")}
+       (auth-headers)
+       (fn [_]
+         (refetch-for-active-tab)
+         (when on-success (on-success)))
+       (fn [resp] (swap! *app-state assoc :error
+                         (get-in resp [:response :error] "Failed to set relation badge title")))))))
 
 (defn open-create-date-modal [entity-type entity]
   (swap! *app-state assoc :create-date-modal {:type entity-type :entity entity :taken-dates nil :loading? true})
