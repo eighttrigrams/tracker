@@ -205,7 +205,16 @@
      [:div.shortcuts-list
       [:div.shortcut-item
        [:span.shortcut-key "Option+Enter"]
-       [:span.shortcut-desc (t :settings/shortcut-add-task)]]]]]])
+       [:span.shortcut-desc (t :settings/shortcut-add-task)]]]]
+    [:div.shortcuts-subsection
+     [:h4 (t :settings/shortcuts-modals)]
+     [:div.shortcuts-list
+      [:div.shortcut-item
+       [:span.shortcut-key "Cmd+S / Cmd+9"]
+       [:span.shortcut-desc (t :settings/shortcut-modal-save)]]
+      [:div.shortcut-item
+       [:span.shortcut-key "Cmd+Shift+S / Cmd+Shift+9"]
+       [:span.shortcut-desc (t :settings/shortcut-modal-save-stay)]]]]]])
 
 (defn- summary-line [ev]
   (let [actor (:actor_username ev)
