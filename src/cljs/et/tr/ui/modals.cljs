@@ -17,20 +17,36 @@
             [et.tr.ui.date :as date]
             ["marked" :refer [marked]]))
 
-(defn modal-keyboard-shortcut [{:keys [on-confirm on-escape enabled? enter-confirms?]}]
-  (let [state (atom {:on-confirm on-confirm :on-escape on-escape :enabled? enabled? :enter-confirms? enter-confirms?})]
+(defn- save-combo? [e]
+  (and (.-metaKey e)
+       (if (state/vim-keys?)
+         (= "Digit9" (.-code e))
+         (= "KeyS" (.-code e)))))
+
+(defn modal-keyboard-shortcut [{:keys [on-confirm on-confirm-stay on-escape enabled? enter-confirms?]}]
+  (let [state (atom {:on-confirm on-confirm :on-confirm-stay on-confirm-stay :on-escape on-escape :enabled? enabled? :enter-confirms? enter-confirms?})]
     (r/create-class
      {:display-name "modal-keyboard-shortcut"
       :component-did-mount
       (fn [_]
         (let [handler (fn [e]
-                        (let [{:keys [on-confirm on-escape enabled? enter-confirms?]} @state]
+                        (let [{:keys [on-confirm on-confirm-stay on-escape enabled? enter-confirms?]} @state]
                           (cond
+                            ;; Without an on-confirm-stay this falls through to
+                            ;; the plain save below, so holding shift stays a
+                            ;; no-op wherever staying is meaningless.
                             (and enabled?
-                                 (.-metaKey e)
-                                 (if (state/vim-keys?)
-                                   (= "Digit9" (.-code e))
-                                   (= "KeyS" (.-code e))))
+                                 on-confirm-stay
+                                 (.-shiftKey e)
+                                 (save-combo? e))
+                            (do (.preventDefault e)
+                                ;; Held down, the combo repeats; each repeat
+                                ;; would race the previous save's modified_at.
+                                (when-not (.-repeat e)
+                                  (on-confirm-stay)))
+
+                            (and enabled?
+                                 (save-combo? e))
                             (do (.preventDefault e)
                                 (on-confirm))
 
@@ -51,6 +67,7 @@
         (let [[_ new-props] (r/argv this)]
           (swap! state assoc
                  :on-confirm (:on-confirm new-props)
+                 :on-confirm-stay (:on-confirm-stay new-props)
                  :on-escape (:on-escape new-props)
                  :enabled? (:enabled? new-props)
                  :enter-confirms? (:enter-confirms? new-props))))
