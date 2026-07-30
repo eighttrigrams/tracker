@@ -105,6 +105,29 @@ Then("the sidebar should show {string} as excluded", async ({ page }, name: stri
   await expect(page.locator(".sidebar .filter-section .collapse-toggle")).toHaveCount(0);
 });
 
+When("I clear the {string} filter group", async ({ page }, group: string) => {
+  const clear = page.locator(`.sidebar .filter-section.${group} .clear-filter`);
+  await clear.click();
+  await expect(clear).toHaveCount(0);
+  await page.waitForLoadState("networkidle");
+});
+
+// A refused shift-click must not fall through to the positive toggle, so the
+// badge's own group has to come out untouched: the clear "x" renders for any
+// selection, the label chip for one in a collapsed group, .active for one in an
+// open group. Only assert this behind a step whose own outcome depends on the
+// group being empty — the selection would render a frame after the click, so on
+// its own an empty group proves nothing.
+Then(
+  "nothing should be selected in the {string} filter group",
+  async ({ page }, group: string) => {
+    const section = page.locator(`.sidebar .filter-section.${group}`);
+    await expect(section.locator(".clear-filter")).toHaveCount(0);
+    await expect(section.locator(".filter-item-label")).toHaveCount(0);
+    await expect(section.locator(".filter-item.active")).toHaveCount(0);
+  },
+);
+
 Then("the sidebar should show the category filter groups", async ({ page }) => {
   await expect(page.locator(".sidebar .exclusion-filters")).toHaveCount(0);
   await expect(page.locator(".sidebar .filter-section .collapse-toggle")).toHaveCount(4);

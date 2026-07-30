@@ -91,6 +91,9 @@ Feature: Negative category filtering
     And I shift-click the "Home" badge on task "Plain task"
     Then the sidebar should show the category filter groups
     And I should see "Plain task" in the task list
+    When I clear the "projects" filter group
+    Then I should see "Seeded task" in the task list
+    And nothing should be selected in the "places" filter group
 
   Scenario: A scope switch drops a negative category the target scope lacks
     Given I am on the app

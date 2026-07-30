@@ -65,10 +65,13 @@
 (defn badge-click
   "Gate matrix for a category badge. Shift-click adds a negative filter, but
   only from a clean slate — no positive filter selected in any of the four
-  groups — or once negatives already exist. A plain click toggles the positive
-  filter for the badge's type as before, and goes inert while any negative
-  filter is active. Returns [clickable? handler]; handler is nil when neither
-  path is open."
+  groups — or once negatives already exist. Where it is closed the shift-click
+  is refused, not folded into the plain-click path the way the mail-sender and
+  resource-domain idioms do it: on a badge that fall-through would narrow the
+  list to the very category the gesture asked to hide. A plain click toggles the
+  positive filter for the badge's type as before, and goes inert while any
+  negative filter is active. Returns [clickable? handler]; handler is nil when
+  neither path is open."
   [category toggle-fn has-filter-fn]
   (let [negative-active? (state/negative-filter-active?)
         excludable? (or negative-active? (not (state/has-active-filters?)))
@@ -77,8 +80,9 @@
      (when (or excludable? toggleable?)
        (fn [e]
          (.stopPropagation e)
-         (if (and (.-shiftKey e) excludable?)
-           (state/toggle-negative-filter (:type category) (:id category) (:name category))
+         (if (.-shiftKey e)
+           (when excludable?
+             (state/toggle-negative-filter (:type category) (:id category) (:name category)))
            (when toggleable?
              (toggle-fn (:type category) (:id category))))))]))
 
