@@ -2156,16 +2156,24 @@
                                              [:places :shared/filter-places :shared/exclude-places]
                                              [:projects :shared/filter-projects :shared/exclude-projects]
                                              [:goals :shared/filter-goals :shared/exclude-goals]]]
-    (let [in-scope-ids (->> (get @*app-state list-key)
+    (let [categories (get @*app-state list-key)
+          known-ids (into #{} (map :id) categories)
+          in-scope-ids (->> categories
                             (filter #(filters/matches-scope? % mode strict?))
                             (map :id)
                             set)]
       (swap! *app-state update filter-key #(into #{} (filter in-scope-ids) %))
-      ;; The negative filters prune on the same test: a negative id was only
-      ;; selectable while its category was in scope, on an in-scope item's
-      ;; badge. Pruning them all away drops the sidebar back to the four groups
-      ;; by itself.
-      (swap! *app-state update exclude-key #(select-keys % (filter in-scope-ids (keys %)))))))
+      ;; A negative id, unlike a positive one, can come off the badge of a
+      ;; category this list has never seen (created after app start), and the
+      ;; list is only refetched after this runs. Such an id has no scope here to
+      ;; re-test, so it is kept rather than dropped. Pruning them all away drops
+      ;; the sidebar back to the four groups by itself.
+      (swap! *app-state update exclude-key
+             #(select-keys % (filter (fn [id]
+                                       (if (contains? known-ids id)
+                                         (contains? in-scope-ids id)
+                                         true))
+                                     (keys %)))))))
 
 (defn set-work-private-mode [mode]
   (prune-shared-category-filters! mode (:strict-mode @*app-state))

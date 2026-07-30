@@ -22,6 +22,18 @@ Feature: Negative category filtering
     Then the sidebar should show "Latecomer" as excluded
     And I should not see "Late task" in the task list
 
+  Scenario: A negative on a category created after page load survives a scope switch
+    Given I am on the app
+    And a project "Latecomer" on task "Late task" exists
+    When I click the "Tasks" tab
+    And I shift-click the "Latecomer" badge on task "Late task"
+    Then the sidebar should show "Latecomer" as excluded
+    When I switch scope to "work"
+    Then the sidebar should show "Latecomer" as excluded
+    And I should not see "Late task" in the task list
+    When I press Option+Escape
+    Then I should see "Late task" in the task list
+
   Scenario: A plain badge click does nothing while a negative filter is up
     Given I am on the app
     And test data for negative filtering exists
