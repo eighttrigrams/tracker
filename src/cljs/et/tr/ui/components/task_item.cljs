@@ -127,6 +127,13 @@
                                :on-click on-click}
                     (filters/badge-label category)]))))])))
 
+(defn working-on-indicator
+  "The pulsing dot marking the one task being worked on today. Rendered wherever
+  a task title renders — only the control that sets the marker is Today-scoped."
+  [task]
+  (when (= (:id task) (state/working-on-task-id))
+    [:span.working-on-indicator]))
+
 (defn done-button-spec [task extra-dropdown-items]
   (if (= "active" (:reminder task))
     {:label (t :task/acknowledge-reminder)

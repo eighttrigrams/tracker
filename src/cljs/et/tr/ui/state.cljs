@@ -149,6 +149,9 @@
                             ;; Task dropdown state
                             :task-dropdown-open nil
 
+                            ;; The one task marked as being worked on today
+                            :working-on-task-id nil
+
                             ;; Category selector state
                             :category-selector/open nil
                             :category-selector/search ""
@@ -219,6 +222,7 @@
 (declare fetch-places)
 (declare fetch-projects)
 (declare fetch-goals)
+(declare fetch-working-on)
 
 (defn- fetch-all [user]
   (if (:is_admin user)
@@ -230,6 +234,7 @@
       (fetch-tasks)
       (fetch-today-meets)
       (fetch-today-journal-entries)
+      (fetch-working-on)
       (fetch-people)
       (fetch-places)
       (fetch-projects)
@@ -1736,6 +1741,15 @@
 (defn set-task-maybe [task-id maybe?]
   (tasks/set-task-maybe *app-state auth-headers task-id maybe?))
 
+(defn fetch-working-on []
+  (tasks/fetch-working-on *app-state auth-headers))
+
+(defn working-on-task-id []
+  (:working-on-task-id @*app-state))
+
+(defn set-working-on [task-id on?]
+  (tasks/set-working-on *app-state auth-headers task-id on?))
+
 (defn set-task-reminder [task-id reminder-date]
   (tasks/set-task-reminder *app-state auth-headers task-id reminder-date))
 
@@ -2048,6 +2062,7 @@
                                         :fetch-goals fetch-goals
                                         :fetch-rules-page fetch-rules-page
                                         :fetch-mottos fetch-mottos
+                                        :fetch-working-on fetch-working-on
                                         :is-admin is-admin?
                                         :has-mail has-mail?}))
 

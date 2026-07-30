@@ -22,10 +22,11 @@
 (defn get-today-category-shortcut-keys []
   today-category-shortcut-keys)
 
-(defn today-task-item [task & {:keys [show-day-prefix overdue? hide-date emoji-prefix show-unlink?] :or {show-day-prefix false overdue? false hide-date false}}]
+(defn today-task-item [task & {:keys [show-day-prefix overdue? hide-date emoji-prefix show-unlink? work-on?] :or {show-day-prefix false overdue? false hide-date false work-on? false}}]
   (let [show-prefix? (and show-day-prefix (date/within-days? (:due_date task) 6))
         is-expanded (= (:today-page/expanded-task @state/*app-state) (:id task))
-        maybe? (= 1 (:maybe task))]
+        maybe? (= 1 (:maybe task))
+        working-on? (= (:id task) (state/working-on-task-id))]
     [item-card/item-card
      {:item task
       :expanded? is-expanded
@@ -48,6 +49,7 @@
       :title-content (fn [{:keys [item expanded? title-el]}]
                        [:<>
                         [:span.task-title
+                         [task-item/working-on-indicator item]
                          (when emoji-prefix
                            [:span.task-emoji-prefix emoji-prefix])
                          (when show-prefix?
@@ -94,19 +96,26 @@
                :main-actions
                (task-item/done-button-spec
                  task
-                 (when show-unlink?
-                   [{:label (if maybe? (t :task/unset-maybe) (t :task/set-maybe))
-                     :class "toggle-maybe"
-                     :on-click #(do
-                                  (state/set-task-dropdown-open nil)
-                                  (state/set-task-maybe (:id task) (not maybe?)))}
-                    {:label (t :task/unlink-today)
-                     :class "unlink-today"
-                     :on-click #(let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
-                                  (state/set-task-dropdown-open nil)
-                                  (if (zero? selected-day)
-                                    (state/set-task-today (:id task) false)
-                                    (state/set-task-lined-up-for (:id task) nil)))}]))}}]))
+                 (concat
+                   (when work-on?
+                     [{:label (if working-on? (t :task/stop-working-on) (t :task/work-on))
+                       :class "toggle-work-on"
+                       :on-click #(do
+                                    (state/set-task-dropdown-open nil)
+                                    (state/set-working-on (:id task) (not working-on?)))}])
+                   (when show-unlink?
+                     [{:label (if maybe? (t :task/unset-maybe) (t :task/set-maybe))
+                       :class "toggle-maybe"
+                       :on-click #(do
+                                    (state/set-task-dropdown-open nil)
+                                    (state/set-task-maybe (:id task) (not maybe?)))}
+                      {:label (t :task/unlink-today)
+                       :class "unlink-today"
+                       :on-click #(let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
+                                    (state/set-task-dropdown-open nil)
+                                    (if (zero? selected-day)
+                                      (state/set-task-today (:id task) false)
+                                      (state/set-task-lined-up-for (:id task) nil)))}])))}}]))
 
 (defn today-issue-item [issue]
   (let [is-expanded (= (:today-page/expanded-issue @state/*app-state) (:id issue))]
@@ -488,7 +497,7 @@
       (state/acknowledge-task-reminder drag-task-id)))
   (state/clear-drag-state))
 
-(defn- draggable-today-flagged-task-item [task drag-task-id drag-enabled?]
+(defn- draggable-today-flagged-task-item [task drag-task-id drag-enabled? work-on?]
   (let [drag-over-task (:drag-over-task @state/*app-state)
         is-dragging (= drag-task-id (:id task))
         accept-drop? (and drag-enabled? (not (drag-source-issue?)) (or (drag-task-reminder?) (not (drag-task-overdue?))))
@@ -502,7 +511,7 @@
       :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task accept-drop?)
       :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
       :on-drop (fn [e] (when accept-drop? (handle-today-flagged-drop e drag-task-id task)))}
-     [today-task-item task :hide-date true :emoji-prefix (urgency-emoji task) :show-unlink? true]]))
+     [today-task-item task :hide-date true :emoji-prefix (urgency-emoji task) :show-unlink? true :work-on? work-on?]]))
 
 (defn- handle-day-button-drop [drag-task-id target-date]
   (let [task (find-task-by-id* drag-task-id)
@@ -605,7 +614,7 @@
               ^{:key (str "meet-" (:id item))}
               [today-meet-item item :hide-date true :is-today is-today? :gray-when-maybe true]
               ^{:key (str "task-" (:id item))}
-              [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳")])))]
+              [today-task-item item :hide-date true :emoji-prefix (if (seq (:due_time item)) "⏰" "⏳") :work-on? is-today?])))]
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])]
      (let [other-drop-enabled? (and drag-enabled? (not (drag-source-issue?)) (or from-reminder? (not from-overdue?)))]
        [:div.today-subsection.other-things
@@ -631,7 +640,7 @@
            (doall
             (for [task today-flagged]
               ^{:key (str "flagged-" (:id task))}
-              [draggable-today-flagged-task-item task drag-task-id flagged-drag-enabled?]))])
+              [draggable-today-flagged-task-item task drag-task-id flagged-drag-enabled? is-today?]))])
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])])]))
 
 (defn- draggable-urgent-task-item [task target-urgency drag-enabled?]

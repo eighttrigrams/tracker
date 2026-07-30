@@ -283,7 +283,9 @@
     :on-toggle #(state/toggle-expanded :tasks-page/expanded-task (:id task))
     :container (merge {:tag :li} container)
     :relation-link [:task (:id task)]
-    :title-extra (urgency-badge task)
+    :title-extra [:<>
+                  [task-item/working-on-indicator task]
+                  (urgency-badge task)]
     :inline-edit (item-card/make-inline-edit
                    {:edit-id-path :tasks-page/inline-edit-task
                     :title-path :tasks-page/inline-edit-title

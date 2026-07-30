@@ -165,6 +165,12 @@
 (defn clear-confirm-delete [app-state]
   (swap! app-state assoc :confirm-delete-task nil))
 
+;; The server drops the marker along with the task, so the atom key only has to
+;; catch up locally — with no refetch of the singleton.
+(defn- forget-working-on [state task-id]
+  (cond-> state
+    (= task-id (:working-on-task-id state)) (assoc :working-on-task-id nil)))
+
 (defn delete-task [app-state auth-headers task-id]
   (api/delete-simple (str "/api/tasks/" task-id)
     (auth-headers)
@@ -175,6 +181,7 @@
                  (-> state
                      (update :tasks remove-fn)
                      (update-in [:reports-data :tasks] remove-fn)
+                     (forget-working-on task-id)
                      (assoc :tasks-page/expanded-task nil
                             :today-page/expanded-task nil
                             :confirm-delete-task nil))))))
@@ -187,9 +194,12 @@
     {:done done?}
     (auth-headers)
     (fn [_]
-      (swap! app-state assoc
-             :tasks-page/expanded-task nil
-             :today-page/expanded-task nil)
+      (swap! app-state
+             (fn [state]
+               (cond-> (assoc state
+                              :tasks-page/expanded-task nil
+                              :today-page/expanded-task nil)
+                 done? (forget-working-on task-id))))
       (fetch-tasks-fn))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update task")))))
@@ -287,6 +297,43 @@
                      tasks))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update maybe flag")))))
+
+;; The marker expires with the day, and nothing in the SPA re-renders at
+;; midnight, so a page left open overnight has to be told the day turned.
+(defonce ^:private *midnight-timer (atom nil))
+
+(defn- ms-to-next-midnight []
+  (let [now (js/Date.)
+        next-midnight (js/Date. (.getFullYear now) (.getMonth now) (inc (.getDate now)))]
+    (- (.getTime next-midnight) (.getTime now))))
+
+(defn- arm-midnight-timer! [app-state on-midnight]
+  (when-let [id @*midnight-timer]
+    (js/clearTimeout id))
+  (reset! *midnight-timer
+          (js/setTimeout (fn []
+                           (reset! *midnight-timer nil)
+                           (swap! app-state assoc :working-on-task-id nil)
+                           (on-midnight))
+                         (ms-to-next-midnight))))
+
+(defn fetch-working-on [app-state auth-headers]
+  (api/fetch-json "/api/working-on"
+    (auth-headers)
+    (fn [marker]
+      (swap! app-state assoc :working-on-task-id (:task-id marker))
+      (arm-midnight-timer! app-state #(fetch-working-on app-state auth-headers)))))
+
+(defn set-working-on [app-state auth-headers task-id on?]
+  (api/put-json (str "/api/tasks/" task-id "/work-on")
+    {:work-on on?}
+    (auth-headers)
+    ;; No task refetch: the indicator is derived from the singleton, so the
+    ;; task that just lost the marker drops its dot on the same re-render.
+    (fn [marker]
+      (swap! app-state assoc :working-on-task-id (:task-id marker)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update working-on")))))
 
 (defn set-task-done-at [app-state auth-headers task-id done-date]
   (api/put-json (str "/api/tasks/" task-id "/done-at")
