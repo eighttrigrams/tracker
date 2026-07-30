@@ -63,8 +63,15 @@ When("I pick a reminder date 3 days from now", async ({ page }) => {
 When("I confirm the reminder modal", async ({ page }) => {
   const confirm = page.locator(".modal .modal-footer .confirm");
   await expect(confirm).toBeEnabled();
+  // The Then step reads the task back through the API request context, which
+  // races the browser's PUT — and networkidle does not close that gap, since it
+  // resolves before the click's request is even registered. Wait for the write's
+  // own response instead.
+  const saved = page.waitForResponse(
+    (r) => /\/api\/tasks\/\d+\/reminder$/.test(new URL(r.url()).pathname) && r.request().method() === "PUT",
+  );
   await confirm.click();
-  await page.waitForLoadState("networkidle");
+  await saved;
 });
 
 Then(
