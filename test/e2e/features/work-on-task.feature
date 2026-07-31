@@ -8,7 +8,7 @@ Feature: Work on task
     And I start working on the today task "Draft the memo"
     Then the today task "Draft the memo" should carry the working-on dot
 
-  Scenario: A task in the other things section can be marked too
+  Scenario: A task flagged for the day can be marked too
     Given I am on the app
     And a task "Tidy the desk" flagged for today exists
     When I navigate to the "Today" tab

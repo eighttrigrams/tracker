@@ -127,8 +127,8 @@ Then("I should see {string} in the superurgent subsection", async ({ page }, tex
   await expect(page.locator(".urgency-subsection.superurgent")).toContainText(text, { timeout: 5000 });
 });
 
-Then("I should see {string} in the other things section", async ({ page }, text: string) => {
-  await expect(page.locator(".today-subsection.other-things")).toContainText(text, { timeout: 5000 });
+Then("I should see {string} in the day list", async ({ page }, text: string) => {
+  await expect(page.locator(".today-section.today .task-list")).toContainText(text, { timeout: 5000 });
 });
 
 Then("I should see {string} in the upcoming section", async ({ page }, text: string) => {

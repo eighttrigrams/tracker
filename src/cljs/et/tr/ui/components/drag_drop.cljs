@@ -23,6 +23,14 @@
               position (if (< y mid-y) "before" "after")]
           (on-drop-fn drag-task-id (:id target-task) position))))))
 
+(defn drop-position
+  "Whether a drop landed on the upper or the lower half of the element it was
+  dispatched on."
+  [e]
+  (let [rect (.getBoundingClientRect (.-currentTarget e))
+        mid-y (+ (.-top rect) (/ (.-height rect) 2))]
+    (if (< (.-clientY e) mid-y) "before" "after")))
+
 (defn make-drag-leave-handler [drag-over-task-id task clear-drag-over-fn]
   (fn [_]
     (when (= drag-over-task-id (:id task))

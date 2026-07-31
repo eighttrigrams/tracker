@@ -37,13 +37,11 @@
   margin: 0 0 8px 0;
   font-size: 1em;
 }
-.today-subsection-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.day-list-footer {
+  margin-top: 8px;
 }
-.today-subsection-header h4 {
-  margin: 0;
+.day-list-footer:empty {
+  display: none;
 }
 .today-link-btn {
   font-size: 1.2em;
@@ -351,11 +349,6 @@ h3.reminders-heading .reminder-indicator {
 .task-emoji-prefix {
   margin-right: 6px;
 }
-.today-flagged {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed rgba(0, 0, 0, 0.1);
-}
 .draggable-today-task,
 .draggable-overdue-task,
 .draggable-reminder-task {
@@ -375,15 +368,23 @@ h3.reminders-heading .reminder-indicator {
 .draggable-reminder-task.dragging {
   opacity: 0.5;
 }
-.draggable-today-task {
+.draggable-today-task,
+.day-list-meet {
   border: 2px solid transparent;
   border-radius: 8px;
   transition: opacity 0.2s ease, border-color 0.2s ease;
 }
+.day-list-meet {
+  margin-bottom: 6px;
+}
+.day-list-meet:last-child {
+  margin-bottom: 0;
+}
 .draggable-today-task.dragging {
   opacity: 0.5;
 }
-.draggable-today-task.drag-over {
+.draggable-today-task.drag-over,
+.day-list-meet.drag-over {
   border-color: var(--accent);
   border-style: dashed;
 }

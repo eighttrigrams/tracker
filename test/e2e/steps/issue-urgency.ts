@@ -100,7 +100,7 @@ When(
 When(
   "I drag the issue {string} onto the due-or-happening section",
   async ({ page }, title: string) => {
-    await dragIssueTo(page, title, ".today-section.today .today-subsection:not(.other-things)");
+    await dragIssueTo(page, title, ".today-section.today .today-subsection");
   },
 );
 
@@ -109,7 +109,7 @@ When("I start dragging the issue {string}", async ({ page }, title: string) => {
 });
 
 When("I drop the dragged issue on the due-or-happening section", async ({ page }) => {
-  const target = ".today-section.today .today-subsection:not(.other-things)";
+  const target = ".today-section.today .today-subsection";
   await fireDragOnTarget(page, target, "dragenter");
   await fireDragOnTarget(page, target, "dragover");
   await fireDragOnTarget(page, target, "drop");
@@ -159,7 +159,7 @@ Then(
   "I should not see {string} in the due-or-happening section",
   async ({ page }, text: string) => {
     await expect(
-      page.locator(".today-section.today .today-subsection:not(.other-things)"),
+      page.locator(".today-section.today .today-subsection"),
     ).not.toContainText(text);
   },
 );

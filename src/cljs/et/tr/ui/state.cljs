@@ -1827,6 +1827,9 @@
 (defn reorder-task [task-id target-task-id position]
   (tasks/reorder-task *app-state auth-headers fetch-tasks task-id target-task-id position))
 
+(defn set-task-day-order [task-id day-order]
+  (tasks/set-task-day-order *app-state auth-headers fetch-tasks task-id day-order))
+
 (defn set-sort-mode [mode]
   (tasks/set-sort-mode *app-state fetch-tasks mode))
 
@@ -1917,20 +1920,14 @@
 (defn selected-day-date []
   (today-page/selected-day-date *app-state))
 
-(defn selected-day-tasks []
-  (today-page/selected-day-tasks *app-state))
-
-(defn selected-day-meets []
-  (today-page/selected-day-meets *app-state))
+(defn selected-day-items []
+  (today-page/selected-day-items *app-state))
 
 (defn overdue-tasks []
   (today-page/overdue-tasks *app-state))
 
 (defn today-tasks []
   (today-page/today-tasks *app-state))
-
-(defn today-flagged-tasks []
-  (today-page/today-flagged-tasks *app-state))
 
 (defn upcoming-tasks []
   (today-page/upcoming-tasks *app-state))

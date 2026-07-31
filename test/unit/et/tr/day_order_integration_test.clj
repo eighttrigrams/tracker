@@ -72,6 +72,28 @@
       (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/lined-up-for") {:lined_up_for "2026-07-16"}))))
       (is (= 1441.5 (:day_order (task id)))))))
 
+(deftest leaving-the-day-lists-drops-the-position
+  (testing "unlinking from today clears it, so the task comes back at the end of the list"
+    (let [id (:id (add-task! "Unlinked"))]
+      (PUT-json (str "/api/tasks/" id "/today") {:today true})
+      (PUT-json (str "/api/tasks/" id "/day-order") {:day-order 705.0})
+      (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/today") {:today false}))))
+      (is (nil? (:day_order (task id))))))
+
+  (testing "clearing the queued day clears it too"
+    (let [id (:id (add-task! "Unqueued"))]
+      (PUT-json (str "/api/tasks/" id "/lined-up-for") {:lined_up_for "2026-07-16"})
+      (PUT-json (str "/api/tasks/" id "/day-order") {:day-order 705.0})
+      (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/lined-up-for") {:lined_up_for nil}))))
+      (is (nil? (:day_order (task id))))))
+
+  (testing "being done takes the task off every day list, position included"
+    (let [id (:id (add-task! "Finished"))]
+      (PUT-json (str "/api/tasks/" id "/today") {:today true})
+      (PUT-json (str "/api/tasks/" id "/day-order") {:day-order 705.0})
+      (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/done") {:done true}))))
+      (is (nil? (:day_order (task id)))))))
+
 (deftest non-numeric-day-order-is-refused
   (testing "a non-number yields 400 and stores nothing"
     (let [id (:id (add-task! "Untouched"))]

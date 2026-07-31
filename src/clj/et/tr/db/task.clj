@@ -284,6 +284,7 @@
                               :set (cond-> {:done done-val
                                             :modified_at (clock/sql-now)}
                                      done? (assoc :today 0 :lined_up_for nil :maybe 0
+                                                  :day_order nil
                                                   :done_at (clock/sql-now))
                                      (not done?) (assoc :done_at nil))
                               :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
@@ -295,11 +296,14 @@
     result))
 
 (defn set-task-today [ds user-id task-id today?]
+  ;; Leaving the day lists drops the manual day position; joining them must not
+  ;; touch it, because a drop that brings a task in writes the membership and
+  ;; the position as two requests and either may land first.
   (let [today-val (if today? 1 0)
         set-map (cond-> {:today today-val
                          :lined_up_for nil
                          :modified_at (clock/sql-now)}
-                  (not today?) (assoc :maybe 0))]
+                  (not today?) (assoc :maybe 0 :day_order nil))]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set set-map
@@ -311,7 +315,7 @@
   (let [set-map (cond-> {:lined_up_for date
                          :today 0
                          :modified_at (clock/sql-now)}
-                  (nil? date) (assoc :maybe 0))]
+                  (nil? date) (assoc :maybe 0 :day_order nil))]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set set-map

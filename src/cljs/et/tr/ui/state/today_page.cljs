@@ -1,5 +1,6 @@
 (ns et.tr.ui.state.today-page
   (:require [clojure.set]
+            [et.tr.day-order :as day-order]
             [et.tr.ui.date :as date]))
 
 (def ^:private today-str date/today-str)
@@ -185,6 +186,12 @@
     (->> (:today-meets @app-state)
          (filter #(= (:start_date %) target-date))
          sort-meets-by-date-and-time)))
+
+(defn selected-day-items [app-state]
+  (day-order/sort-items
+   (concat (map #(assoc % :item-type :task) (selected-day-tasks app-state))
+           (map #(assoc % :item-type :meet) (selected-day-meets app-state))
+           (map #(assoc % :item-type :task :day-flagged? true) (today-flagged-tasks app-state)))))
 
 (defn upcoming-meets [app-state]
   (let [after-date (selected-day-date app-state)

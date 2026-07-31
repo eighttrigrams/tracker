@@ -46,12 +46,12 @@ Feature: Today view
     When I click the "Tasks" tab
     And I navigate to the "Today" tab
     And I click the second day button
-    Then I should see "Prepare slides" in the other things section
+    Then I should see "Prepare slides" in the day list
 
   Scenario: Add task via plus button in today view
     Given I am on the app
     And I add a task "Quick note" via the today add button
-    Then I should see "Quick note" in the other things section
+    Then I should see "Quick note" in the day list
 
   Scenario: View switcher toggles to upcoming section
     Given I am on the app
