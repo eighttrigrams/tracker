@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { offsetDateStr } from "./helpers";
+import { offsetDateStr, setFieldValue } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -101,7 +101,7 @@ When("I click the second day button", async ({ page }) => {
 
 When("I add a task {string} via the today add button", async ({ page }, title: string) => {
   await page.locator(".today-add-btn").click();
-  await page.locator(".today-add-input").fill(title);
+  await setFieldValue(page.locator(".today-add-input"), title);
   await page.locator(".today-add-input").press("Enter");
   await page.waitForLoadState("networkidle");
 });

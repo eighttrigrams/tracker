@@ -406,15 +406,17 @@
 (defn- drag-task-reminder? []
   (= :reminder (:drag-task-source @state/*app-state)))
 
-(defn- add-task-for-selected-day [title on-success]
-  (let [selected-day (or (:today-page/selected-day @state/*app-state) 0)]
+(defn- add-task-for-selected-day [items title on-success]
+  (let [selected-day (or (:today-page/selected-day @state/*app-state) 0)
+        end-order (when-let [last-item (last items)]
+                    (day-order/insert-value items last-item "after"))]
     (if (zero? selected-day)
-      (state/add-task-to-today title on-success)
-      (state/add-task-lined-up-for title (state/selected-day-date) on-success))))
+      (state/add-task-to-today title end-order on-success)
+      (state/add-task-lined-up-for title (state/selected-day-date) end-order on-success))))
 
-(defn- today-add-button []
+(defn- today-add-button [_items]
   (let [ui-state (r/atom {:mode :closed})]
-    (fn []
+    (fn [items]
       (when-not (state/relation-mode-active?)
         (let [{:keys [mode input-value]} @ui-state]
           (case mode
@@ -439,7 +441,7 @@
                               (when (= "Enter" (.-key e))
                                 (let [title (.-value (.-target e))]
                                   (when (seq (.trim title))
-                                    (add-task-for-selected-day title #(swap! ui-state assoc :mode :closed))
+                                    (add-task-for-selected-day items title #(swap! ui-state assoc :mode :closed))
                                     (swap! ui-state assoc :mode :closed))))
                               (when (= "Escape" (.-key e))
                                 (swap! ui-state assoc :mode :closed)))}]
@@ -448,7 +450,7 @@
                            (.stopPropagation e)
                            (let [title (:input-value @ui-state)]
                              (when (seq (.trim (or title "")))
-                               (add-task-for-selected-day title #(swap! ui-state assoc :mode :closed))
+                               (add-task-for-selected-day items title #(swap! ui-state assoc :mode :closed))
                                (swap! ui-state assoc :mode :closed))))}
               (t :tasks/add-button)]]
 
@@ -470,17 +472,21 @@
            {:task task :target-date target-date})
     (state/clear-drag-state)))
 
-(defn- ensure-in-day-list [task-id]
+(defn- ensure-in-day-list
+  "Calls `then` once the task belongs to the selected day — after the flag that
+  puts it there, when one has to be written first, never alongside it: two
+  writes to one row at the same moment can lose to SQLite's table lock."
+  [task-id then]
   (let [task (find-task-by-id* task-id)
         selected-day (or (:today-page/selected-day @state/*app-state) 0)]
     (if (zero? selected-day)
-      (do (when (not= 1 (:today task))
-            (state/set-task-today task-id true))
-          true)
+      (if (= 1 (:today task))
+        (then)
+        (state/set-task-today task-id true then))
       (let [target-date (state/selected-day-date)]
-        (when (not= (:lined_up_for task) target-date)
-          (state/set-task-lined-up-for task-id target-date))
-        true))))
+        (if (= (:lined_up_for task) target-date)
+          (then)
+          (state/set-task-lined-up-for task-id target-date then))))))
 
 (defn- day-item-key [item]
   (str (name (:item-type item)) "-" (:id item)))
@@ -491,8 +497,10 @@
   (let [from-reminder? (drag-task-reminder?)]
     (when (and drag-task-id (not (day-order/same-item? target {:item-type :task :id drag-task-id})))
       (when-let [new-order (day-order/insert-value items target (drag-drop/drop-position e))]
-        (when (or from-day-list? (ensure-in-day-list drag-task-id))
-          (state/set-task-day-order drag-task-id new-order))))
+        (let [place! #(state/set-task-day-order drag-task-id new-order)]
+          (if from-day-list?
+            (place!)
+            (ensure-in-day-list drag-task-id place!)))))
     (when (and drag-task-id from-reminder?)
       (state/acknowledge-task-reminder drag-task-id)))
   (state/clear-drag-state))
@@ -632,7 +640,7 @@
             [day-list-item item items drag-task (not expanded-task) item-drop-enabled? from-day-list? is-today?]))]
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])
       [:div.day-list-footer
-       [today-add-button]]]]))
+       [today-add-button items]]]]))
 
 (defn- draggable-urgent-task-item [task target-urgency drag-enabled?]
   (let [drag-task (:drag-task @state/*app-state)

@@ -11,6 +11,16 @@ Feature: One drag-orderable list per day
     And the day list has one heading
     And the add button is the last thing in the day list
 
+  Scenario: The add button appends to the end of the list
+    Given I am on the app
+    And a meet "Team standup" with start date today and time "08:30" exists
+    And a task "Tidy the desk" flagged for today exists
+    When I navigate to the "Today" tab
+    And I add a task "Water the plants" via the today add button
+    Then the day list reads "Team standup, Tidy the desk, Water the plants"
+    When I add a task "Call the bank" via the today add button
+    Then the day list reads "Team standup, Tidy the desk, Water the plants, Call the bank"
+
   Scenario: Only tasks can be picked up
     Given I am on the app
     And a meet "Team standup" with start date today and time "08:30" exists

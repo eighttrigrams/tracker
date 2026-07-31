@@ -17,12 +17,23 @@ const dayItem = (page: any, title: string) => page.locator(DAY_ITEMS).filter({ h
 // them. clientY decides where in the target the drop lands: the app reads the
 // upper half as "before" and the lower half as "after". The source is found by
 // its container plus title text (native querySelector has no :has-text).
-async function fireDrag(page: any, selector: string, title: string, type: string, frac: number) {
+async function fireDrag(
+  page: any,
+  selector: string,
+  title: string,
+  type: string,
+  frac: number,
+  optional = false,
+) {
   await page.evaluate(
-    ({ selector, title, type, frac }: any) => {
+    ({ selector, title, type, frac, optional }: any) => {
       const el = [...document.querySelectorAll(selector)].find((e) =>
         (e as HTMLElement).innerText.includes(title),
       );
+      // Looking the element up and dispatching on it has to happen in one turn:
+      // a drop can take the card out of the list it was dragged from, and a
+      // check from the test side would race that re-render.
+      if (!el && optional) return;
       if (!el) throw new Error(`drag element not found: ${selector} / ${title}`);
       (window as any).__dt = (window as any).__dt || new DataTransfer();
       const rect = el.getBoundingClientRect();
@@ -36,7 +47,7 @@ async function fireDrag(page: any, selector: string, title: string, type: string
         }),
       );
     },
-    { selector, title, type, frac },
+    { selector, title, type, frac, optional },
   );
 }
 
@@ -63,11 +74,11 @@ async function startOverdueDrag(page: any, title: string) {
 }
 
 // The browser always follows a drag with dragend, which is what clears the drag
-// state when a drop was refused; the synthetic sequence has to send it too.
+// state when a drop was refused; the synthetic sequence has to send it too. The
+// card may be gone by now — a drop that flags a task for the day takes it out of
+// the section it came from — hence optional.
 async function endDrag(page: any, selector: string, title: string) {
-  if (await page.locator(selector).filter({ hasText: title }).count()) {
-    await fireDrag(page, selector, title, "dragend", 0.5);
-  }
+  await fireDrag(page, selector, title, "dragend", 0.5, true);
 }
 
 async function dropOnItem(page: any, target: string, position: string) {

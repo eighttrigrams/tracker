@@ -1745,11 +1745,18 @@
 (defn set-task-urgency [task-id urgency]
   (tasks/set-task-urgency *app-state auth-headers task-id urgency))
 
-(defn set-task-today [task-id today?]
-  (tasks/set-task-today *app-state auth-headers fetch-tasks task-id today?))
+(defn set-task-today
+  ([task-id today?] (set-task-today task-id today? nil))
+  ([task-id today? on-success]
+   (tasks/set-task-today *app-state auth-headers fetch-tasks task-id today? on-success)))
 
-(defn set-task-lined-up-for [task-id date]
-  (tasks/set-task-lined-up-for *app-state auth-headers fetch-tasks task-id date))
+(defn set-task-lined-up-for
+  ([task-id date] (set-task-lined-up-for task-id date nil))
+  ([task-id date on-success]
+   (tasks/set-task-lined-up-for *app-state auth-headers fetch-tasks task-id date on-success)))
+
+(defn set-task-day-order [task-id day-order]
+  (tasks/set-task-day-order *app-state auth-headers fetch-tasks task-id day-order))
 
 (defn set-task-maybe [task-id maybe?]
   (tasks/set-task-maybe *app-state auth-headers task-id maybe?))
@@ -1794,22 +1801,28 @@
   (swap! *app-state assoc :reports-task-dropdown-open
          (when (not= (:reports-task-dropdown-open @*app-state) task-id) task-id)))
 
-(defn add-task-to-today [title on-success]
+;; `day-order` puts the new task at the end of the day list it was added from.
+;; It is written after the flag it depends on, never alongside it.
+(defn add-task-to-today [title day-order on-success]
   (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title
                   (fn []
                     (let [task (first (:tasks @*app-state))]
                       (when task
-                        (set-task-today (:id task) true)))
+                        (set-task-today (:id task) true
+                                        (when day-order
+                                          #(set-task-day-order (:id task) day-order)))))
                     (when on-success (on-success)))))
 
-(defn add-task-lined-up-for [title date on-success]
+(defn add-task-lined-up-for [title date day-order on-success]
   (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title
                   (fn []
                     (let [task (first (:tasks @*app-state))]
                       (when task
-                        (set-task-lined-up-for (:id task) date)))
+                        (set-task-lined-up-for (:id task) date
+                                               (when day-order
+                                                 #(set-task-day-order (:id task) day-order)))))
                     (when on-success (on-success)))))
 
 (defn set-drag-task [task-id]
@@ -1826,9 +1839,6 @@
 
 (defn reorder-task [task-id target-task-id position]
   (tasks/reorder-task *app-state auth-headers fetch-tasks task-id target-task-id position))
-
-(defn set-task-day-order [task-id day-order]
-  (tasks/set-task-day-order *app-state auth-headers fetch-tasks task-id day-order))
 
 (defn set-sort-mode [mode]
   (tasks/set-sort-mode *app-state fetch-tasks mode))

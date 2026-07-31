@@ -254,39 +254,46 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update urgency")))))
 
-(defn set-task-today [app-state auth-headers fetch-tasks-fn task-id today?]
-  (api/put-json (str "/api/tasks/" task-id "/today")
-    {:today today?}
-    (auth-headers)
-    (fn [result]
-      (let [found? (some #(= (:id %) task-id) (:tasks @app-state))]
-        (if found?
-          (swap! app-state update :tasks
-                 (fn [tasks]
-                   (mapv #(if (= (:id %) task-id)
-                            (merge % (select-keys result [:today :lined_up_for :maybe :modified_at]))
-                            %)
-                         tasks)))
-          (fetch-tasks-fn))))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update today flag")))))
+(defn- merge-day-membership [app-state fetch-tasks-fn task-id result]
+  (let [found? (some #(= (:id %) task-id) (:tasks @app-state))]
+    (if found?
+      (swap! app-state update :tasks
+             (fn [tasks]
+               (mapv #(if (= (:id %) task-id)
+                        (merge % (select-keys result [:today :lined_up_for :maybe :modified_at]))
+                        %)
+                     tasks)))
+      (fetch-tasks-fn))))
 
-(defn set-task-lined-up-for [app-state auth-headers fetch-tasks-fn task-id date]
-  (api/put-json (str "/api/tasks/" task-id "/lined-up-for")
-    {:lined_up_for date}
-    (auth-headers)
-    (fn [result]
-      (let [found? (some #(= (:id %) task-id) (:tasks @app-state))]
-        (if found?
-          (swap! app-state update :tasks
-                 (fn [tasks]
-                   (mapv #(if (= (:id %) task-id)
-                            (merge % (select-keys result [:today :lined_up_for :maybe :modified_at]))
-                            %)
-                         tasks)))
-          (fetch-tasks-fn))))
-    (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update lined-up-for")))))
+;; The optional `on-success` is for a follow-up write to the same task — the day
+;; position a drop or the day list's add button gives it. It has to wait for this
+;; one: two writes to one row at the same moment can lose to SQLite's
+;; shared-cache table lock and come back 500.
+(defn set-task-today
+  ([app-state auth-headers fetch-tasks-fn task-id today?]
+   (set-task-today app-state auth-headers fetch-tasks-fn task-id today? nil))
+  ([app-state auth-headers fetch-tasks-fn task-id today? on-success]
+   (api/put-json (str "/api/tasks/" task-id "/today")
+     {:today today?}
+     (auth-headers)
+     (fn [result]
+       (merge-day-membership app-state fetch-tasks-fn task-id result)
+       (when on-success (on-success)))
+     (fn [resp]
+       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update today flag"))))))
+
+(defn set-task-lined-up-for
+  ([app-state auth-headers fetch-tasks-fn task-id date]
+   (set-task-lined-up-for app-state auth-headers fetch-tasks-fn task-id date nil))
+  ([app-state auth-headers fetch-tasks-fn task-id date on-success]
+   (api/put-json (str "/api/tasks/" task-id "/lined-up-for")
+     {:lined_up_for date}
+     (auth-headers)
+     (fn [result]
+       (merge-day-membership app-state fetch-tasks-fn task-id result)
+       (when on-success (on-success)))
+     (fn [resp]
+       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update lined-up-for"))))))
 
 (defn set-task-maybe [app-state auth-headers task-id maybe?]
   (api/put-json (str "/api/tasks/" task-id "/maybe")
