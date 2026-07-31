@@ -1,0 +1,3 @@
+{:id "068-add-day-order"
+ :up ["ALTER TABLE tasks ADD COLUMN day_order REAL"]
+ :down ["ALTER TABLE tasks DROP COLUMN day_order"]}

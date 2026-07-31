@@ -208,16 +208,29 @@
                  :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]}))
   {:success true :sort_order new-sort-order})
 
+(defn set-task-day-order [ds user-id task-id new-day-order]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :tasks
+                 :set {:day_order new-day-order}
+                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                 :returning [:id :day_order]})
+    db/jdbc-opts))
+
 (defn set-task-due-date [ds user-id task-id due-date]
+  ;; A due date change moves the task to another day (or off the day lists
+  ;; altogether), which is what day_order is relative to, so the manual day
+  ;; position goes with it.
   (let [set-map (if (nil? due-date)
                   {:due_date due-date
                    :due_time nil
+                   :day_order nil
                    :modified_at (clock/sql-now)}
                   {:due_date due-date
                    :today 0
                    :lined_up_for nil
                    :maybe 0
                    :urgency "default"
+                   :day_order nil
                    :modified_at (clock/sql-now)})]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks

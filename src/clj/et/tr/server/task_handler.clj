@@ -152,6 +152,27 @@
     (db.task/reorder-task (common/ensure-ds) user-id task-id new-order)
     {:status 200 :body {:success true :sort_order new-order}}))
 
+(defn set-task-day-order-handler
+  "PUT /api/tasks/:id/day-order — move a task within the day list of the Today
+  page. Body: {:day-order} as a number, or nil to hand the task back to the
+  position its own due time gives it. Unlike POST /reorder this takes an
+  absolute value rather than a target/position pair, because the day list
+  interleaves tasks with meets — which carry no order of their own — and only
+  the client knows that merged list. Kept apart from :sort_order, the manual
+  order of the Tasks page, so a move here never reorders anything there.
+  Returns {:success true :day_order v} on 200, 400 on a non-numeric value,
+  404 if the task is not the current user's."
+  [req]
+  (let [day-order (get-in req [:body :day-order])]
+    (if-not (or (nil? day-order) (number? day-order))
+      {:status 400 :body {:error "day-order must be a number or null"}}
+      (let [user-id (common/get-user-id req)
+            task-id (Integer/parseInt (get-in req [:params :id]))
+            result (db.task/set-task-day-order (common/ensure-ds) user-id task-id day-order)]
+        (if result
+          {:status 200 :body {:success true :day_order (:day_order result)}}
+          {:status 404 :body {:error "Task not found"}})))))
+
 (defn set-due-date-handler
   "PUT /api/tasks/:id/due-date — set or clear a task's due date. Body:
   {:due-date} (nullable ISO date string). Returns the updated task on 200
