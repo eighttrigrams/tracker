@@ -32,14 +32,41 @@
     (is (= ["flagged-5" "flagged-4" "flagged-3"]
            (titles [(flagged 3 1443.0) (flagged 4 1442.0) (flagged 5 1441.0)]))))
 
-  (testing "the Tasks page order never reaches the day axis"
-    (is (= ["flagged-3" "flagged-4"]
-           (titles [(assoc (flagged 3 1441.0) :sort_order 900.0)
-                    (assoc (flagged 4 1442.0) :sort_order -900.0)]))))
-
   (testing "a flagged task that carries no position of its own sits after the timed block"
     (is (= ["meet-1" "flagged-9"]
            (titles [(flagged 9 nil) (meet 1 "23:59")])))))
+
+;; §0's invariant. It only has teeth where a day position is *absent* — with one
+;; stored, `axis` returns on its first branch and never reaches the code that
+;; could derive. So every row here carries no sort_order_today, and a wild
+;; :sort_order on top: that is the shape round 1's flagged-axis leak read, and
+;; the shape a future one would.
+(deftest the-tasks-page-order-never-reaches-the-day-axis
+  (testing "a position-less flagged task derives the same value whatever its sort_order"
+    (is (apply = (map #(day-order/axis (assoc (flagged 3 nil) :sort_order %))
+                      [-900.0 -1.0 0.0 1.0 900.0 nil]))))
+
+  (testing "so position-less flagged tasks keep the order they came in"
+    (is (= ["flagged-3" "flagged-4" "flagged-5"]
+           (titles [(assoc (flagged 3 nil) :sort_order 900.0)
+                    (assoc (flagged 4 nil) :sort_order -900.0)
+                    (assoc (flagged 5 nil) :sort_order 0.0)])))
+    (is (= ["flagged-5" "flagged-4" "flagged-3"]
+           (titles [(assoc (flagged 5 nil) :sort_order 0.0)
+                    (assoc (flagged 4 nil) :sort_order -900.0)
+                    (assoc (flagged 3 nil) :sort_order 900.0)]))))
+
+  (testing "and permuting only the sort_orders changes nothing at all"
+    (let [rows (fn [orders]
+                 (mapv (fn [id s] (assoc (flagged id nil) :sort_order s)) [3 4 5] orders))]
+      (is (= (titles (rows [1.0 2.0 3.0]))
+             (titles (rows [3.0 2.0 1.0]))
+             (titles (rows [-500.0 0.0 500.0]))))))
+
+  (testing "a stored position still wins over anything derived"
+    (is (= ["flagged-4" "flagged-3"]
+           (titles [(assoc (flagged 3 1442.0) :sort_order -900.0)
+                    (assoc (flagged 4 1441.0) :sort_order 900.0)])))))
 
 (deftest items-that-derive-the-same-value-keep-the-order-they-came-in
   (testing "two meets at the same time, and untimed items before them"
