@@ -28,9 +28,13 @@
          (= (get @(ie-atom inline-edit) (:edit-id-path inline-edit)) (:id item)))))
 
 (defn- scope-selector [{:keys [value on-set]}]
-  (let [scope (or value "both")]
+  ;; scope-order is read here rather than in the `for` below: a deref inside a
+  ;; lazy seq is realized outside this component's reactive context, so the
+  ;; switcher would not re-render when the setting changes.
+  (let [scope (or value "both")
+        order (state/scope-order)]
     [:div.task-scope-selector.toggle-group.compact
-     (for [s (state/scope-order)]
+     (for [s order]
        ^{:key s}
        [:button.toggle-option
         {:class (when (= scope s) "active")

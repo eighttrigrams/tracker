@@ -1,9 +1,38 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 
-const { When, Then } = createBdd();
+const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
+
+Given("a tracked YouTube channel {string} exists", async ({ request }, channelId: string) => {
+  const resp = await request.post("/api/sources/youtube/channels", {
+    headers,
+    data: { channel_id: channelId },
+  });
+  expect(resp.ok()).toBeTruthy();
+});
+
+// Sources is a mode on the Inbox page that survives a tab switch, so this only
+// clicks the toggle when the channel list is not already showing.
+When("I open the sources page", async ({ page }) => {
+  const tab = page.locator(".top-bar .tabs").getByRole("button", { name: "Inbox" });
+  await tab.click();
+  await expect(tab).toHaveClass(/active/);
+  const rows = page.locator(".sources-channel-row").first();
+  if (!(await rows.isVisible())) {
+    await page
+      .locator(".series-mode-toggle")
+      .getByRole("button", { name: "Sources", exact: true })
+      .click();
+  }
+  await expect(rows).toBeVisible();
+});
+
+Then("the sources scope switcher reads {string}", async ({ page }, order: string) => {
+  const options = page.locator(".sources-channel-scope .toggle-option");
+  await expect(options).toHaveText(order.split(", "));
+});
 
 // The setting lives on the user row, so it is flipped through the Settings
 // checkbox that writes it — the checkbox only shows the new value once the PUT

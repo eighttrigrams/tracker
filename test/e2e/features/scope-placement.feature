@@ -28,6 +28,15 @@ Feature: Inverted placement of the scope switcher
     Then the navbar scope switcher reads "🏠, 👔"
     And the scope switcher on task "Scope placement task" reads "private, both, work"
 
+  Scenario: The sources page switcher follows the setting as well
+    Given I am on the app
+    And a tracked YouTube channel "UCe2escopeorder" exists
+    When I open the sources page
+    Then the sources scope switcher reads "Private, Both, Work"
+    When I turn on inverted scope placement
+    And I open the sources page
+    Then the sources scope switcher reads "Work, Both, Private"
+
   Scenario: The switcher still sets the scope it points at when inverted
     Given I am on the app
     And I click the "Tasks" tab

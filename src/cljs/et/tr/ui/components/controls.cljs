@@ -74,7 +74,7 @@
   receives the chosen scope string."
   [css-class current-value on-change]
   (into [:div {:class css-class}]
-        (for [scope ["private" "both" "work"]]
+        (for [scope (state/scope-order)]
           [:button.toggle-option
            {:key scope
             :class (when (= current-value scope) "active")
