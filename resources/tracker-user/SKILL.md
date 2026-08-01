@@ -94,7 +94,10 @@ today` and not archived. Journal entries are today's entries.
 `?days=N` window, each with the items of that day's list **in their manual
 order**, as `{type, id, flagged}` references into `tasks` and `meets`. Read
 the order from there rather than re-sorting by due date, and resolve each
-`id` against the list of that `type` in the same response.
+`id` against the list of that `type` in the same response. It is the
+**unfiltered** board: the human's Today page may be narrowed by a sidebar
+category filter or by work/private mode, in which case they are looking at a
+subsequence of this, so say "on the board" rather than "on your screen".
 
 ### Adding mail to the inbox from a job
 
