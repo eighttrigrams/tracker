@@ -37,6 +37,32 @@ Feature: Right-clicking an item card opens its footer menu
     Then a right-click on the card "Context menu task" is taken over by the app
     And a right-click on the page background is left to the browser
 
+  Scenario: An inbox card's menu carries the action its footer holds on the left
+    Given I am on the app
+    And an inbox message "Inbox menu message" exists
+    And I click the "Inbox" tab
+    When I right-click the card "Inbox menu message"
+    Then the card menu offers "Save for Later, Convert to task, Delete"
+    When I click the card menu entry "Save for Later"
+    Then the message "Inbox menu message" is saved for later
+
+  Scenario: A YouTube inbox item offers the convert its footer offers instead
+    Given I am on the app
+    And a YouTube inbox message "New clip https://www.youtube.com/watch?v=abc123" exists
+    And I click the "Inbox" tab
+    When I right-click the card "New clip"
+    Then the card menu offers "Convert to resource, Delete"
+
+  Scenario: The footer's toggle groups stay out of the menu
+    Given I am on the app
+    And I click the "Tasks" tab
+    And I add a task called "Toggle groups task"
+    And I expand the task card "Toggle groups task"
+    Then the footer of "Toggle groups task" shows the scope, importance and urgency toggle groups
+    When I right-click the card "Toggle groups task"
+    Then the card menu offers "Mark task done, Set Reminder, Delete"
+    And no card menu entry is one of those toggle options
+
   Scenario: A resource with a link offers to copy it, one without does not
     Given I am on the app
     And a resource "Linked resource" with link "https://example.com/linked" exists

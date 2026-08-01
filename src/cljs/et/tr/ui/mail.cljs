@@ -80,16 +80,25 @@
        :label (t :mail/convert-to-task)
        :on-click convert-to-task!})))
 
+(defn- left-action-spec
+  "The footer's left-hand action for an inbox card: a straight convert for a
+  YouTube/Podcast item that carries a url, the archive split button otherwise.
+  One spec, rendered as the footer button and handed to the card menu as
+  :menu-extra, so both run the same handlers."
+  [{:keys [id title description sender] :as message}]
+  (let [url (first-url title description)]
+    (if (#{"YouTube" "Podcasts"} sender)
+      (when url
+        {:variant :done
+         :label (t :mail/convert-to-resource)
+         :on-click #(state/convert-message-to-resource id url)})
+      (archive-button-spec message))))
+
 (defn- mail-footer [message]
-  (let [{:keys [id title description sender]} message
-        url (first-url title description)
-        left (if (#{"YouTube" "Podcasts"} sender)
-               (when url
-                 [item-card/footer-button {:variant :done
-                                           :label (t :mail/convert-to-resource)
-                                           :on-click #(state/convert-message-to-resource id url)}])
-               [item-card/footer-button (archive-button-spec message)])]
-    {:left left
+  (let [{:keys [id]} message
+        left-action (left-action-spec message)]
+    {:left (when left-action [item-card/footer-button left-action])
+     :menu-extra (item-card/footer-button-entries left-action)
      :scope {:value (:scope message) :on-set #(state/set-message-scope id %)}
      :importance {:value (:importance message) :on-set #(state/set-message-importance id %)}
      :urgency {:value (:urgency message) :on-set #(state/set-message-urgency id %)}

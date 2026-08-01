@@ -12,6 +12,41 @@ Given("a resource {string} without a link exists", async ({ request }, title: st
   await request.post("/api/resources", { headers, data: { title } });
 });
 
+Given("an inbox message {string} exists", async ({ request }, title: string) => {
+  await request.post("/api/messages", { headers, data: { sender: "Mailer", title } });
+});
+
+Then("the message {string} is saved for later", async ({ page, request }, title: string) => {
+  // The card leaves the inbox list on its way to the saved view, which is the
+  // re-render this waits on before reading the row back.
+  await expect(page.locator(".items li").filter({ hasText: title })).toHaveCount(0);
+  const saved = await (await request.get("/api/messages?view=saved", { headers })).json();
+  expect(saved.map((m: any) => m.title)).toContain(title);
+});
+
+// The toggle groups are rendered here (asserted first, so this is not an absence
+// racing a render) and must not be entries: the menu is stated per card type
+// through :main-actions and :menu-extra, never read off the footer's layout.
+Then(
+  "the footer of {string} shows the scope, importance and urgency toggle groups",
+  async ({ page }, title: string) => {
+    const groups = page
+      .locator(".items li")
+      .filter({ hasText: title })
+      .first()
+      .locator(".item-actions-left .toggle-group");
+    await expect(groups).toHaveCount(3);
+  },
+);
+
+Then("no card menu entry is one of those toggle options", async ({ page }) => {
+  const options = await page.locator(".item-actions-left .toggle-group .toggle-option").allInnerTexts();
+  expect(options.length).toBeGreaterThan(0);
+  const labels = await page.locator(entries).allInnerTexts();
+  expect(labels.length).toBeGreaterThan(0);
+  expect(labels.filter((l) => options.includes(l))).toEqual([]);
+});
+
 When("I right-click the card {string}", async ({ page }, title: string) => {
   await page
     .locator(".items li")

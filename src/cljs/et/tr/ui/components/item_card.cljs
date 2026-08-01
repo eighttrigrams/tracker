@@ -147,27 +147,47 @@
           (.catch (fn [_] (fail))))
       (fail))))
 
+(defn footer-button-entries
+  "The context-menu entries a footer-button spec stands for: its primary action,
+  then its dropdown items. A view whose footer carries an action outside
+  :main-actions states it for the menu by running its spec through here (see
+  :menu-extra below), so the entry and the button share one handler.
+
+  A primary whose :on-click *is* its dropdown's :on-toggle only opens that
+  dropdown — a disclosure, not an action. It is left out: as an entry it would
+  carry nothing the dropdown items beneath it do not, and it would arm the
+  open-state of a footer dropdown whose card may not even be expanded, which is
+  the stale-open hazard close-on-unmount exists to rule out."
+  [{:keys [label on-click variant disabled title dropdown]}]
+  (cond-> []
+    (and label (or (nil? dropdown) (not= on-click (:on-toggle dropdown))))
+    (conj {:label label
+           :on-click on-click
+           :class (variant-class variant)
+           :title title
+           :disabled (or (boolean disabled) (nil? on-click))})
+
+    (seq (:items dropdown))
+    (into (:items dropdown))))
+
 (defn- context-menu-entries
-  "The card's footer menu, flattened: the footer split button's primary action
-  first, then its dropdown items. The footer's toggle groups (scope, importance,
-  urgency) are not menu items and stay out. An item that carries a link gets a
-  copy entry the footer has none of — suppressing the browser's own menu takes
-  away its \"Copy link address\", which is the only way a resource's link is
-  reachable otherwise."
-  [item main-actions]
-  (let [{:keys [label on-click variant disabled title dropdown]} main-actions
-        link (:link item)]
-    (cond-> []
-      label
-      (conj {:label label
-             :on-click on-click
-             :class (variant-class variant)
-             :title title
-             :disabled (or (boolean disabled) (nil? on-click))})
+  "The card's footer menu, flattened: the footer's :menu-extra entries first (they
+  sit left of the split button in the footer, so the menu reads the same way, and
+  a destructive primary like Delete does not land under the cursor), then
+  :main-actions' primary action and dropdown items, then a copy entry for an item
+  that carries a link — the footer has none of that one, and suppressing the
+  browser's own menu takes away its \"Copy link address\", which is the only way a
+  resource's link is reachable otherwise.
 
-      (seq (:items dropdown))
-      (into (:items dropdown))
-
+  The menu is *stated* per card type through :main-actions and :menu-extra, never
+  derived from the footer's layout. :left is heterogeneous — usually toggle
+  groups, which are deliberately not menu entries, and on inbox cards also a real
+  action — so a rule that flattened :left would turn any button added to a toggle
+  group into a menu entry."
+  [item {:keys [main-actions menu-extra]}]
+  (let [link (:link item)
+        entries (into (vec menu-extra) (footer-button-entries main-actions))]
+    (cond-> entries
       (seq link)
       (conj {:label (t :card-menu/copy-link)
              :class "copy-link"
@@ -484,7 +504,7 @@
           content-class (get classes :content "item-details")
           container-class (str/join " " (filter seq [(when expanded? "expanded") class]))
           main-actions (:main-actions footer)
-          menu-entries (context-menu-entries item main-actions)
+          menu-entries (context-menu-entries item footer)
           menu @*own-menu
           header [card-header {:item item
                                :expanded? expanded?
