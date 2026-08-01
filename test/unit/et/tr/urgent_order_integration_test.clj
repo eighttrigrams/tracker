@@ -175,6 +175,21 @@
     (is (empty? (urgent-issues "urgent")))
     (is (= issues-page-before (mapv #(:sort_order (issue %)) [super-a super-b dragged])))))
 
+;; The urgency selector on a card is not a membership gesture. A task can be on a
+;; day list and urgent at once — the owner has live tasks in exactly that state —
+;; and marking one urgent must not evict it from its day and throw away the place
+;; it was given there.
+(deftest the-urgency-selector-leaves-a-day-list-member-on-its-day
+  (let [id (:id (add-task! "Marked for today"))]
+    (PUT-json (str "/api/tasks/" id "/today") {:today true})
+    (let [placed (:sort_order_today (task id))]
+      (is (some? placed))
+      (doseq [urgency ["urgent" "superurgent" "default"]]
+        (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/urgency") {:urgency urgency}))))
+        (is (= urgency (:urgency (task id))) urgency)
+        (is (= 1 (:today (task id))) urgency)
+        (is (= placed (:sort_order_today (task id))) urgency)))))
+
 (deftest a-task-dragged-in-from-a-day-list-leaves-the-day-behind
   (testing "an urgent task belongs to one of the two places, and its day position goes with it"
     (let [anchor (urgent-task! "Already urgent" "urgent")
