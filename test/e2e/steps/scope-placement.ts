@@ -120,15 +120,18 @@ Then(
   },
 );
 
+// By position rather than by label. Finding the button by its label makes the
+// order irrelevant to the click, which is how the earlier version of this step
+// let a scope-order that ignored the setting entirely stay green.
 When(
-  "I click {string} on the scope switcher of task {string}",
-  async ({ page }, scope: string, title: string) => {
+  "I click the last button on the scope switcher of task {string}",
+  async ({ page }, title: string) => {
     await page
       .locator(".items li")
       .filter({ hasText: title })
       .first()
       .locator(".task-scope-selector .toggle-option")
-      .filter({ hasText: scope })
+      .last()
       .click();
     await page.waitForLoadState("networkidle");
   },

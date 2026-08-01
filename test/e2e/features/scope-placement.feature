@@ -37,14 +37,16 @@ Feature: Inverted placement of the scope switcher
     And I open the sources page
     Then the sources scope switcher reads "Work, Both, Private"
 
-  Scenario: The switcher still sets the scope it points at when inverted
+  # Clicked by position, not by label: a label-based click passes whatever the
+  # order is, so it would say nothing about the inversion.
+  Scenario: Inverted, the switcher's right-hand button is the one that writes private
     Given I am on the app
     And I click the "Tasks" tab
     And I add a task called "Inverted scope write"
     When I turn on inverted scope placement
     And I click the "Tasks" tab
     And I expand the task card "Inverted scope write"
-    And I click "private" on the scope switcher of task "Inverted scope write"
+    And I click the last button on the scope switcher of task "Inverted scope write"
     Then the scope of task "Inverted scope write" is "private"
 
   Scenario: The middle button's icon fills the lobe on the side its scope now sits
