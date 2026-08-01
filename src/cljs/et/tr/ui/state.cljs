@@ -673,8 +673,8 @@
 (defn reorder-issue [issue-id target-issue-id position]
   (issues-state/reorder-issue *app-state auth-headers fetch-issues issue-id target-issue-id position))
 
-(defn reorder-issue-in-urgent [issue-id target-issue-id position]
-  (issues-state/reorder-issue-in-urgent *app-state auth-headers fetch-today-issues issue-id target-issue-id position))
+(defn reorder-issue-in-urgent [issue-id urgency target-issue-id position]
+  (issues-state/reorder-issue-in-urgent *app-state auth-headers fetch-today-issues issue-id urgency target-issue-id position))
 
 (defn categorize-issue [issue-id category-type category-id]
   (issues-state/categorize-issue *app-state auth-headers fetch-issues issue-id category-type category-id))
@@ -1654,14 +1654,29 @@
 ;; active filters, so an unfiltered order and a filtered page agree.
 (def ^:private day-window-days 4)
 
+(defonce ^:private *day-lists-request-id (atom 0))
+(defonce ^:private *day-lists-queued (atom false))
+
 (defn fetch-day-lists []
-  (api/fetch-json (str "/api/today-board?days=" day-window-days)
-    (auth-headers)
-    (fn [board] (today-page/set-day-lists *app-state (:days board)))))
+  ;; Request-id guard, like fetch-today-meets': two board responses in flight
+  ;; must not let the older one land last.
+  (let [request-id (swap! *day-lists-request-id inc)]
+    (api/fetch-json (str "/api/today-board?days=" day-window-days)
+      (auth-headers)
+      (fn [board]
+        (when (= request-id @*day-lists-request-id)
+          (today-page/set-day-lists *app-state (:days board)))))))
 
 (defn- refresh-day-lists []
-  (when (= :today (:active-tab @*app-state))
-    (fetch-day-lists)))
+  ;; Both the task fetch and the meets fetch can change what the day lists hold,
+  ;; and the Today page issues them together — so asks made in one tick collapse
+  ;; into a single board request instead of fetching the same aggregate twice.
+  (when (and (= :today (:active-tab @*app-state)) (not @*day-lists-queued))
+    (reset! *day-lists-queued true)
+    (js/setTimeout (fn []
+                     (reset! *day-lists-queued false)
+                     (fetch-day-lists))
+                   0)))
 
 (defn fetch-tasks
   ([] (fetch-tasks (fetch-opts-for-current-tab)))
@@ -1780,6 +1795,9 @@
 (defn splice-day-item [date item target position]
   (today-page/splice-day-item *app-state date item target position))
 
+(defn assume-day-membership [task-id date]
+  (today-page/assume-day-membership *app-state task-id date))
+
 (defn set-task-maybe [task-id maybe?]
   (tasks/set-task-maybe *app-state auth-headers task-id maybe?))
 
@@ -1857,8 +1875,8 @@
 (defn reorder-task [task-id target-task-id position]
   (tasks/reorder-task *app-state auth-headers fetch-tasks task-id target-task-id position))
 
-(defn reorder-task-in-urgent [task-id target-task-id position]
-  (tasks/reorder-task-in-urgent *app-state auth-headers fetch-tasks task-id target-task-id position))
+(defn reorder-task-in-urgent [task-id urgency target-task-id position]
+  (tasks/reorder-task-in-urgent *app-state auth-headers fetch-tasks task-id urgency target-task-id position))
 
 (defn set-sort-mode [mode]
   (tasks/set-sort-mode *app-state fetch-tasks mode))

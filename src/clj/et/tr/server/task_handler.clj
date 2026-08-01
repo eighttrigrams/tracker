@@ -144,26 +144,49 @@
       {:status 200 :body (db.task/reorder-task (common/ensure-ds) user-id task-id new-order)})))
 
 (defn reorder-task-in-urgent-handler
-  "POST /api/tasks/:id/reorder-urgent — move a task within the Urgent Matters
-  section of the Today page. Body: {:target-task-id :position} where position is
-  \"before\" or \"after\", exactly as POST /reorder takes them. Computes a new
-  :sort_order_urgent between the target and its neighbour inside the target's
-  urgency block (or +/- 1.0 at the edges). Urgent Matters has an order of its
-  own, so this never touches :sort_order, the Tasks page's manual order.
-  Returns {:success true :sort_order_urgent new-order} on 200, or 404 when the
-  target is not one of the caller's open urgent tasks."
+  "POST /api/tasks/:id/reorder-urgent — put a task in the Urgent Matters section
+  of the Today page and place it. Body: {:urgency :target-task-id :position}.
+  `urgency` is the block that was dropped on, \"urgent\" or \"superurgent\"; the
+  task is given it, and taken off any day list, in this same request — setting
+  the urgency and setting the position are both writes to :sort_order_urgent and
+  as two requests the later one wins. `target-task-id` and `position`
+  (\"before\"/\"after\") name what was dropped on, exactly as POST /reorder takes
+  them; omit both to drop on an empty block, which leaves the task at the top of
+  it. Urgent Matters has an order of its own, so this never touches :sort_order,
+  the Tasks page's manual order. Returns {:success true :sort_order_urgent} on
+  200, 400 on a bad urgency or position, 404 when the task is not the caller's
+  or the target is not in that block."
   [req]
-  (let [user-id (common/get-user-id req)
+  (let [{:keys [urgency target-task-id position]} (:body req)
+        user-id (common/get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [target-task-id position]} (:body req)
-        ds (common/ensure-ds)
-        target (db.task/get-task ds user-id target-task-id)
-        all-tasks (when (contains? db/urgent-urgencies (:urgency target))
-                    (db.task/list-urgent-tasks ds user-id (:urgency target)))
-        new-order (ordering/value-between :tasks-urgent all-tasks target-task-id position)]
-    (if (nil? new-order)
-      {:status 404 :body {:error "Target task is not in Urgent Matters"}}
-      {:status 200 :body (db.task/reorder-task-in-urgent ds user-id task-id new-order)})))
+        ds (common/ensure-ds)]
+    (cond
+      (not (contains? db/urgent-urgencies urgency))
+      {:status 400 :body {:error "urgency must be \"urgent\" or \"superurgent\""}}
+
+      (and target-task-id (not (contains? #{"before" "after"} position)))
+      {:status 400 :body {:error "position must be \"before\" or \"after\""}}
+
+      (not (db.task/task-owned-by-user? ds task-id user-id))
+      {:status 404 :body {:error "Task not found"}}
+
+      (and target-task-id
+           (not (some #(= (:id %) target-task-id)
+                      (db.task/list-urgent-tasks ds user-id urgency))))
+      {:status 404 :body {:error "Target task is not in that Urgent Matters block"}}
+
+      :else
+      (do
+        (when-let [{:keys [before after]} (db.task/join-urgent! ds user-id task-id urgency)]
+          (events/record-update! req :task task-id before after))
+        (if target-task-id
+          (let [value (ordering/value-between :tasks-urgent
+                                              (db.task/list-urgent-tasks ds user-id urgency)
+                                              target-task-id position)]
+            {:status 200 :body (db.task/reorder-task-in-urgent ds user-id task-id value)})
+          {:status 200 :body {:success true
+                              :sort_order_urgent (db.task/urgent-position ds user-id task-id)}})))))
 
 (defn- reorder-today-request-error [{:keys [date target-type target-id position]}]
   (cond

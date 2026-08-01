@@ -72,12 +72,15 @@ async function dispatchDrag(page: any, selector: string, title: string, type: st
   );
 }
 
+// targetSelector differs from selector when the drop crosses lists — dragging
+// between the two urgency blocks, say.
 export async function dragCard(
   page: any,
   selector: string,
   source: string,
   target: string,
   position: "before" | "after",
+  targetSelector: string = selector,
 ) {
   await page.evaluate(() => {
     (window as any).__dt = new DataTransfer();
@@ -87,7 +90,7 @@ export async function dragCard(
   await expect(page.locator(".dragging").filter({ hasText: source })).toBeVisible({ timeout: 5000 });
   const frac = position === "before" ? 0.25 : 0.75;
   for (const type of ["dragenter", "dragover", "drop"]) {
-    await dispatchDrag(page, selector, target, type, frac);
+    await dispatchDrag(page, targetSelector, target, type, frac);
   }
   await page.waitForLoadState("networkidle");
   await dispatchDrag(page, selector, source, "dragend", 0.5);

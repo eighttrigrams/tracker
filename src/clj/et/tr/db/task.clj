@@ -246,12 +246,14 @@
     (when (and date
                (not (and ((ordering/column :tasks-day-list) before)
                          (= date (day-order/flagged-date before today)))))
-      (set-task-sort-order-today ds user-id task-id (db.day-list/end-position ds user-id date)))))
+      (set-task-sort-order-today ds user-id task-id
+                                 (db.day-list/end-position ds user-id date task-id)))))
 
 (defn set-task-due-date [ds user-id task-id due-date]
   ;; A due date change moves the task to another day (or off the day lists
   ;; altogether), which is what sort_order_today is relative to, so the manual day
-  ;; position goes with it.
+  ;; position goes with it. Dating a task also drops it out of Urgent Matters,
+  ;; and that position goes the same way.
   (let [set-map (if (nil? due-date)
                   (merge {:due_date due-date
                           :due_time nil
@@ -263,7 +265,8 @@
                           :maybe 0
                           :urgency "default"
                           :modified_at (clock/sql-now)}
-                         (ordering/clearing :tasks-day-list)))]
+                         (ordering/clearing :tasks-day-list)
+                         (ordering/clearing :tasks-urgent)))]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set set-map
@@ -454,6 +457,36 @@
     (when (and result (= field :urgency) (not= urgency-before valid-value))
       (place-in-urgent-list! ds user-id task-id valid-value))
     result))
+
+(defn urgent-position [ds user-id task-id]
+  ((ordering/column :tasks-urgent)
+   (jdbc/execute-one! (db/get-conn ds)
+     (sql/format {:select [(ordering/column :tasks-urgent)]
+                  :from [:tasks]
+                  :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]})
+     db/jdbc-opts)))
+
+(defn join-urgent!
+  "Put the task in the Urgent Matters block `urgency` renders, and take it off
+  any day list — an urgent task belongs to one of the two places, not both.
+  Returns the before/after membership when it wrote, nil when the task was
+  already there. Setting the urgency and setting the position are two writes to
+  sort_order_urgent, so they have to be one server-side operation: as two
+  requests the loser of the race decides where the card lands."
+  [ds user-id task-id urgency]
+  (let [before (jdbc/execute-one! (db/get-conn ds)
+                 (sql/format {:select [:id :urgency :today :lined_up_for]
+                              :from [:tasks]
+                              :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]})
+                 db/jdbc-opts)
+        on-a-day? (boolean (and before (or (= 1 (:today before)) (:lined_up_for before))))]
+    (when (and before (or (not= (:urgency before) urgency) on-a-day?))
+      (when (not= (:urgency before) urgency)
+        (set-task-field ds user-id task-id :urgency urgency))
+      (when on-a-day?
+        (set-task-today ds user-id task-id false))
+      {:before (select-keys before [:urgency :today :lined_up_for])
+       :after {:urgency urgency :today 0 :lined_up_for nil}})))
 
 (defn set-task-done-at [ds user-id task-id done-date]
   (jdbc/execute-one! (db/get-conn ds)

@@ -228,6 +228,26 @@
       (place-in-urgent-list! ds user-id issue-id valid-value))
     result))
 
+(defn urgent-position [ds user-id issue-id]
+  ((ordering/column :issues-urgent)
+   (jdbc/execute-one! (db/get-conn ds)
+     (sql/format {:select [(ordering/column :issues-urgent)]
+                  :from [:issues]
+                  :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]})
+     db/jdbc-opts)))
+
+(defn join-urgent!
+  "Put the issue in the Urgent Matters block `urgency` renders. Returns the
+  before/after urgency when it wrote, nil when it was already there. Mirrors
+  db.task/join-urgent!: the urgency write and the position write both land on
+  sort_order_urgent, so they are one server-side operation rather than two
+  requests whose arrival order would decide the result."
+  [ds user-id issue-id urgency]
+  (let [before (issue-urgency ds user-id issue-id)]
+    (when (and before (not= before urgency))
+      (set-issue-field ds user-id issue-id :urgency urgency)
+      {:before {:urgency before} :after {:urgency urgency}})))
+
 (defn- undone-task-count
   "Number of the caller's tasks belonging to the issue that are not yet done."
   [conn user-id issue-id]

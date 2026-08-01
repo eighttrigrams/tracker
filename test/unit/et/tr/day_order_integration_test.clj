@@ -62,7 +62,20 @@
     (add-meet! "Standup" (today) "08:30")
     (let [id (flag-for-today! "After the meets")]
       (is (< 510.0 (:sort_order_today (task id))))
-      (is (= ["Standup" "First in" "Second in" "After the meets"] (day-list))))))
+      (is (= ["Standup" "First in" "Second in" "After the meets"] (day-list)))))
+
+  (testing "one step past the last item, not past the whole day: 08:30 is 510"
+    (let [date (days-from-today 2)
+          _ (add-meet! "Kickoff" date "08:30")
+          id (:id (add-task! "Right after the kickoff"))]
+      (PUT-json (str "/api/tasks/" id "/lined-up-for") {:lined_up_for date})
+      (is (= 511.0 (:sort_order_today (task id))))))
+
+  (testing "and a day holding nothing else starts the band past the last minute"
+    (let [date (days-from-today 3)
+          id (:id (add-task! "First on an empty day"))]
+      (PUT-json (str "/api/tasks/" id "/lined-up-for") {:lined_up_for date})
+      (is (= 1441.0 (:sort_order_today (task id)))))))
 
 (deftest a-drop-moves-the-task-to-where-it-was-dropped
   (testing "the caller names a target and a side; the server computes the value"

@@ -51,6 +51,13 @@
   (:items (first (window ds user-id [date]))))
 
 (defn end-position
-  "The position that lands a task after everything `date`'s list holds."
-  [ds user-id date]
-  (day-order/end-value (items ds user-id date)))
+  "The position that lands a task after everything else `date`'s list holds.
+  `joining-task-id` is left out of the calculation: by the time a join asks for
+  this the task is already a member, carrying no position yet, so counting it
+  would let it answer its own question — with the same value on every day."
+  ([ds user-id date] (end-position ds user-id date nil))
+  ([ds user-id date joining-task-id]
+   (day-order/end-value
+    (cond->> (items ds user-id date)
+      joining-task-id (remove #(and (= :task (:item-type %))
+                                    (= joining-task-id (:id %))))))))

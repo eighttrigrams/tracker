@@ -364,23 +364,6 @@
 (defn- find-task-by-id [task-id]
   (first (filter #(= (:id %) task-id) (:tasks @state/*app-state))))
 
-(defn- ensure-urgency [task-id target-urgency]
-  (let [task (find-task-by-id task-id)]
-    (when (not= (:urgency task) target-urgency)
-      (state/set-task-urgency task-id target-urgency))
-    (when (= 1 (:today task))
-      (state/set-task-today task-id false))
-    (when (:lined_up_for task)
-      (state/set-task-lined-up-for task-id nil))))
-
-(defn- find-issue-by-id [issue-id]
-  (first (filter #(= (:id %) issue-id) (:issues @state/*app-state))))
-
-(defn- ensure-issue-urgency [issue-id target-urgency]
-  (let [issue (find-issue-by-id issue-id)]
-    (when (not= (:urgency issue) target-urgency)
-      (state/set-issue-urgency issue-id target-urgency))))
-
 (defn- drag-source-issue? []
   (= :issue (:drag-task-source @state/*app-state)))
 
@@ -479,7 +462,7 @@
 (defn- day-item-ref [item]
   {:type (name (:item-type item)) :id (:id item)})
 
-(defn- handle-day-item-drop [e drag-task-id target]
+(defn- handle-day-item-drop [e drag-task-id target from-day-list?]
   (.preventDefault e)
   (.stopPropagation e)
   (let [from-reminder? (drag-task-reminder?)]
@@ -492,12 +475,18 @@
                                (assoc (day-item-ref {:item-type :task :id drag-task-id}) :flagged true)
                                (day-item-ref target)
                                position)
+        ;; The join happens on the server, so until the refetch lands the row
+        ;; still reads as a member of wherever it came from — and would render
+        ;; there and here at once. Assume the membership the request is about to
+        ;; write, exactly as the splice assumes the position.
+        (when-not from-day-list?
+          (state/assume-day-membership drag-task-id date))
         (state/reorder-task-in-day drag-task-id date target position)))
     (when (and drag-task-id from-reminder?)
       (state/acknowledge-task-reminder drag-task-id)))
   (state/clear-drag-state))
 
-(defn- day-list-item [item drag-task-id drag-enabled? accept-drop? is-today?]
+(defn- day-list-item [item drag-task-id drag-enabled? accept-drop? from-day-list? is-today?]
   (let [task? (= :task (:item-type item))
         ;; The list holds tasks and meets, whose ids are from different tables,
         ;; so what is hovered is tracked by the qualified key, not by the id.
@@ -517,7 +506,7 @@
       :on-drag-end (fn [_] (state/clear-drag-state))
       :on-drag-over (drag-drop/make-drag-over-handler hovered state/set-drag-over-task accept-drop?)
       :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task hovered #(state/set-drag-over-task nil))
-      :on-drop (fn [e] (when accept-drop? (handle-day-item-drop e drag-task-id item)))}
+      :on-drop (fn [e] (when accept-drop? (handle-day-item-drop e drag-task-id item from-day-list?)))}
      (if task?
        (if (:day-flagged? item)
          [today-task-item item :hide-date true :emoji-prefix (urgency-emoji item) :show-unlink? true :work-on? is-today?]
@@ -603,8 +592,11 @@
                                      (not (drag-source-issue?))
                                      (some #(same-day-item? % {:item-type :task :id drag-task}) items)))
         section-drop-enabled? (and drag-enabled? (not (drag-source-issue?)) (not from-day-list?))
+        ;; An overdue task is in no day list whatever it is dropped on, so the
+        ;; item-level drop refuses it and lets the section route it to the
+        ;; due-date modal — including one carrying a reminder.
         item-drop-enabled? (and drag-enabled? (not (drag-source-issue?))
-                                (or (drag-task-reminder?) (not (drag-task-overdue?))))]
+                                (not (drag-task-overdue?)))]
     [:div.today-section.today {:class (when issue-drag? "drag-disabled")}
      [:div.today-section-header
       [:h3 (date/day-formatted target-date)]]
@@ -629,7 +621,7 @@
          (doall
           (for [item items]
             ^{:key (day-item-key item)}
-            [day-list-item item drag-task (not expanded-task) item-drop-enabled? is-today?]))]
+            [day-list-item item drag-task (not expanded-task) item-drop-enabled? from-day-list? is-today?]))]
         [:p.empty-urgency-message (t :today/no-tasks-in-section)])
       [:div.day-list-footer
        [today-add-button]]]]))
@@ -653,7 +645,7 @@
       :on-drag-end (fn [_] (state/clear-drag-state))
       :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task accept-drop?)
       :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
-      :on-drop (drag-drop/make-urgency-task-drop-handler drag-task task target-urgency ensure-urgency state/reorder-task-in-urgent accept-drop?)}
+      :on-drop (drag-drop/make-urgency-task-drop-handler drag-task task target-urgency state/reorder-task-in-urgent accept-drop?)}
      [today-task-item task]]))
 
 (defn- draggable-urgent-issue-item [issue target-urgency drag-enabled?]
@@ -675,7 +667,7 @@
       :on-drag-end (fn [_] (state/clear-drag-state))
       :on-drag-over (drag-drop/make-drag-over-handler issue state/set-drag-over-task accept-drop?)
       :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task issue #(state/set-drag-over-task nil))
-      :on-drop (drag-drop/make-urgency-task-drop-handler drag-task issue target-urgency ensure-issue-urgency state/reorder-issue-in-urgent accept-drop?)}
+      :on-drop (drag-drop/make-urgency-task-drop-handler drag-task issue target-urgency state/reorder-issue-in-urgent accept-drop?)}
      [today-issue-item issue]]))
 
 (defn- urgency-task-list [tasks issues target-urgency drag-enabled?]
@@ -685,8 +677,8 @@
         from-issue? (drag-source-issue?)
         accept-drop? (and drag-enabled? (not (drag-task-dated?)) (not (drag-task-reminder?)))
         section-drop (if from-issue?
-                       (drag-drop/make-urgency-section-drop-handler drag-task issues target-urgency ensure-issue-urgency state/reorder-issue-in-urgent state/clear-drag-state accept-drop?)
-                       (drag-drop/make-urgency-section-drop-handler drag-task tasks target-urgency ensure-urgency state/reorder-task-in-urgent state/clear-drag-state accept-drop?))]
+                       (drag-drop/make-urgency-section-drop-handler drag-task issues target-urgency state/reorder-issue-in-urgent state/clear-drag-state accept-drop?)
+                       (drag-drop/make-urgency-section-drop-handler drag-task tasks target-urgency state/reorder-task-in-urgent state/clear-drag-state accept-drop?))]
     [:div.urgency-task-list
      {:class (str (when is-section-drag-over "section-drag-over")
                   (when-not drag-enabled? " drag-disabled"))

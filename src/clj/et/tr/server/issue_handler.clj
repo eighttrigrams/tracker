@@ -210,26 +210,48 @@
       {:status 200 :body (db.issue/reorder-issue (common/ensure-ds) user-id issue-id new-order)})))
 
 (defn reorder-issue-in-urgent-handler
-  "POST /api/issues/:id/reorder-urgent — move an issue within the Urgent Matters
-  section of the Today page. Body fields: :target-issue-id and :position
-  (\"before\" or \"after\"), exactly as POST /reorder takes them. Computes a new
-  fractional :sort_order_urgent between the target and its neighbour inside the
-  target's urgency block (or one step past the edge when there is none). Urgent
-  Matters has an order of its own, so this never touches :sort_order, the Issues
-  page's manual order. Returns 200 {:success true :sort_order_urgent}, or 404
-  when the target is not one of the caller's open urgent issues."
+  "POST /api/issues/:id/reorder-urgent — put an issue in the Urgent Matters
+  section of the Today page and place it. Body fields: :urgency (the block that
+  was dropped on, \"urgent\" or \"superurgent\" — the issue is given it in this
+  same request, because setting the urgency and setting the position are both
+  writes to :sort_order_urgent and as two requests the later one wins),
+  :target-issue-id and :position (\"before\"/\"after\"), exactly as POST /reorder
+  takes them; omit the last two to drop on an empty block, which leaves the issue
+  at the top of it. Urgent Matters has an order of its own, so this never touches
+  :sort_order, the Issues page's manual order. Returns 200 {:success true
+  :sort_order_urgent}, 400 on a bad urgency or position, 404 when the issue is
+  not the caller's or the target is not in that block."
   [req]
-  (let [user-id (common/get-user-id req)
+  (let [{:keys [urgency target-issue-id position]} (:body req)
+        user-id (common/get-user-id req)
         issue-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [target-issue-id position]} (:body req)
-        ds (common/ensure-ds)
-        target (db.issue/get-issue ds user-id target-issue-id)
-        all-issues (when (contains? db/urgent-urgencies (:urgency target))
-                     (db.issue/list-urgent-issues ds user-id (:urgency target)))
-        new-order (ordering/value-between :issues-urgent all-issues target-issue-id position)]
-    (if (nil? new-order)
-      {:status 404 :body {:error "Target issue is not in Urgent Matters"}}
-      {:status 200 :body (db.issue/reorder-issue-in-urgent ds user-id issue-id new-order)})))
+        ds (common/ensure-ds)]
+    (cond
+      (not (contains? db/urgent-urgencies urgency))
+      {:status 400 :body {:error "urgency must be \"urgent\" or \"superurgent\""}}
+
+      (and target-issue-id (not (contains? #{"before" "after"} position)))
+      {:status 400 :body {:error "position must be \"before\" or \"after\""}}
+
+      (not (db.issue/issue-owned-by-user? ds issue-id user-id))
+      {:status 404 :body {:error "Issue not found"}}
+
+      (and target-issue-id
+           (not (some #(= (:id %) target-issue-id)
+                      (db.issue/list-urgent-issues ds user-id urgency))))
+      {:status 404 :body {:error "Target issue is not in that Urgent Matters block"}}
+
+      :else
+      (do
+        (when-let [{:keys [before after]} (db.issue/join-urgent! ds user-id issue-id urgency)]
+          (events/record-update! req :issue issue-id before after))
+        (if target-issue-id
+          (let [value (ordering/value-between :issues-urgent
+                                              (db.issue/list-urgent-issues ds user-id urgency)
+                                              target-issue-id position)]
+            {:status 200 :body (db.issue/reorder-issue-in-urgent ds user-id issue-id value)})
+          {:status 200 :body {:success true
+                              :sort_order_urgent (db.issue/urgent-position ds user-id issue-id)}})))))
 
 (def set-issue-scope-handler
   "PUT /api/issues/:id/scope — set the issue's :scope field. Body field :scope

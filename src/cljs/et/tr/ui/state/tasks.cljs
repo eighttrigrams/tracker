@@ -417,9 +417,9 @@
   (post-reorder app-state auth-headers fetch-tasks-fn "/reorder" task-id
                 {:target-task-id target-task-id :position position}))
 
-(defn reorder-task-in-urgent [app-state auth-headers fetch-tasks-fn task-id target-task-id position]
+(defn reorder-task-in-urgent [app-state auth-headers fetch-tasks-fn task-id urgency target-task-id position]
   (post-reorder app-state auth-headers fetch-tasks-fn "/reorder-urgent" task-id
-                {:target-task-id target-task-id :position position}))
+                {:urgency urgency :target-task-id target-task-id :position position}))
 
 ;; The refetch runs on failure too: the day list was spliced optimistically, and
 ;; the backend's order is what puts a refused drop back where it came from.

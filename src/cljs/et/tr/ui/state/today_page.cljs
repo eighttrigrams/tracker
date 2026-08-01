@@ -166,6 +166,20 @@
   (swap! app-state assoc :today-page/day-lists
          (into {} (map (juxt :date #(vec (:items %)))) days)))
 
+(defn assume-day-membership
+  "Move the task onto `date` locally while the request that joins it is in
+  flight. The sections that read the day markers — Urgent Matters, the reminders
+  — would otherwise go on rendering a card the day list has already taken, so it
+  would show in two places for the length of the round trip."
+  [app-state task-id date]
+  (let [today? (= date (today-str))]
+    (swap! app-state update :tasks
+           (fn [tasks]
+             (mapv #(if (= (:id %) task-id)
+                      (assoc % :today (if today? 1 0) :lined_up_for (when-not today? date))
+                      %)
+                   tasks)))))
+
 (defn- same-day-ref? [a b]
   (and (= (:type a) (:type b)) (= (:id a) (:id b))))
 

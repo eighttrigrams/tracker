@@ -21,6 +21,23 @@ Feature: Urgent Matters has an order of its own
     When I click the "Today" tab
     Then the urgent task list reads "Alpha, Gamma, Beta"
 
+  # Dropped into the middle on purpose: at the end of the block the position the
+  # drop asks for and the position a stray second write would give it are the
+  # same, and the drag that used to race itself would pass anyway.
+  Scenario: A task dragged across the urgency blocks lands where it was dropped
+    Given I am on the app
+    And a task "Super A" with urgency "superurgent" exists
+    And a task "Super B" with urgency "superurgent" exists
+    And a task "Super C" with urgency "superurgent" exists
+    And a task "Dragged" with urgency "urgent" exists
+    When I navigate to the "Today" tab
+    Then the superurgent task list reads "Super C, Super B, Super A"
+    And the urgent task list reads "Dragged"
+    When I drag the urgent task "Dragged" after the superurgent task "Super C"
+    Then the drop made exactly one write
+    And the superurgent task list reads "Super C, Dragged, Super B, Super A"
+    And the urgent task list is empty
+
   Scenario: Reordering an issue in Urgent Matters leaves the Issues page order alone
     Given I am on the app
     And an issue "Roof" with urgency "urgent" exists
