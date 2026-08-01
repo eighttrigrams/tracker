@@ -278,6 +278,22 @@
 (defn vim-keys? []
   (= 1 (:vim_keys (:current-user @*app-state))))
 
+(defn update-inverted-scope-placement [enabled]
+  (auth/update-inverted-scope-placement *app-state auth-headers enabled))
+
+(defn inverted-scope-placement? []
+  (= 1 (:inverted_scope_placement (:current-user @*app-state))))
+
+(defn scope-order
+  "The left-to-right order of the private/both/work switcher, for every site
+  that renders one. The `inverted_scope_placement` user setting swaps the two
+  ends and leaves `both` in the middle; reading the order from here rather
+  than repeating a literal keeps the navbar and the card footers in step."
+  []
+  (if (inverted-scope-placement?)
+    ["work" "both" "private"]
+    ["private" "both" "work"]))
+
 (defn fetch-messages []
   (mail/fetch-messages *app-state auth-headers))
 

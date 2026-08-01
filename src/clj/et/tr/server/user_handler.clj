@@ -236,6 +236,32 @@
         {:status 200 :body result}
         {:status 404 :body {:error "User not found"}}))))
 
+(defn update-inverted-scope-placement-handler
+  "PUT /api/user/inverted-scope-placement — toggle the caller's inverted
+  scope-switcher placement (private on the right). Body field
+  :inverted_scope_placement must be 0 or 1. Admin callers are rejected with
+  400 since the synthetic admin has no row. Returns 200 with the updated
+  row, 400 {:error} on invalid input or admin caller, or 404 {:error} when
+  the user row cannot be located."
+  [req]
+  (let [user-info (common/get-user-from-request req)
+        user-id (:user-id user-info)
+        inverted (:inverted_scope_placement (:body req))]
+    (cond
+      (:is-admin user-info)
+      {:status 400 :body {:error "Admin settings cannot be changed"}}
+
+      (nil? user-id)
+      {:status 400 :body {:error "User not found"}}
+
+      (not (contains? #{0 1} inverted))
+      {:status 400 :body {:error "Invalid value"}}
+
+      :else
+      (if-let [result (db.user/set-inverted-scope-placement (common/ensure-ds) user-id (= 1 inverted))]
+        {:status 200 :body result}
+        {:status 404 :body {:error "User not found"}}))))
+
 (defn update-screensaver-enabled-handler
   "PUT /api/user/screensaver-enabled — toggle the caller's motto
   screensaver preference. Body :screensaver_enabled must be 0 or 1.

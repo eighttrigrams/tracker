@@ -27,6 +27,16 @@
                :on-change #(state/update-vim-keys (not enabled))}]
       (str " " (t :settings/vim-keys))]]))
 
+(defn- inverted-scope-placement-toggle []
+  (let [current-user (:current-user @state/*app-state)
+        enabled (= 1 (:inverted_scope_placement current-user))]
+    [:div.settings-item
+     [:label
+      [:input {:type "checkbox"
+               :checked enabled
+               :on-change #(state/update-inverted-scope-placement (not enabled))}]
+      (str " " (t :settings/inverted-scope-placement))]]))
+
 (defn- add-machine-user-form []
   (let [username   (r/atom "")
         password   (r/atom "")
@@ -166,6 +176,8 @@
          [language-selector])
        (when-not is-admin
          [vim-keys-toggle])
+       (when-not is-admin
+         [inverted-scope-placement-toggle])
        [:div.settings-item
         [:button.export-btn {:on-click #(state/export-data)}
          (t :settings/export-data)]]]

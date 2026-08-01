@@ -30,7 +30,8 @@
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:select [:id :username :password_hash :language :has_mail :vim_keys :created_at
                           :is_machine_user :for_user_id :mail_only
-                          :screensaver_enabled :screensaver_timeout_seconds]
+                          :screensaver_enabled :screensaver_timeout_seconds
+                          :inverted_scope_placement]
                  :from [:users]
                  :where [:= :username username]})
     db/jdbc-opts))
@@ -51,7 +52,8 @@
   (jdbc/execute! (db/get-conn ds)
     (sql/format {:select [:id :username :language :has_mail :vim_keys :created_at
                           :is_machine_user :for_user_id :mail_only
-                          :screensaver_enabled :screensaver_timeout_seconds]
+                          :screensaver_enabled :screensaver_timeout_seconds
+                          :inverted_scope_placement]
                  :from [:users]
                  :where [:not= :username "admin"]
                  :order-by [[:created_at :asc]]})
@@ -116,6 +118,15 @@
                    :set {:vim_keys (if enabled 1 0)}
                    :where [:= :id user-id]
                    :returning [:id :vim_keys]})
+      db/jdbc-opts)))
+
+(defn set-inverted-scope-placement [ds user-id enabled]
+  (when user-id
+    (jdbc/execute-one! (db/get-conn ds)
+      (sql/format {:update :users
+                   :set {:inverted_scope_placement (if enabled 1 0)}
+                   :where [:= :id user-id]
+                   :returning [:id :inverted_scope_placement]})
       db/jdbc-opts)))
 
 (defn set-screensaver-enabled [ds user-id enabled]

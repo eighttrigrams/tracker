@@ -210,6 +210,7 @@
     (context "/user" []
       (PUT "/language" [] user-handler/update-language-handler)
       (PUT "/vim-keys" [] user-handler/update-vim-keys-handler)
+      (PUT "/inverted-scope-placement" [] user-handler/update-inverted-scope-placement-handler)
       (PUT "/screensaver-enabled" [] user-handler/update-screensaver-enabled-handler)
       (PUT "/screensaver-timeout" [] user-handler/update-screensaver-timeout-handler))
 

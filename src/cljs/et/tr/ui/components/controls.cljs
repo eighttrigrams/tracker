@@ -46,7 +46,7 @@
 
 (defn scope-toggle [css-class current-value on-change]
   (into [:div {:class css-class}]
-        (for [scope ["private" "both" "work"]]
+        (for [scope (state/scope-order)]
           (if (= scope "both")
             [:button.toggle-option
              {:key scope

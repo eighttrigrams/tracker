@@ -28,7 +28,7 @@
 (defn- scope-selector [{:keys [value on-set]}]
   (let [scope (or value "both")]
     [:div.task-scope-selector.toggle-group.compact
-     (for [s ["private" "both" "work"]]
+     (for [s (state/scope-order)]
        ^{:key s}
        [:button.toggle-option
         {:class (when (= scope s) "active")

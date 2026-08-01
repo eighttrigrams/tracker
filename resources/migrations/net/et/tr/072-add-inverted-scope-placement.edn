@@ -1,0 +1,3 @@
+{:id "072-add-inverted-scope-placement"
+ :up ["ALTER TABLE users ADD COLUMN inverted_scope_placement INTEGER NOT NULL DEFAULT 0"]
+ :down ["ALTER TABLE users DROP COLUMN inverted_scope_placement"]}

@@ -118,3 +118,14 @@
         (save-auth-to-storage token user)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update setting")))))
+
+(defn update-inverted-scope-placement [app-state auth-headers enabled]
+  (api/put-json "/api/user/inverted-scope-placement"
+    {:inverted_scope_placement (if enabled 1 0)} (auth-headers)
+    (fn [_]
+      (swap! app-state update :current-user assoc :inverted_scope_placement (if enabled 1 0))
+      (let [user (:current-user @app-state)
+            token (:token @app-state)]
+        (save-auth-to-storage token user)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update setting")))))
