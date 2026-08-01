@@ -198,6 +198,9 @@
 (defn clear-error []
   (swap! *app-state assoc :error nil))
 
+(defn set-error [message]
+  (swap! *app-state assoc :error message))
+
 (defn is-admin? []
   (:is_admin (:current-user @*app-state)))
 

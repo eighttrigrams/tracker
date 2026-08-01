@@ -532,6 +532,29 @@
 .task-dropdown-menu .dropdown-item.archive {
   color: #007aff;
 }
+/* The right-click menu wears the footer dropdown's look but is placed against
+   the viewport at the pointer, so it has to undo that menu's anchoring. Its
+   entries keep the footer's colours (delete red, other actions blue); the split
+   button's primary action, which is only ever a menu entry here, joins them. */
+.card-context-menu {
+  position: fixed;
+  right: auto;
+  margin-top: 0;
+  min-width: 160px;
+}
+.card-context-menu .dropdown-item {
+  white-space: nowrap;
+}
+.card-context-menu .dropdown-item.done,
+.card-context-menu .dropdown-item.undone,
+.card-context-menu .dropdown-item.acknowledge-reminder,
+.card-context-menu .dropdown-item.copy-link {
+  color: #007aff;
+}
+.card-context-menu .dropdown-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 @media (prefers-color-scheme: dark) {
   .task-dropdown-menu {
     background: #2c2c2c;

@@ -1,7 +1,9 @@
 (ns et.tr.ui.components.item-card
   (:require [clojure.string :as str]
             [reagent.core :as r]
+            ["react-dom" :as react-dom]
             [et.tr.ui.state :as state]
+            [et.tr.ui.save-flash :as save-flash]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.relation-link :as relation-link]
             [et.tr.ui.components.relation-badges :as relation-badges]
@@ -117,6 +119,148 @@
                    items)))]
         [:button.combined-main-btn.standalone {:class main-class :on-click on-click} label])]]))
 
+;; The open right-click menu, in a global atom for the same reason the footer
+;; dropdowns keep their open state outside the card (see close-on-unmount): only
+;; one may be up at a time, and no menu may outlive its card. Keyed by a
+;; per-mount token rather than by item id, because the Today page mixes card
+;; types whose ids repeat.
+(defonce ^:private *context-menu (r/atom nil))
+
+(defn- close-context-menu!
+  ([] (reset! *context-menu nil))
+  ([token] (when (= token (:token @*context-menu)) (close-context-menu!))))
+
+(defn- own-context-menu
+  "The open menu, but only for the card `token` belongs to. Read through an
+  r/track so a card re-renders when its own menu opens or closes and not when
+  some other card's does — every card subscribes to the one atom."
+  [token]
+  (let [menu @*context-menu]
+    (when (= token (:token menu)) menu)))
+
+(defn- copy-link! [link]
+  (let [clipboard (.-clipboard js/navigator)
+        fail (fn [] (state/set-error (t :card-menu/copy-link-failed)))]
+    (if clipboard
+      (-> (.writeText clipboard link)
+          (.then (fn [] (save-flash/flash!)))
+          (.catch (fn [_] (fail))))
+      (fail))))
+
+(defn- context-menu-entries
+  "The card's footer menu, flattened: the footer split button's primary action
+  first, then its dropdown items. The footer's toggle groups (scope, importance,
+  urgency) are not menu items and stay out. An item that carries a link gets a
+  copy entry the footer has none of — suppressing the browser's own menu takes
+  away its \"Copy link address\", which is the only way a resource's link is
+  reachable otherwise."
+  [item main-actions]
+  (let [{:keys [label on-click variant disabled title dropdown]} main-actions
+        link (:link item)]
+    (cond-> []
+      label
+      (conj {:label label
+             :on-click on-click
+             :class (variant-class variant)
+             :title title
+             :disabled (or (boolean disabled) (nil? on-click))})
+
+      (seq (:items dropdown))
+      (into (:items dropdown))
+
+      (seq link)
+      (conj {:label (t :card-menu/copy-link)
+             :class "copy-link"
+             :on-click #(copy-link! link)}))))
+
+(defn- open-context-menu
+  "Per-card contextmenu handler — never a document-level one: outside a card the
+  browser's own menu has to stay reachable, and a card with nothing to offer
+  leaves it alone too. Editable fields inside a card keep their native menu, so
+  copy/paste there is not lost. Opening also closes this card's footer dropdown,
+  and the global atom means it closes any other card's menu."
+  [token entries dropdown]
+  (fn [e]
+    (when (and (seq entries)
+               (not (.closest (.-target e)
+                              "input, textarea, select, [contenteditable=true]")))
+      (.preventDefault e)
+      (.stopPropagation e)
+      (when (:open? dropdown)
+        ((:on-toggle dropdown)))
+      (reset! *context-menu {:token token :x (.-clientX e) :y (.-clientY e)}))))
+
+(defn- clamp-context-menu!
+  "Pull the menu back inside the viewport once its real size is known. The
+  correction goes into the atom, not the DOM, so a re-render keeps it."
+  [el]
+  (let [rect (.getBoundingClientRect el)
+        margin 4
+        over-x (- (.-right rect) (- (.-innerWidth js/window) margin))
+        over-y (- (.-bottom rect) (- (.-innerHeight js/window) margin))]
+    (when (or (pos? over-x) (pos? over-y))
+      (swap! *context-menu
+             (fn [menu]
+               (when menu
+                 (cond-> menu
+                   (pos? over-x) (update :x #(max margin (- % over-x)))
+                   (pos? over-y) (update :y #(max margin (- % over-y))))))))))
+
+(defn- context-menu
+  "The menu itself, rendered into `document.body` through a portal. It stays a
+  child of its card in the React tree — so it unmounts with the card, and
+  close-on-unmount still ties its open state to the card's lifetime — while the
+  DOM node sits outside it: a card is a glass panel with a backdrop-filter and a
+  hover transform, which makes it the containing block and a stacking context for
+  anything position: fixed inside it. In the card the menu would be placed
+  relative to that panel, clipped by it, and painted under the cards below."
+  [_]
+  (let [el (atom nil)
+        outside? (fn [e] (not (some-> @el (.contains (.-target e)))))
+        dismiss (fn [e] (when (outside? e) (close-context-menu!)))
+        on-key (fn [e] (when (= "Escape" (.-key e)) (close-context-menu!)))
+        on-scroll (fn [_] (close-context-menu!))
+        take-el (fn [node]
+                  (reset! el node)
+                  (when node (clamp-context-menu! node)))]
+    (r/create-class
+     {:display-name "card-context-menu"
+      :component-did-mount
+      (fn [_]
+        (.addEventListener js/document "mousedown" dismiss true)
+        (.addEventListener js/document "keydown" on-key)
+        (.addEventListener js/window "resize" on-scroll)
+        ;; Capture, so a scroll in any container closes the menu as well: it is
+        ;; placed against the viewport and would otherwise drift off its card.
+        (.addEventListener js/document "scroll" on-scroll true))
+      :component-will-unmount
+      (fn [_]
+        (.removeEventListener js/document "mousedown" dismiss true)
+        (.removeEventListener js/document "keydown" on-key)
+        (.removeEventListener js/window "resize" on-scroll)
+        (.removeEventListener js/document "scroll" on-scroll true))
+      :reagent-render
+      (fn [{:keys [x y entries]}]
+        (react-dom/createPortal
+          (r/as-element
+            (into [:div.task-dropdown-menu.card-context-menu
+                   {:ref take-el
+                    :style {:left (str x "px") :top (str y "px")}}]
+                  (map-indexed
+                    (fn [i {:keys [label on-click class title disabled]}]
+                      ^{:key i}
+                      [:button.dropdown-item
+                       {:class class
+                        :title title
+                        :disabled (boolean disabled)
+                        :on-click (fn [e]
+                                    (.stopPropagation e)
+                                    (close-context-menu!)
+                                    (when on-click (on-click)))}
+                       label])
+                    entries)))
+          js/document.body))})))
+
 (defn- card-title-el [{:keys [item expanded? inline-edit title-text-class]}]
   (let [editing? (inline-editing? inline-edit item)
         {:keys [edit-id-path title-path update-fn build-args]} inline-edit
@@ -180,7 +324,10 @@
 (def ^:private drag-threshold-px 5)
 
 (defn capture-press-xy [e]
-  (reset! press-xy [(.-clientX e) (.-clientY e)]))
+  ;; Only the primary button opens a card, so a right-click (which opens the
+  ;; card's context menu instead) must not overwrite the pending gesture.
+  (when (zero? (.-button e))
+    (reset! press-xy [(.-clientX e) (.-clientY e)])))
 
 (defn pointer-dragged? [e]
   (let [[dx dy] @press-xy]
@@ -327,39 +474,51 @@
                          title-extra title-content title-text-class title-icon
                          header-wrapper header-extra readonly-extra
                          expanded-prefix expanded-suffix]}]
-  (let [{:keys [tag class attrs classes]} container
-        tag (or tag :li)
-        header-class (get classes :header "item-header")
-        title-class (get classes :title "item-title")
-        date-class (get classes :date "item-date")
-        content-class (get classes :content "item-details")
-        container-class (str/join " " (filter seq [(when expanded? "expanded") class]))
-        header [card-header {:item item
-                             :expanded? expanded?
-                             :on-toggle on-toggle
-                             :inline-edit inline-edit
-                             :header-class header-class
-                             :title-class title-class
-                             :relation-link relation-link
-                             :badges badges
-                             :title-extra title-extra
-                             :title-content title-content
-                             :title-text-class title-text-class
-                             :title-icon title-icon
-                             :toolbar toolbar
-                             :date date
-                             :date-class date-class
-                             :header-extra header-extra}]]
-    [tag (merge {:class container-class} attrs)
-     (if header-wrapper (header-wrapper header) header)
-     (if expanded?
-       [card-expanded-body {:item item
-                            :content-class content-class
-                            :description description
-                            :categories categories
-                            :footer footer
-                            :expanded-prefix expanded-prefix
-                            :expanded-suffix expanded-suffix}]
-       [card-readonly-body {:item item
-                            :categories categories
-                            :readonly-extra readonly-extra}])]))
+  (r/with-let [menu-token (js/Object.)
+               *own-menu (r/track own-context-menu menu-token)]
+    (let [{:keys [tag class attrs classes]} container
+          tag (or tag :li)
+          header-class (get classes :header "item-header")
+          title-class (get classes :title "item-title")
+          date-class (get classes :date "item-date")
+          content-class (get classes :content "item-details")
+          container-class (str/join " " (filter seq [(when expanded? "expanded") class]))
+          main-actions (:main-actions footer)
+          menu-entries (context-menu-entries item main-actions)
+          menu @*own-menu
+          header [card-header {:item item
+                               :expanded? expanded?
+                               :on-toggle on-toggle
+                               :inline-edit inline-edit
+                               :header-class header-class
+                               :title-class title-class
+                               :relation-link relation-link
+                               :badges badges
+                               :title-extra title-extra
+                               :title-content title-content
+                               :title-text-class title-text-class
+                               :title-icon title-icon
+                               :toolbar toolbar
+                               :date date
+                               :date-class date-class
+                               :header-extra header-extra}]]
+      [tag (merge {:class container-class
+                   :on-context-menu (open-context-menu menu-token menu-entries
+                                                       (:dropdown main-actions))}
+                  attrs)
+       (if header-wrapper (header-wrapper header) header)
+       (if expanded?
+         [card-expanded-body {:item item
+                              :content-class content-class
+                              :description description
+                              :categories categories
+                              :footer footer
+                              :expanded-prefix expanded-prefix
+                              :expanded-suffix expanded-suffix}]
+         [card-readonly-body {:item item
+                              :categories categories
+                              :readonly-extra readonly-extra}])
+       [close-on-unmount
+        (fn [] (close-context-menu! menu-token))
+        (when menu
+          [context-menu {:x (:x menu) :y (:y menu) :entries menu-entries}])]])))
