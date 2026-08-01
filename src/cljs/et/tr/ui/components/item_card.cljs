@@ -72,21 +72,43 @@
     :acknowledge "acknowledge-reminder"
     nil))
 
+;; Every mounted card popup's close! fn, keyed by a per-mount token. Registered
+;; by close-on-unmount, so a widget states "I am a card popup" once and gets both
+;; guarantees — dies with its card, and yields to a right-click menu — instead of
+;; each new footer widget having to be remembered at the other end.
+(defonce ^:private *popup-closers (atom {}))
+
+(defn close-card-popups!
+  "Close every card popup that is currently mounted: footer split-button
+  dropdowns, the Tasks page's send-to-day picker, and any open right-click menu.
+  Each registered `close!` is a no-op when its own popup is already closed, so
+  this is safe to call unconditionally."
+  []
+  (doseq [close! (vals @*popup-closers)]
+    (close!)))
+
 (defn close-on-unmount
   "Lifecycle wrapper: renders `child` and, when it unmounts, runs the most recent
-  `close!` handed to it. Card action dropdowns keep their open-state in a global
-  per-item key in an app atom, so a plain card collapse (which unmounts the
-  expanded body) would otherwise leave that key pointing at a now-hidden card and
-  the menu would re-open stale on the next expand. Routing a dropdown through
-  this wrapper ties its open lifetime to its own mount lifetime, which makes the
-  stale-open class of bug structurally impossible for any widget that uses it —
-  not just the footer split-button. `close!` is a 0-arg fn and must be a no-op
-  when the dropdown is already closed."
+  `close!` handed to it — and registers that same `close!` with
+  `close-card-popups!` for as long as it is mounted. Card action dropdowns keep
+  their open-state in a global per-item key in an app atom, so a plain card
+  collapse (which unmounts the expanded body) would otherwise leave that key
+  pointing at a now-hidden card and the menu would re-open stale on the next
+  expand. Routing a dropdown through this wrapper ties its open lifetime to its
+  own mount lifetime, which makes the stale-open class of bug structurally
+  impossible for any widget that uses it — not just the footer split-button.
+  `close!` is a 0-arg fn and must be a no-op when the dropdown is already
+  closed."
   [_ _]
-  (let [close-ref (atom nil)]
+  (let [close-ref (atom nil)
+        key (js/Object.)
+        run-close! (fn [] (when-let [c @close-ref] (c)))]
     (r/create-class
      {:display-name "close-on-unmount"
-      :component-will-unmount (fn [_] (when-let [c @close-ref] (c)))
+      :component-did-mount (fn [_] (swap! *popup-closers assoc key run-close!))
+      :component-will-unmount (fn [_]
+                                (swap! *popup-closers dissoc key)
+                                (run-close!))
       :reagent-render (fn [close! child]
                         (reset! close-ref close!)
                         child)})))
@@ -198,17 +220,19 @@
   "Per-card contextmenu handler — never a document-level one: outside a card the
   browser's own menu has to stay reachable, and a card with nothing to offer
   leaves it alone too. Editable fields inside a card keep their native menu, so
-  copy/paste there is not lost. Opening also closes this card's footer dropdown,
-  and the global atom means it closes any other card's menu."
-  [token entries dropdown]
+  copy/paste there is not lost. Opening first closes every other card popup
+  through `close-card-popups!` — footer dropdowns wherever they are, the Tasks
+  page's send-to-day picker, and any menu already up — so the new menu is the
+  only thing on screen. Clearing the atom that way and re-filling it below is
+  safe: reagent batches both into one render."
+  [token entries]
   (fn [e]
     (when (and (seq entries)
                (not (.closest (.-target e)
                               "input, textarea, select, [contenteditable=true]")))
       (.preventDefault e)
       (.stopPropagation e)
-      (when (:open? dropdown)
-        ((:on-toggle dropdown)))
+      (close-card-popups!)
       (reset! *context-menu {:token token :x (.-clientX e) :y (.-clientY e)}))))
 
 (defn- clamp-context-menu!
@@ -504,7 +528,6 @@
           date-class (get classes :date "item-date")
           content-class (get classes :content "item-details")
           container-class (str/join " " (filter seq [(when expanded? "expanded") class]))
-          main-actions (:main-actions footer)
           menu-entries (context-menu-entries item footer)
           menu @*own-menu
           header [card-header {:item item
@@ -524,8 +547,7 @@
                                :date-class date-class
                                :header-extra header-extra}]]
       [tag (merge {:class container-class
-                   :on-context-menu (open-context-menu menu-token menu-entries
-                                                       (:dropdown main-actions))}
+                   :on-context-menu (open-context-menu menu-token menu-entries)}
                   attrs)
        (if header-wrapper (header-wrapper header) header)
        (if expanded?
