@@ -30,6 +30,15 @@ Feature: Right-clicking an item card opens its footer menu
     When I click outside the card menu
     Then no card menu is open
 
+  Scenario: The menu cannot outlive the card it belongs to
+    Given I am on the app
+    And I click the "Tasks" tab
+    And I add a task called "Context menu task"
+    When I right-click the card "Context menu task"
+    Then the card menu offers "Mark task done, Set Reminder, Delete"
+    When I click the "Inbox" tab
+    Then no card menu is open
+
   Scenario: Opening the menu closes the card's send-to-day picker
     Given I am on the app
     And I click the "Tasks" tab
