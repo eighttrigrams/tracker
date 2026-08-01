@@ -123,6 +123,30 @@ When(
 );
 
 When(
+  "I drag the day-list task {string} before the day-list task {string}",
+  async ({ page }, source: string, target: string) => {
+    await startDrag(page, DAY_ITEMS, source);
+    await dropOnItem(page, target, "before");
+    await endDrag(page, DAY_ITEMS, source);
+  },
+);
+
+// The Tasks page's own manual order, so a day-list drag and a Tasks-page drag
+// can be shown not to reach each other's column.
+When(
+  "I drag the task {string} before the task {string}",
+  async ({ page }, source: string, target: string) => {
+    const items = ".items li";
+    await startDrag(page, items, source);
+    for (const type of ["dragenter", "dragover", "drop"]) {
+      await fireDrag(page, items, target, type, 0.25);
+    }
+    await page.waitForLoadState("networkidle");
+    await endDrag(page, items, source);
+  },
+);
+
+When(
   "I drag the urgent task {string} after the day-list meet {string}",
   async ({ page }, source: string, target: string) => {
     const urgent = ".urgency-subsection.urgent .draggable-urgent-task";

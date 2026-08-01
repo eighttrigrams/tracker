@@ -234,7 +234,7 @@
       (POST "/:id/categorize" [] task-handler/categorize-task-handler)
       (DELETE "/:id/categorize" [] task-handler/uncategorize-task-handler)
       (POST "/:id/reorder" [] task-handler/reorder-task-handler)
-      (PUT "/:id/day-order" [] task-handler/set-task-day-order-handler)
+      (POST "/:id/day-order" [] task-handler/reorder-task-in-day-handler)
       (PUT "/:id/due-date" [] task-handler/set-due-date-handler)
       (PUT "/:id/due-time" [] task-handler/set-due-time-handler)
       (PUT "/:id/done" [] task-handler/set-task-done-handler)

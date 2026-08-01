@@ -1,6 +1,5 @@
 (ns et.tr.ui.state.today-page
   (:require [clojure.set]
-            [et.tr.day-order :as day-order]
             [et.tr.ui.date :as date]))
 
 (def ^:private today-str date/today-str)
@@ -130,20 +129,6 @@
          (remove #(= (:lined_up_for %) sel-date))
          (sort-by :sort_order))))
 
-(defn today-flagged-tasks [app-state]
-  (let [today (today-str)
-        offset (or (:today-page/selected-day @app-state) 0)]
-    (if (zero? offset)
-      (->> (:tasks @app-state)
-           (filter #(= 1 (:today %)))
-           (remove #(= (:due_date %) today))
-           (remove #(and (:due_date %) (< (:due_date %) today)))
-           (sort-by :sort_order))
-      (let [target-date (date/add-days today offset)]
-        (->> (:tasks @app-state)
-             (filter #(= (:lined_up_for %) target-date))
-             (sort-by :sort_order))))))
-
 (defn reminder-tasks [app-state]
   (->> (:tasks @app-state)
        (filter #(= "active" (:reminder %)))
@@ -175,23 +160,44 @@
          (filter #(= (:start_date %) today))
          sort-meets-by-date-and-time)))
 
-(defn selected-day-tasks [app-state]
-  (let [target-date (selected-day-date app-state)]
-    (->> (:tasks @app-state)
-         (filter #(= (:due_date %) target-date))
-         (sort-by-date-and-time))))
+(defn set-day-lists
+  "Store the backend's order for the day window, keyed by date."
+  [app-state days]
+  (swap! app-state assoc :today-page/day-lists
+         (into {} (map (juxt :date #(vec (:items %)))) days)))
 
-(defn selected-day-meets [app-state]
-  (let [target-date (selected-day-date app-state)]
-    (->> (:today-meets @app-state)
-         (filter #(= (:start_date %) target-date))
-         sort-meets-by-date-and-time)))
+(defn- same-day-ref? [a b]
+  (and (= (:type a) (:type b)) (= (:id a) (:id b))))
 
-(defn selected-day-items [app-state]
-  (day-order/sort-items
-   (concat (map #(assoc % :item-type :task) (selected-day-tasks app-state))
-           (map #(assoc % :item-type :meet) (selected-day-meets app-state))
-           (map #(assoc % :item-type :task :day-flagged? true) (today-flagged-tasks app-state)))))
+(defn splice-day-item
+  "Move `item` next to `target` in `date`'s list right away, so a dropped card
+  does not sit at its old place until the backend's order comes back. A plain
+  vector move — the value it will get is the server's to compute."
+  [app-state date item target position]
+  (swap! app-state update-in [:today-page/day-lists date]
+         (fn [items]
+           (let [held (or (first (filter #(same-day-ref? % item) items)) item)
+                 without (vec (remove #(same-day-ref? % item) items))
+                 idx (some (fn [[i x]] (when (same-day-ref? x target) i))
+                           (map-indexed vector without))]
+             (if idx
+               (let [at (if (= position "before") idx (inc idx))]
+                 (into (conj (subvec without 0 at) held) (subvec without at)))
+               items)))))
+
+(defn selected-day-items
+  "The selected day's list as the backend ordered it, resolved against the rows
+  the page already holds. Anything the active filters kept out simply has no row
+  to resolve to, which leaves the order of the rest untouched."
+  [app-state]
+  (let [state @app-state
+        tasks-by-id (into {} (map (juxt :id identity)) (:tasks state))
+        meets-by-id (into {} (map (juxt :id identity)) (:today-meets state))]
+    (keep (fn [{:keys [type id flagged]}]
+            (if (= "meet" type)
+              (some-> (meets-by-id id) (assoc :item-type :meet))
+              (some-> (tasks-by-id id) (assoc :item-type :task :day-flagged? (boolean flagged)))))
+          (get (:today-page/day-lists state) (selected-day-date app-state)))))
 
 (defn upcoming-meets [app-state]
   (let [after-date (selected-day-date app-state)

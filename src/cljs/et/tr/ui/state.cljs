@@ -52,6 +52,7 @@
    :mottos []
    :today-meets []
    :today-journal-entries []
+   :today-page/day-lists {}
    :upcoming-horizon nil
    :working-on-task-id nil})
 
@@ -111,6 +112,7 @@
                             :today-page/selected-view :urgent
                             :today-page/confirm-move-to-today nil
                             :today-page/selected-day 0
+                            :today-page/day-lists {}
                             :upcoming-horizon nil
 
                             ;; Resources page state
@@ -1644,10 +1646,25 @@
     {:context (:work-private-mode @*app-state)
      :strict (:strict-mode @*app-state)}))
 
+;; The day section's order is the backend's, for the whole five-button window in
+;; one request; the rows it points at are the ones the page fetched with the
+;; active filters, so an unfiltered order and a filtered page agree.
+(def ^:private day-window-days 4)
+
+(defn fetch-day-lists []
+  (api/fetch-json (str "/api/today-board?days=" day-window-days)
+    (auth-headers)
+    (fn [board] (today-page/set-day-lists *app-state (:days board)))))
+
+(defn- refresh-day-lists []
+  (when (= :today (:active-tab @*app-state))
+    (fetch-day-lists)))
+
 (defn fetch-tasks
   ([] (fetch-tasks (fetch-opts-for-current-tab)))
   ([opts]
-   (tasks/fetch-tasks *app-state auth-headers today-page/calculate-best-horizon opts)))
+   (tasks/fetch-tasks *app-state auth-headers today-page/calculate-best-horizon opts)
+   (refresh-day-lists)))
 
 (defn today-fetch-opts []
   (today-page/current-fetch-opts *app-state))
@@ -1655,7 +1672,8 @@
 (defn fetch-today-meets
   ([] (fetch-today-meets (today-fetch-opts)))
   ([opts]
-   (meets-state/fetch-today-meets *app-state auth-headers today-page/calculate-best-horizon opts)))
+   (meets-state/fetch-today-meets *app-state auth-headers today-page/calculate-best-horizon opts)
+   (refresh-day-lists)))
 
 (defn fetch-today-all [opts]
   (fetch-tasks opts)
@@ -1703,7 +1721,9 @@
   ([task-id due-date] (set-task-due-date task-id due-date nil))
   ([task-id due-date on-success] (set-task-due-date task-id due-date on-success nil))
   ([task-id due-date on-success on-error]
-   (tasks/set-task-due-date *app-state auth-headers task-id due-date on-success on-error)))
+   (tasks/set-task-due-date *app-state auth-headers task-id due-date
+                            (fn [] (refresh-day-lists) (when on-success (on-success)))
+                            on-error)))
 
 (defn set-task-due-time
   ([task-id due-time] (set-task-due-time task-id due-time nil))
@@ -1745,18 +1765,17 @@
 (defn set-task-urgency [task-id urgency]
   (tasks/set-task-urgency *app-state auth-headers task-id urgency))
 
-(defn set-task-today
-  ([task-id today?] (set-task-today task-id today? nil))
-  ([task-id today? on-success]
-   (tasks/set-task-today *app-state auth-headers fetch-tasks task-id today? on-success)))
+(defn set-task-today [task-id today?]
+  (tasks/set-task-today *app-state auth-headers fetch-tasks task-id today? refresh-day-lists))
 
-(defn set-task-lined-up-for
-  ([task-id date] (set-task-lined-up-for task-id date nil))
-  ([task-id date on-success]
-   (tasks/set-task-lined-up-for *app-state auth-headers fetch-tasks task-id date on-success)))
+(defn set-task-lined-up-for [task-id date]
+  (tasks/set-task-lined-up-for *app-state auth-headers fetch-tasks task-id date refresh-day-lists))
 
-(defn set-task-day-order [task-id day-order]
-  (tasks/set-task-day-order *app-state auth-headers fetch-tasks task-id day-order))
+(defn reorder-task-in-day [task-id date target position]
+  (tasks/reorder-task-in-day *app-state auth-headers fetch-tasks task-id date target position))
+
+(defn splice-day-item [date item target position]
+  (today-page/splice-day-item *app-state date item target position))
 
 (defn set-task-maybe [task-id maybe?]
   (tasks/set-task-maybe *app-state auth-headers task-id maybe?))
@@ -1801,28 +1820,23 @@
   (swap! *app-state assoc :reports-task-dropdown-open
          (when (not= (:reports-task-dropdown-open @*app-state) task-id) task-id)))
 
-;; `day-order` puts the new task at the end of the day list it was added from.
-;; It is written after the flag it depends on, never alongside it.
-(defn add-task-to-today [title day-order on-success]
+;; The new task lands at the end of the day list it was added from because
+;; joining a day list is what places it there — the add button needs no position
+;; of its own.
+(defn add-task-to-today [title on-success]
   (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title
                   (fn []
-                    (let [task (first (:tasks @*app-state))]
-                      (when task
-                        (set-task-today (:id task) true
-                                        (when day-order
-                                          #(set-task-day-order (:id task) day-order)))))
+                    (when-let [task (first (:tasks @*app-state))]
+                      (set-task-today (:id task) true))
                     (when on-success (on-success)))))
 
-(defn add-task-lined-up-for [title date day-order on-success]
+(defn add-task-lined-up-for [title date on-success]
   (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title
                   (fn []
-                    (let [task (first (:tasks @*app-state))]
-                      (when task
-                        (set-task-lined-up-for (:id task) date
-                                               (when day-order
-                                                 #(set-task-day-order (:id task) day-order)))))
+                    (when-let [task (first (:tasks @*app-state))]
+                      (set-task-lined-up-for (:id task) date))
                     (when on-success (on-success)))))
 
 (defn set-drag-task [task-id]

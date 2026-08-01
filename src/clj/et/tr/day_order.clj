@@ -13,27 +13,21 @@
   date-then-time sort has always had them."
   -1.0)
 
-(defn- parse-int [s]
-  #?(:clj (Integer/parseInt s)
-     :cljs (js/parseInt s 10)))
+(def ^:private tail-axis
+  "Where a flagged task sits while it carries no position of its own: past every
+  minute of the day, so it lands after the timed block. Every join to a day list
+  materializes a position, so only a row that predates that can be here — no day
+  position is ever derived from another ordering context's column."
+  (+ minutes-per-day 1.0))
 
 (defn- minutes-of-day [hhmm]
-  (let [[h m] (map parse-int (re-seq #"\d+" (str hhmm)))]
+  (let [[h m] (map #(Integer/parseInt %) (re-seq #"\d+" (str hhmm)))]
     (+ (* 60 (or h 0)) (or m 0))))
 
 (defn- time-axis [hhmm]
   (if (seq hhmm)
     (double (minutes-of-day hhmm))
     untimed-axis))
-
-(defn- flagged-axis
-  "Flagged tasks follow the timed block, keeping the relative order the shared
-  sort_order gives them until one of them is dragged. sort_order is unbounded in
-  both directions, so it is squashed into (1440,1442) — a band the minutes of a
-  day can never reach into."
-  [sort-order]
-  (let [s (double (or sort-order 0))]
-    (+ minutes-per-day 1.0 (/ s (+ 1.0 (Math/abs s))))))
 
 (defn axis
   "Where `item` sits on its day's axis. `item` is a task or meet tagged with
@@ -42,7 +36,7 @@
   [item]
   (or (:day_order item)
       (if (:day-flagged? item)
-        (flagged-axis (:sort_order item))
+        tail-axis
         (time-axis (or (:due_time item) (:start_time item))))))
 
 (defn sort-items
@@ -75,3 +69,45 @@
         (if neighbour
           (/ (+ target-axis neighbour) 2.0)
           (+ target-axis step))))))
+
+(defn end-value
+  "The axis value that lands an item after everything `items` holds — the
+  position a task takes when it joins the day."
+  [items]
+  (if (seq items)
+    (+ 1.0 (apply max (map axis items)))
+    tail-axis))
+
+(defn flagged-date
+  "The date whose list `task` is on only because it is marked for that day, or
+  nil when no day list holds it for that reason. A day that already holds the
+  task because it is due then does not flag it: its position there is its time."
+  [task today]
+  (cond
+    (and (= 1 (:today task))
+         (or (nil? (:due_date task)) (pos? (compare (:due_date task) today))))
+    today
+
+    (and (:lined_up_for task) (not= (:lined_up_for task) (:due_date task)))
+    (:lined_up_for task)))
+
+(defn day-items
+  "`date`'s list in display order: the tasks in `tasks` due that day, the meets
+  in `meets` happening that day and the tasks merely flagged for it, each tagged
+  with :item-type and, for the last group, :day-flagged? true. `tasks` and
+  `meets` may span more days than `date`; `today` decides which marker makes a
+  task flagged for it."
+  [tasks meets today date]
+  (let [due (->> tasks
+                 (filter #(= (:due_date %) date))
+                 (sort-by (juxt #(if (:due_time %) 1 0) :due_time))
+                 (map #(assoc % :item-type :task)))
+        happening (->> meets
+                       (filter #(= (:start_date %) date))
+                       (sort-by (juxt #(if (:start_time %) 1 0) :start_time))
+                       (map #(assoc % :item-type :meet)))
+        flagged (->> tasks
+                     (filter #(= date (flagged-date % today)))
+                     (sort-by (juxt :day_order :id))
+                     (map #(assoc % :item-type :task :day-flagged? true)))]
+    (sort-items (concat due happening flagged))))

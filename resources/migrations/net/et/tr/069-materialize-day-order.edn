@@ -1,0 +1,16 @@
+{:id "069-materialize-day-order"
+ ;; The day list's tail used to derive its order from sort_order, so a Tasks
+ ;; page reorder moved a task inside the day list too. Seeding the same value
+ ;; the derivation produced (1441 + s/(1+|s|), squashed into the band past the
+ ;; minutes of a day) freezes the arrangement being displayed right now; from
+ ;; here on every join to a day list writes a position instead.
+ ;;
+ ;; Not reversible: afterwards a seeded position is indistinguishable from one
+ ;; the user dragged, so undoing it would discard their arrangement.
+ :up ["UPDATE tasks
+         SET day_order = 1441.0 + COALESCE(sort_order, 0.0) / (1.0 + ABS(COALESCE(sort_order, 0.0)))
+       WHERE day_order IS NULL
+         AND done = 0
+         AND ((today = 1 AND (due_date IS NULL OR due_date > date('now','localtime')))
+           OR (lined_up_for IS NOT NULL AND (due_date IS NULL OR due_date <> lined_up_for)))"]
+ :down []}

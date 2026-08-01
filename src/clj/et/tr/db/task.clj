@@ -4,6 +4,8 @@
             [taoensso.telemere :as tel]
             [et.tr.clock :as clock]
             [et.tr.db :as db]
+            [et.tr.day-order :as day-order]
+            [et.tr.db.day-list :as db.day-list]
             [et.tr.db.recurring-task :as db.recurring-task]
             [et.tr.db.category-rule :as db.category-rule]
             [et.tr.db.category-exclusion :as db.category-exclusion]
@@ -216,6 +218,27 @@
                  :returning [:id :day_order]})
     db/jdbc-opts))
 
+(defn- day-membership-row [ds user-id task-id]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:select [:id :due_date :today :lined_up_for :day_order]
+                 :from [:tasks]
+                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]})
+    db/jdbc-opts))
+
+(defn- materialize-day-position!
+  "Give a task that has just joined a day list a concrete position at the end of
+  it. Nothing derives a day position from another order, so one has to exist by
+  the time the task is rendered. The position it held on the day it came from
+  means nothing on the new one, so only a task that stayed on the same day keeps
+  it — which is what the worker's lined-up-for-today → today promotion is."
+  [ds user-id task-id before after]
+  (let [today (clock/today-str)
+        date (day-order/flagged-date after today)]
+    (when (and date
+               (not (and (:day_order before)
+                         (= date (day-order/flagged-date before today)))))
+      (set-task-day-order ds user-id task-id (db.day-list/end-position ds user-id date)))))
+
 (defn set-task-due-date [ds user-id task-id due-date]
   ;; A due date change moves the task to another day (or off the day lists
   ;; altogether), which is what day_order is relative to, so the manual day
@@ -296,32 +319,59 @@
     result))
 
 (defn set-task-today [ds user-id task-id today?]
-  ;; Leaving the day lists drops the manual day position; joining them must not
-  ;; touch it, because a drop that brings a task in writes the membership and
-  ;; the position as two requests and either may land first.
+  ;; Leaving the day lists drops the manual day position; joining one
+  ;; materializes it, so that nothing has to derive it at render time.
   (let [today-val (if today? 1 0)
+        before (when today? (day-membership-row ds user-id task-id))
         set-map (cond-> {:today today-val
                          :lined_up_for nil
                          :modified_at (clock/sql-now)}
-                  (not today?) (assoc :maybe 0 :day_order nil))]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :tasks
-                   :set set-map
-                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :today :lined_up_for :maybe :modified_at]})
-      db/jdbc-opts)))
+                  (not today?) (assoc :maybe 0 :day_order nil))
+        result (jdbc/execute-one! (db/get-conn ds)
+                 (sql/format {:update :tasks
+                              :set set-map
+                              :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                              :returning [:id :today :lined_up_for :maybe :modified_at]})
+                 db/jdbc-opts)]
+    (when (and result before)
+      (materialize-day-position! ds user-id task-id before
+                                 (assoc before :today 1 :lined_up_for nil)))
+    result))
 
 (defn set-task-lined-up-for [ds user-id task-id date]
-  (let [set-map (cond-> {:lined_up_for date
+  (let [before (when date (day-membership-row ds user-id task-id))
+        set-map (cond-> {:lined_up_for date
                          :today 0
                          :modified_at (clock/sql-now)}
-                  (nil? date) (assoc :maybe 0 :day_order nil))]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :tasks
-                   :set set-map
-                   :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                   :returning [:id :lined_up_for :today :maybe :modified_at]})
-      db/jdbc-opts)))
+                  (nil? date) (assoc :maybe 0 :day_order nil))
+        result (jdbc/execute-one! (db/get-conn ds)
+                 (sql/format {:update :tasks
+                              :set set-map
+                              :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
+                              :returning [:id :lined_up_for :today :maybe :modified_at]})
+                 db/jdbc-opts)]
+    (when (and result before)
+      (materialize-day-position! ds user-id task-id before
+                                 (assoc before :today 0 :lined_up_for date)))
+    result))
+
+(defn join-day!
+  "Put a task on `date`'s list if nothing already does — today's marker for
+  today, the lined-up date otherwise. Returns the before/after membership when
+  it wrote one, nil when the day already held the task (because it is due then,
+  or already flagged for it). Joining and placing are one server-side pair, so
+  no caller has to sequence two writes to the same row."
+  [ds user-id task-id date]
+  (let [today (clock/today-str)
+        before (day-membership-row ds user-id task-id)]
+    (when (and before
+               (not= (:due_date before) date)
+               (not= date (day-order/flagged-date before today)))
+      (let [after (if (= date today)
+                    (set-task-today ds user-id task-id true)
+                    (set-task-lined-up-for ds user-id task-id date))]
+        {:before (select-keys before [:today :lined_up_for])
+         :after (select-keys after [:today :lined_up_for])}))))
 
 (defn set-task-maybe [ds user-id task-id maybe?]
   (let [maybe-val (if maybe? 1 0)]
@@ -334,15 +384,31 @@
       db/jdbc-opts)))
 
 (defn promote-lined-up-tasks! [ds user-id]
-  (jdbc/execute! (db/get-conn ds)
-    (sql/format {:update :tasks
-                 :set {:today 1
-                       :lined_up_for nil
-                       :modified_at (clock/sql-now)}
-                 :where [:and
-                         [:= :lined_up_for (clock/sql-today)]
-                         (db/user-id-where-clause user-id)]})
-    db/jdbc-opts))
+  ;; The promoted tasks were already on today's list, under the lined-up marker
+  ;; rather than today's, so their positions carry over untouched; only a row
+  ;; that never had one is placed.
+  (let [conn (db/get-conn ds)
+        promoted (jdbc/execute! conn
+                   (sql/format {:select [:id]
+                                :from [:tasks]
+                                :where [:and
+                                        [:= :lined_up_for (clock/sql-today)]
+                                        [:= :day_order nil]
+                                        (db/user-id-where-clause user-id)]})
+                   db/jdbc-opts)
+        result (jdbc/execute! conn
+                 (sql/format {:update :tasks
+                              :set {:today 1
+                                    :lined_up_for nil
+                                    :modified_at (clock/sql-now)}
+                              :where [:and
+                                      [:= :lined_up_for (clock/sql-today)]
+                                      (db/user-id-where-clause user-id)]})
+                 db/jdbc-opts)]
+    (doseq [{:keys [id]} promoted]
+      (let [row (day-membership-row ds user-id id)]
+        (materialize-day-position! ds user-id id row row)))
+    result))
 
 (defn set-task-field [ds user-id task-id field value]
   (let [normalize-fn (get db/field-normalizers field identity)

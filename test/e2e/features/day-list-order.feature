@@ -60,15 +60,24 @@ Feature: One drag-orderable list per day
 
   Scenario: The day list order is kept apart from the Tasks page order
     Given I am on the app
-    And a task "First thing" flagged for today exists
-    And a task "Second thing" flagged for today exists
+    And a task "Alpha" flagged for today exists
+    And a task "Beta" flagged for today exists
+    And a task "Gamma" flagged for today exists
     When I navigate to the "Today" tab
-    Then the day list reads "Second thing, First thing"
-    When I drag the day-list task "Second thing" after the day-list task "First thing"
-    Then the day list reads "First thing, Second thing"
+    Then the day list reads "Alpha, Beta, Gamma"
     When I click the "Tasks" tab
     And I click the "Manual" sort button
-    Then the task list reads "Second thing, First thing"
+    Then the task list reads "Gamma, Beta, Alpha"
+    When I click the "Today" tab
+    And I drag the day-list task "Gamma" before the day-list task "Alpha"
+    Then the day list reads "Gamma, Alpha, Beta"
+    When I click the "Tasks" tab
+    And I click the "Manual" sort button
+    Then the task list reads "Gamma, Beta, Alpha"
+    When I drag the task "Alpha" before the task "Gamma"
+    Then the task list reads "Alpha, Gamma, Beta"
+    When I click the "Today" tab
+    Then the day list reads "Gamma, Alpha, Beta"
 
   Scenario: A task dragged in from Urgent Matters comes in where it was dropped
     Given I am on the app

@@ -265,10 +265,9 @@
                      tasks)))
       (fetch-tasks-fn))))
 
-;; The optional `on-success` is for a follow-up write to the same task — the day
-;; position a drop or the day list's add button gives it. It has to wait for this
-;; one: two writes to one row at the same moment can lose to SQLite's
-;; shared-cache table lock and come back 500.
+;; The optional `on-success` is for what has to follow the membership write
+;; rather than accompany it — re-reading the day lists, whose order the backend
+;; owns and whose contents this call has just changed.
 (defn set-task-today
   ([app-state auth-headers fetch-tasks-fn task-id today?]
    (set-task-today app-state auth-headers fetch-tasks-fn task-id today? nil))
@@ -414,15 +413,21 @@
       (clear-drag-state app-state)
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))))
 
-(defn set-task-day-order [app-state auth-headers fetch-tasks-fn task-id day-order]
-  (api/put-json (str "/api/tasks/" task-id "/day-order")
-    {:day-order day-order}
+;; The refetch runs on failure too: the day list was spliced optimistically, and
+;; the backend's order is what puts a refused drop back where it came from.
+(defn reorder-task-in-day [app-state auth-headers fetch-tasks-fn task-id date target position]
+  (api/post-json (str "/api/tasks/" task-id "/day-order")
+    {:date date
+     :target-type (name (:item-type target))
+     :target-id (:id target)
+     :position position}
     (auth-headers)
     (fn [_]
       (clear-drag-state app-state)
       (fetch-tasks-fn))
     (fn [resp]
       (clear-drag-state app-state)
+      (fetch-tasks-fn)
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))))
 
 (defn set-sort-mode [app-state fetch-tasks-fn mode]
