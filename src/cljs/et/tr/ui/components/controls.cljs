@@ -2,12 +2,20 @@
   (:require [et.tr.ui.state :as state]
             [et.tr.i18n :refer [t]]))
 
-(defn- vesicapiscis-icon [selected-scope strict-mode?]
-  (let [is-active (= selected-scope "both")
-        left-crescent (and (= selected-scope "private") strict-mode?)
-        right-crescent (and (= selected-scope "work") strict-mode?)
-        left-filled (and (= selected-scope "private") (not strict-mode?))
-        right-filled (and (= selected-scope "work") (not strict-mode?))
+(defn- vesicapiscis-icon
+  "The middle button's icon. Its two lobes stand for the switcher's two end
+  buttons, so which scope each lobe means is read off `order`
+  (state/scope-order) rather than fixed as private-left: the icon encodes the
+  placement, and one that keeps filling the left lobe while the active button
+  moved to the right contradicts the setting."
+  [order selected-scope strict-mode?]
+  (let [left-scope (first order)
+        right-scope (last order)
+        is-active (= selected-scope "both")
+        left-crescent (and (= selected-scope left-scope) strict-mode?)
+        right-crescent (and (= selected-scope right-scope) strict-mode?)
+        left-filled (and (= selected-scope left-scope) (not strict-mode?))
+        right-filled (and (= selected-scope right-scope) (not strict-mode?))
         both-filled (and (= selected-scope "both") (not strict-mode?))
         intersection-only (and (= selected-scope "both") strict-mode?)
         fill-color (if is-active "white" "var(--accent)")
@@ -45,28 +53,29 @@
 (def ^:private scope-glyphs {"private" "🏠" "work" "👔"})
 
 (defn scope-toggle [css-class current-value on-change]
-  (into [:div {:class css-class}]
-        (for [scope (state/scope-order)]
-          (if (= scope "both")
-            [:button.toggle-option
-             {:key scope
-              :class (when (= current-value scope) "active")
-              :on-click (fn [e]
-                          (.stopPropagation e)
-                          (if (= current-value "both")
-                            (state/toggle-strict-mode)
-                            (on-change scope)))}
-             [vesicapiscis-icon current-value (:strict-mode @state/*app-state)]]
-            [:button.toggle-option
-             {:key scope
-              :class (when (= current-value scope) "active")
-              :title (t (keyword "toggle" scope))
-              :on-click (fn [e]
-                          (.stopPropagation e)
-                          (if (= current-value scope)
-                            (state/toggle-strict-mode)
-                            (on-change scope)))}
-             [:span.scope-glyph (get scope-glyphs scope)]]))))
+  (let [order (state/scope-order)]
+    (into [:div {:class css-class}]
+          (for [scope order]
+            (if (= scope "both")
+              [:button.toggle-option
+               {:key scope
+                :class (when (= current-value scope) "active")
+                :on-click (fn [e]
+                            (.stopPropagation e)
+                            (if (= current-value "both")
+                              (state/toggle-strict-mode)
+                              (on-change scope)))}
+               [vesicapiscis-icon order current-value (:strict-mode @state/*app-state)]]
+              [:button.toggle-option
+               {:key scope
+                :class (when (= current-value scope) "active")
+                :title (t (keyword "toggle" scope))
+                :on-click (fn [e]
+                            (.stopPropagation e)
+                            (if (= current-value scope)
+                              (state/toggle-strict-mode)
+                              (on-change scope)))}
+               [:span.scope-glyph (get scope-glyphs scope)]])))))
 
 (defn plain-scope-toggle
   "A scope selector (private/both/work) without the global strict-mode

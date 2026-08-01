@@ -46,3 +46,16 @@ Feature: Inverted placement of the scope switcher
     And I expand the task card "Inverted scope write"
     And I click "private" on the scope switcher of task "Inverted scope write"
     Then the scope of task "Inverted scope write" is "private"
+
+  Scenario: The middle button's icon fills the lobe on the side its scope now sits
+    Given I am on the app
+    And I click the "Tasks" tab
+    When I select "private" in the navbar scope switcher
+    Then the navbar scope switcher reads "🏠, 👔"
+    And the active navbar scope button is "🏠"
+    And the vesica-piscis icon fills its left lobe
+    When I turn on inverted scope placement
+    And I click the "Tasks" tab
+    Then the navbar scope switcher reads "👔, 🏠"
+    And the active navbar scope button is "🏠"
+    And the vesica-piscis icon fills its right lobe

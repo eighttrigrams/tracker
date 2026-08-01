@@ -76,6 +76,38 @@ Then("the navbar scope switcher reads {string}", async ({ page }, order: string)
   await expect(glyphs).toHaveText(order.split(", "));
 });
 
+// Clicking the button that is already active toggles strict mode instead of
+// selecting, so this only clicks when it has to; either way it leaves the
+// switcher with that scope active, which is what the icon assertion reads
+// against.
+When("I select {string} in the navbar scope switcher", async ({ page }, scope: string) => {
+  const glyphs: Record<string, string> = { private: "🏠", work: "👔" };
+  const button = page
+    .locator(".work-private-toggle .toggle-option")
+    .filter({ hasText: glyphs[scope] });
+  if (!(await button.evaluate((el: Element) => el.classList.contains("active")))) {
+    await button.click();
+  }
+  await expect(button).toHaveClass(/active/);
+  await page.waitForLoadState("networkidle");
+});
+
+Then("the active navbar scope button is {string}", async ({ page }, glyph: string) => {
+  await expect(page.locator(".work-private-toggle .toggle-option.active")).toHaveText(glyph);
+});
+
+// The middle button's icon draws its two lobes at fixed x positions — cx=11 is
+// the left one, cx=21 the right — and paints the one belonging to the active
+// scope. Which scope that is comes from the order, so the painted lobe has to
+// move to the other side when the placement is inverted. `svg > circle` keeps
+// the two mask circles inside <defs> out; :not([fill="none"]) keeps the two
+// outlines out.
+Then("the vesica-piscis icon fills its {word} lobe", async ({ page }, side: string) => {
+  const painted = page.locator('.work-private-toggle svg > circle:not([fill="none"])');
+  await expect(painted).toHaveCount(1);
+  await expect(painted).toHaveAttribute("cx", side === "left" ? "11" : "21");
+});
+
 Then(
   "the scope switcher on task {string} reads {string}",
   async ({ page }, title: string, order: string) => {
