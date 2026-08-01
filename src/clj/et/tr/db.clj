@@ -71,6 +71,11 @@
 
 (def valid-urgencies #{"default" "urgent" "superurgent"})
 
+(def urgent-urgencies
+  "The urgencies Urgent Matters renders, i.e. membership of that ordering
+  context."
+  #{"urgent" "superurgent"})
+
 (defn- normalize-urgency [urgency]
   (if (contains? valid-urgencies urgency) urgency "default"))
 
@@ -85,11 +90,11 @@
    :urgency normalize-urgency
    :time_window normalize-time-window})
 
-(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :sort_order_today :done :done_at :scope :importance :urgency :today :lined_up_for :maybe :recurring_task_id :issue_id :reminder :reminder_date :relation_badge_title])
+(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :sort_order_today :sort_order_urgent :done :done_at :scope :importance :urgency :today :lined_up_for :maybe :recurring_task_id :issue_id :reminder :reminder_date :relation_badge_title])
 
 (def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance :relation_badge_title])
 
-(def issue-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :urgency :resolved :resolved_at :relation_badge_title])
+(def issue-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :sort_order_urgent :scope :importance :urgency :resolved :resolved_at :relation_badge_title])
 
 (def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time :meeting_series_id :archived :maybe :over :relation_badge_title])
 
@@ -107,6 +112,19 @@
   (if user-id
     [:= :user_id user-id]
     [:is :user_id nil]))
+
+(defn top-of-order
+  "The value that puts a row first in `col` among the caller's rows in `table`
+  that `extra-where` selects — the same step-below-the-minimum scheme the add-*
+  functions use for sort_order."
+  [ds table col user-id extra-where]
+  (- (or (:min_order (jdbc/execute-one! (get-conn ds)
+                       (sql/format {:select [[[:min col] :min_order]]
+                                    :from [table]
+                                    :where [:and (user-id-where-clause user-id) extra-where]})
+                       jdbc-opts))
+        1.0)
+     1.0))
 
 (defn update-where
   "WHERE clause for an owned-by-user update, with an optional optimistic-

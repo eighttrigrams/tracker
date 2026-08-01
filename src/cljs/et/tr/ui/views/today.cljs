@@ -653,7 +653,7 @@
       :on-drag-end (fn [_] (state/clear-drag-state))
       :on-drag-over (drag-drop/make-drag-over-handler task state/set-drag-over-task accept-drop?)
       :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task task #(state/set-drag-over-task nil))
-      :on-drop (drag-drop/make-urgency-task-drop-handler drag-task task target-urgency ensure-urgency state/reorder-task accept-drop?)}
+      :on-drop (drag-drop/make-urgency-task-drop-handler drag-task task target-urgency ensure-urgency state/reorder-task-in-urgent accept-drop?)}
      [today-task-item task]]))
 
 (defn- draggable-urgent-issue-item [issue target-urgency drag-enabled?]
@@ -675,7 +675,7 @@
       :on-drag-end (fn [_] (state/clear-drag-state))
       :on-drag-over (drag-drop/make-drag-over-handler issue state/set-drag-over-task accept-drop?)
       :on-drag-leave (drag-drop/make-drag-leave-handler drag-over-task issue #(state/set-drag-over-task nil))
-      :on-drop (drag-drop/make-urgency-task-drop-handler drag-task issue target-urgency ensure-issue-urgency state/reorder-issue accept-drop?)}
+      :on-drop (drag-drop/make-urgency-task-drop-handler drag-task issue target-urgency ensure-issue-urgency state/reorder-issue-in-urgent accept-drop?)}
      [today-issue-item issue]]))
 
 (defn- urgency-task-list [tasks issues target-urgency drag-enabled?]
@@ -685,8 +685,8 @@
         from-issue? (drag-source-issue?)
         accept-drop? (and drag-enabled? (not (drag-task-dated?)) (not (drag-task-reminder?)))
         section-drop (if from-issue?
-                       (drag-drop/make-urgency-section-drop-handler drag-task issues target-urgency ensure-issue-urgency state/reorder-issue state/clear-drag-state accept-drop?)
-                       (drag-drop/make-urgency-section-drop-handler drag-task tasks target-urgency ensure-urgency state/reorder-task state/clear-drag-state accept-drop?))]
+                       (drag-drop/make-urgency-section-drop-handler drag-task issues target-urgency ensure-issue-urgency state/reorder-issue-in-urgent state/clear-drag-state accept-drop?)
+                       (drag-drop/make-urgency-section-drop-handler drag-task tasks target-urgency ensure-urgency state/reorder-task-in-urgent state/clear-drag-state accept-drop?))]
     [:div.urgency-task-list
      {:class (str (when is-section-drag-over "section-drag-over")
                   (when-not drag-enabled? " drag-disabled"))

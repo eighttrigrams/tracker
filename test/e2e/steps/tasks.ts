@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { setFieldValue, apiCategorize } from "./helpers";
+import { setFieldValue, apiCategorize, dragCard } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -124,6 +124,15 @@ When("I reload the page", async ({ page }) => {
   await page.waitForLoadState("networkidle");
   await expect(page.locator(".top-bar .tabs")).toBeVisible();
 });
+
+// The Tasks page's own manual order, so a drag there and a drag in one of the
+// Today page's lists can each be shown not to reach the other's column.
+When(
+  "I drag the task {string} before the task {string}",
+  async ({ page }, source: string, target: string) => {
+    await dragCard(page, ".items li", source, target, "before");
+  },
+);
 
 When("I click the {string} tab", async ({ page }, name: string) => {
   const tab = page.locator(".top-bar .tabs").getByRole("button", { name });

@@ -273,8 +273,8 @@
 (defn clear-issue-drag-state [app-state]
   (swap! app-state assoc :drag-issue nil :drag-over-issue nil))
 
-(defn reorder-issue [app-state auth-headers fetch-issues-fn issue-id target-issue-id position]
-  (api/post-json (str "/api/issues/" issue-id "/reorder")
+(defn- post-reorder [app-state auth-headers fetch-issues-fn endpoint issue-id target-issue-id position]
+  (api/post-json (str "/api/issues/" issue-id endpoint)
     {:target-issue-id target-issue-id :position position}
     (auth-headers)
     (fn [_]
@@ -283,6 +283,12 @@
     (fn [resp]
       (clear-issue-drag-state app-state)
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder issue")))))
+
+(defn reorder-issue [app-state auth-headers fetch-issues-fn issue-id target-issue-id position]
+  (post-reorder app-state auth-headers fetch-issues-fn "/reorder" issue-id target-issue-id position))
+
+(defn reorder-issue-in-urgent [app-state auth-headers fetch-issues-fn issue-id target-issue-id position]
+  (post-reorder app-state auth-headers fetch-issues-fn "/reorder-urgent" issue-id target-issue-id position))
 
 (defn set-expanded-issue [id]
   (swap! *issues-page-state assoc :expanded-issue id :editing-issue nil)

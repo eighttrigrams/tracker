@@ -220,6 +220,42 @@
     (db.issue/reorder-issue (common/ensure-ds) user-id issue-id new-order)
     {:status 200 :body {:success true :sort_order new-order}}))
 
+(defn reorder-issue-in-urgent-handler
+  "POST /api/issues/:id/reorder-urgent — move an issue within the Urgent Matters
+  section of the Today page. Body fields: :target-issue-id and :position
+  (\"before\" or \"after\"), exactly as POST /reorder takes them. Computes a new
+  fractional :sort_order_urgent between the target and its neighbour inside the
+  target's urgency block (or one step past the edge when there is none). Urgent
+  Matters has an order of its own, so this never touches :sort_order, the Issues
+  page's manual order. Returns 200 {:success true :sort_order_urgent}, or 404
+  when the target is not one of the caller's open urgent issues."
+  [req]
+  (let [user-id (common/get-user-id req)
+        issue-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [target-issue-id position]} (:body req)
+        ds (common/ensure-ds)
+        target (db.issue/get-issue ds user-id target-issue-id)
+        all-issues (when (contains? db/urgent-urgencies (:urgency target))
+                     (db.issue/list-urgent-issues ds user-id (:urgency target)))
+        target-idx (->> all-issues
+                        (map-indexed vector)
+                        (some (fn [[idx r]] (when (= (:id r) target-issue-id) idx))))]
+    (if (nil? target-idx)
+      {:status 404 :body {:error "Target issue is not in Urgent Matters"}}
+      (let [target-order (or (:sort_order_urgent (nth all-issues target-idx)) 0.0)
+            neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
+            neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-issues)))
+                             (or (:sort_order_urgent (nth all-issues neighbor-idx)) 0.0))
+            new-order (cond
+                        (nil? neighbor-order)
+                        (if (= position "before")
+                          (- target-order 1.0)
+                          (+ target-order 1.0))
+                        :else
+                        (/ (+ target-order neighbor-order) 2.0))]
+        (db.issue/reorder-issue-in-urgent ds user-id issue-id new-order)
+        {:status 200 :body {:success true :sort_order_urgent new-order}}))))
+
 (def set-issue-scope-handler
   "PUT /api/issues/:id/scope — set the issue's :scope field. Body field :scope
   must be one of db/valid-scopes (\"private\", \"both\", or \"work\"). Returns

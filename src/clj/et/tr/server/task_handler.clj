@@ -154,6 +154,42 @@
     (db.task/reorder-task (common/ensure-ds) user-id task-id new-order)
     {:status 200 :body {:success true :sort_order new-order}}))
 
+(defn reorder-task-in-urgent-handler
+  "POST /api/tasks/:id/reorder-urgent — move a task within the Urgent Matters
+  section of the Today page. Body: {:target-task-id :position} where position is
+  \"before\" or \"after\", exactly as POST /reorder takes them. Computes a new
+  :sort_order_urgent between the target and its neighbour inside the target's
+  urgency block (or +/- 1.0 at the edges). Urgent Matters has an order of its
+  own, so this never touches :sort_order, the Tasks page's manual order.
+  Returns {:success true :sort_order_urgent new-order} on 200, or 404 when the
+  target is not one of the caller's open urgent tasks."
+  [req]
+  (let [user-id (common/get-user-id req)
+        task-id (Integer/parseInt (get-in req [:params :id]))
+        {:keys [target-task-id position]} (:body req)
+        ds (common/ensure-ds)
+        target (db.task/get-task ds user-id target-task-id)
+        all-tasks (when (contains? db/urgent-urgencies (:urgency target))
+                    (db.task/list-urgent-tasks ds user-id (:urgency target)))
+        target-idx (->> all-tasks
+                        (map-indexed vector)
+                        (some (fn [[idx t]] (when (= (:id t) target-task-id) idx))))]
+    (if (nil? target-idx)
+      {:status 404 :body {:error "Target task is not in Urgent Matters"}}
+      (let [target-order (or (:sort_order_urgent (nth all-tasks target-idx)) 0.0)
+            neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
+            neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-tasks)))
+                             (or (:sort_order_urgent (nth all-tasks neighbor-idx)) 0.0))
+            new-order (cond
+                        (nil? neighbor-order)
+                        (if (= position "before")
+                          (- target-order 1.0)
+                          (+ target-order 1.0))
+                        :else
+                        (/ (+ target-order neighbor-order) 2.0))]
+        (db.task/reorder-task-in-urgent ds user-id task-id new-order)
+        {:status 200 :body {:success true :sort_order_urgent new-order}}))))
+
 (defn- reorder-today-request-error [{:keys [date target-type target-id position]}]
   (cond
     (not (and (string? date) (re-matches #"\d{4}-\d{2}-\d{2}" date)))

@@ -1,0 +1,12 @@
+{:id "071-add-urgent-order"
+ ;; Urgent Matters used to reorder through sort_order, the Tasks and Issues
+ ;; pages' own column, so a drag in one moved the other. Seeding the new column
+ ;; from sort_order for the items that are urgent right now keeps the section
+ ;; reading exactly as it does at migration time; from here on the two orders
+ ;; are written and read apart, and an item is placed when it becomes urgent.
+ :up ["ALTER TABLE tasks ADD COLUMN sort_order_urgent REAL"
+      "ALTER TABLE issues ADD COLUMN sort_order_urgent REAL"
+      "UPDATE tasks SET sort_order_urgent = sort_order WHERE urgency IN ('urgent', 'superurgent')"
+      "UPDATE issues SET sort_order_urgent = sort_order WHERE urgency IN ('urgent', 'superurgent')"]
+ :down ["ALTER TABLE issues DROP COLUMN sort_order_urgent"
+        "ALTER TABLE tasks DROP COLUMN sort_order_urgent"]}

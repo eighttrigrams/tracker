@@ -127,7 +127,7 @@
          (remove #(and (:due_date %) (< (:due_date %) today)))
          (remove #(and (zero? sel-offset) (= 1 (:today %))))
          (remove #(= (:lined_up_for %) sel-date))
-         (sort-by :sort_order))))
+         (sort-by :sort_order_urgent))))
 
 (defn reminder-tasks [app-state]
   (->> (:tasks @app-state)
@@ -143,7 +143,7 @@
 (defn- issues-by-urgency [app-state urgency-level]
   (->> (:issues @app-state)
        (filter #(= urgency-level (:urgency %)))
-       (sort-by :sort_order)))
+       (sort-by :sort_order_urgent)))
 
 (defn superurgent-issues [app-state]
   (issues-by-urgency app-state "superurgent"))

@@ -149,6 +149,26 @@
                  :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]}))
   {:success true :sort_order new-sort-order})
 
+(defn list-urgent-issues
+  "The caller's unresolved issues of one urgency, in the order Urgent Matters
+  shows them — just the columns its reorder arithmetic needs."
+  [ds user-id urgency]
+  (jdbc/execute! (db/get-conn ds)
+    (sql/format {:select [:id :sort_order_urgent]
+                 :from [:issues]
+                 :where [:and (db/user-id-where-clause user-id)
+                         [:= :resolved 0]
+                         [:= :urgency urgency]]
+                 :order-by [[:sort_order_urgent :asc] [:id :asc]]})
+    db/jdbc-opts))
+
+(defn reorder-issue-in-urgent [ds user-id issue-id new-order]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :issues
+                 :set {:sort_order_urgent new-order}
+                 :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]}))
+  {:success true :sort_order_urgent new-order})
+
 (defn update-issue
   ([ds user-id issue-id fields] (update-issue ds user-id issue-id fields nil))
   ([ds user-id issue-id fields expected-modified-at]
@@ -180,16 +200,39 @@
           (tel/log! {:level :info :data {:issue-id issue-id :user-id user-id}} "Issue deleted")
           {:success (pos? (:next.jdbc/update-count result))})))))
 
+(defn- issue-urgency [ds user-id issue-id]
+  (:urgency (jdbc/execute-one! (db/get-conn ds)
+              (sql/format {:select [:urgency]
+                           :from [:issues]
+                           :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]})
+              db/jdbc-opts)))
+
+(defn place-in-urgent-list!
+  "Urgent Matters is an ordering context of its own, so an issue entering it is
+  given a position — the top of its urgency's block — and one leaving it gives
+  that position up. Mirrors db.task/place-in-urgent-list!."
+  [ds user-id issue-id urgency]
+  (jdbc/execute-one! (db/get-conn ds)
+    (sql/format {:update :issues
+                 :set {:sort_order_urgent (when (contains? db/urgent-urgencies urgency)
+                                            (db/top-of-order ds :issues :sort_order_urgent user-id
+                                                             [:= :urgency urgency]))}
+                 :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]})))
+
 (defn set-issue-field [ds user-id issue-id field value]
   (let [normalize-fn (get db/field-normalizers field identity)
-        valid-value (normalize-fn value)]
-    (jdbc/execute-one! (db/get-conn ds)
-      (sql/format {:update :issues
-                   :set {field valid-value
-                         :modified_at [:raw "datetime('now')"]}
-                   :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]
-                   :returning [:id field :modified_at]})
-      db/jdbc-opts)))
+        valid-value (normalize-fn value)
+        urgency-before (when (= field :urgency) (issue-urgency ds user-id issue-id))
+        result (jdbc/execute-one! (db/get-conn ds)
+                 (sql/format {:update :issues
+                              :set {field valid-value
+                                    :modified_at [:raw "datetime('now')"]}
+                              :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]
+                              :returning [:id field :modified_at]})
+                 db/jdbc-opts)]
+    (when (and result (= field :urgency) (not= urgency-before valid-value))
+      (place-in-urgent-list! ds user-id issue-id valid-value))
+    result))
 
 (defn- undone-task-count
   "Number of the caller's tasks belonging to the issue that are not yet done."

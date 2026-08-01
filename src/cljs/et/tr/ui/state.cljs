@@ -673,6 +673,9 @@
 (defn reorder-issue [issue-id target-issue-id position]
   (issues-state/reorder-issue *app-state auth-headers fetch-issues issue-id target-issue-id position))
 
+(defn reorder-issue-in-urgent [issue-id target-issue-id position]
+  (issues-state/reorder-issue-in-urgent *app-state auth-headers fetch-today-issues issue-id target-issue-id position))
+
 (defn categorize-issue [issue-id category-type category-id]
   (issues-state/categorize-issue *app-state auth-headers fetch-issues issue-id category-type category-id))
 
@@ -1853,6 +1856,9 @@
 
 (defn reorder-task [task-id target-task-id position]
   (tasks/reorder-task *app-state auth-headers fetch-tasks task-id target-task-id position))
+
+(defn reorder-task-in-urgent [task-id target-task-id position]
+  (tasks/reorder-task-in-urgent *app-state auth-headers fetch-tasks task-id target-task-id position))
 
 (defn set-sort-mode [mode]
   (tasks/set-sort-mode *app-state fetch-tasks mode))

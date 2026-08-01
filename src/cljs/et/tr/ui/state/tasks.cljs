@@ -402,9 +402,9 @@
 (defn clear-drag-state [app-state]
   (swap! app-state assoc :drag-task nil :drag-over-task nil :drag-over-urgency-section nil :drag-task-source nil))
 
-(defn reorder-task [app-state auth-headers fetch-tasks-fn task-id target-task-id position]
-  (api/post-json (str "/api/tasks/" task-id "/reorder")
-    {:target-task-id target-task-id :position position}
+(defn- post-reorder [app-state auth-headers fetch-tasks-fn endpoint task-id params]
+  (api/post-json (str "/api/tasks/" task-id endpoint)
+    params
     (auth-headers)
     (fn [_]
       (clear-drag-state app-state)
@@ -412,6 +412,14 @@
     (fn [resp]
       (clear-drag-state app-state)
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))))
+
+(defn reorder-task [app-state auth-headers fetch-tasks-fn task-id target-task-id position]
+  (post-reorder app-state auth-headers fetch-tasks-fn "/reorder" task-id
+                {:target-task-id target-task-id :position position}))
+
+(defn reorder-task-in-urgent [app-state auth-headers fetch-tasks-fn task-id target-task-id position]
+  (post-reorder app-state auth-headers fetch-tasks-fn "/reorder-urgent" task-id
+                {:target-task-id target-task-id :position position}))
 
 ;; The refetch runs on failure too: the day list was spliced optimistically, and
 ;; the backend's order is what puts a refused drop back where it came from.

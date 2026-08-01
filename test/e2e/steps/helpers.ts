@@ -41,6 +41,58 @@ export async function setFieldValue(locator: Locator, value: string) {
   }).toPass({ timeout: 10000 });
 }
 
+// HTML5 drag-and-drop is not driven by Playwright's mouse-based dragTo, so the
+// native events are dispatched by hand, sharing one DataTransfer. clientY
+// decides the side: the app reads the upper half of the target as "before" and
+// the lower half as "after". Looking the element up and dispatching on it has to
+// happen in one page.evaluate — a drop can take the card out of the list it came
+// from, and a check from the test side would race that re-render. Waiting for
+// the source's "dragging" class after dragstart lets reagent re-render the drop
+// targets so their handlers see the drag; a drop before that render is a no-op.
+async function dispatchDrag(page: any, selector: string, title: string, type: string, frac: number) {
+  await page.evaluate(
+    ({ selector, title, type, frac }: any) => {
+      const el = [...document.querySelectorAll(selector)].find((e) =>
+        (e as HTMLElement).innerText.includes(title),
+      );
+      if (!el) throw new Error(`drag element not found: ${selector} / ${title}`);
+      (window as any).__dt = (window as any).__dt || new DataTransfer();
+      const rect = el.getBoundingClientRect();
+      el.dispatchEvent(
+        new DragEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          dataTransfer: (window as any).__dt,
+          clientX: rect.left + rect.width / 2,
+          clientY: rect.top + rect.height * frac,
+        }),
+      );
+    },
+    { selector, title, type, frac },
+  );
+}
+
+export async function dragCard(
+  page: any,
+  selector: string,
+  source: string,
+  target: string,
+  position: "before" | "after",
+) {
+  await page.evaluate(() => {
+    (window as any).__dt = new DataTransfer();
+  });
+  await expect(page.locator(selector).filter({ hasText: source })).toBeVisible({ timeout: 5000 });
+  await dispatchDrag(page, selector, source, "dragstart", 0.5);
+  await expect(page.locator(".dragging").filter({ hasText: source })).toBeVisible({ timeout: 5000 });
+  const frac = position === "before" ? 0.25 : 0.75;
+  for (const type of ["dragenter", "dragover", "drop"]) {
+    await dispatchDrag(page, selector, target, type, frac);
+  }
+  await page.waitForLoadState("networkidle");
+  await dispatchDrag(page, selector, source, "dragend", 0.5);
+}
+
 const apiHeaders = { "Content-Type": "application/json", "X-User-Id": "null" };
 const categoryKey: Record<string, string> = {
   person: "people",
