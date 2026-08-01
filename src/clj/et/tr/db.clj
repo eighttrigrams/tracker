@@ -2,6 +2,7 @@
   (:require [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [et.tr.migrations :as migrations]
+            [et.tr.ordering :as ordering]
             [clojure.string :as str]
             [honey.sql :as sql]
             [buddy.hashers :as hashers]
@@ -90,11 +91,17 @@
    :urgency normalize-urgency
    :time_window normalize-time-window})
 
-(def task-select-columns [:id :title :description :tags :created_at :modified_at :due_date :due_time :sort_order :sort_order_today :sort_order_urgent :done :done_at :scope :importance :urgency :today :lined_up_for :maybe :recurring_task_id :issue_id :reminder :reminder_date :relation_badge_title])
+(def task-select-columns (into [:id :title :description :tags :created_at :modified_at :due_date :due_time]
+                               (concat (map ordering/column [:tasks-page :tasks-day-list :tasks-urgent])
+                                       [:done :done_at :scope :importance :urgency :today :lined_up_for :maybe :recurring_task_id :issue_id :reminder :reminder_date :relation_badge_title])))
 
-(def resource-select-columns [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance :relation_badge_title])
+(def resource-select-columns (into [:id :title :link :description :tags :created_at :modified_at]
+                                   (cons (ordering/column :resources-page)
+                                         [:scope :importance :relation_badge_title])))
 
-(def issue-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :sort_order_urgent :scope :importance :urgency :resolved :resolved_at :relation_badge_title])
+(def issue-select-columns (into [:id :title :description :tags :created_at :modified_at]
+                                (concat (map ordering/column [:issues-page :issues-urgent])
+                                        [:scope :importance :urgency :resolved :resolved_at :relation_badge_title])))
 
 (def meet-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :importance :start_date :start_time :meeting_series_id :archived :maybe :over :relation_badge_title])
 
@@ -114,17 +121,28 @@
     [:is :user_id nil]))
 
 (defn top-of-order
-  "The value that puts a row first in `col` among the caller's rows in `table`
-  that `extra-where` selects — the same step-below-the-minimum scheme the add-*
-  functions use for sort_order."
-  [ds table col user-id extra-where]
+  "The value that puts a row first in `context` among the caller's rows that
+  `extra-where` selects — the same step-below-the-minimum scheme the add-*
+  functions use."
+  [ds context user-id extra-where]
   (- (or (:min_order (jdbc/execute-one! (get-conn ds)
-                       (sql/format {:select [[[:min col] :min_order]]
-                                    :from [table]
+                       (sql/format {:select [[[:min (ordering/column context)] :min_order]]
+                                    :from [(ordering/table context)]
                                     :where [:and (user-id-where-clause user-id) extra-where]})
                        jdbc-opts))
         1.0)
      1.0))
+
+(defn write-order!
+  "Write `value` into the column `context` owns, for the caller's row `id`. The
+  one place an ordering column is assigned, so nothing else has to know which
+  column belongs to which context."
+  [ds context user-id id value]
+  (jdbc/execute-one! (get-conn ds)
+    (sql/format {:update (ordering/table context)
+                 :set {(ordering/column context) value}
+                 :where [:and [:= :id id] (user-id-where-clause user-id)]}))
+  {:success true (ordering/column context) value})
 
 (defn update-where
   "WHERE clause for an owned-by-user update, with an optional optimistic-

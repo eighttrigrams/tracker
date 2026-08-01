@@ -257,7 +257,7 @@
       (POST "/" [] category-handler/add-person-handler)
       (PUT "/:id" [] category-handler/update-person-handler)
       (PUT "/:id/scope" [] category-handler/set-person-scope-handler)
-      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-people "people"))))
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-people :people))))
 
     (context "/places" []
       (GET "/" [] category-handler/list-places-handler)
@@ -265,7 +265,7 @@
       (POST "/" [] category-handler/add-place-handler)
       (PUT "/:id" [] category-handler/update-place-handler)
       (PUT "/:id/scope" [] category-handler/set-place-scope-handler)
-      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-places "places"))))
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-places :places))))
 
     (context "/projects" []
       (GET "/" [] category-handler/list-projects-handler)
@@ -273,7 +273,7 @@
       (POST "/" [] category-handler/add-project-handler)
       (PUT "/:id" [] category-handler/update-project-handler)
       (PUT "/:id/scope" [] category-handler/set-project-scope-handler)
-      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-projects "projects"))))
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-projects :projects))))
 
     (context "/goals" []
       (GET "/" [] category-handler/list-goals-handler)
@@ -281,7 +281,7 @@
       (POST "/" [] category-handler/add-goal-handler)
       (PUT "/:id" [] category-handler/update-goal-handler)
       (PUT "/:id/scope" [] category-handler/set-goal-scope-handler)
-      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-goals "goals"))))
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-goals :goals))))
 
     (context "/messages" []
       (GET "/" [] message-handler/list-messages-handler)

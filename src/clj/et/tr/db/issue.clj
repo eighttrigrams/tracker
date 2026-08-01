@@ -4,6 +4,7 @@
             [taoensso.telemere :as tel]
             [et.tr.clock :as clock]
             [et.tr.db :as db]
+            [et.tr.ordering :as ordering]
             [et.tr.db.category-rule :as db.category-rule]
             [et.tr.db.category-exclusion :as db.category-exclusion]
             [et.tr.db.relation :as relation]))
@@ -143,31 +144,24 @@
             first)))))
 
 (defn reorder-issue [ds user-id issue-id new-sort-order]
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update :issues
-                 :set {:sort_order new-sort-order}
-                 :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]}))
-  {:success true :sort_order new-sort-order})
+  (db/write-order! ds :issues-page user-id issue-id new-sort-order))
 
 (defn list-urgent-issues
   "The caller's unresolved issues of one urgency, in the order Urgent Matters
   shows them — just the columns its reorder arithmetic needs."
   [ds user-id urgency]
-  (jdbc/execute! (db/get-conn ds)
-    (sql/format {:select [:id :sort_order_urgent]
-                 :from [:issues]
-                 :where [:and (db/user-id-where-clause user-id)
-                         [:= :resolved 0]
-                         [:= :urgency urgency]]
-                 :order-by [[:sort_order_urgent :asc] [:id :asc]]})
-    db/jdbc-opts))
+  (let [col (ordering/column :issues-urgent)]
+    (jdbc/execute! (db/get-conn ds)
+      (sql/format {:select [:id col]
+                   :from [:issues]
+                   :where [:and (db/user-id-where-clause user-id)
+                           [:= :resolved 0]
+                           [:= :urgency urgency]]
+                   :order-by [[col :asc] [:id :asc]]})
+      db/jdbc-opts)))
 
 (defn reorder-issue-in-urgent [ds user-id issue-id new-order]
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update :issues
-                 :set {:sort_order_urgent new-order}
-                 :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]}))
-  {:success true :sort_order_urgent new-order})
+  (db/write-order! ds :issues-urgent user-id issue-id new-order))
 
 (defn update-issue
   ([ds user-id issue-id fields] (update-issue ds user-id issue-id fields nil))
@@ -214,9 +208,9 @@
   [ds user-id issue-id urgency]
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update :issues
-                 :set {:sort_order_urgent (when (contains? db/urgent-urgencies urgency)
-                                            (db/top-of-order ds :issues :sort_order_urgent user-id
-                                                             [:= :urgency urgency]))}
+                 :set (ordering/positioning :issues-urgent
+                                            (when (contains? db/urgent-urgencies urgency)
+                                              (db/top-of-order ds :issues-urgent user-id [:= :urgency urgency])))
                  :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]})))
 
 (defn set-issue-field [ds user-id issue-id field value]

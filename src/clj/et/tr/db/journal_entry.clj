@@ -179,11 +179,7 @@
       db/jdbc-opts)))
 
 (defn reorder-journal-entry [ds user-id entry-id new-sort-order]
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update :journal_entries
-                 :set {:sort_order new-sort-order}
-                 :where [:and [:= :id entry-id] (db/user-id-where-clause user-id)]}))
-  {:success true :sort_order new-sort-order})
+  (db/write-order! ds :journal-entries user-id entry-id new-sort-order))
 
 (defn categorize-journal-entry [ds user-id entry-id category-type category-id]
   (db/validate-category-type! category-type)

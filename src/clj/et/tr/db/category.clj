@@ -150,13 +150,8 @@
                               :where [:and [:= :id category-id] (db/user-id-where-clause user-id)]})
                  db/jdbc-opts)))
 
-(defn reorder-category [ds user-id category-id new-sort-order table-name]
-  (validate-table-name! table-name)
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update (keyword table-name)
-                 :set {:sort_order new-sort-order}
-                 :where [:and [:= :id category-id] (db/user-id-where-clause user-id)]}))
-  {:success true :sort_order new-sort-order})
+(defn reorder-category [ds user-id category-id new-sort-order context]
+  (db/write-order! ds context user-id category-id new-sort-order))
 
 (defn- set-category-field [ds user-id category-id field value table-name]
   (validate-table-name! table-name)

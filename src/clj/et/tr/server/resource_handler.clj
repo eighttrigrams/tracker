@@ -2,6 +2,7 @@
   (:require [et.tr.server.common :as common]
             [et.tr.server.events :as events]
             [et.tr.db :as db]
+            [et.tr.ordering :as ordering]
             [et.tr.db.resource :as db.resource]
             [clojure.string :as str]))
 
@@ -176,22 +177,10 @@
         resource-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [target-resource-id position]} (:body req)
         all-resources (db.resource/list-resources (common/ensure-ds) user-id {:sort-mode "manual"})
-        target-idx (->> all-resources
-                        (map-indexed vector)
-                        (some (fn [[idx r]] (when (= (:id r) target-resource-id) idx))))
-        target-order (:sort_order (nth all-resources target-idx))
-        neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
-        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-resources)))
-                         (:sort_order (nth all-resources neighbor-idx)))
-        new-order (cond
-                    (nil? neighbor-order)
-                    (if (= position "before")
-                      (- target-order 1.0)
-                      (+ target-order 1.0))
-                    :else
-                    (/ (+ target-order neighbor-order) 2.0))]
-    (db.resource/reorder-resource (common/ensure-ds) user-id resource-id new-order)
-    {:status 200 :body {:success true :sort_order new-order}}))
+        new-order (ordering/value-between :resources-page all-resources target-resource-id position)]
+    (if (nil? new-order)
+      {:status 404 :body {:error "Target not found"}}
+      {:status 200 :body (db.resource/reorder-resource (common/ensure-ds) user-id resource-id new-order)})))
 
 (def set-resource-scope-handler
   "PUT /api/resources/:id/scope — set the resource's :scope field. Body

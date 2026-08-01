@@ -4,6 +4,7 @@
             [taoensso.telemere :as tel]
             [et.tr.clock :as clock]
             [et.tr.db :as db]
+            [et.tr.ordering :as ordering]
             [et.tr.day-order :as day-order]
             [et.tr.db.day-list :as db.day-list]
             [et.tr.db.recurring-task :as db.recurring-task]
@@ -204,43 +205,31 @@
                  db/jdbc-opts)))
 
 (defn reorder-task [ds user-id task-id new-sort-order]
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update :tasks
-                 :set {:sort_order new-sort-order}
-                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]}))
-  {:success true :sort_order new-sort-order})
+  (db/write-order! ds :tasks-page user-id task-id new-sort-order))
 
 (defn list-urgent-tasks
   "The caller's open tasks of one urgency, in the order Urgent Matters shows
   them — just the columns its reorder arithmetic needs."
   [ds user-id urgency]
-  (jdbc/execute! (db/get-conn ds)
-    (sql/format {:select [:id :sort_order_urgent]
-                 :from [:tasks]
-                 :where [:and (db/user-id-where-clause user-id)
-                         [:= :done 0]
-                         [:= :urgency urgency]]
-                 :order-by [[:sort_order_urgent :asc] [:id :asc]]})
-    db/jdbc-opts))
+  (let [col (ordering/column :tasks-urgent)]
+    (jdbc/execute! (db/get-conn ds)
+      (sql/format {:select [:id col]
+                   :from [:tasks]
+                   :where [:and (db/user-id-where-clause user-id)
+                           [:= :done 0]
+                           [:= :urgency urgency]]
+                   :order-by [[col :asc] [:id :asc]]})
+      db/jdbc-opts)))
 
 (defn reorder-task-in-urgent [ds user-id task-id new-order]
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update :tasks
-                 :set {:sort_order_urgent new-order}
-                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]}))
-  {:success true :sort_order_urgent new-order})
+  (db/write-order! ds :tasks-urgent user-id task-id new-order))
 
 (defn set-task-sort-order-today [ds user-id task-id new-day-order]
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update :tasks
-                 :set {:sort_order_today new-day-order}
-                 :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                 :returning [:id :sort_order_today]})
-    db/jdbc-opts))
+  (db/write-order! ds :tasks-day-list user-id task-id new-day-order))
 
 (defn- day-membership-row [ds user-id task-id]
   (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:select [:id :due_date :today :lined_up_for :sort_order_today]
+    (sql/format {:select [:id :due_date :today :lined_up_for (ordering/column :tasks-day-list)]
                  :from [:tasks]
                  :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]})
     db/jdbc-opts))
@@ -255,7 +244,7 @@
   (let [today (clock/today-str)
         date (day-order/flagged-date after today)]
     (when (and date
-               (not (and (:sort_order_today before)
+               (not (and ((ordering/column :tasks-day-list) before)
                          (= date (day-order/flagged-date before today)))))
       (set-task-sort-order-today ds user-id task-id (db.day-list/end-position ds user-id date)))))
 
@@ -264,17 +253,17 @@
   ;; altogether), which is what sort_order_today is relative to, so the manual day
   ;; position goes with it.
   (let [set-map (if (nil? due-date)
-                  {:due_date due-date
-                   :due_time nil
-                   :sort_order_today nil
-                   :modified_at (clock/sql-now)}
-                  {:due_date due-date
-                   :today 0
-                   :lined_up_for nil
-                   :maybe 0
-                   :urgency "default"
-                   :sort_order_today nil
-                   :modified_at (clock/sql-now)})]
+                  (merge {:due_date due-date
+                          :due_time nil
+                          :modified_at (clock/sql-now)}
+                         (ordering/clearing :tasks-day-list))
+                  (merge {:due_date due-date
+                          :today 0
+                          :lined_up_for nil
+                          :maybe 0
+                          :urgency "default"
+                          :modified_at (clock/sql-now)}
+                         (ordering/clearing :tasks-day-list)))]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
                    :set set-map
@@ -326,9 +315,9 @@
                  (sql/format {:update :tasks
                               :set (cond-> {:done done-val
                                             :modified_at (clock/sql-now)}
-                                     done? (assoc :today 0 :lined_up_for nil :maybe 0
-                                                  :sort_order_today nil
-                                                  :done_at (clock/sql-now))
+                                     done? (-> (assoc :today 0 :lined_up_for nil :maybe 0
+                                                      :done_at (clock/sql-now))
+                                               (merge (ordering/clearing :tasks-day-list)))
                                      (not done?) (assoc :done_at nil))
                               :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
                               :returning [:id :done :modified_at :done_at]})
@@ -346,7 +335,8 @@
         set-map (cond-> {:today today-val
                          :lined_up_for nil
                          :modified_at (clock/sql-now)}
-                  (not today?) (assoc :maybe 0 :sort_order_today nil))
+                  (not today?) (-> (assoc :maybe 0)
+                                   (merge (ordering/clearing :tasks-day-list))))
         result (jdbc/execute-one! (db/get-conn ds)
                  (sql/format {:update :tasks
                               :set set-map
@@ -363,7 +353,8 @@
         set-map (cond-> {:lined_up_for date
                          :today 0
                          :modified_at (clock/sql-now)}
-                  (nil? date) (assoc :maybe 0 :sort_order_today nil))
+                  (nil? date) (-> (assoc :maybe 0)
+                                  (merge (ordering/clearing :tasks-day-list))))
         result (jdbc/execute-one! (db/get-conn ds)
                  (sql/format {:update :tasks
                               :set set-map
@@ -413,7 +404,7 @@
                                 :from [:tasks]
                                 :where [:and
                                         [:= :lined_up_for (clock/sql-today)]
-                                        [:= :sort_order_today nil]
+                                        [:= (ordering/column :tasks-day-list) nil]
                                         (db/user-id-where-clause user-id)]})
                    db/jdbc-opts)
         result (jdbc/execute! conn
@@ -444,9 +435,9 @@
   [ds user-id task-id urgency]
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update :tasks
-                 :set {:sort_order_urgent (when (contains? db/urgent-urgencies urgency)
-                                            (db/top-of-order ds :tasks :sort_order_urgent user-id
-                                                             [:= :urgency urgency]))}
+                 :set (ordering/positioning :tasks-urgent
+                                            (when (contains? db/urgent-urgencies urgency)
+                                              (db/top-of-order ds :tasks-urgent user-id [:= :urgency urgency])))
                  :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]})))
 
 (defn set-task-field [ds user-id task-id field value]

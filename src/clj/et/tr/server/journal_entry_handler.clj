@@ -2,6 +2,7 @@
   (:require [et.tr.server.common :as common]
             [et.tr.server.events :as events]
             [et.tr.db :as db]
+            [et.tr.ordering :as ordering]
             [et.tr.db.journal-entry :as db.journal-entry]
             [clojure.string :as str]))
 
@@ -150,22 +151,10 @@
         entry-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [target-entry-id position]} (:body req)
         all-entries (db.journal-entry/list-journal-entries (common/ensure-ds) user-id {:sort-mode "manual"})
-        target-idx (->> all-entries
-                        (map-indexed vector)
-                        (some (fn [[idx e]] (when (= (:id e) target-entry-id) idx))))
-        target-order (:sort_order (nth all-entries target-idx))
-        neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
-        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-entries)))
-                         (:sort_order (nth all-entries neighbor-idx)))
-        new-order (cond
-                    (nil? neighbor-order)
-                    (if (= position "before")
-                      (- target-order 1.0)
-                      (+ target-order 1.0))
-                    :else
-                    (/ (+ target-order neighbor-order) 2.0))]
-    (db.journal-entry/reorder-journal-entry (common/ensure-ds) user-id entry-id new-order)
-    {:status 200 :body {:success true :sort_order new-order}}))
+        new-order (ordering/value-between :journal-entries all-entries target-entry-id position)]
+    (if (nil? new-order)
+      {:status 404 :body {:error "Target not found"}}
+      {:status 200 :body (db.journal-entry/reorder-journal-entry (common/ensure-ds) user-id entry-id new-order)})))
 
 (def set-journal-entry-scope-handler
   "PUT /api/journal-entries/:id/scope — change the scope of a journal entry.

@@ -2,6 +2,7 @@
   (:require [et.tr.server.common :as common]
             [et.tr.server.events :as events]
             [et.tr.db :as db]
+            [et.tr.ordering :as ordering]
             [et.tr.db.issue :as db.issue]
             [et.tr.db.task :as db.task]
             [clojure.string :as str]))
@@ -203,22 +204,10 @@
         issue-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [target-issue-id position]} (:body req)
         all-issues (db.issue/list-issues (common/ensure-ds) user-id {:sort-mode "manual"})
-        target-idx (->> all-issues
-                        (map-indexed vector)
-                        (some (fn [[idx r]] (when (= (:id r) target-issue-id) idx))))
-        target-order (:sort_order (nth all-issues target-idx))
-        neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
-        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-issues)))
-                         (:sort_order (nth all-issues neighbor-idx)))
-        new-order (cond
-                    (nil? neighbor-order)
-                    (if (= position "before")
-                      (- target-order 1.0)
-                      (+ target-order 1.0))
-                    :else
-                    (/ (+ target-order neighbor-order) 2.0))]
-    (db.issue/reorder-issue (common/ensure-ds) user-id issue-id new-order)
-    {:status 200 :body {:success true :sort_order new-order}}))
+        new-order (ordering/value-between :issues-page all-issues target-issue-id position)]
+    (if (nil? new-order)
+      {:status 404 :body {:error "Target not found"}}
+      {:status 200 :body (db.issue/reorder-issue (common/ensure-ds) user-id issue-id new-order)})))
 
 (defn reorder-issue-in-urgent-handler
   "POST /api/issues/:id/reorder-urgent — move an issue within the Urgent Matters
@@ -237,24 +226,10 @@
         target (db.issue/get-issue ds user-id target-issue-id)
         all-issues (when (contains? db/urgent-urgencies (:urgency target))
                      (db.issue/list-urgent-issues ds user-id (:urgency target)))
-        target-idx (->> all-issues
-                        (map-indexed vector)
-                        (some (fn [[idx r]] (when (= (:id r) target-issue-id) idx))))]
-    (if (nil? target-idx)
+        new-order (ordering/value-between :issues-urgent all-issues target-issue-id position)]
+    (if (nil? new-order)
       {:status 404 :body {:error "Target issue is not in Urgent Matters"}}
-      (let [target-order (or (:sort_order_urgent (nth all-issues target-idx)) 0.0)
-            neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
-            neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-issues)))
-                             (or (:sort_order_urgent (nth all-issues neighbor-idx)) 0.0))
-            new-order (cond
-                        (nil? neighbor-order)
-                        (if (= position "before")
-                          (- target-order 1.0)
-                          (+ target-order 1.0))
-                        :else
-                        (/ (+ target-order neighbor-order) 2.0))]
-        (db.issue/reorder-issue-in-urgent ds user-id issue-id new-order)
-        {:status 200 :body {:success true :sort_order_urgent new-order}}))))
+      {:status 200 :body (db.issue/reorder-issue-in-urgent ds user-id issue-id new-order)})))
 
 (def set-issue-scope-handler
   "PUT /api/issues/:id/scope — set the issue's :scope field. Body field :scope

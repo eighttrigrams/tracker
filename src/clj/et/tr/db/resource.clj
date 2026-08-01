@@ -135,11 +135,7 @@
         (first (associate-categories-with-resources [resource] categories-by-resource people-by-id places-by-id projects-by-id goals-by-id))))))
 
 (defn reorder-resource [ds user-id resource-id new-sort-order]
-  (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:update :resources
-                 :set {:sort_order new-sort-order}
-                 :where [:and [:= :id resource-id] (db/user-id-where-clause user-id)]}))
-  {:success true :sort_order new-sort-order})
+  (db/write-order! ds :resources-page user-id resource-id new-sort-order))
 
 (defn update-resource
   ([ds user-id resource-id fields] (update-resource ds user-id resource-id fields nil))

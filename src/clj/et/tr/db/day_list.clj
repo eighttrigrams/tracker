@@ -7,9 +7,11 @@
             [honey.sql :as sql]
             [et.tr.clock :as clock]
             [et.tr.db :as db]
+            [et.tr.ordering :as ordering]
             [et.tr.day-order :as day-order]))
 
-(def ^:private task-columns [:id :due_date :due_time :today :lined_up_for :sort_order_today])
+(def ^:private task-columns
+  [:id :due_date :due_time :today :lined_up_for (ordering/column :tasks-day-list)])
 
 (def ^:private meet-columns [:id :start_date :start_time])
 

@@ -2,6 +2,7 @@
   (:require [et.tr.server.common :as common]
             [et.tr.server.events :as events]
             [et.tr.db :as db]
+            [et.tr.ordering :as ordering]
             [et.tr.db.category :as db.category]
             [clojure.string :as str]))
 
@@ -278,29 +279,18 @@
 
 (defn reorder-category-handler
   "POST /api/{people,places,projects,goals}/:id/reorder — each route supplies
-  the matching `list-fn` (e.g. db.category/list-people) and
-  `table-name` (\"people\"/\"places\"/\"projects\"/\"goals\"). Body:
-  {:target-category-id :position} where :position is \"before\" or \"after\".
-  Computes a new fractional :sort_order between the target and its neighbor
-  (or ±1.0 at the ends), persists it, and returns {:success true :sort_order}."
-  [req list-fn table-name]
+  the matching `list-fn` (e.g. db.category/list-people) and ordering `context`
+  (:people/:places/:projects/:goals). Body: {:target-category-id :position}
+  where :position is \"before\" or \"after\". Computes a new fractional
+  :sort_order between the target and its neighbor (or ±1.0 at the ends),
+  persists it, and returns {:success true :sort_order}; 404 when the target is
+  not in the list."
+  [req list-fn context]
   (let [user-id (common/get-user-id req)
         category-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [target-category-id position]} (:body req)
         all-categories (list-fn (common/ensure-ds) user-id)
-        target-idx (->> all-categories
-                        (map-indexed vector)
-                        (some (fn [[idx cat]] (when (= (:id cat) target-category-id) idx))))
-        target-order (:sort_order (nth all-categories target-idx))
-        neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
-        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-categories)))
-                         (:sort_order (nth all-categories neighbor-idx)))
-        new-order (cond
-                    (nil? neighbor-order)
-                    (if (= position "before")
-                      (- target-order 1.0)
-                      (+ target-order 1.0))
-                    :else
-                    (/ (+ target-order neighbor-order) 2.0))]
-    (db.category/reorder-category (common/ensure-ds) user-id category-id new-order table-name)
-    {:status 200 :body {:success true :sort_order new-order}}))
+        new-order (ordering/value-between context all-categories target-category-id position)]
+    (if (nil? new-order)
+      {:status 404 :body {:error "Target not found"}}
+      {:status 200 :body (db.category/reorder-category (common/ensure-ds) user-id category-id new-order context)})))

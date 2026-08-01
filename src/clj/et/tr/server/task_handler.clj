@@ -2,6 +2,7 @@
   (:require [et.tr.server.common :as common]
             [et.tr.server.events :as events]
             [et.tr.day-order :as day-order]
+            [et.tr.ordering :as ordering]
             [et.tr.db :as db]
             [et.tr.db.day-list :as db.day-list]
             [et.tr.db.task :as db.task]
@@ -137,22 +138,10 @@
         task-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [target-task-id position]} (:body req)
         all-tasks (db.task/list-tasks (common/ensure-ds) user-id :manual)
-        target-idx (->> all-tasks
-                        (map-indexed vector)
-                        (some (fn [[idx task]] (when (= (:id task) target-task-id) idx))))
-        target-order (:sort_order (nth all-tasks target-idx))
-        neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
-        neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-tasks)))
-                         (:sort_order (nth all-tasks neighbor-idx)))
-        new-order (cond
-                    (nil? neighbor-order)
-                    (if (= position "before")
-                      (- target-order 1.0)
-                      (+ target-order 1.0))
-                    :else
-                    (/ (+ target-order neighbor-order) 2.0))]
-    (db.task/reorder-task (common/ensure-ds) user-id task-id new-order)
-    {:status 200 :body {:success true :sort_order new-order}}))
+        new-order (ordering/value-between :tasks-page all-tasks target-task-id position)]
+    (if (nil? new-order)
+      {:status 404 :body {:error "Target not found"}}
+      {:status 200 :body (db.task/reorder-task (common/ensure-ds) user-id task-id new-order)})))
 
 (defn reorder-task-in-urgent-handler
   "POST /api/tasks/:id/reorder-urgent — move a task within the Urgent Matters
@@ -171,24 +160,10 @@
         target (db.task/get-task ds user-id target-task-id)
         all-tasks (when (contains? db/urgent-urgencies (:urgency target))
                     (db.task/list-urgent-tasks ds user-id (:urgency target)))
-        target-idx (->> all-tasks
-                        (map-indexed vector)
-                        (some (fn [[idx t]] (when (= (:id t) target-task-id) idx))))]
-    (if (nil? target-idx)
+        new-order (ordering/value-between :tasks-urgent all-tasks target-task-id position)]
+    (if (nil? new-order)
       {:status 404 :body {:error "Target task is not in Urgent Matters"}}
-      (let [target-order (or (:sort_order_urgent (nth all-tasks target-idx)) 0.0)
-            neighbor-idx (if (= position "before") (dec target-idx) (inc target-idx))
-            neighbor-order (when (and (>= neighbor-idx 0) (< neighbor-idx (count all-tasks)))
-                             (or (:sort_order_urgent (nth all-tasks neighbor-idx)) 0.0))
-            new-order (cond
-                        (nil? neighbor-order)
-                        (if (= position "before")
-                          (- target-order 1.0)
-                          (+ target-order 1.0))
-                        :else
-                        (/ (+ target-order neighbor-order) 2.0))]
-        (db.task/reorder-task-in-urgent ds user-id task-id new-order)
-        {:status 200 :body {:success true :sort_order_urgent new-order}}))))
+      {:status 200 :body (db.task/reorder-task-in-urgent ds user-id task-id new-order)})))
 
 (defn- reorder-today-request-error [{:keys [date target-type target-id position]}]
   (cond
