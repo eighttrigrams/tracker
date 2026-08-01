@@ -30,25 +30,36 @@ Feature: Right-clicking an item card opens its footer menu
     When I click outside the card menu
     Then no card menu is open
 
+  # The menu is a portal, so its DOM node lives in <body> rather than in the
+  # card; it stays a child of the card in the React tree, and that is what has
+  # to take it down. The tab has to be left by keyboard: clicking one is an
+  # outside mousedown, which dismisses the menu before the card is ever
+  # destroyed, so a clicked tab switch tests the dismiss and not the unmount.
+  # Coming back matters as much as leaving — the open menu is held in one global
+  # atom, and were it keyed by item id rather than by a per-mount token, the
+  # card would find its own stale entry again on remount.
   Scenario: The menu cannot outlive the card it belongs to
     Given I am on the app
     And I click the "Tasks" tab
     And I add a task called "Context menu task"
     When I right-click the card "Context menu task"
     Then the card menu offers "Mark task done, Set Reminder, Delete"
-    When I click the "Inbox" tab
+    When I press the keyboard shortcut for the "Resources" tab
     Then no card menu is open
+    When I click the "Tasks" tab
+    Then I should see "Context menu task" in the task list
+    And no card menu is open
 
   Scenario: Opening the menu closes the card's send-to-day picker
     Given I am on the app
     And I click the "Tasks" tab
     And I add a task called "Two popups task"
     And I expand the task card "Two popups task"
-    When I open the send-to-day picker on "Two popups task"
-    Then the send-to-day picker is open
+    And I open the send-to-day picker on task "Two popups task"
+    Then the send-to-day picker on task "Two popups task" is open
     When I right-click the card "Two popups task"
     Then the card menu offers "Mark task done, Set Reminder, Delete"
-    And the send-to-day picker is closed
+    And the send-to-day picker on task "Two popups task" is closed
 
   Scenario: Outside a card the browser keeps its own menu
     Given I am on the app

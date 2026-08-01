@@ -47,28 +47,15 @@ Then("no card menu entry is one of those toggle options", async ({ page }) => {
   expect(labels.filter((l) => options.includes(l))).toEqual([]);
 });
 
-// The Tasks page's send-to-day picker is the footer widget that does not go
-// through footer-button, so it is the one that proves the menu closes card
-// popups in general rather than just the split-button dropdown it knows about.
-const picker = ".send-to-day-dropdown";
-
-When("I open the send-to-day picker on {string}", async ({ page }, title: string) => {
-  await page
-    .locator(".items li")
-    .filter({ hasText: title })
-    .first()
-    .locator(".link-today-btn")
-    .click();
-});
-
-Then("the send-to-day picker is open", async ({ page }) => {
-  await expect(page.locator(picker)).toHaveCount(1);
-});
-
-// Only ever asserted after the card menu has been shown to be up — that is the
-// positive that diverges, so this is not an absence racing a render.
-Then("the send-to-day picker is closed", async ({ page }) => {
-  await expect(page.locator(picker)).toHaveCount(0);
+// Alt+R (core.cljs' document keydown) leaves the tab without a mousedown
+// anywhere, so the menu's outside-click dismiss stays out of it and the card is
+// destroyed with its menu still open — which is the path this has to exercise.
+When("I press the keyboard shortcut for the {string} tab", async ({ page }, name: string) => {
+  const keys: Record<string, string> = { Resources: "Alt+R", Issues: "Alt+I", Meets: "Alt+M" };
+  await page.keyboard.press(keys[name]);
+  const tab = page.locator(".top-bar .tabs").getByRole("button", { name });
+  await expect(tab).toHaveClass(/active/);
+  await page.waitForLoadState("networkidle");
 });
 
 When("I right-click the card {string}", async ({ page }, title: string) => {
