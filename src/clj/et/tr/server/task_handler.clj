@@ -154,7 +154,7 @@
     (db.task/reorder-task (common/ensure-ds) user-id task-id new-order)
     {:status 200 :body {:success true :sort_order new-order}}))
 
-(defn- day-order-request-error [{:keys [date target-type target-id position]}]
+(defn- reorder-today-request-error [{:keys [date target-type target-id position]}]
   (cond
     (not (and (string? date) (re-matches #"\d{4}-\d{2}-\d{2}" date)))
     "date must be a YYYY-MM-DD string"
@@ -169,7 +169,7 @@
     "position must be \"before\" or \"after\""))
 
 (defn reorder-task-in-day-handler
-  "POST /api/tasks/:id/day-order — move a task within one day's list on the
+  "POST /api/tasks/:id/reorder-today — move a task within one day's list on the
   Today page. Body: {:date :target-type :target-id :position}, where date is the
   day whose list is meant (YYYY-MM-DD), target-type is \"task\" or \"meet\",
   target-id names the item that was dropped on and position is \"before\" or
@@ -178,11 +178,12 @@
   the value lands on the day's shared axis. A task the day does not hold yet
   joins it first, in the same request. Kept apart from :sort_order, the manual
   order of the Tasks page, so a move here never reorders anything there.
-  Returns {:success true :day_order v} on 200, 400 on a malformed body or a
-  target that day's list does not hold, 404 if the task is not the caller's."
+  Returns {:success true :sort_order_today v} on 200, 400 on a malformed body
+  or a target that day's list does not hold, 404 if the task is not the
+  caller's."
   [req]
   (let [{:keys [date target-type target-id position]} (:body req)]
-    (if-let [error (day-order-request-error (:body req))]
+    (if-let [error (reorder-today-request-error (:body req))]
       {:status 400 :body {:error error}}
       (let [user-id (common/get-user-id req)
             task-id (Integer/parseInt (get-in req [:params :id]))
@@ -200,8 +201,8 @@
             (when-let [{:keys [before after]} (db.task/join-day! ds user-id task-id date)]
               (events/record-update! req :task task-id before after))
             (let [value (day-order/insert-value (db.day-list/items ds user-id date) target position)]
-              (db.task/set-task-day-order ds user-id task-id value)
-              {:status 200 :body {:success true :day_order value}})))))))
+              (db.task/set-task-sort-order-today ds user-id task-id value)
+              {:status 200 :body {:success true :sort_order_today value}})))))))
 
 (defn set-due-date-handler
   "PUT /api/tasks/:id/due-date — set or clear a task's due date. Body:

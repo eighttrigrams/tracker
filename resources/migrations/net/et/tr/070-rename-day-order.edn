@@ -1,0 +1,3 @@
+{:id "070-rename-day-order"
+ :up ["ALTER TABLE tasks RENAME COLUMN day_order TO sort_order_today"]
+ :down ["ALTER TABLE tasks RENAME COLUMN sort_order_today TO day_order"]}

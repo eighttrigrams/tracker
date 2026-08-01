@@ -9,7 +9,7 @@
   {:item-type :task :id id :title (str "due-" id) :due_time time})
 
 (defn- flagged [id day-order]
-  {:item-type :task :id id :title (str "flagged-" id) :day-flagged? true :day_order day-order})
+  {:item-type :task :id id :title (str "flagged-" id) :day-flagged? true :sort_order_today day-order})
 
 (defn- titles [items]
   (mapv :title (day-order/sort-items items)))
@@ -48,18 +48,18 @@
 
 (deftest a-stored-value-lifts-a-task-into-place
   (testing "a task dragged between two meets sits between them"
-    (let [dragged (assoc (flagged 5 1443.0) :day_order 705.0)]
+    (let [dragged (assoc (flagged 5 1443.0) :sort_order_today 705.0)]
       (is (= ["due-1" "meet-1" "flagged-5" "meet-2" "due-2" "flagged-3" "flagged-4"]
              (titles (replace {(flagged 5 1443.0) dragged} a-day))))))
 
   (testing "a task due that day can be dragged to the top of its day"
-    (let [dragged (assoc (due 2 "15:30") :day_order -2.0)]
+    (let [dragged (assoc (due 2 "15:30") :sort_order_today -2.0)]
       (is (= ["due-2" "due-1" "meet-1" "meet-2" "flagged-3" "flagged-4" "flagged-5"]
              (titles (replace {(due 2 "15:30") dragged} a-day))))))
 
   (testing "a stored 0.0 counts as midnight, not as no value at all — the tail would sort it last"
     (is (= ["due-1" "flagged-5" "meet-1"]
-           (titles [(due 1 nil) (meet 1 "08:30") (assoc (flagged 5 1443.0) :day_order 0.0)])))))
+           (titles [(due 1 nil) (meet 1 "08:30") (assoc (flagged 5 1443.0) :sort_order_today 0.0)])))))
 
 (deftest insert-value-lands-between-the-target-and-its-neighbour
   (let [items a-day
@@ -96,7 +96,7 @@
                [(flagged 3 1441.0) "after" ["due-1" "meet-1" "meet-2" "due-2" "flagged-3" "flagged-5" "flagged-4"]]
                [(flagged 4 1442.0) "after" ["due-1" "meet-1" "meet-2" "due-2" "flagged-3" "flagged-4" "flagged-5"]]]]
         (let [value (day-order/insert-value a-day target position)]
-          (is (= expected (titles (conj (vec rest-of-day) (assoc dragged :day_order value))))
+          (is (= expected (titles (conj (vec rest-of-day) (assoc dragged :sort_order_today value))))
               (str position " " (:title target))))))))
 
 (deftest a-run-of-equal-values-is-not-split
@@ -120,7 +120,7 @@
 
 (deftest stored-values-survive-the-day-changing-around-them
   (testing "adding and removing other items never shifts what anything derives"
-    (let [dragged (assoc (flagged 5 1443.0) :day_order 705.0)
+    (let [dragged (assoc (flagged 5 1443.0) :sort_order_today 705.0)
           day (replace {(flagged 5 1443.0) dragged} a-day)]
       (is (= ["due-1" "meet-1" "flagged-5" "meet-2" "due-2" "flagged-3" "flagged-4"]
              (titles day)))
@@ -140,8 +140,8 @@
 
 (deftest a-day-holds-what-is-due-what-happens-and-what-is-marked-for-it
   (let [tasks [{:id 1 :title "due today" :due_date today}
-               {:id 2 :title "marked for today" :today 1 :day_order 1441.0}
-               {:id 3 :title "lined up for tomorrow" :lined_up_for tomorrow :day_order 1441.0}
+               {:id 2 :title "marked for today" :today 1 :sort_order_today 1441.0}
+               {:id 3 :title "lined up for tomorrow" :lined_up_for tomorrow :sort_order_today 1441.0}
                {:id 4 :title "on no day at all"}]
         meets [{:id 1 :title "standup" :start_date today :start_time "08:30"}
                {:id 2 :title "next week" :start_date "2026-07-22" :start_time "09:00"}]]

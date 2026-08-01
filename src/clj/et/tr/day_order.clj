@@ -1,10 +1,11 @@
 (ns et.tr.day-order
   "The order of one day's list on the Today page, where meets, tasks due that
   day and tasks merely flagged for it share a single numeric axis. A task the
-  user dragged carries an explicit value on that axis (`day_order`); everything
-  else derives one from its own time. Deriving never looks at the rest of the
-  list, so a stored value keeps meaning as items come and go, and meets — whose
-  axis value is their start time — never move relative to each other.")
+  user dragged carries an explicit value on that axis (`sort_order_today`);
+  everything else derives one from its own time. Deriving never looks at the
+  rest of the list, so a stored value keeps meaning as items come and go, and
+  meets — whose axis value is their start time — never move relative to each
+  other.")
 
 (def ^:private minutes-per-day 1440)
 
@@ -34,7 +35,7 @@
   :item-type (:task or :meet) and, when the day list carries a task only because
   it is flagged for that day, :day-flagged? true."
   [item]
-  (or (:day_order item)
+  (or (:sort_order_today item)
       (if (:day-flagged? item)
         tail-axis
         (time-axis (or (:due_time item) (:start_time item))))))
@@ -108,6 +109,6 @@
                        (map #(assoc % :item-type :meet)))
         flagged (->> tasks
                      (filter #(= date (flagged-date % today)))
-                     (sort-by (juxt :day_order :id))
+                     (sort-by (juxt :sort_order_today :id))
                      (map #(assoc % :item-type :task :day-flagged? true)))]
     (sort-items (concat due happening flagged))))

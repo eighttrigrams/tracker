@@ -9,7 +9,7 @@
             [et.tr.db :as db]
             [et.tr.day-order :as day-order]))
 
-(def ^:private task-columns [:id :due_date :due_time :today :lined_up_for :day_order])
+(def ^:private task-columns [:id :due_date :due_time :today :lined_up_for :sort_order_today])
 
 (def ^:private meet-columns [:id :start_date :start_time])
 

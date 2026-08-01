@@ -85,10 +85,16 @@ recording on. That toggle is human-only; never flip it.
 ### Answering "what's on my today board?"
 
 `GET /today-board` returns the aggregate `{tasks, meets,
-journal-entries}`. Tasks use the same `:today` filter as the UI's Today
+journal-entries, days}`. Tasks use the same `:today` filter as the UI's Today
 list (incomplete + due-date OR urgent/superurgent OR `today=1` OR
 `lined_up_for` set OR active reminder). Meets are those with `start_date =
 today` and not archived. Journal entries are today's entries.
+
+`days` is the day section as the human sees it: one entry per date in the
+`?days=N` window, each with the items of that day's list **in their manual
+order**, as `{type, id, flagged}` references into `tasks` and `meets`. Read
+the order from there rather than re-sorting by due date, and resolve each
+`id` against the list of that `type` in the same response.
 
 ### Adding mail to the inbox from a job
 

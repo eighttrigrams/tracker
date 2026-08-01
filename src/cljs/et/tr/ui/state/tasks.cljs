@@ -416,7 +416,7 @@
 ;; The refetch runs on failure too: the day list was spliced optimistically, and
 ;; the backend's order is what puts a refused drop back where it came from.
 (defn reorder-task-in-day [app-state auth-headers fetch-tasks-fn task-id date target position]
-  (api/post-json (str "/api/tasks/" task-id "/day-order")
+  (api/post-json (str "/api/tasks/" task-id "/reorder-today")
     {:date date
      :target-type (name (:item-type target))
      :target-id (:id target)

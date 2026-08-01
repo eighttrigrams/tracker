@@ -31,7 +31,7 @@
     id))
 
 (defn- drop-on [task-id date target-type target-id position]
-  (POST-json (str "/api/tasks/" task-id "/day-order")
+  (POST-json (str "/api/tasks/" task-id "/reorder-today")
              {:date date :target-type target-type :target-id target-id :position position}))
 
 (defn- day-list
@@ -48,20 +48,20 @@
 (deftest a-task-on-no-day-list-carries-no-position
   (testing "nothing is materialized until the task joins a day"
     (let [id (:id (add-task! "Nothing scheduled"))]
-      (is (nil? (:day_order (task id)))))))
+      (is (nil? (:sort_order_today (task id)))))))
 
 (deftest joining-a-day-materializes-a-position-at-its-end
   (testing "each new member lands past everything the day already holds"
     (let [first-id (flag-for-today! "First in")
           second-id (flag-for-today! "Second in")]
-      (is (some? (:day_order (task first-id))))
-      (is (< (:day_order (task first-id)) (:day_order (task second-id))))
+      (is (some? (:sort_order_today (task first-id))))
+      (is (< (:sort_order_today (task first-id)) (:sort_order_today (task second-id))))
       (is (= ["First in" "Second in"] (day-list)))))
 
   (testing "a day with meets in it puts the new task after the last one"
     (add-meet! "Standup" (today) "08:30")
     (let [id (flag-for-today! "After the meets")]
-      (is (< 510.0 (:day_order (task id))))
+      (is (< 510.0 (:sort_order_today (task id))))
       (is (= ["Standup" "First in" "Second in" "After the meets"] (day-list))))))
 
 (deftest a-drop-moves-the-task-to-where-it-was-dropped
@@ -72,7 +72,7 @@
           {:keys [status body]} (drop-on id (today) "meet" late "before")]
       (is (= 200 status))
       (is (true? (:success body)))
-      (is (= (:day_order body) (:day_order (task id))))
+      (is (= (:sort_order_today body) (:sort_order_today (task id))))
       (is (= ["Standup" "Tidy the desk" "Retro"] (day-list))))))
 
 (deftest a-drop-brings-a-task-into-the-day-and-places-it-in-one-request
@@ -97,7 +97,7 @@
       (is (= ["Tomorrow's kickoff" "Lined up" "Tomorrow's retro"] (day-list 1)))
       (is (some? anchor)))))
 
-(deftest the-day-order-and-the-tasks-page-order-are-independent
+(deftest the-day-list-order-and-the-tasks-page-order-are-independent
   (testing "moving a task in the day list leaves the Tasks page order alone"
     (let [first-id (flag-for-today! "First")
           second-id (flag-for-today! "Second")
@@ -109,42 +109,42 @@
   (testing "moving a task on the Tasks page leaves the day list order alone"
     (let [first-id (flag-for-today! "Third")
           second-id (flag-for-today! "Fourth")
-          before (:day_order (task second-id))]
+          before (:sort_order_today (task second-id))]
       (is (= 200 (:status (POST-json (str "/api/tasks/" second-id "/reorder")
                                      {:target-task-id first-id :position "before"}))))
-      (is (= before (:day_order (task second-id))))
+      (is (= before (:sort_order_today (task second-id))))
       (is (= ["Second" "First" "Third" "Fourth"] (day-list))))))
 
 (deftest a-due-date-drops-the-day-position
   (testing "the stored position is relative to one day, so changing days clears it"
     (let [id (flag-for-today! "Moves to another day")]
       (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/due-date") {:due-date (days-from-today 1)}))))
-      (is (nil? (:day_order (task id))))))
+      (is (nil? (:sort_order_today (task id))))))
 
   (testing "clearing the due date clears it too"
     (let [id (:id (add-task! "Loses its date"))]
       (PUT-json (str "/api/tasks/" id "/due-date") {:due-date (days-from-today 1)})
       (PUT-json (str "/api/tasks/" id "/today") {:today true})
       (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/due-date") {:due-date nil}))))
-      (is (nil? (:day_order (task id)))))))
+      (is (nil? (:sort_order_today (task id)))))))
 
 (deftest leaving-the-day-lists-drops-the-position
   (testing "unlinking from today clears it"
     (let [id (flag-for-today! "Unlinked")]
       (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/today") {:today false}))))
-      (is (nil? (:day_order (task id))))))
+      (is (nil? (:sort_order_today (task id))))))
 
   (testing "clearing the queued day clears it too"
     (let [id (:id (add-task! "Unqueued"))]
       (PUT-json (str "/api/tasks/" id "/lined-up-for") {:lined_up_for (days-from-today 2)})
-      (is (some? (:day_order (task id))))
+      (is (some? (:sort_order_today (task id))))
       (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/lined-up-for") {:lined_up_for nil}))))
-      (is (nil? (:day_order (task id))))))
+      (is (nil? (:sort_order_today (task id))))))
 
   (testing "being done takes the task off every day list, position included"
     (let [id (flag-for-today! "Finished")]
       (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/done") {:done true}))))
-      (is (nil? (:day_order (task id)))))))
+      (is (nil? (:sort_order_today (task id)))))))
 
 (deftest changing-days-re-places-the-task-at-the-end-of-the-new-one
   (testing "a position belongs to the day it was arranged on, not to the task"
@@ -153,32 +153,32 @@
           moved (:id (add-task! "Sent to tomorrow"))]
       (PUT-json (str "/api/tasks/" held "/lined-up-for") {:lined_up_for tomorrow})
       (PUT-json (str "/api/tasks/" moved "/today") {:today true})
-      (let [on-today (:day_order (task moved))]
+      (let [on-today (:sort_order_today (task moved))]
         (PUT-json (str "/api/tasks/" moved "/lined-up-for") {:lined_up_for tomorrow})
-        (is (not= on-today (:day_order (task moved))))
-        (is (< (:day_order (task held)) (:day_order (task moved))))
+        (is (not= on-today (:sort_order_today (task moved))))
+        (is (< (:sort_order_today (task held)) (:sort_order_today (task moved))))
         (is (= ["Already there" "Sent to tomorrow"] (day-list 1)))))))
 
 (deftest the-worker-promotion-keeps-the-position
   (testing "lined up for today and marked for today are the same day, so nothing moves"
     (let [id (:id (add-task! "Promoted"))]
       (PUT-json (str "/api/tasks/" id "/lined-up-for") {:lined_up_for (today)})
-      (let [before (:day_order (task id))]
+      (let [before (:sort_order_today (task id))]
         (db.task/promote-lined-up-tasks! *ds* *user-id*)
         (is (= 1 (:today (task id))))
-        (is (= before (:day_order (task id)))))))
+        (is (= before (:sort_order_today (task id)))))))
 
   (testing "a row that never got one is placed at the end"
     (let [id (:id (add-task! "Older row"))]
       (PUT-json (str "/api/tasks/" id "/lined-up-for") {:lined_up_for (today)})
-      (db.task/set-task-day-order *ds* *user-id* id nil)
+      (db.task/set-task-sort-order-today *ds* *user-id* id nil)
       (db.task/promote-lined-up-tasks! *ds* *user-id*)
-      (is (some? (:day_order (task id)))))))
+      (is (some? (:sort_order_today (task id)))))))
 
 (deftest a-malformed-drop-is-refused
   (let [target (flag-for-today! "Target")
         id (flag-for-today! "Dragged")
-        placed (:day_order (task id))]
+        placed (:sort_order_today (task id))]
     (doseq [[body error]
             [[{:date "nope" :target-type "task" :target-id target :position "after"}
               "date must be a YYYY-MM-DD string"]
@@ -190,10 +190,10 @@
               "position must be \"before\" or \"after\""]
              [{:date (days-from-today 3) :target-type "task" :target-id target :position "after"}
               "Target is not in that day's list"]]]
-      (let [resp (POST-json (str "/api/tasks/" id "/day-order") body)]
+      (let [resp (POST-json (str "/api/tasks/" id "/reorder-today") body)]
         (is (= 400 (:status resp)) (pr-str body))
         (is (= {:error error} (:body resp)) (pr-str body))))
-    (is (= placed (:day_order (task id))))))
+    (is (= placed (:sort_order_today (task id))))))
 
 (deftest unknown-and-foreign-tasks-404
   (testing "an id that is not the current user's task is refused"
@@ -204,7 +204,7 @@
       (let [{:keys [status body]} (drop-on theirs (today) "task" target "after")]
         (is (= 404 status))
         (is (= {:error "Task not found"} body)))
-      (is (nil? (:day_order (db.task/get-task *ds* (:id other) theirs)))))))
+      (is (nil? (:sort_order_today (db.task/get-task *ds* (:id other) theirs)))))))
 
 (deftest the-today-board-day-window-covers-the-day-buttons
   (testing "one request carries every day the day selector offers"

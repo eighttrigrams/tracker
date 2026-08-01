@@ -210,17 +210,17 @@
                  :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]}))
   {:success true :sort_order new-sort-order})
 
-(defn set-task-day-order [ds user-id task-id new-day-order]
+(defn set-task-sort-order-today [ds user-id task-id new-day-order]
   (jdbc/execute-one! (db/get-conn ds)
     (sql/format {:update :tasks
-                 :set {:day_order new-day-order}
+                 :set {:sort_order_today new-day-order}
                  :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
-                 :returning [:id :day_order]})
+                 :returning [:id :sort_order_today]})
     db/jdbc-opts))
 
 (defn- day-membership-row [ds user-id task-id]
   (jdbc/execute-one! (db/get-conn ds)
-    (sql/format {:select [:id :due_date :today :lined_up_for :day_order]
+    (sql/format {:select [:id :due_date :today :lined_up_for :sort_order_today]
                  :from [:tasks]
                  :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]})
     db/jdbc-opts))
@@ -235,25 +235,25 @@
   (let [today (clock/today-str)
         date (day-order/flagged-date after today)]
     (when (and date
-               (not (and (:day_order before)
+               (not (and (:sort_order_today before)
                          (= date (day-order/flagged-date before today)))))
-      (set-task-day-order ds user-id task-id (db.day-list/end-position ds user-id date)))))
+      (set-task-sort-order-today ds user-id task-id (db.day-list/end-position ds user-id date)))))
 
 (defn set-task-due-date [ds user-id task-id due-date]
   ;; A due date change moves the task to another day (or off the day lists
-  ;; altogether), which is what day_order is relative to, so the manual day
+  ;; altogether), which is what sort_order_today is relative to, so the manual day
   ;; position goes with it.
   (let [set-map (if (nil? due-date)
                   {:due_date due-date
                    :due_time nil
-                   :day_order nil
+                   :sort_order_today nil
                    :modified_at (clock/sql-now)}
                   {:due_date due-date
                    :today 0
                    :lined_up_for nil
                    :maybe 0
                    :urgency "default"
-                   :day_order nil
+                   :sort_order_today nil
                    :modified_at (clock/sql-now)})]
     (jdbc/execute-one! (db/get-conn ds)
       (sql/format {:update :tasks
@@ -307,7 +307,7 @@
                               :set (cond-> {:done done-val
                                             :modified_at (clock/sql-now)}
                                      done? (assoc :today 0 :lined_up_for nil :maybe 0
-                                                  :day_order nil
+                                                  :sort_order_today nil
                                                   :done_at (clock/sql-now))
                                      (not done?) (assoc :done_at nil))
                               :where [:and [:= :id task-id] (db/user-id-where-clause user-id)]
@@ -326,7 +326,7 @@
         set-map (cond-> {:today today-val
                          :lined_up_for nil
                          :modified_at (clock/sql-now)}
-                  (not today?) (assoc :maybe 0 :day_order nil))
+                  (not today?) (assoc :maybe 0 :sort_order_today nil))
         result (jdbc/execute-one! (db/get-conn ds)
                  (sql/format {:update :tasks
                               :set set-map
@@ -343,7 +343,7 @@
         set-map (cond-> {:lined_up_for date
                          :today 0
                          :modified_at (clock/sql-now)}
-                  (nil? date) (assoc :maybe 0 :day_order nil))
+                  (nil? date) (assoc :maybe 0 :sort_order_today nil))
         result (jdbc/execute-one! (db/get-conn ds)
                  (sql/format {:update :tasks
                               :set set-map
@@ -393,7 +393,7 @@
                                 :from [:tasks]
                                 :where [:and
                                         [:= :lined_up_for (clock/sql-today)]
-                                        [:= :day_order nil]
+                                        [:= :sort_order_today nil]
                                         (db/user-id-where-clause user-id)]})
                    db/jdbc-opts)
         result (jdbc/execute! conn
