@@ -352,9 +352,6 @@
       (t :tasks/recurring)]]))
 
 (defn- rtask-scope-selector [rtask]
-  ;; Read outside the `for`: a deref inside a lazy seq is realized outside this
-  ;; component's reactive context, so the switcher would not re-render when the
-  ;; setting changes.
   (let [scope (or (:scope rtask) "both")
         order (state/scope-order)]
     [:div.task-scope-selector.toggle-group.compact

@@ -6,9 +6,6 @@
             [et.tr.i18n :refer [t]]))
 
 (defn- scope-selector [motto]
-  ;; Read outside the `for`: a deref inside a lazy seq is realized outside this
-  ;; component's reactive context, so the switcher would not re-render when the
-  ;; setting changes.
   (let [scope (or (:scope motto) "both")
         order (state/scope-order)]
     [:div.motto-scope-selector.toggle-group.compact
