@@ -149,6 +149,45 @@ When(
   },
 );
 
+Given(
+  "a task {string} overdue with an active reminder exists",
+  async ({ request }, title: string) => {
+    const task = await (await request.post("/api/tasks", { headers, data: { title } })).json();
+    await request.put(`/api/tasks/${task.id}/due-date`, {
+      headers,
+      data: { "due-date": offsetDateStr(-1) },
+    });
+    await request.put(`/api/tasks/${task.id}/reminder`, {
+      headers,
+      data: { "reminder-date": offsetDateStr(-1) },
+    });
+    await request.post("/api/test/activate-reminders", { headers });
+  },
+);
+
+When(
+  "I drag the reminder task {string} onto the day-list task {string}",
+  async ({ page }, source: string, target: string) => {
+    const reminders = ".today-section.reminders .draggable-reminder-task";
+    await startDrag(page, reminders, source);
+    await dropOnItem(page, target, "after");
+    await endDrag(page, reminders, source);
+  },
+);
+
+// The positive half of the pair: the drop was processed (it acknowledged the
+// reminder), so the "no place in a day list" below cannot pass by the drag
+// having quietly done nothing.
+Then("the task {string} has no reminder left", async ({ request }, title: string) => {
+  const task = await taskByTitle(request, title);
+  expect(task.reminder).toBeNull();
+});
+
+Then("the task {string} has no place in a day list", async ({ request }, title: string) => {
+  const task = await taskByTitle(request, title);
+  expect(task.sort_order_today).toBeNull();
+});
+
 When(
   "I drop the day-list task {string} beside the day list heading",
   async ({ page }, source: string) => {

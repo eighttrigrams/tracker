@@ -89,6 +89,21 @@ Feature: One drag-orderable list per day
     Then the day list reads "Team standup, Fix prod bug, Design review"
     And "Fix prod bug" is gone from the urgent subsection
 
+  # An overdue task is in no day list whatever it is dropped on, so a drop on a
+  # day-list card must not give it a place there — it used to, and the card
+  # appeared in the day list until the refetch took it away again. The reminder
+  # is what makes the card reach the item-level drop at all.
+  Scenario: An overdue task carrying a reminder cannot take a place in the day list
+    Given I am on the app
+    And a task "Forgotten chore" overdue with an active reminder exists
+    And a task "Tidy the desk" flagged for today exists
+    When I navigate to the "Today" tab
+    And I click the "Reminders" view switcher button
+    And I drag the reminder task "Forgotten chore" onto the day-list task "Tidy the desk"
+    Then the task "Forgotten chore" has no reminder left
+    And the task "Forgotten chore" has no place in a day list
+    And the task "Forgotten chore" is still due yesterday
+
   Scenario: An overdue task dropped on the day list still asks about its due date
     Given I am on the app
     And a task "Forgotten chore" with due date yesterday exists

@@ -51,6 +51,10 @@
 ;;   :join    — make the first row a member, or :at-creation.
 ;;   :leave   — take the first row out again, or :with-the-row when the only way
 ;;              out is deleting it.
+;;
+;; A probe is the function to run, or {:setup :act} when the row has to be put
+;; into some state first — `setup` runs before the columns are seeded, so what it
+;; writes is not mistaken for what the probe wrote.
 (def ^:private probes
   {:tasks-page
    {:reorder (fn [{:keys [tasks]}]
@@ -70,11 +74,17 @@
              (PUT-json (str "/api/tasks/" (first tasks) "/today") {:today false}))}
 
    :tasks-urgent
+   ;; The reorder names the block the row is already in, so it is a move and not
+   ;; a join; the join names a different one, from a task that is on a day list,
+   ;; because shedding the day is part of entering Urgent Matters.
    {:reorder (fn [{:keys [tasks]}]
                (POST-json (str "/api/tasks/" (first tasks) "/reorder-urgent")
                           {:urgency "urgent" :target-task-id (second tasks) :position "after"}))
-    :join (fn [{:keys [tasks]}]
-            (PUT-json (str "/api/tasks/" (first tasks) "/urgency") {:urgency "urgent"}))
+    :join {:setup (fn [{:keys [tasks]}]
+                    (PUT-json (str "/api/tasks/" (first tasks) "/today") {:today true}))
+           :act (fn [{:keys [tasks]}]
+                  (POST-json (str "/api/tasks/" (first tasks) "/reorder-urgent")
+                             {:urgency "urgent"}))}
     :leave (fn [{:keys [tasks]}]
              (PUT-json (str "/api/tasks/" (first tasks) "/urgency") {:urgency "default"}))}
 
@@ -138,11 +148,13 @@
 
 (def ^:private also-clears
   "The one write that legitimately reaches a second context, declared rather than
-  arranged away: putting a task into Urgent Matters takes it off the day list,
-  because the two are alternatives and not both, so the day position goes with
-  the membership. Anything a probe touches beyond what is listed here is a leak,
-  and what is listed here still has to have been cleared, not set."
-  {[:tasks-urgent :reorder] #{:tasks-day-list}})
+  arranged away: a task *entering* Urgent Matters comes off the day list, because
+  the two are alternatives and not both, so the day position goes with the
+  membership. Moving a card inside the block it is already in is not entering,
+  and is held to the plain rule. Anything a probe touches beyond what is listed
+  here is a leak, and what is listed here still has to have been cleared, not
+  set."
+  {[:tasks-urgent :join] #{:tasks-day-list}})
 
 (def ^:private rows-key
   "Which fixture rows live in each context's table."
@@ -172,13 +184,24 @@
                   db/jdbc-opts)
                 col)])))
 
+(defn- probe-parts
+  "A probe is a function, or {:setup :act} when the row needs putting into some
+  state first."
+  [spec]
+  (if (map? spec) spec {:act spec}))
+
+(defn- runnable? [spec]
+  (fn? (:act (probe-parts spec))))
+
 (defn- walk-probes!
   "Run every context's `kind` probe against freshly seeded columns and hand the
   caller what changed, so each assertion says only what it is about."
   [rows kind check!]
   (doseq [[context probe] probes
-          :let [act! (get probe kind)]
+          :let [{:keys [setup act!]} (let [{:keys [setup act]} (probe-parts (get probe kind))]
+                                       {:setup setup :act! act})]
           :when (fn? act!)]
+    (when setup (setup rows))
     (seed-columns! rows)
     (let [before (snapshot rows)
           resp (act! rows)
@@ -204,10 +227,10 @@
   (testing "and every context answers for all three kinds of position write"
     (doseq [[context probe] probes]
       (is (= #{:reorder :join :leave} (set (keys probe))) (str context " is under-probed"))
-      (is (fn? (:reorder probe)) (str context " has no reorder probe"))
-      (is (or (fn? (:join probe)) (= :at-creation (:join probe)))
+      (is (runnable? (:reorder probe)) (str context " has no reorder probe"))
+      (is (or (runnable? (:join probe)) (= :at-creation (:join probe)))
           (str context " has no join probe and does not say it is placed at creation"))
-      (is (or (fn? (:leave probe)) (= :with-the-row (:leave probe)))
+      (is (or (runnable? (:leave probe)) (= :with-the-row (:leave probe)))
           (str context " has no leave probe and does not say it is left only by deletion")))))
 
 (deftest every-column-belongs-to-exactly-one-context

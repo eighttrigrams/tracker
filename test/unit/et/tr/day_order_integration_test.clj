@@ -128,18 +128,45 @@
       (is (= before (:sort_order_today (task second-id))))
       (is (= ["Second" "First" "Third" "Fourth"] (day-list))))))
 
-(deftest a-due-date-drops-the-day-position
-  (testing "the stored position is relative to one day, so changing days clears it"
+(deftest a-due-date-change-takes-the-position-only-when-it-takes-the-day
+  (testing "the stored position is relative to one day, so dating the task clears it"
     (let [id (flag-for-today! "Moves to another day")]
       (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/due-date") {:due-date (days-from-today 1)}))))
       (is (nil? (:sort_order_today (task id))))))
 
-  (testing "clearing the due date clears it too"
-    (let [id (:id (add-task! "Loses its date"))]
+  (testing "clearing the date of a task no other marker holds clears it too"
+    (let [anchor (flag-for-today! "Anchor")
+          id (:id (add-task! "Only ever had a date"))]
+      (PUT-json (str "/api/tasks/" id "/due-date") {:due-date (today)})
+      (drop-on id (today) "task" anchor "after")
+      (is (some? (:sort_order_today (task id))))
+      (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/due-date") {:due-date nil}))))
+      (is (nil? (:sort_order_today (task id))))))
+
+  (testing "but a task marked for a day never left it, and keeps its place there"
+    (let [first-id (flag-for-today! "Already here")
+          id (:id (add-task! "Stays on today"))]
       (PUT-json (str "/api/tasks/" id "/due-date") {:due-date (days-from-today 1)})
       (PUT-json (str "/api/tasks/" id "/today") {:today true})
-      (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/due-date") {:due-date nil}))))
-      (is (nil? (:sort_order_today (task id)))))))
+      (drop-on id (today) "task" first-id "before")
+      (let [placed (:sort_order_today (task id))]
+        (is (some? placed))
+        (is (= ["Anchor" "Stays on today" "Already here"] (day-list)))
+        (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/due-date") {:due-date nil}))))
+        (is (= 1 (:today (task id))))
+        (is (= placed (:sort_order_today (task id))))
+        (is (= ["Anchor" "Stays on today" "Already here"] (day-list))))))
+
+  (testing "and the same for a task queued for a later day"
+    (let [tomorrow (days-from-today 1)
+          id (:id (add-task! "Stays on tomorrow"))]
+      (PUT-json (str "/api/tasks/" id "/due-date") {:due-date (days-from-today 3)})
+      (PUT-json (str "/api/tasks/" id "/lined-up-for") {:lined_up_for tomorrow})
+      (let [placed (:sort_order_today (task id))]
+        (is (some? placed))
+        (is (= 200 (:status (PUT-json (str "/api/tasks/" id "/due-date") {:due-date nil}))))
+        (is (= tomorrow (:lined_up_for (task id))))
+        (is (= placed (:sort_order_today (task id))))))))
 
 (deftest leaving-the-day-lists-drops-the-position
   (testing "unlinking from today clears it"
