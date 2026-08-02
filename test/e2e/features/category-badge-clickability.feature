@@ -9,4 +9,4 @@ Feature: Category badge clickability
     And the "Bordeira" badge on task "Paint walls" should be clickable
     When I click the "Lagos" badge on task "Fix plumbing"
     Then the "Renovations" badge on task "Fix plumbing" should be clickable
-    And the "Bordeira" badge on task "Paint walls" should not be clickable
+    And the "Bordeira" badge on task "Paint walls" should be clickable

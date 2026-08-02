@@ -70,21 +70,25 @@
   resource-domain idioms do it: on a badge that fall-through would narrow the
   list to the very category the gesture asked to hide. A plain click toggles the
   positive filter for the badge's type as before, and goes inert while any
-  negative filter is active. Returns [clickable? handler]; handler is nil when
-  neither path is open."
+  negative filter is active. Shift+Option adds the badge's category with the
+  category rules bypassed; unlike the plain click it stays open while a filter
+  of the badge's own type is selected, since adding to an existing selection is
+  what the gesture is for. The matrix itself is `filters/badge-gesture`.
+  Returns [clickable? handler]; handler is nil when no path is open."
   [category toggle-fn has-filter-fn]
-  (let [negative-active? (state/negative-filter-active?)
-        excludable? (or negative-active? (not (state/has-active-filters?)))
-        toggleable? (and (not negative-active?) (not (has-filter-fn (:type category))))]
-    [(or excludable? toggleable?)
-     (when (or excludable? toggleable?)
+  (let [gate {:negative-active? (state/negative-filter-active?)
+              :any-filters? (state/has-active-filters?)
+              :type-filtered? (boolean (has-filter-fn (:type category)))}
+        clickable? (filters/badge-clickable? gate)]
+    [clickable?
+     (when clickable?
        (fn [e]
          (.stopPropagation e)
-         (if (.-shiftKey e)
-           (when excludable?
-             (state/toggle-negative-filter (:type category) (:id category) (:name category)))
-           (when toggleable?
-             (toggle-fn (:type category) (:id category))))))]))
+         (case (filters/badge-gesture {:shift? (.-shiftKey e) :alt? (.-altKey e)} gate)
+           :bypass (toggle-fn (:type category) (:id category) true)
+           :exclude (state/toggle-negative-filter (:type category) (:id category) (:name category))
+           :toggle (toggle-fn (:type category) (:id category))
+           nil)))]))
 
 (defn category-badges [{:keys [item category-types toggle-fn has-filter-fn force-show?]}]
   (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]

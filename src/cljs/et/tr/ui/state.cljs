@@ -1362,18 +1362,26 @@
       (swap! *app-state update k conj category-id)))
   (refetch-current-tab))
 
-(defn toggle-shared-filter [filter-type id]
-  (let [k (shared-filter-key filter-type)
-        adding? (not (contains? (get @*app-state k) id))]
-    (swap! *app-state update k
-           #(if (contains? % id) (disj % id) (conj % id)))
-    (if adding?
-      (rules/resolve-filter-closure auth-headers filter-type id
-        (fn [categories]
-          (if (seq categories)
-            (apply-filter-closure categories)
-            (refetch-current-tab))))
-      (refetch-current-tab))))
+(defn toggle-shared-filter
+  "Toggles one positive category filter, expanding it through the category rules
+  when adding. `bypass-rules?` skips the resolve call outright rather than
+  resolving and discarding: with C already selected and rules A->B, B->C,
+  bypassing on A must leave exactly {A C} — C survives because it was already
+  selected, not because the rule reached it, and a resolve-then-filter would
+  only agree with that by accident."
+  ([filter-type id] (toggle-shared-filter filter-type id false))
+  ([filter-type id bypass-rules?]
+   (let [k (shared-filter-key filter-type)
+         adding? (not (contains? (get @*app-state k) id))]
+     (swap! *app-state update k
+            #(if (contains? % id) (disj % id) (conj % id)))
+     (if (and adding? (not bypass-rules?))
+       (rules/resolve-filter-closure auth-headers filter-type id
+         (fn [categories]
+           (if (seq categories)
+             (apply-filter-closure categories)
+             (refetch-current-tab))))
+       (refetch-current-tab)))))
 
 (defn clear-shared-filter [filter-type]
   (swap! *app-state assoc (shared-filter-key filter-type) #{})
