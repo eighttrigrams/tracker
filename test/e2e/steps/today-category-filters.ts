@@ -76,3 +76,14 @@ When(
     await page.waitForLoadState("networkidle");
   },
 );
+
+// The card was collapsed before the click, so this waits for the expand rather
+// than being answered by the frame the click landed on.
+Then(
+  "the today item {string} should be expanded",
+  async ({ page }, item: string) => {
+    await expect(
+      page.locator(".today-task-item").filter({ hasText: item }).first(),
+    ).toHaveClass(/\bexpanded\b/);
+  },
+);

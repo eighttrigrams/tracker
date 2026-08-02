@@ -130,6 +130,17 @@
 (def ^:private clean-slate
   {:negative-active? false :any-filters? false :type-filtered? false})
 
+;; All 8 combinations, two of them unreachable in the app (a filter of the
+;; badge's own type means there are active filters), so a gesture missing on one
+;; of those two is a finding about the matrix, not about the app.
+(def ^:private all-gates
+  (for [negative-active? [false true]
+        any-filters? [false true]
+        type-filtered? [false true]]
+    {:negative-active? negative-active?
+     :any-filters? any-filters?
+     :type-filtered? type-filtered?}))
+
 (deftest badge-gesture-test
   (testing "clean slate: every gesture is open"
     (is (= :toggle (filters/badge-gesture plain clean-slate)))
@@ -162,18 +173,37 @@
       (is (= :exclude (filters/badge-gesture shift gate)))))
 
   (testing "option alone is a plain click"
-    (is (= :toggle (filters/badge-gesture {:alt? true} clean-slate)))))
+    (is (= :toggle (filters/badge-gesture {:alt? true} clean-slate))))
 
-(deftest badge-clickable?-test
-  (testing "clean slate"
-    (is (true? (filters/badge-clickable? clean-slate))))
+  ;; What makes the unconditional pointer cursor honest: there is no gate state
+  ;; in which a badge has nothing at all to offer. Narrow one of the three
+  ;; gestures and this is what says the cursor now promises too much.
+  (testing "every gate state leaves at least one gesture open"
+    (doseq [gate all-gates]
+      (is (some #(filters/badge-gesture % gate) [shift-alt shift plain])
+          (str "no gesture open for " gate)))))
 
-  (testing "clickable through the bypass gesture alone, where the plain click is inert"
-    (let [gate (assoc clean-slate :any-filters? true :type-filtered? true)]
-      (is (nil? (filters/badge-gesture plain gate)))
-      (is (true? (filters/badge-clickable? gate)))))
+(deftest badge-consumes-click?-test
+  (testing "a click a gesture runs on stays on the badge"
+    (is (true? (filters/badge-consumes-click? plain clean-slate)))
+    (is (true? (filters/badge-consumes-click? shift clean-slate)))
+    (is (true? (filters/badge-consumes-click? shift-alt clean-slate))))
 
-  (testing "clickable through the exclude gesture alone, while a negative filter is up"
+  (testing "a shift-click refused because a positive filter is up stays on the badge"
+    (let [gate (assoc clean-slate :any-filters? true)]
+      (is (nil? (filters/badge-gesture shift gate)))
+      (is (true? (filters/badge-consumes-click? shift gate)))))
+
+  (testing "so does every click a negative filter refuses"
     (let [gate (assoc clean-slate :negative-active? true)]
       (is (nil? (filters/badge-gesture plain gate)))
-      (is (true? (filters/badge-clickable? gate))))))
+      (is (true? (filters/badge-consumes-click? plain gate)))
+      (is (nil? (filters/badge-gesture shift-alt gate)))
+      (is (true? (filters/badge-consumes-click? shift-alt gate)))))
+
+  (testing "with a filter of the badge's own type only Shift+Option keeps the click, the others reach the row they sit in as they did before the bypass"
+    (let [gate (assoc clean-slate :any-filters? true :type-filtered? true)]
+      (is (false? (filters/badge-consumes-click? plain gate)))
+      (is (false? (filters/badge-consumes-click? {:alt? true} gate)))
+      (is (false? (filters/badge-consumes-click? shift gate)))
+      (is (true? (filters/badge-consumes-click? shift-alt gate))))))

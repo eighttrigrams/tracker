@@ -57,6 +57,22 @@ Feature: Today page category filters
     And I should see "Fix plumbing" in the today view
     And I should not see "Paint walls" in the today view
 
+  # On Today the badges render inside the clickable card header, so a click the
+  # badge has no gesture for has to reach it — as it did before every badge got
+  # a handler. The badge's own type is filtered here, which is the one state
+  # that leaves a plain click nothing to do.
+  Scenario: A plain click on a badge of an already-filtered type still expands the row
+    Given I am on the app
+    And the place "Lagos" exists
+    And a task "Fix plumbing" with due date today exists
+    And task "Fix plumbing" is assigned to place "Lagos"
+    And I reload the page
+    When I navigate to the "Today" tab
+    And I filter by place "Lagos"
+    And I click the "Lagos" badge on the today item "Fix plumbing"
+    Then the today item "Fix plumbing" should be expanded
+    And the "Lagos" filter should be active in the places sidebar
+
   Scenario: Clicking a category badge on a Today meet item selects that category
     Given I am on the app
     And the place "Lagos" exists

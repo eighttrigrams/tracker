@@ -39,15 +39,21 @@
     shift?            (when (or negative-active? (not any-filters?)) :exclude)
     :else             (when-not (or negative-active? type-filtered?) :toggle)))
 
-(def ^:private badge-modifier-combos
-  [{:shift? true :alt? true} {:shift? true} {}])
-
-(defn badge-clickable?
-  "Whether a badge offers any gesture at all. The modifier is unknown at render
-  time, so the pointer cursor covers every open path and the handler picks the
-  one the modifiers actually asked for."
-  [gate]
-  (boolean (some #(badge-gesture % gate) badge-modifier-combos)))
+(defn badge-consumes-click?
+  "Whether the badge keeps a click to itself or lets it through to the row it
+  sits in — on Today the badges render inside the clickable card header, so a
+  click that falls through expands the card. It keeps a click a gesture runs
+  on, and equally one it deliberately refuses: a shift-click while a positive
+  filter is up, any click while a negative filter is. Those refusals are why
+  the two pre-bypass gestures decide this and the bypass does not — the old
+  badge attached its handler, and with it an unconditional stopPropagation,
+  whenever the plain or the shift gesture was open. In the one state where
+  neither is — a filter of the badge's own type selected, no negative filter —
+  the click reached the row before Shift+Option existed, and still does."
+  [modifiers gate]
+  (boolean (or (badge-gesture modifiers gate)
+               (badge-gesture {} gate)
+               (badge-gesture {:shift? true} gate))))
 
 (defn filter-by-name [items filter-text]
   (if (empty? filter-text)

@@ -74,33 +74,36 @@
   category rules bypassed; unlike the plain click it stays open while a filter
   of the badge's own type is selected, since adding to an existing selection is
   what the gesture is for. The matrix itself is `filters/badge-gesture`.
-  Returns [clickable? handler]; handler is nil when no path is open."
+  Returns the click handler. Every badge gets one and every badge shows the
+  pointer cursor, because some gesture is open in every state the gate can be
+  in: Shift+Option while no negative filter is up, the shift-exclude once one
+  is. Which clicks the badge keeps off the row it sits in is
+  `filters/badge-consumes-click?` — it does not keep the ones it has nothing to
+  do with."
   [category toggle-fn has-filter-fn]
   (let [gate {:negative-active? (state/negative-filter-active?)
               :any-filters? (state/has-active-filters?)
-              :type-filtered? (boolean (has-filter-fn (:type category)))}
-        clickable? (filters/badge-clickable? gate)]
-    [clickable?
-     (when clickable?
-       (fn [e]
-         (.stopPropagation e)
-         (case (filters/badge-gesture {:shift? (.-shiftKey e) :alt? (.-altKey e)} gate)
-           :bypass (toggle-fn (:type category) (:id category) true)
-           :exclude (state/toggle-negative-filter (:type category) (:id category) (:name category))
-           :toggle (toggle-fn (:type category) (:id category))
-           nil)))]))
+              :type-filtered? (boolean (has-filter-fn (:type category)))}]
+    (fn [e]
+      (let [modifiers {:shift? (.-shiftKey e) :alt? (.-altKey e)}]
+        (when (filters/badge-consumes-click? modifiers gate)
+          (.stopPropagation e))
+        (case (filters/badge-gesture modifiers gate)
+          :bypass (toggle-fn (:type category) (:id category) true)
+          :exclude (state/toggle-negative-filter (:type category) (:id category) (:name category))
+          :toggle (toggle-fn (:type category) (:id category))
+          nil)))))
 
 (defn category-badges [{:keys [item category-types toggle-fn has-filter-fn force-show?]}]
   (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]
     (when (and (or force-show? (state/show-collapsed-categories?)) (seq all-categories))
       (into [:div.task-badges]
             (for [category all-categories]
-              (let [[clickable? on-click] (badge-click category toggle-fn has-filter-fn)]
-                ^{:key (str (:type category) "-" (:id category))}
-                [:span.tag {:class (:type category)
-                            :style (when clickable? {:cursor "pointer"})
-                            :on-click on-click}
-                 (filters/badge-label category)]))))))
+              ^{:key (str (:type category) "-" (:id category))}
+              [:span.tag {:class (:type category)
+                          :style {:cursor "pointer"}
+                          :on-click (badge-click category toggle-fn has-filter-fn)}
+               (filters/badge-label category)])))))
 
 (defn task-category-badges [task]
   (let [importance (:importance task)
@@ -124,12 +127,11 @@
        (when show-categories?
          (into [:<>]
                (for [category (mapcat (fn [[type k]] (map #(assoc % :type type) (get task k))) all-types)]
-                 (let [[clickable? on-click] (badge-click category state/toggle-shared-filter state/has-filter-for-type?)]
-                   ^{:key (str (:type category) "-" (:id category))}
-                   [:span.tag {:class (:type category)
-                               :style (when clickable? {:cursor "pointer"})
-                               :on-click on-click}
-                    (filters/badge-label category)]))))])))
+                 ^{:key (str (:type category) "-" (:id category))}
+                 [:span.tag {:class (:type category)
+                             :style {:cursor "pointer"}
+                             :on-click (badge-click category state/toggle-shared-filter state/has-filter-for-type?)}
+                  (filters/badge-label category)])))])))
 
 (defn working-on-indicator
   "The pulsing dot marking the one task being worked on today. Rendered wherever
