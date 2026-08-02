@@ -79,10 +79,13 @@
 (defonce ^:private *popup-closers (atom {}))
 
 (defn close-card-popups!
-  "Close every card popup that is currently mounted: footer split-button
-  dropdowns, the Tasks page's send-to-day picker, and any open right-click menu.
-  Each registered `close!` is a no-op when its own popup is already closed, so
-  this is safe to call unconditionally."
+  "Close every card popup that has registered through `close-on-unmount`: footer
+  split-button dropdowns, the Tasks page's send-to-day picker, and any open
+  right-click menu. Not the card body's category selector (`+ Person` etc.),
+  which keeps its own `:category-selector/open` state and closes on a document
+  `click` instead — so it can still be up alongside a right-click menu. Each
+  registered `close!` is a no-op when its own popup is already closed, so this is
+  safe to call unconditionally."
   []
   (doseq [close! (vals @*popup-closers)]
     (close!)))
@@ -222,9 +225,10 @@
   leaves it alone too. Editable fields inside a card keep their native menu, so
   copy/paste there is not lost. Opening first closes every other card popup
   through `close-card-popups!` — footer dropdowns wherever they are, the Tasks
-  page's send-to-day picker, and any menu already up — so the new menu is the
-  only thing on screen. Clearing the atom that way and re-filling it below is
-  safe: reagent batches both into one render."
+  page's send-to-day picker, and any menu already up. An open category selector
+  is the one card popup that survives it; see `close-card-popups!`. Clearing the
+  atom that way and re-filling it below is safe: reagent batches both into one
+  render."
   [token entries]
   (fn [e]
     (when (and (seq entries)
