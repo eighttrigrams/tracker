@@ -26,6 +26,21 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${port}`,
     headless: true,
     actionTimeout: 10_000,
+    // The card menu's "Copy link" goes through navigator.clipboard, and the
+    // app deliberately shows its error banner instead of the save-flash when
+    // that write rejects — so a missing permission reads as a product bug.
+    //
+    // Which chromium runs decides whether the permission is there by default:
+    // a full chromium build (new headless — what the executablePath below
+    // selects) auto-grants clipboard-write, while playwright's own
+    // `headless: true` default resolves to the chromium-headless-shell build
+    // (old headless), whose permission manager denies it. That is why the
+    // copy scenario passed everywhere except inside Dockerfile.e2e, which is
+    // the one target using the bundled shell. Granting it here — for every
+    // context, before any test runs — makes both targets behave alike.
+    // clipboard-read is never auto-granted anywhere and is what the
+    // "the clipboard holds" step needs to read the value back.
+    permissions: ["clipboard-read", "clipboard-write"],
   },
   projects: [{
     name: "chromium",
