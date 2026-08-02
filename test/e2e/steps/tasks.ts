@@ -241,6 +241,10 @@ When(
   },
 );
 
+// The click's own round trip — the rule resolution and the refetch it applies
+// — has to be over before the next step reads anything, or that step answers
+// from the pre-click frame. Its siblings on Today and in the bypass steps wait
+// the same way.
 When(
   "I click the {string} badge on task {string}",
   async ({ page }, badge: string, task: string) => {
@@ -249,6 +253,7 @@ When(
       .filter({ hasText: task })
       .locator(".tag", { hasText: badge })
       .click();
+    await page.waitForLoadState("networkidle");
   },
 );
 
@@ -260,17 +265,6 @@ Then(
       .filter({ hasText: task })
       .locator(".tag", { hasText: badge });
     await expect(tag).toHaveCSS("cursor", "pointer");
-  },
-);
-
-Then(
-  "the {string} badge on task {string} should not be clickable",
-  async ({ page }, badge: string, task: string) => {
-    const tag = page
-      .locator(".items li")
-      .filter({ hasText: task })
-      .locator(".tag", { hasText: badge });
-    await expect(tag).not.toHaveCSS("cursor", "pointer");
   },
 );
 
