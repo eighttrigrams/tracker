@@ -21,9 +21,10 @@
 (defn list-meets-handler
   "GET /api/meets/ — list meets for the calling user. Query params: q (search
   term), importance, context, strict (\"true\" toggles strict mode), sort
-  (\"past\" | \"summary\" | default \"upcoming\"), people, places, projects,
-  goals (CSV category names to filter by), excluded-people, excluded-places,
-  excluded-projects, excluded-goals (CSV category names to hide, expanded
+  (\"past\" | \"summary\" | default \"upcoming\"), people, places,
+  workstreams, projects, goals, assets (CSV category names to filter by),
+  excluded-people, excluded-places, excluded-workstreams, excluded-projects,
+  excluded-goals, excluded-assets (CSV category names to hide, expanded
   through the user's category rules — excluding a rule's source also hides its
   targets), series-id
   (int), limit (int — caps the row count; machine users default to 10 when
@@ -32,7 +33,7 @@
   upcoming, the result is week-windowed — backward in time for past, forward
   for upcoming — and wrapped as {:items :has_more}; otherwise a bare vector is
   returned (the machine contract is unchanged). Category filters only kick in
-  when at least one of people/places/projects/goals is non-empty. Returns 200
+  when at least one of the six group lists is non-empty. Returns 200
   with the matching rows."
   [req]
   (let [user-id (common/get-user-id req)
@@ -191,9 +192,9 @@
 (def categorize-meet-handler
   "POST /api/meets/:id/categorize — link a meet to a category. Body:
   {:category-type :category-id}. category-type must be a non-blank string
-  (\"person\" | \"place\" | \"project\" | \"goal\") and category-id a positive
-  integer; otherwise 400 with {:success false :error ...}. On success returns
-  200 {:success true} and emits a :link event."
+  (\"person\" | \"place\" | \"workstream\" | \"project\" | \"goal\" | \"asset\")
+  and category-id a positive integer; otherwise 400 with {:success false
+  :error ...}. On success returns 200 {:success true} and emits a :link event."
   (common/make-categorize-handler db.meet/categorize-meet :meet))
 
 (def uncategorize-meet-handler

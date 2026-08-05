@@ -29,8 +29,9 @@
   journal entries for reporting. Query params: context (filter by context
   title), strict (\"true\" for strict context match), items (\"all\" |
   \"issues-tasks-meets\" | \"issues-tasks\" | \"journals\"),
-  people/places/projects/goals (comma-separated category names to filter by),
-  and excluded-people/excluded-places/excluded-projects/excluded-goals
+  people/places/workstreams/projects/goals/assets (comma-separated category
+  names to filter by), and excluded-people/excluded-places/
+  excluded-workstreams/excluded-projects/excluded-goals/excluded-assets
   (comma-separated category names to hide, expanded through the user's category
   rules — excluding a rule's source also hides its targets). Returns
   {:issues :tasks :meets :journal_entries}, with journal entries annotated by

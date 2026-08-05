@@ -20,11 +20,12 @@
 (defn list-journal-entries-handler
   "GET /api/journal-entries/ — list journal entries for the current user.
   Query params: q (search term), importance, context, strict (\"true\"/
-  \"false\"), comma-separated category name lists people/places/projects/goals
-  to filter by, comma-separated category name lists excluded-people/
-  excluded-places/excluded-projects/excluded-goals to hide (expanded through
-  the user's category rules — excluding a rule's source also hides its
-  targets), sortMode, journalId (parsed as an int,
+  \"false\"), comma-separated category name lists
+  people/places/workstreams/projects/goals/assets to filter by,
+  comma-separated category name lists excluded-people/excluded-places/
+  excluded-workstreams/excluded-projects/excluded-goals/excluded-assets to
+  hide (expanded through the user's category rules — excluding a rule's source
+  also hides its targets), sortMode, journalId (parsed as an int,
   ignored if non-numeric), limit (int — caps the row count; machine users
   default to 10 when omitted). Categories are only forwarded when at least
   one list is provided. Always returns 200 with the result vector."
@@ -124,7 +125,7 @@
 
 (def categorize-journal-entry-handler
   "POST /api/journal-entries/:id/categorize — attach a category (person,
-  place, project, or goal) to a journal entry. Body fields per
+  place, workstream, project, goal or asset) to a journal entry. Body fields per
   common/make-categorize-handler: :category-type and :category-id. Returns
   the shared categorize response shape and records a :journal-entry event."
   (common/make-categorize-handler db.journal-entry/categorize-journal-entry :journal-entry))

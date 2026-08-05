@@ -21,9 +21,10 @@
 (defn list-recurring-tasks-handler
   "GET /api/recurring-tasks/ — list recurring tasks for the current user.
   Query params: q (search term), context, strict (\"true\"/\"false\"),
-  comma-separated category name lists people/places/projects/goals to filter
-  by, comma-separated category name lists excluded-people/excluded-places/
-  excluded-projects/excluded-goals to hide (expanded through the user's
+  comma-separated category name lists people/places/workstreams/projects/
+  goals/assets to filter by, comma-separated category name lists
+  excluded-people/excluded-places/excluded-workstreams/excluded-projects/
+  excluded-goals/excluded-assets to hide (expanded through the user's
   category rules — excluding a rule's source also hides its targets), and limit
   (int — caps the row count; machine users default to 10 when omitted).
   Categories are only forwarded to the query when at least one list is
@@ -147,7 +148,7 @@
 
 (def categorize-recurring-task-handler
   "POST /api/recurring-tasks/:id/categorize — attach a category (person, place,
-  project, or goal) to a recurring task. Body fields per
+  workstream, project, goal or asset) to a recurring task. Body fields per
   common/make-categorize-handler: :category-type and :category-id. Returns the
   shared categorize response shape and records a :recurring-task event."
   (common/make-categorize-handler db.recurring-task/categorize-recurring-task :recurring-task))

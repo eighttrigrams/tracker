@@ -24,9 +24,10 @@
   params. Recognised params: q (search term), importance, urgency
   (\"urgent\" matches urgent+superurgent, \"superurgent\" matches only
   superurgent), context, strict
-  (\"true\" toggles strict context match), people/places/projects/goals
-  (comma-separated category names to filter by), excluded-people/
-  excluded-places/excluded-projects/excluded-goals (comma-separated category
+  (\"true\" toggles strict context match),
+  people/places/workstreams/projects/goals/assets (comma-separated category
+  names to filter by), excluded-people/excluded-places/excluded-workstreams/
+  excluded-projects/excluded-goals/excluded-assets (comma-separated category
   names to hide, expanded through the user's category rules — excluding a
   rule's source also hides its targets), sortMode, limit (int — caps the row
   count; machine users default to 100 when omitted), offset (int),
@@ -176,9 +177,10 @@
 
 (def categorize-issue-handler
   "POST /api/issues/:id/categorize — link the issue to a category. Body fields:
-  :category-type (\"person\"/\"place\"/\"project\"/\"goal\") and :category-id
-  (positive integer). Returns 200 {:success true} on success, or 400 {:success
-  false :error} when either field is missing or invalid. Records a :link event."
+  :category-type (\"person\"/\"place\"/\"workstream\"/\"project\"/\"goal\"/\"asset\")
+  and :category-id (positive integer). Returns 200 {:success true} on success,
+  or 400 {:success false :error} when either field is missing or invalid.
+  Records a :link event."
   (common/make-categorize-handler db.issue/categorize-issue :issue))
 
 (def uncategorize-issue-handler

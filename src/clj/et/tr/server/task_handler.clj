@@ -20,10 +20,11 @@
       {:status 404 :body {:error "Task not found"}})))
 
 (defn list-tasks-handler
-  "GET /api/tasks/?sort=&q=&importance=&context=&strict=&people=&places=&projects=&goals=&excluded-people=&excluded-places=&excluded-projects=&excluded-goals=&recurring-task-id=&issue=&limit=
+  "GET /api/tasks/?sort=&q=&importance=&context=&strict=&people=&places=&workstreams=&projects=&goals=&assets=&excluded-people=&excluded-places=&excluded-workstreams=&excluded-projects=&excluded-goals=&excluded-assets=&recurring-task-id=&issue=&limit=
   — list tasks for the current user. Query: sort defaults to `recent`; q is a
-  free-text search; people/places/projects/goals are CSV category names to
-  filter by; excluded-* are CSV category names to hide, expanded through the
+  free-text search; people/places/workstreams/projects/goals/assets are CSV
+  category names to filter by; excluded-* are CSV category names to hide,
+  expanded through the
   user's category rules (excluding a rule's source also hides its targets);
   strict=true requires every category to match; recurring-task-id filters
   to instances of one recurring task; issue filters to the tasks belonging to
@@ -47,7 +48,8 @@
   "POST /api/tasks/ — create a new task for the current user. Body: {:title
   :scope :importance}. `scope` defaults to \"both\"; `importance` defaults to
   \"normal\" when absent/invalid. 400 if title is blank, 201 with the new task
-  (plus empty :people/:places/:projects/:goals) on success. Logs a
+  (plus an empty list per Group:
+  :people/:places/:workstreams/:projects/:goals/:assets) on success. Logs a
   :create event."
   [req]
   (let [user-id (common/get-user-id req)
@@ -79,10 +81,11 @@
           (common/conflict-or-not-found (db.task/get-task (common/ensure-ds) user-id task-id) "Task not found"))))))
 
 (defn categorize-task-handler
-  "POST /api/tasks/:id/categorize — link a task to a person/place/project/goal.
-  Body: {:category-type :category-id}. 400 if category-type is blank or
-  category-id is not a positive integer. On success returns {:success true}
-  and logs a :link event with the resolved category title."
+  "POST /api/tasks/:id/categorize — link a task to a category in any of the six
+  Groups: person/place/workstream/project/goal/asset. Body: {:category-type
+  :category-id}. 400 if category-type is blank or category-id is not a positive
+  integer. On success returns {:success true} and logs a :link event with the
+  resolved category title."
   [req]
   (let [user-id (common/get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
@@ -102,9 +105,9 @@
 
 (defn uncategorize-task-handler
   "DELETE /api/tasks/:id/categorize — remove a task's link to a single
-  person/place/project/goal. Body: {:category-type :category-id} (same
-  validation as POST /categorize). Returns {:success true} on 200 and logs
-  an :unlink event."
+  person/place/workstream/project/goal/asset. Body: {:category-type
+  :category-id} (same validation as POST /categorize). Returns {:success true}
+  on 200 and logs an :unlink event."
   [req]
   (let [user-id (common/get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))

@@ -21,12 +21,13 @@
 (defn list-meeting-series-handler
   "GET /api/meeting-series/ — list meeting series for the calling user. Query
   params: q (search term), context, strict (\"true\" toggles strict mode),
-  CSV category name lists people/places/projects/goals to filter by, CSV
-  category name lists excluded-people/excluded-places/excluded-projects/
-  excluded-goals to hide (expanded through the user's category rules —
+  CSV category name lists people/places/workstreams/projects/goals/assets to
+  filter by, CSV category name lists excluded-people/excluded-places/
+  excluded-workstreams/excluded-projects/excluded-goals/excluded-assets to
+  hide (expanded through the user's category rules —
   excluding a rule's source also hides its targets), and limit (int — caps the
   row count; machine users default to 10 when omitted). Category filters only
-  kick in when at least one of people/places/projects/goals is non-empty.
+  kick in when at least one of the six group lists is non-empty.
   Returns 200 with the matching rows."
   [req]
   (let [user-id (common/get-user-id req)
@@ -148,9 +149,10 @@
 (def categorize-meeting-series-handler
   "POST /api/meeting-series/:id/categorize — link a meeting series to a
   category. Body: {:category-type :category-id}. category-type must be a
-  non-blank string (\"person\" | \"place\" | \"project\" | \"goal\") and
-  category-id a positive integer; otherwise 400 with {:success false :error
-  ...}. On success returns 200 {:success true} and emits a :link event."
+  non-blank string (\"person\" | \"place\" | \"workstream\" | \"project\" |
+  \"goal\" | \"asset\") and category-id a positive integer; otherwise 400 with
+  {:success false :error ...}. On success returns 200 {:success true} and
+  emits a :link event."
   (common/make-categorize-handler db.meeting-series/categorize-meeting-series :meeting-series))
 
 (def uncategorize-meeting-series-handler
