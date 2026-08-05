@@ -81,10 +81,7 @@
         (db.working-on/clear-for-user! tx user-id)
         (jdbc/execute-one! tx (sql/format {:delete-from :tasks :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :messages :where [:= :user_id user-id]}))
-        (jdbc/execute-one! tx (sql/format {:delete-from :people :where [:= :user_id user-id]}))
-        (jdbc/execute-one! tx (sql/format {:delete-from :places :where [:= :user_id user-id]}))
-        (jdbc/execute-one! tx (sql/format {:delete-from :projects :where [:= :user_id user-id]}))
-        (jdbc/execute-one! tx (sql/format {:delete-from :goals :where [:= :user_id user-id]}))
+        (jdbc/execute-one! tx (sql/format {:delete-from :categories :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :mottos :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :users
                                            :where [:and [:= :is_machine_user 1] [:= :for_user_id user-id]]}))

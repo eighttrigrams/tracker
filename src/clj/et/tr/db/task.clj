@@ -41,11 +41,7 @@
      result)))
 
 (defn- build-category-clauses [categories]
-  (let [people-clause (db/build-category-subquery "person" (:people categories))
-        places-clause (db/build-category-subquery "place" (:places categories))
-        projects-clause (db/build-category-subquery "project" (:projects categories))
-        goals-clause (db/build-category-subquery "goal" (:goals categories))]
-    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+  (db/build-category-clauses :task_categories :task_id :tasks categories))
 
 (defn list-tasks
   ([ds user-id] (list-tasks ds user-id :recent))
@@ -123,9 +119,9 @@
                                      :from [:task_categories]
                                      :where [:in :task_id task-ids]})
                         db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
+         lookups (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-task (group-by :task_id categories)
-         tasks-with-categories (db/associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id)]
+         tasks-with-categories (db/associate-categories-with-tasks tasks categories-by-task lookups)]
      (relation/associate-relations-with-items tasks-with-categories "tsk" conn))))
 
 (defn get-task [ds user-id task-id]
@@ -142,9 +138,9 @@
                                       :from [:task_categories]
                                       :where [:= :task_id task-id]})
                          db/jdbc-opts)
-            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+            lookups (db/fetch-category-lookups conn user-where)
             categories-by-task (group-by :task_id categories)]
-        (first (db/associate-categories-with-tasks [task] categories-by-task people-by-id places-by-id projects-by-id goals-by-id))))))
+        (first (db/associate-categories-with-tasks [task] categories-by-task lookups))))))
 
 (defn task-owned-by-user? [ds task-id user-id]
   (some? (jdbc/execute-one! (db/get-conn ds)
@@ -579,4 +575,4 @@
           ;; Urgent Matters and needs the position that goes with it.
           (place-in-urgent-list! tx user-id (:id task) (:urgency task))
           (tel/log! {:level :info :data {:message-id message-id :task-id (:id task) :user-id user-id}} "Message converted to task")
-          (assoc task :description description :people [] :places [] :projects [] :goals []))))))
+          (merge task db/empty-category-groups {:description description}))))))

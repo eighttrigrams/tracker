@@ -36,16 +36,11 @@
         importance (get-in req [:params "importance"])
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))
-        people (common/parse-category-param (get-in req [:params "people"]))
-        places (common/parse-category-param (get-in req [:params "places"]))
-        projects (common/parse-category-param (get-in req [:params "projects"]))
-        goals (common/parse-category-param (get-in req [:params "goals"]))
+        categories (common/parse-category-params (:params req))
         excluded-categories (common/parse-excluded-categories (:params req))
         recurring-task-id (when-let [s (get-in req [:params "recurring-task-id"])] (Integer/parseInt s))
         issue-id (when-let [s (get-in req [:params "issue"])] (Integer/parseInt s))
-        limit (common/parse-int-opt (get-in req [:params "limit"]))
-        categories (when (or people places projects goals)
-                     {:people people :places places :projects projects :goals goals})]
+        limit (common/parse-int-opt (get-in req [:params "limit"]))]
     {:status 200 :body (db.task/list-tasks (common/ensure-ds) user-id sort-mode {:search-term search-term :importance importance :context context :strict strict :categories categories :excluded-categories excluded-categories :recurring-task-id recurring-task-id :issue-id issue-id :limit limit})}))
 
 (defn add-task-handler
@@ -61,7 +56,7 @@
       {:status 400 :body {:success false :error "Title is required"}}
       (let [task (db.task/add-task (common/ensure-ds) user-id title (or scope "both") importance)]
         (events/record-create! req :task (:id task) task)
-        {:status 201 :body (assoc task :people [] :places [] :projects [] :goals [])}))))
+        {:status 201 :body (merge task db/empty-category-groups)}))))
 
 (defn update-task-handler
   "PUT /api/tasks/:id — update a task's editable text fields. Body: {:title

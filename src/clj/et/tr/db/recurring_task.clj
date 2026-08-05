@@ -32,24 +32,13 @@
                                :returning db/recurring-task-select-columns})
                   db/jdbc-opts)]
      (tel/log! {:level :info :data {:recurring-task-id (:id result) :user-id user-id}} "Recurring task added")
-     (assoc result :people [] :places [] :projects [] :goals []))))
+     (merge result db/empty-category-groups))))
 
 (defn- build-recurring-task-category-clauses [categories]
-  (let [people-clause (db/build-category-subquery :recurring_task_categories :recurring_task_id :recurring_tasks "person" (:people categories))
-        places-clause (db/build-category-subquery :recurring_task_categories :recurring_task_id :recurring_tasks "place" (:places categories))
-        projects-clause (db/build-category-subquery :recurring_task_categories :recurring_task_id :recurring_tasks "project" (:projects categories))
-        goals-clause (db/build-category-subquery :recurring_task_categories :recurring_task_id :recurring_tasks "goal" (:goals categories))]
-    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+  (db/build-category-clauses :recurring_task_categories :recurring_task_id :recurring_tasks categories))
 
-(defn- associate-categories-with-recurring-tasks [rtasks categories-by-rtask people-by-id places-by-id projects-by-id goals-by-id]
-  (mapv (fn [rt]
-          (let [rt-categories (get categories-by-rtask (:id rt) [])]
-            (assoc rt
-                   :people (db/extract-category rt-categories "person" people-by-id)
-                   :places (db/extract-category rt-categories "place" places-by-id)
-                   :projects (db/extract-category rt-categories "project" projects-by-id)
-                   :goals (db/extract-category rt-categories "goal" goals-by-id))))
-        rtasks))
+(defn- associate-categories-with-recurring-tasks [rtasks categories-by-rtask lookups]
+  (db/assoc-category-groups rtasks categories-by-rtask lookups))
 
 (defn list-recurring-tasks
   ([ds user-id] (list-recurring-tasks ds user-id {}))
@@ -126,9 +115,9 @@
                                           :from [:recurring_task_categories]
                                           :where [:in :recurring_task_id rtask-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
+         lookups (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-rtask (group-by :recurring_task_id categories-data)]
-     (associate-categories-with-recurring-tasks rtasks categories-by-rtask people-by-id places-by-id projects-by-id goals-by-id))))
+     (associate-categories-with-recurring-tasks rtasks categories-by-rtask lookups))))
 
 (defn recurring-task-owned-by-user? [ds rtask-id user-id]
   (some? (jdbc/execute-one! (db/get-conn ds)
@@ -151,9 +140,9 @@
                                            :from [:recurring_task_categories]
                                            :where [:= :recurring_task_id rtask-id]})
                               db/jdbc-opts)
-            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+            lookups (db/fetch-category-lookups conn user-where)
             categories-by-rtask (group-by :recurring_task_id categories-data)]
-        (first (associate-categories-with-recurring-tasks [rtask] categories-by-rtask people-by-id places-by-id projects-by-id goals-by-id))))))
+        (first (associate-categories-with-recurring-tasks [rtask] categories-by-rtask lookups))))))
 
 (defn update-recurring-task
   ([ds user-id rtask-id fields] (update-recurring-task ds user-id rtask-id fields nil))
@@ -243,7 +232,7 @@
                              :on-conflict []
                              :do-nothing true})))
             (tel/log! {:level :info :data {:task-id (:id task) :recurring-task-id rtask-id :user-id user-id}} "Task created from recurring task")
-            (assoc task :people [] :places [] :projects [] :goals [])))))))
+            (merge task db/empty-category-groups)))))))
 
 (defn categorize-recurring-task [ds user-id rtask-id category-type category-id]
   (db/validate-category-type! category-type)

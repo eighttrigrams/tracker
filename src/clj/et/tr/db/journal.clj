@@ -33,24 +33,13 @@
                                :returning db/journal-select-columns})
                   db/jdbc-opts)]
      (tel/log! {:level :info :data {:journal-id (:id result) :user-id user-id}} "Journal added")
-     (assoc result :people [] :places [] :projects [] :goals []))))
+     (merge result db/empty-category-groups))))
 
 (defn- build-journal-category-clauses [categories]
-  (let [people-clause (db/build-category-subquery :journal_categories :journal_id :journals "person" (:people categories))
-        places-clause (db/build-category-subquery :journal_categories :journal_id :journals "place" (:places categories))
-        projects-clause (db/build-category-subquery :journal_categories :journal_id :journals "project" (:projects categories))
-        goals-clause (db/build-category-subquery :journal_categories :journal_id :journals "goal" (:goals categories))]
-    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+  (db/build-category-clauses :journal_categories :journal_id :journals categories))
 
-(defn- associate-categories-with-journals [journals categories-by-journal people-by-id places-by-id projects-by-id goals-by-id]
-  (mapv (fn [j]
-          (let [journal-categories (get categories-by-journal (:id j) [])]
-            (assoc j
-                   :people (db/extract-category journal-categories "person" people-by-id)
-                   :places (db/extract-category journal-categories "place" places-by-id)
-                   :projects (db/extract-category journal-categories "project" projects-by-id)
-                   :goals (db/extract-category journal-categories "goal" goals-by-id))))
-        journals))
+(defn- associate-categories-with-journals [journals categories-by-journal lookups]
+  (db/assoc-category-groups journals categories-by-journal lookups))
 
 (defn list-journals
   ([ds user-id] (list-journals ds user-id {}))
@@ -80,9 +69,9 @@
                                           :from [:journal_categories]
                                           :where [:in :journal_id journal-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
+         lookups (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-journal (group-by :journal_id categories-data)]
-     (associate-categories-with-journals journals categories-by-journal people-by-id places-by-id projects-by-id goals-by-id))))
+     (associate-categories-with-journals journals categories-by-journal lookups))))
 
 (defn journal-owned-by-user? [ds journal-id user-id]
   (some? (jdbc/execute-one! (db/get-conn ds)
@@ -105,9 +94,9 @@
                                            :from [:journal_categories]
                                            :where [:= :journal_id journal-id]})
                               db/jdbc-opts)
-            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+            lookups (db/fetch-category-lookups conn user-where)
             categories-by-journal (group-by :journal_id categories-data)]
-        (first (associate-categories-with-journals [journal] categories-by-journal people-by-id places-by-id projects-by-id goals-by-id))))))
+        (first (associate-categories-with-journals [journal] categories-by-journal lookups))))))
 
 (defn update-journal
   ([ds user-id journal-id fields] (update-journal ds user-id journal-id fields nil))
@@ -222,7 +211,7 @@
                              :on-conflict []
                              :do-nothing true})))
             (tel/log! {:level :info :data {:entry-id (:id entry) :journal-id journal-id :user-id user-id}} "Journal entry created from journal")
-            (assoc entry :people [] :places [] :projects [] :goals [])))))))
+            (merge entry db/empty-category-groups)))))))
 
 (defn get-taken-dates [ds user-id journal-id]
   (when (journal-owned-by-user? ds journal-id user-id)

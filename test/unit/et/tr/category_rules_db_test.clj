@@ -136,5 +136,5 @@
       (db.category-rule/add-rule *ds* *user-id* "person" (:id alice) "project" (:id alpha))
       (db.category-rule/add-rule *ds* *user-id* "project" (:id alpha) "goal" (:id launch))
       (is (= 2 (count (db.category-rule/list-rules *ds* *user-id*))))
-      (db.category/delete-category *ds* *user-id* (:id alpha) "project" "projects")
+      (db.category/delete-category *ds* *user-id* (:id alpha) "project")
       (is (empty? (db.category-rule/list-rules *ds* *user-id*))))))

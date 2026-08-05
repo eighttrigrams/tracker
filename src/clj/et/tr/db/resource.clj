@@ -28,24 +28,13 @@
                               :returning (conj db/resource-select-columns :user_id)})
                  db/jdbc-opts)]
     (tel/log! {:level :info :data {:resource-id (:id result) :user-id user-id}} "Resource added")
-    (assoc result :people [] :places [] :projects [] :goals [])))
+    (merge result db/empty-category-groups)))
 
 (defn- build-resource-category-clauses [categories]
-  (let [people-clause (db/build-category-subquery :resource_categories :resource_id :resources "person" (:people categories))
-        places-clause (db/build-category-subquery :resource_categories :resource_id :resources "place" (:places categories))
-        projects-clause (db/build-category-subquery :resource_categories :resource_id :resources "project" (:projects categories))
-        goals-clause (db/build-category-subquery :resource_categories :resource_id :resources "goal" (:goals categories))]
-    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+  (db/build-category-clauses :resource_categories :resource_id :resources categories))
 
-(defn- associate-categories-with-resources [resources categories-by-resource people-by-id places-by-id projects-by-id goals-by-id]
-  (mapv (fn [resource]
-          (let [resource-categories (get categories-by-resource (:id resource) [])]
-            (assoc resource
-                   :people (db/extract-category resource-categories "person" people-by-id)
-                   :places (db/extract-category resource-categories "place" places-by-id)
-                   :projects (db/extract-category resource-categories "project" projects-by-id)
-                   :goals (db/extract-category resource-categories "goal" goals-by-id))))
-        resources))
+(defn- associate-categories-with-resources [resources categories-by-resource lookups]
+  (db/assoc-category-groups resources categories-by-resource lookups))
 
 (defn- domain-match-clause [domain]
   (if (= domain "Sheet")
@@ -104,9 +93,9 @@
                                           :from [:resource_categories]
                                           :where [:in :resource_id resource-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
+         lookups (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-resource (group-by :resource_id categories-data)
-         resources-with-categories (associate-categories-with-resources resources categories-by-resource people-by-id places-by-id projects-by-id goals-by-id)]
+         resources-with-categories (associate-categories-with-resources resources categories-by-resource lookups)]
      (relation/associate-relations-with-items resources-with-categories "res" conn))))
 
 (defn resource-owned-by-user? [ds resource-id user-id]
@@ -130,9 +119,9 @@
                                            :from [:resource_categories]
                                            :where [:= :resource_id resource-id]})
                               db/jdbc-opts)
-            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+            lookups (db/fetch-category-lookups conn user-where)
             categories-by-resource (group-by :resource_id categories-data)]
-        (first (associate-categories-with-resources [resource] categories-by-resource people-by-id places-by-id projects-by-id goals-by-id))))))
+        (first (associate-categories-with-resources [resource] categories-by-resource lookups))))))
 
 (defn reorder-resource [ds user-id resource-id new-sort-order]
   (db/write-order! ds :resources-page user-id resource-id new-sort-order))
@@ -187,7 +176,7 @@
             (sql/format {:delete-from :messages
                          :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]}))
           (tel/log! {:level :info :data {:message-id message-id :resource-id (:id resource) :user-id user-id}} "Message converted to resource")
-          (assoc resource :description description :people [] :projects []))))))
+          (merge resource db/empty-category-groups {:description description}))))))
 
 (defn delete-resource [ds user-id resource-id]
   (when (resource-owned-by-user? ds resource-id user-id)

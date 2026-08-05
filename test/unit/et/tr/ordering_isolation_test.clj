@@ -28,10 +28,13 @@
    :issues (create! "/api/issues" ["Issue A" "Issue B"] :title)
    :resources (create! "/api/resources" ["Resource A" "Resource B"] :title)
    :journal-entries (create! "/api/journal-entries" ["Entry A" "Entry B"] :title)
-   :people (create! "/api/people" ["Person A" "Person B"] :name)
-   :places (create! "/api/places" ["Place A" "Place B"] :name)
-   :projects (create! "/api/projects" ["Project A" "Project B"] :name)
-   :goals (create! "/api/goals" ["Goal A" "Goal B"] :name)})
+   ;; All six Category Groups are one table and one ordering context now, so
+   ;; the registry has one entry to probe rather than four. Two rows in the
+   ;; same group, because a reorder is only ever computed within a group --
+   ;; that per-group isolation is guarded by
+   ;; et.tr.categories-db-test/reordering-one-group-leaves-the-others-alone,
+   ;; which this registry can no longer express.
+   :categories (create! "/api/people" ["Person A" "Person B"] :name)})
 
 (defn- join-all!
   "Make both rows of every table a member of every context that table carries,
@@ -118,31 +121,10 @@
     :join :at-creation
     :leave :with-the-row}
 
-   :people
-   {:reorder (fn [{:keys [people]}]
-               (POST-json (str "/api/people/" (first people) "/reorder")
-                          {:target-category-id (second people) :position "after"}))
-    :join :at-creation
-    :leave :with-the-row}
-
-   :places
-   {:reorder (fn [{:keys [places]}]
-               (POST-json (str "/api/places/" (first places) "/reorder")
-                          {:target-category-id (second places) :position "after"}))
-    :join :at-creation
-    :leave :with-the-row}
-
-   :projects
-   {:reorder (fn [{:keys [projects]}]
-               (POST-json (str "/api/projects/" (first projects) "/reorder")
-                          {:target-category-id (second projects) :position "after"}))
-    :join :at-creation
-    :leave :with-the-row}
-
-   :goals
-   {:reorder (fn [{:keys [goals]}]
-               (POST-json (str "/api/goals/" (first goals) "/reorder")
-                          {:target-category-id (second goals) :position "after"}))
+   :categories
+   {:reorder (fn [{:keys [categories]}]
+               (POST-json (str "/api/people/" (first categories) "/reorder")
+                          {:target-category-id (second categories) :position "after"}))
     :join :at-creation
     :leave :with-the-row}})
 
@@ -159,7 +141,7 @@
 (def ^:private rows-key
   "Which fixture rows live in each context's table."
   {:tasks :tasks :issues :issues :resources :resources :journal_entries :journal-entries
-   :people :people :projects :projects :places :places :goals :goals})
+   :categories :categories})
 
 (defn- seed-columns!
   "Give every registered column on every fixture row a distinct known value, so

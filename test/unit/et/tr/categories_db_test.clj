@@ -5,6 +5,8 @@
             [et.tr.db.task :as db.task]
             [et.tr.db.resource :as db.resource]
             [et.tr.db.meet :as db.meet]
+            [et.tr.db.issue :as db.issue]
+            [et.tr.db.category-rule :as db.category-rule]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
@@ -83,7 +85,7 @@
         person (db.category/add-person *ds* *user-id* "Alice")]
     (db.task/categorize-task *ds* *user-id* (:id task) "person" (:id person))
     (is (= 1 (count-join-rows :task_categories)))
-    (db.category/delete-category *ds* *user-id* (:id person) "person" "people")
+    (db.category/delete-category *ds* *user-id* (:id person) "person")
     (is (= 0 (count-join-rows :task_categories)))))
 
 (deftest delete-category-cleans-up-resource-categories-test
@@ -91,7 +93,7 @@
         person (db.category/add-person *ds* *user-id* "Alice")]
     (db.resource/categorize-resource *ds* *user-id* (:id resource) "person" (:id person))
     (is (= 1 (count-join-rows :resource_categories)))
-    (db.category/delete-category *ds* *user-id* (:id person) "person" "people")
+    (db.category/delete-category *ds* *user-id* (:id person) "person")
     (is (= 0 (count-join-rows :resource_categories)))))
 
 (deftest delete-category-cleans-up-meet-categories-test
@@ -99,7 +101,7 @@
         person (db.category/add-person *ds* *user-id* "Alice")]
     (db.meet/categorize-meet *ds* *user-id* (:id meet) "person" (:id person))
     (is (= 1 (count-join-rows :meet_categories)))
-    (db.category/delete-category *ds* *user-id* (:id person) "person" "people")
+    (db.category/delete-category *ds* *user-id* (:id person) "person")
     (is (= 0 (count-join-rows :meet_categories)))))
 
 (deftest update-category-badge-title-test

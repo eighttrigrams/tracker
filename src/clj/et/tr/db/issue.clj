@@ -31,24 +31,13 @@
                                :returning (conj db/issue-select-columns :user_id)})
                   db/jdbc-opts)]
      (tel/log! {:level :info :data {:issue-id (:id result) :user-id user-id}} "Issue added")
-     (assoc result :people [] :places [] :projects [] :goals [] :tasks []))))
+     (merge result db/empty-category-groups {:tasks []}))))
 
 (defn- build-issue-category-clauses [categories]
-  (let [people-clause (db/build-category-subquery :issue_categories :issue_id :issues "person" (:people categories))
-        places-clause (db/build-category-subquery :issue_categories :issue_id :issues "place" (:places categories))
-        projects-clause (db/build-category-subquery :issue_categories :issue_id :issues "project" (:projects categories))
-        goals-clause (db/build-category-subquery :issue_categories :issue_id :issues "goal" (:goals categories))]
-    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+  (db/build-category-clauses :issue_categories :issue_id :issues categories))
 
-(defn- associate-categories-with-issues [issues categories-by-issue people-by-id places-by-id projects-by-id goals-by-id]
-  (mapv (fn [issue]
-          (let [issue-categories (get categories-by-issue (:id issue) [])]
-            (assoc issue
-                   :people (db/extract-category issue-categories "person" people-by-id)
-                   :places (db/extract-category issue-categories "place" places-by-id)
-                   :projects (db/extract-category issue-categories "project" projects-by-id)
-                   :goals (db/extract-category issue-categories "goal" goals-by-id))))
-        issues))
+(defn- associate-categories-with-issues [issues categories-by-issue lookups]
+  (db/assoc-category-groups issues categories-by-issue lookups))
 
 (defn- fetch-tasks-by-issue [conn issue-ids]
   (when (seq issue-ids)
@@ -110,9 +99,9 @@
                                           :from [:issue_categories]
                                           :where [:in :issue_id issue-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
+         lookups (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-issue (group-by :issue_id categories-data)
-         issues-with-categories (associate-categories-with-issues issues categories-by-issue people-by-id places-by-id projects-by-id goals-by-id)
+         issues-with-categories (associate-categories-with-issues issues categories-by-issue lookups)
          issues-with-tasks (associate-tasks-with-issues issues-with-categories conn)]
      (relation/associate-relations-with-items issues-with-tasks "iss" conn))))
 
@@ -137,9 +126,9 @@
                                            :from [:issue_categories]
                                            :where [:= :issue_id issue-id]})
                               db/jdbc-opts)
-            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+            lookups (db/fetch-category-lookups conn user-where)
             categories-by-issue (group-by :issue_id categories-data)]
-        (-> (associate-categories-with-issues [issue] categories-by-issue people-by-id places-by-id projects-by-id goals-by-id)
+        (-> (associate-categories-with-issues [issue] categories-by-issue lookups)
             (associate-tasks-with-issues conn)
             first)))))
 

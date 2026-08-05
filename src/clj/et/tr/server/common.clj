@@ -132,16 +132,33 @@
     (vec (str/split param #","))))
 
 (defn parse-excluded-categories
-  "Read the four `excluded-*` query params into the {:people/:places/:projects/
-  :goals [name...]} seed map the db layer's exclusion clauses take. Nil when a
-  request carries none of them, so unfiltered lists skip the rule expansion."
+  "Read the per-group `excluded-*` query params (excluded-people,
+  excluded-places, excluded-workstreams, excluded-projects, excluded-goals,
+  excluded-assets) into the {:people [name...] ...} seed map the db layer's
+  exclusion clauses take. Nil when a request carries none of them, so
+  unfiltered lists skip the rule expansion."
   [params]
-  (let [seeds {:people (parse-category-param (get params "excluded-people"))
-               :places (parse-category-param (get params "excluded-places"))
-               :projects (parse-category-param (get params "excluded-projects"))
-               :goals (parse-category-param (get params "excluded-goals"))}]
+  (let [seeds (into {}
+                    (map (fn [group-key]
+                           [group-key (parse-category-param
+                                       (get params (str "excluded-" (name group-key))))]))
+                    db/category-key-order)]
     (when (some some? (vals seeds))
       seeds)))
+
+(defn parse-category-params
+  "Read the per-group category filter query params (people, places,
+  workstreams, projects, goals, assets) into the {:people [name...] ...} map
+  the db layer's category clauses take. Nil when a request names none of them,
+  which is how callers tell 'no category filter' from 'filter matching
+  nothing'."
+  [params]
+  (let [names (into {}
+                    (map (fn [group-key]
+                           [group-key (parse-category-param (get params (name group-key)))]))
+                    db/category-key-order)]
+    (when (some some? (vals names))
+      names)))
 
 (defn parse-int-opt [s]
   (when (and s (not (str/blank? s)))
@@ -272,12 +289,11 @@
   via a fresh select."
   [req entity-type entity-id action category-type category-id]
   (try
-    (let [tbl ({"person" :people "place" :places
-                "project" :projects "goal" :goals} category-type)
-          title (when tbl
+    (let [title (when (contains? db/valid-category-types category-type)
                   (:name (jdbc/execute-one! (db/get-conn (ensure-ds))
-                           (sql/format {:select [:name] :from [tbl]
-                                        :where [:= :id category-id]})
+                           (sql/format {:select [:name] :from [:categories]
+                                        :where [:and [:= :id category-id]
+                                                (db/category-type-where category-type)]})
                            db/jdbc-opts)))]
       (when-let [actor (get-actor req)]
         (db.event/record-event!

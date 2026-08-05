@@ -252,13 +252,15 @@
       (PUT "/:id/acknowledge-reminder" [] task-handler/acknowledge-reminder-handler)
       (PUT "/:id/relation-badge-title" [] task-handler/set-task-relation-badge-title-handler))
 
+    ;; One block per Category Group, in the order the UI shows them. All six
+    ;; are the same table now; the URL segment is what picks the group.
     (context "/people" []
       (GET "/" [] category-handler/list-people-handler)
       (GET "/:id" [] category-handler/get-person-handler)
       (POST "/" [] category-handler/add-person-handler)
       (PUT "/:id" [] category-handler/update-person-handler)
       (PUT "/:id/scope" [] category-handler/set-person-scope-handler)
-      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-people :people))))
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-people))))
 
     (context "/places" []
       (GET "/" [] category-handler/list-places-handler)
@@ -266,7 +268,15 @@
       (POST "/" [] category-handler/add-place-handler)
       (PUT "/:id" [] category-handler/update-place-handler)
       (PUT "/:id/scope" [] category-handler/set-place-scope-handler)
-      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-places :places))))
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-places))))
+
+    (context "/workstreams" []
+      (GET "/" [] category-handler/list-workstreams-handler)
+      (GET "/:id" [] category-handler/get-workstream-handler)
+      (POST "/" [] category-handler/add-workstream-handler)
+      (PUT "/:id" [] category-handler/update-workstream-handler)
+      (PUT "/:id/scope" [] category-handler/set-workstream-scope-handler)
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-workstreams))))
 
     (context "/projects" []
       (GET "/" [] category-handler/list-projects-handler)
@@ -274,7 +284,7 @@
       (POST "/" [] category-handler/add-project-handler)
       (PUT "/:id" [] category-handler/update-project-handler)
       (PUT "/:id/scope" [] category-handler/set-project-scope-handler)
-      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-projects :projects))))
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-projects))))
 
     (context "/goals" []
       (GET "/" [] category-handler/list-goals-handler)
@@ -282,7 +292,15 @@
       (POST "/" [] category-handler/add-goal-handler)
       (PUT "/:id" [] category-handler/update-goal-handler)
       (PUT "/:id/scope" [] category-handler/set-goal-scope-handler)
-      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-goals :goals))))
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-goals))))
+
+    (context "/assets" []
+      (GET "/" [] category-handler/list-assets-handler)
+      (GET "/:id" [] category-handler/get-asset-handler)
+      (POST "/" [] category-handler/add-asset-handler)
+      (PUT "/:id" [] category-handler/update-asset-handler)
+      (PUT "/:id/scope" [] category-handler/set-asset-scope-handler)
+      (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-assets))))
 
     (context "/messages" []
       (GET "/" [] message-handler/list-messages-handler)

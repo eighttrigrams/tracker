@@ -60,6 +60,42 @@
 (defn get-conn [ds]
   (if (map? ds) (:conn ds) ds))
 
+(def category-groups
+  "The six Category Groups, in the order the owner asked for them: People,
+  Places, Workstreams, Projects, Goals, Assets.
+
+  Since 073-unify-category-tables they all live in one `categories` table and
+  a group is just a value of its `category_type` column, so adding a group is
+  adding an entry here rather than adding a table. `:type` is that stored
+  value (and the value mirrored in the eight <entity>_categories join tables);
+  `:key` is the plural keyword the HTTP API, the ordering contexts and the
+  app-state use for the same group.
+
+  The UI calls this concept a Group. The code calls it category_type because
+  that spelling predates the unification and is already everywhere; see the
+  schema comment on categories.category_type."
+  [{:type "person"     :key :people}
+   {:type "place"      :key :places}
+   {:type "workstream" :key :workstreams}
+   {:type "project"    :key :projects}
+   {:type "goal"       :key :goals}
+   {:type "asset"      :key :assets}])
+
+(def category-type->key (into {} (map (juxt :type :key)) category-groups))
+(def category-key->type (into {} (map (juxt :key :type)) category-groups))
+(def category-type-order (mapv :type category-groups))
+(def category-key-order (mapv :key category-groups))
+(def valid-category-types (set category-type-order))
+
+(defn validate-category-type! [category-type]
+  (when-not (contains? valid-category-types category-type)
+    (throw (ex-info "Invalid category type" {:category-type category-type}))))
+
+(defn category-type-where
+  "WHERE fragment restricting a `categories` query to one group."
+  [category-type]
+  [:= :category_type category-type])
+
 (def valid-scopes #{"private" "both" "work"})
 
 (defn normalize-scope [scope]
@@ -160,15 +196,38 @@
                 {:id (:category_id %) :name (:name entry) :badge_title (:badge_title entry)}))
        vec))
 
-(defn associate-categories-with-tasks [tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id]
-  (mapv (fn [task]
-          (let [task-categories (get categories-by-task (:id task) [])]
-            (assoc task
-                   :people (extract-category task-categories "person" people-by-id)
-                   :places (extract-category task-categories "place" places-by-id)
-                   :projects (extract-category task-categories "project" projects-by-id)
-                   :goals (extract-category task-categories "goal" goals-by-id))))
-        tasks))
+(def empty-category-groups
+  "Every Category Group key mapped to [], for freshly created rows that cannot
+  have categories yet. One map instead of a hand-written
+  `:people [] :places [] ...` per entity namespace, so a new group reaches all
+  of them at once."
+  (into {} (map (fn [{:keys [key]}] [key []])) category-groups))
+
+(defn lookup-for-group
+  "The id -> {:name :badge_title} map for one group out of fetch-category-lookups."
+  [lookups group-key]
+  (get lookups (keyword (str (name group-key) "-by-id")) {}))
+
+(defn assoc-category-groups
+  "Decorate each row with one key per Category Group (:people, :places,
+  :workstreams, :projects, :goals, :assets), read out of that row's join rows in
+  `categories-by-entity` and named through `lookups` (the map
+  fetch-category-lookups returns).
+
+  Every entity that can carry categories decorates its rows the same way, so
+  they all share this rather than each spelling out one line per group."
+  [rows categories-by-entity lookups]
+  (mapv (fn [row]
+          (let [row-categories (get categories-by-entity (:id row) [])]
+            (reduce (fn [r {:keys [type key]}]
+                      (assoc r key (extract-category row-categories type
+                                                     (lookup-for-group lookups key))))
+                    row
+                    category-groups)))
+        rows))
+
+(defn associate-categories-with-tasks [tasks categories-by-task lookups]
+  (assoc-category-groups tasks categories-by-task lookups))
 
 (defn build-search-clause
   ([search-term] (build-search-clause search-term [:title :tags]))
@@ -194,59 +253,56 @@
    (build-category-subquery :task_categories :task_id :tasks category-type category-names))
   ([join-table entity-id-col entity-ref category-type category-names]
    (when (seq category-names)
-     (let [table-name (case category-type
-                        "person" :people
-                        "place" :places
-                        "project" :projects
-                        "goal" :goals)
-           entity-ref-id (keyword (str (name entity-ref) ".id"))]
+     (let [entity-ref-id (keyword (str (name entity-ref) ".id"))]
        [:exists {:select [1]
                  :from [join-table]
-                 :join [[table-name] [:= (keyword (str (name table-name) ".id")) (keyword (str (name join-table) ".category_id"))]]
+                 :join [[:categories] [:= :categories.id (keyword (str (name join-table) ".category_id"))]]
                  :where [:and
                          [:= (keyword (str (name join-table) "." (name entity-id-col))) entity-ref-id]
                          [:= (keyword (str (name join-table) ".category_type")) category-type]
-                         [:in (keyword (str (name table-name) ".name")) category-names]]}]))))
+                         [:= :categories.category_type category-type]
+                         [:in :categories.name category-names]]}]))))
+
+(defn build-category-clauses
+  "One category subquery per Category Group named in `categories` (a
+  {:people [name...] :workstreams [...] ...} filter map), ANDed by the caller.
+  Groups the filter says nothing about contribute no clause."
+  [join-table entity-id-col entity-ref categories]
+  (filterv some?
+           (map (fn [{:keys [type key]}]
+                  (build-category-subquery join-table entity-id-col entity-ref
+                                           type (get categories key)))
+                category-groups)))
 
 (declare build-scope-clause)
 
 (defn fetch-category-lookups
-  "Build {:people-by-id :places-by-id :projects-by-id :goals-by-id} maps of
-  category-id -> {:name :badge_title}, used to decorate entity rows with their
-  category badges. When opts carries a :context (with optional :strict), the
-  lookups are restricted to categories matching that scope, so out-of-scope
-  category badges never reach the entity cards. Callers that must see every
-  category (e.g. single-item edit fetches) omit opts."
+  "Build {:people-by-id :places-by-id :workstreams-by-id :projects-by-id
+  :goals-by-id :assets-by-id} maps of category-id -> {:name :badge_title},
+  used to decorate entity rows with their category badges. When opts carries a
+  :context (with optional :strict), the lookups are restricted to categories
+  matching that scope, so out-of-scope category badges never reach the entity
+  cards. Callers that must see every category (e.g. single-item edit fetches)
+  omit opts.
+
+  One query over the unified table now, grouped by category_type, rather than
+  one query per group."
   ([conn user-id-where-clause] (fetch-category-lookups conn user-id-where-clause nil))
   ([conn user-id-where-clause {:keys [context strict]}]
-  (let [cols [:id :name :badge_title]
-        scope-clause (build-scope-clause context strict)
-        where (if scope-clause [:and user-id-where-clause scope-clause] user-id-where-clause)
-        people (jdbc/execute! conn
-                 (sql/format {:select cols
-                              :from [:people]
-                              :where where})
-                 jdbc-opts)
-        places (jdbc/execute! conn
-                 (sql/format {:select cols
-                              :from [:places]
-                              :where where})
-                 jdbc-opts)
-        projects (jdbc/execute! conn
-                   (sql/format {:select cols
-                                :from [:projects]
-                                :where where})
-                   jdbc-opts)
-        goals (jdbc/execute! conn
-                (sql/format {:select cols
-                              :from [:goals]
-                              :where where})
+   (let [scope-clause (build-scope-clause context strict)
+         where (if scope-clause [:and user-id-where-clause scope-clause] user-id-where-clause)
+         rows (jdbc/execute! conn
+                (sql/format {:select [:id :name :badge_title :category_type]
+                             :from [:categories]
+                             :where where})
                 jdbc-opts)
-        to-map (fn [items] (into {} (map (fn [i] [(:id i) (select-keys i [:name :badge_title])]) items)))]
-    {:people-by-id (to-map people)
-     :places-by-id (to-map places)
-     :projects-by-id (to-map projects)
-     :goals-by-id (to-map goals)})))
+         by-type (group-by :category_type rows)]
+     (into {}
+           (map (fn [{:keys [type key]}]
+                  [(keyword (str (name key) "-by-id"))
+                   (into {} (map (fn [i] [(:id i) (select-keys i [:name :badge_title])]))
+                         (get by-type type []))]))
+           category-groups))))
 
 (defn build-importance-clause [importance]
   (case importance
@@ -276,23 +332,14 @@
         "work" [:in :scope ["work" "both"]]
         nil))))
 
-(def valid-category-types #{"person" "place" "project" "goal"})
-
-(defn validate-category-type! [category-type]
-  (when-not (contains? valid-category-types category-type)
-    (throw (ex-info "Invalid category type" {:category-type category-type}))))
-
 (defn category-owned-by-user? [ds category-type category-id user-id]
-  (let [table-name (case category-type
-                     "person" :people
-                     "place" :places
-                     "project" :projects
-                     "goal" :goals)]
-    (some? (jdbc/execute-one! (get-conn ds)
-             (sql/format {:select [:id]
-                          :from [table-name]
-                          :where [:and [:= :id category-id] (user-id-where-clause user-id)]})
-             jdbc-opts))))
+  (some? (jdbc/execute-one! (get-conn ds)
+           (sql/format {:select [:id]
+                        :from [:categories]
+                        :where [:and [:= :id category-id]
+                                (category-type-where category-type)
+                                (user-id-where-clause user-id)]})
+           jdbc-opts)))
 
 (defn- query-categories-chunked [conn task-ids]
   (if (empty? task-ids)
@@ -313,12 +360,15 @@
       (update :sort_order #(or % 0.0))
       (update :due_time #(when (and % (not= % "")) %))))
 
-(defn- associate-categories-with-resources-for-export [resources categories-by-resource people-by-id projects-by-id]
+(defn- associate-categories-with-resources-for-export [resources categories-by-resource lookups]
   (mapv (fn [resource]
           (let [resource-categories (get categories-by-resource (:id resource) [])]
-            (assoc resource
-                   :people (extract-category resource-categories "person" people-by-id)
-                   :projects (extract-category resource-categories "project" projects-by-id))))
+            (reduce (fn [r {:keys [type key]}]
+                      (assoc r key (extract-category
+                                    resource-categories type
+                                    (get lookups (keyword (str (name key) "-by-id")) {}))))
+                    resource
+                    category-groups)))
         resources))
 
 (defn export-all-data [ds user-id]
@@ -332,30 +382,20 @@
                 jdbc-opts)
         task-ids (mapv :id tasks)
         categories (query-categories-chunked conn task-ids)
-        people (jdbc/execute! conn
-                 (sql/format {:select [:id :name :description :sort_order :badge_title]
-                              :from [:people]
-                              :where user-where
-                              :order-by [[:sort_order :asc] [:name :asc]]})
-                 jdbc-opts)
-        places (jdbc/execute! conn
-                 (sql/format {:select [:id :name :description :sort_order :badge_title]
-                              :from [:places]
-                              :where user-where
-                              :order-by [[:sort_order :asc] [:name :asc]]})
-                 jdbc-opts)
-        projects (jdbc/execute! conn
-                   (sql/format {:select [:id :name :description :sort_order :badge_title]
-                                :from [:projects]
-                                :where user-where
-                                :order-by [[:sort_order :asc] [:name :asc]]})
-                   jdbc-opts)
-        goals (jdbc/execute! conn
-                (sql/format {:select [:id :name :description :sort_order :badge_title]
-                             :from [:goals]
-                             :where user-where
-                             :order-by [[:sort_order :asc] [:name :asc]]})
-                jdbc-opts)
+        category-rows (jdbc/execute! conn
+                        (sql/format {:select [:id :name :description :sort_order :badge_title :category_type]
+                                     :from [:categories]
+                                     :where user-where
+                                     :order-by [[:sort_order :asc] [:name :asc]]})
+                        jdbc-opts)
+        categories-by-group (group-by :category_type category-rows)
+        ;; {:people [...] :places [...] ... :assets [...]}, each row without the
+        ;; category_type column the group key already carries.
+        groups (into {}
+                     (map (fn [{:keys [type key]}]
+                            [key (mapv #(dissoc % :category_type)
+                                       (get categories-by-group type []))]))
+                     category-groups)
         resources (jdbc/execute! conn
                     (sql/format {:select [:id :title :link :description :tags :created_at :modified_at :sort_order :scope :importance]
                                  :from [:resources]
@@ -369,15 +409,17 @@
                                              :from [:resource_categories]
                                              :where [:in :resource_id resource-ids]})
                                 jdbc-opts))
-        people-by-id (into {} (map (juxt :id :name) people))
-        places-by-id (into {} (map (juxt :id :name) places))
-        projects-by-id (into {} (map (juxt :id :name) projects))
-        goals-by-id (into {} (map (juxt :id :name) goals))
+        ;; extract-category reads :name/:badge_title off each looked-up entry,
+        ;; so the lookups have to be maps, not bare name strings. They used to
+        ;; be built here as id -> name, which made every exported category read
+        ;; {:name nil :badge_title nil}; fetch-category-lookups returns the
+        ;; shape extract-category actually wants.
+        lookups (fetch-category-lookups conn user-where)
         categories-by-task (group-by :task_id categories)
         categories-by-resource (group-by :resource_id resource-categories)
-        tasks-with-categories (->> (associate-categories-with-tasks tasks categories-by-task people-by-id places-by-id projects-by-id goals-by-id)
+        tasks-with-categories (->> (associate-categories-with-tasks tasks categories-by-task lookups)
                                    (mapv normalize-task))
-        resources-with-categories (associate-categories-with-resources-for-export resources categories-by-resource people-by-id projects-by-id)
+        resources-with-categories (associate-categories-with-resources-for-export resources categories-by-resource lookups)
         meet-ids (mapv :id (jdbc/execute! conn (sql/format {:select [:id] :from [:meets] :where user-where}) jdbc-opts))
         all-item-ids {"tsk" task-ids "res" resource-ids "met" meet-ids}
         relations (vec (for [[source-type ids] all-item-ids
@@ -390,17 +432,14 @@
                                                         [:in :source_id ids]]})
                                    jdbc-opts)]
                          rel))]
-    {:tasks tasks-with-categories
-     :people people
-     :places places
-     :projects projects
-     :goals goals
-     :resources resources-with-categories
-     :relations relations}))
+    (merge groups
+           {:tasks tasks-with-categories
+            :resources resources-with-categories
+            :relations relations})))
 
 (defn reset-all-data! [ds]
   (let [conn (get-conn ds)]
-    (doseq [table [:relations :working_on :task_categories :resource_categories :issue_categories :meet_categories :meeting_series_categories :recurring_task_categories :journal_entry_categories :journal_categories :tasks :messages :resources :issues :meets :meeting_series :recurring_tasks :journal_entries :journals :mottos :people :places :projects :goals :users]]
+    (doseq [table [:relations :working_on :task_categories :resource_categories :issue_categories :meet_categories :meeting_series_categories :recurring_task_categories :journal_entry_categories :journal_categories :tasks :messages :resources :issues :meets :meeting_series :recurring_tasks :journal_entries :journals :mottos :categories :users]]
       (jdbc/execute-one! conn (sql/format {:delete-from table})))
     (jdbc/execute-one! conn
       (sql/format {:insert-into :users

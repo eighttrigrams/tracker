@@ -104,7 +104,7 @@
 (deftest category-person-optimistic-concurrency
   (run-oc-suite
     {:label "person update honours the modified_at OC guard"
-     :table :people
+     :table :categories
      :create (fn [] (:id (:body (POST-json "/api/people/" {:name "orig"}))))
      :url (fn [id] (str "/api/people/" id))
      :name-key :name :read-field :name
@@ -113,16 +113,25 @@
 (deftest category-place-optimistic-concurrency
   (run-oc-suite
     {:label "place update honours the modified_at OC guard"
-     :table :places
+     :table :categories
      :create (fn [] (:id (:body (POST-json "/api/places/" {:name "orig"}))))
      :url (fn [id] (str "/api/places/" id))
+     :name-key :name :read-field :name
+     :base-body {:description "d" :tags "t"}}))
+
+(deftest category-workstream-optimistic-concurrency
+  (run-oc-suite
+    {:label "workstream update honours the modified_at OC guard"
+     :table :categories
+     :create (fn [] (:id (:body (POST-json "/api/workstreams/" {:name "orig"}))))
+     :url (fn [id] (str "/api/workstreams/" id))
      :name-key :name :read-field :name
      :base-body {:description "d" :tags "t"}}))
 
 (deftest category-project-optimistic-concurrency
   (run-oc-suite
     {:label "project update honours the modified_at OC guard"
-     :table :projects
+     :table :categories
      :create (fn [] (:id (:body (POST-json "/api/projects/" {:name "orig"}))))
      :url (fn [id] (str "/api/projects/" id))
      :name-key :name :read-field :name
@@ -131,9 +140,18 @@
 (deftest category-goal-optimistic-concurrency
   (run-oc-suite
     {:label "goal update honours the modified_at OC guard"
-     :table :goals
+     :table :categories
      :create (fn [] (:id (:body (POST-json "/api/goals/" {:name "orig"}))))
      :url (fn [id] (str "/api/goals/" id))
+     :name-key :name :read-field :name
+     :base-body {:description "d" :tags "t"}}))
+
+(deftest category-asset-optimistic-concurrency
+  (run-oc-suite
+    {:label "asset update honours the modified_at OC guard"
+     :table :categories
+     :create (fn [] (:id (:body (POST-json "/api/assets/" {:name "orig"}))))
+     :url (fn [id] (str "/api/assets/" id))
      :name-key :name :read-field :name
      :base-body {:description "d" :tags "t"}}))
 

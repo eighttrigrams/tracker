@@ -32,24 +32,13 @@
                                :returning (conj db/meet-select-columns :user_id)})
                   db/jdbc-opts)]
      (tel/log! {:level :info :data {:meet-id (:id result) :user-id user-id}} "Meet added")
-     (assoc result :people [] :places [] :projects [] :goals []))))
+     (merge result db/empty-category-groups))))
 
 (defn- build-meet-category-clauses [categories]
-  (let [people-clause (db/build-category-subquery :meet_categories :meet_id :meets "person" (:people categories))
-        places-clause (db/build-category-subquery :meet_categories :meet_id :meets "place" (:places categories))
-        projects-clause (db/build-category-subquery :meet_categories :meet_id :meets "project" (:projects categories))
-        goals-clause (db/build-category-subquery :meet_categories :meet_id :meets "goal" (:goals categories))]
-    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+  (db/build-category-clauses :meet_categories :meet_id :meets categories))
 
-(defn- associate-categories-with-meets [meets categories-by-meet people-by-id places-by-id projects-by-id goals-by-id]
-  (mapv (fn [meet]
-          (let [meet-categories (get categories-by-meet (:id meet) [])]
-            (assoc meet
-                   :people (db/extract-category meet-categories "person" people-by-id)
-                   :places (db/extract-category meet-categories "place" places-by-id)
-                   :projects (db/extract-category meet-categories "project" projects-by-id)
-                   :goals (db/extract-category meet-categories "goal" goals-by-id))))
-        meets))
+(defn- associate-categories-with-meets [meets categories-by-meet lookups]
+  (db/assoc-category-groups meets categories-by-meet lookups))
 
 (defn list-meets
   ([ds user-id] (list-meets ds user-id {}))
@@ -94,9 +83,9 @@
                                           :from [:meet_categories]
                                           :where [:in :meet_id meet-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
+         lookups (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-meet (group-by :meet_id categories-data)
-         meets-with-categories (associate-categories-with-meets meets categories-by-meet people-by-id places-by-id projects-by-id goals-by-id)
+         meets-with-categories (associate-categories-with-meets meets categories-by-meet lookups)
          series-ids (->> meets (keep :meeting_series_id) distinct vec)
          series-info (when (seq series-ids)
                        (let [today-expr (clock/sql-today)
@@ -151,9 +140,9 @@
                                            :from [:meet_categories]
                                            :where [:= :meet_id meet-id]})
                               db/jdbc-opts)
-            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+            lookups (db/fetch-category-lookups conn user-where)
             categories-by-meet (group-by :meet_id categories-data)]
-        (first (associate-categories-with-meets [meet] categories-by-meet people-by-id places-by-id projects-by-id goals-by-id))))))
+        (first (associate-categories-with-meets [meet] categories-by-meet lookups))))))
 
 (defn update-meet
   ([ds user-id meet-id fields] (update-meet ds user-id meet-id fields nil))

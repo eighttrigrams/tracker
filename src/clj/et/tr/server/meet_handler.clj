@@ -44,15 +44,10 @@
                     "past" :past
                     "summary" :summary
                     :upcoming)
-        people (common/parse-category-param (get-in req [:params "people"]))
-        places (common/parse-category-param (get-in req [:params "places"]))
-        projects (common/parse-category-param (get-in req [:params "projects"]))
-        goals (common/parse-category-param (get-in req [:params "goals"]))
+        categories (common/parse-category-params (:params req))
         excluded-categories (common/parse-excluded-categories (:params req))
         series-id (when-let [s (get-in req [:params "series-id"])] (Integer/parseInt s))
         limit (common/parse-int-opt (get-in req [:params "limit"]))
-        categories (when (or people places projects goals)
-                     {:people people :places places :projects projects :goals goals})
         paged (= "true" (get-in req [:params "paged"]))
         base-opts {:search-term search-term :importance importance :context context :strict strict :categories categories :excluded-categories excluded-categories :sort-mode sort-mode :series-id series-id :limit limit}]
     (if (and paged (contains? #{:past :upcoming} sort-mode))

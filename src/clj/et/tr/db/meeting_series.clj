@@ -32,24 +32,13 @@
                                :returning db/meeting-series-select-columns})
                   db/jdbc-opts)]
      (tel/log! {:level :info :data {:meeting-series-id (:id result) :user-id user-id}} "Meeting series added")
-     (assoc result :people [] :places [] :projects [] :goals []))))
+     (merge result db/empty-category-groups))))
 
 (defn- build-meeting-series-category-clauses [categories]
-  (let [people-clause (db/build-category-subquery :meeting_series_categories :meeting_series_id :meeting_series "person" (:people categories))
-        places-clause (db/build-category-subquery :meeting_series_categories :meeting_series_id :meeting_series "place" (:places categories))
-        projects-clause (db/build-category-subquery :meeting_series_categories :meeting_series_id :meeting_series "project" (:projects categories))
-        goals-clause (db/build-category-subquery :meeting_series_categories :meeting_series_id :meeting_series "goal" (:goals categories))]
-    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+  (db/build-category-clauses :meeting_series_categories :meeting_series_id :meeting_series categories))
 
-(defn- associate-categories-with-meeting-series [series categories-by-series people-by-id places-by-id projects-by-id goals-by-id]
-  (mapv (fn [s]
-          (let [series-categories (get categories-by-series (:id s) [])]
-            (assoc s
-                   :people (db/extract-category series-categories "person" people-by-id)
-                   :places (db/extract-category series-categories "place" places-by-id)
-                   :projects (db/extract-category series-categories "project" projects-by-id)
-                   :goals (db/extract-category series-categories "goal" goals-by-id))))
-        series))
+(defn- associate-categories-with-meeting-series [series categories-by-series lookups]
+  (db/assoc-category-groups series categories-by-series lookups))
 
 (defn list-meeting-series
   ([ds user-id] (list-meeting-series ds user-id {}))
@@ -99,9 +88,9 @@
                                           :from [:meeting_series_categories]
                                           :where [:in :meeting_series_id series-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
+         lookups (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-series (group-by :meeting_series_id categories-data)]
-     (associate-categories-with-meeting-series series categories-by-series people-by-id places-by-id projects-by-id goals-by-id))))
+     (associate-categories-with-meeting-series series categories-by-series lookups))))
 
 (defn meeting-series-owned-by-user? [ds series-id user-id]
   (some? (jdbc/execute-one! (db/get-conn ds)
@@ -124,9 +113,9 @@
                                            :from [:meeting_series_categories]
                                            :where [:= :meeting_series_id series-id]})
                               db/jdbc-opts)
-            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+            lookups (db/fetch-category-lookups conn user-where)
             categories-by-series (group-by :meeting_series_id categories-data)]
-        (first (associate-categories-with-meeting-series [series] categories-by-series people-by-id places-by-id projects-by-id goals-by-id))))))
+        (first (associate-categories-with-meeting-series [series] categories-by-series lookups))))))
 
 (defn update-meeting-series
   ([ds user-id series-id fields] (update-meeting-series ds user-id series-id fields nil))
@@ -231,7 +220,7 @@
                              :on-conflict []
                              :do-nothing true})))
             (tel/log! {:level :info :data {:meet-id (:id meet) :series-id series-id :user-id user-id}} "Meet created from series")
-            (assoc meet :people [] :places [] :projects [] :goals []))))))))
+            (merge meet db/empty-category-groups))))))))
 
 (defn categorize-meeting-series [ds user-id series-id category-type category-id]
   (db/validate-category-type! category-type)

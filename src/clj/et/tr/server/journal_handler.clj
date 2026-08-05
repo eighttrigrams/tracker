@@ -31,14 +31,9 @@
         search-term (get-in req [:params "q"])
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))
-        people (common/parse-category-param (get-in req [:params "people"]))
-        places (common/parse-category-param (get-in req [:params "places"]))
-        projects (common/parse-category-param (get-in req [:params "projects"]))
-        goals (common/parse-category-param (get-in req [:params "goals"]))
+        categories (common/parse-category-params (:params req))
         excluded-categories (common/parse-excluded-categories (:params req))
-        limit (common/parse-int-opt (get-in req [:params "limit"]))
-        categories (when (or people places projects goals)
-                     {:people people :places places :projects projects :goals goals})]
+        limit (common/parse-int-opt (get-in req [:params "limit"]))]
     {:status 200 :body (db.journal/list-journals (common/ensure-ds) user-id {:search-term search-term :context context :strict strict :categories categories :excluded-categories excluded-categories :limit limit})}))
 
 (defn add-journal-handler

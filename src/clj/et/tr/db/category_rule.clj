@@ -4,12 +4,6 @@
             [taoensso.telemere :as tel]
             [et.tr.db :as db]))
 
-(def ^:private type->table
-  {"person" :people
-   "place" :places
-   "project" :projects
-   "goal" :goals})
-
 (defn- load-rules [conn user-id]
   (jdbc/execute! conn
     (sql/format {:select [:id :source_type :source_id :target_type :target_id]
@@ -63,18 +57,14 @@
   (mapv (fn [[ct cid]] {:category-type ct :category-id cid}) closure))
 
 (defn- name-lookup [conn user-id]
-  (let [user-where (db/user-id-where-clause user-id)]
-    (reduce (fn [m [type table]]
-              (reduce (fn [m {:keys [id name]}]
-                        (assoc m [type id] name))
-                      m
-                      (jdbc/execute! conn
-                        (sql/format {:select [:id :name]
-                                     :from [table]
-                                     :where user-where})
-                        db/jdbc-opts)))
-            {}
-            type->table)))
+  (reduce (fn [m {:keys [id name category_type]}]
+            (assoc m [category_type id] name))
+          {}
+          (jdbc/execute! conn
+            (sql/format {:select [:id :name :category_type]
+                         :from [:categories]
+                         :where (db/user-id-where-clause user-id)})
+            db/jdbc-opts)))
 
 (defn list-rules
   "List the user's rules as display rows enriched with the source/target

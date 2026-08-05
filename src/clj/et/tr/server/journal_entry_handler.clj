@@ -34,17 +34,12 @@
         importance (get-in req [:params "importance"])
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))
-        people (common/parse-category-param (get-in req [:params "people"]))
-        places (common/parse-category-param (get-in req [:params "places"]))
-        projects (common/parse-category-param (get-in req [:params "projects"]))
-        goals (common/parse-category-param (get-in req [:params "goals"]))
+        categories (common/parse-category-params (:params req))
         excluded-categories (common/parse-excluded-categories (:params req))
         sort-mode (get-in req [:params "sortMode"])
         journal-id (when-let [jid (get-in req [:params "journalId"])]
                      (try (Integer/parseInt jid) (catch Exception _ nil)))
-        limit (common/parse-int-opt (get-in req [:params "limit"]))
-        categories (when (or people places projects goals)
-                     {:people people :places places :projects projects :goals goals})]
+        limit (common/parse-int-opt (get-in req [:params "limit"]))]
     {:status 200 :body (db.journal-entry/list-journal-entries (common/ensure-ds) user-id {:search-term search-term :importance importance :context context :strict strict :categories categories :excluded-categories excluded-categories :sort-mode sort-mode :journal-id journal-id :limit limit})}))
 
 (defn list-today-journal-entries-handler

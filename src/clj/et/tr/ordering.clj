@@ -24,10 +24,19 @@
    :issues-urgent   {:table :issues           :col :sort_order_urgent}
    :resources-page  {:table :resources        :col :sort_order}
    :journal-entries {:table :journal_entries  :col :sort_order}
-   :people          {:table :people           :col :sort_order}
-   :places          {:table :places           :col :sort_order}
-   :projects        {:table :projects         :col :sort_order}
-   :goals           {:table :goals            :col :sort_order}})
+   ;; One context for all six Category Groups, not one per group. Before
+   ;; 073-unify-category-tables each group was its own table, so :people and
+   ;; :projects were separate (table, col) pairs. They now share
+   ;; categories.sort_order, and by this registry's own rule two contexts on one
+   ;; column IS the coupling -- so this is a single context whose rows happen to
+   ;; be partitioned by category_type.
+   ;;
+   ;; What keeps a drag in People from moving a Project is therefore no longer
+   ;; the column but the row set: a reorder computes its position among one
+   ;; group's rows only, because the handler is handed that group's list-fn.
+   ;; et.tr.categories-db-test/reordering-one-group-leaves-the-others-alone
+   ;; guards that directly, since this registry can no longer express it.
+   :categories      {:table :categories       :col :sort_order}})
 
 (defn- context! [context]
   (or (get contexts context)

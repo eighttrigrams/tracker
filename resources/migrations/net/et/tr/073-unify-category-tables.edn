@@ -1,0 +1,360 @@
+{:id "073-unify-category-tables"
+ :up ["CREATE TABLE categories (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         -- The item's Group, as the UI calls it: 'person' | 'place' |
+         -- 'workstream' | 'project' | 'goal' | 'asset'.
+         --
+         -- MUTABLE. Despite the name, this column is not the row's fixed
+         -- kind: changing it is the whole point of the unification (see
+         -- PUT /api/categories/:id/group). A group change is an UPDATE of
+         -- this column, so the row keeps its id and every association that
+         -- hangs off that id. It is spelled category_type, not
+         -- category_group, only because category_type is already the
+         -- established name for exactly these values in the eight
+         -- <entity>_categories join tables and throughout the query layer;
+         -- a second name for one concept would cost more than the mild
+         -- wrongness of 'type'.
+         --
+         -- <entity>_categories.category_type is a MAINTAINED MIRROR of this
+         -- column and must always agree with it for the same category_id;
+         -- the move operation updates both in one transaction. Dropping the
+         -- mirror and reading the group through a join is a possible later
+         -- simplification -- it is denormalised here on purpose, not by
+         -- oversight.
+         category_type TEXT NOT NULL,
+         name TEXT NOT NULL,
+         user_id INTEGER NOT NULL REFERENCES users(id),
+         description TEXT DEFAULT '',
+         sort_order REAL,
+         tags TEXT NOT NULL DEFAULT '',
+         badge_title TEXT NOT NULL DEFAULT '',
+         modified_at TEXT,
+         scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+         UNIQUE(name, user_id)
+       )"
+
+      "CREATE INDEX idx_categories_type_user ON categories (category_type, user_id)"
+
+      ;; The four source tables have overlapping ids (in the dev database
+      ;; people.id = 93 and projects.id = 93 are two different items), so the
+      ;; rows cannot keep their ids and every reference has to be rewritten
+      ;; through a mapping keyed on the PAIR (category_type, old id) -- never
+      ;; on the id alone, which is the one way this migration could lose data
+      ;; silently instead of loudly.
+      ;;
+      ;; New ids start ABOVE every id any reference could already hold, rather
+      ;; than at 1. SQLite checks the (entity_id, category_type, category_id)
+      ;; primary key per row during an UPDATE, not at statement end -- an
+      ;; in-place remap of two rows in one such group really can abort with
+      ;; "UNIQUE constraint failed" partway through, as swapping two ids
+      ;; demonstrates. Renumbering from 1 would not in fact hit that here
+      ;; (ROW_NUMBER over one source table is monotonic in the old id, so a
+      ;; group's rows all shift the same direction, and SQLite happens to
+      ;; visit them in an order that survives it) -- but that safety is a
+      ;; property of SQLite's row visit order, which is not contracted.
+      ;; Starting above every existing id removes the dependency: no row can
+      ;; be updated onto an id any other row still holds, whatever the order.
+      ;; It also makes a failed remap visible after the fact, since any
+      ;; surviving reference to a low id is one that did not happen.
+      "CREATE TABLE _category_id_offset (base INTEGER NOT NULL)"
+
+      "INSERT INTO _category_id_offset (base)
+       SELECT COALESCE(MAX(v), 0) FROM (
+         SELECT MAX(id) AS v FROM people
+         UNION ALL SELECT MAX(id) FROM places
+         UNION ALL SELECT MAX(id) FROM projects
+         UNION ALL SELECT MAX(id) FROM goals
+         UNION ALL SELECT MAX(category_id) FROM task_categories
+         UNION ALL SELECT MAX(category_id) FROM issue_categories
+         UNION ALL SELECT MAX(category_id) FROM resource_categories
+         UNION ALL SELECT MAX(category_id) FROM meet_categories
+         UNION ALL SELECT MAX(category_id) FROM meeting_series_categories
+         UNION ALL SELECT MAX(category_id) FROM recurring_task_categories
+         UNION ALL SELECT MAX(category_id) FROM journal_categories
+         UNION ALL SELECT MAX(category_id) FROM journal_entry_categories
+         UNION ALL SELECT MAX(source_id) FROM relations
+                    WHERE source_type IN ('person', 'place', 'project', 'goal')
+         UNION ALL SELECT MAX(target_id) FROM relations
+                    WHERE target_type IN ('person', 'place', 'project', 'goal')
+       )"
+
+      "CREATE TABLE _category_id_map (
+         old_table TEXT NOT NULL,
+         old_id INTEGER NOT NULL,
+         category_type TEXT NOT NULL,
+         new_id INTEGER NOT NULL,
+         PRIMARY KEY (old_table, old_id)
+       )"
+
+      "INSERT INTO _category_id_map (old_table, old_id, category_type, new_id)
+       SELECT src.old_table, src.old_id, src.category_type,
+              (SELECT base FROM _category_id_offset)
+                + ROW_NUMBER() OVER (ORDER BY src.tbl_rank, src.old_id)
+       FROM (
+         SELECT 'people'   AS old_table, id AS old_id, 'person'  AS category_type, 1 AS tbl_rank FROM people
+         UNION ALL SELECT 'places',   id, 'place',   2 FROM places
+         UNION ALL SELECT 'projects', id, 'project', 3 FROM projects
+         UNION ALL SELECT 'goals',    id, 'goal',    4 FROM goals
+       ) src"
+
+      ;; Every column carries across, scope included.
+      "INSERT INTO categories (id, category_type, name, user_id, description,
+                               sort_order, tags, badge_title, modified_at, scope)
+       SELECT m.new_id, src.category_type, src.name, src.user_id, src.description,
+              src.sort_order, src.tags, src.badge_title, src.modified_at, src.scope
+       FROM (
+         SELECT 'people' AS old_table, 'person' AS category_type,
+                id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope
+           FROM people
+         UNION ALL SELECT 'places', 'place',
+                id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope
+           FROM places
+         UNION ALL SELECT 'projects', 'project',
+                id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope
+           FROM projects
+         UNION ALL SELECT 'goals', 'goal',
+                id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope
+           FROM goals
+       ) src
+       JOIN _category_id_map m ON m.old_table = src.old_table AND m.old_id = src.id"
+
+      ;; All eight join tables, including the six that are empty today.
+      "UPDATE task_categories SET category_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = task_categories.category_type
+            AND m.old_id = task_categories.category_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = task_categories.category_type
+            AND m.old_id = task_categories.category_id)"
+
+      "UPDATE issue_categories SET category_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = issue_categories.category_type
+            AND m.old_id = issue_categories.category_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = issue_categories.category_type
+            AND m.old_id = issue_categories.category_id)"
+
+      "UPDATE resource_categories SET category_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = resource_categories.category_type
+            AND m.old_id = resource_categories.category_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = resource_categories.category_type
+            AND m.old_id = resource_categories.category_id)"
+
+      "UPDATE meet_categories SET category_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = meet_categories.category_type
+            AND m.old_id = meet_categories.category_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = meet_categories.category_type
+            AND m.old_id = meet_categories.category_id)"
+
+      "UPDATE meeting_series_categories SET category_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = meeting_series_categories.category_type
+            AND m.old_id = meeting_series_categories.category_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = meeting_series_categories.category_type
+            AND m.old_id = meeting_series_categories.category_id)"
+
+      "UPDATE recurring_task_categories SET category_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = recurring_task_categories.category_type
+            AND m.old_id = recurring_task_categories.category_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = recurring_task_categories.category_type
+            AND m.old_id = recurring_task_categories.category_id)"
+
+      "UPDATE journal_categories SET category_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = journal_categories.category_type
+            AND m.old_id = journal_categories.category_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = journal_categories.category_type
+            AND m.old_id = journal_categories.category_id)"
+
+      "UPDATE journal_entry_categories SET category_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = journal_entry_categories.category_type
+            AND m.old_id = journal_entry_categories.category_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = journal_entry_categories.category_type
+            AND m.old_id = journal_entry_categories.category_id)"
+
+      ;; category_rules is the NINTH place a category id is referenced, and the
+      ;; easiest one to miss: it is not an <entity>_categories join table and it
+      ;; does not look like one, but it keys its two endpoints on
+      ;; (type, id) in exactly the same way. Left un-remapped it does not error
+      ;; -- the rule simply names a pair that no longer exists and quietly stops
+      ;; firing, which is the failure mode this whole migration is written to
+      ;; avoid.
+      "UPDATE category_rules SET source_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = category_rules.source_type
+            AND m.old_id = category_rules.source_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = category_rules.source_type
+            AND m.old_id = category_rules.source_id)"
+
+      "UPDATE category_rules SET target_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = category_rules.target_type
+            AND m.old_id = category_rules.target_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = category_rules.target_type
+            AND m.old_id = category_rules.target_id)"
+
+      ;; No category is a relation endpoint in the dev database today (only
+      ;; 'iss' and 'met' appear), but that is a fact about the data, not about
+      ;; the schema, so remap both ends anyway rather than trusting it.
+      "UPDATE relations SET source_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = relations.source_type
+            AND m.old_id = relations.source_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = relations.source_type
+            AND m.old_id = relations.source_id)"
+
+      "UPDATE relations SET target_id = (
+         SELECT m.new_id FROM _category_id_map m
+          WHERE m.category_type = relations.target_type
+            AND m.old_id = relations.target_id)
+       WHERE EXISTS (
+         SELECT 1 FROM _category_id_map m
+          WHERE m.category_type = relations.target_type
+            AND m.old_id = relations.target_id)"
+
+      "DROP TABLE people"
+      "DROP TABLE places"
+      "DROP TABLE projects"
+      "DROP TABLE goals"
+      "DROP TABLE _category_id_map"
+      "DROP TABLE _category_id_offset"]
+
+ ;; The reversal splits categories back into the four tables BY category_type,
+ ;; keeping each row's id. Keeping the id is what makes the join tables and
+ ;; relations need no remapping on the way down: (category_type, category_id)
+ ;; already names the right row, and it still does once that row lives in a
+ ;; per-type table again, because ids are unique across the whole unified
+ ;; table and therefore stay unique within each subset of it.
+ ;;
+ ;; It does NOT restore the ids the rows had before :up ran. Those are gone --
+ ;; :up had to reassign them precisely because they overlapped, and nothing
+ ;; records the originals. A down/up round trip therefore preserves every row,
+ ;; name, column value and association, but not the original id numbers.
+ ;;
+ ;; 'workstream' and 'asset' have no table to go back to: they are the two
+ ;; groups this work added and they never existed before the unification. So
+ ;; rather than silently dropping such rows, the guard below ABORTS the
+ ;; rollback (CHECK constraint failure) if any exist. Delete or move them to
+ ;; one of the original four groups first if you really mean to roll back.
+ :down ["CREATE TABLE _rollback_guard (
+           no_new_group_rows INTEGER NOT NULL
+             CHECK (no_new_group_rows = 1)  -- 0 here => rollback would lose workstream/asset rows
+         )"
+
+        "INSERT INTO _rollback_guard (no_new_group_rows)
+         SELECT CASE WHEN EXISTS (SELECT 1 FROM categories
+                                   WHERE category_type IN ('workstream', 'asset'))
+                     THEN 0 ELSE 1 END"
+
+        "CREATE TABLE people (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           name TEXT NOT NULL,
+           user_id INTEGER NOT NULL REFERENCES users(id),
+           description TEXT DEFAULT '',
+           sort_order REAL,
+           tags TEXT NOT NULL DEFAULT '',
+           badge_title TEXT NOT NULL DEFAULT '',
+           modified_at TEXT,
+           scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+           UNIQUE(name, user_id)
+         )"
+
+        "CREATE TABLE places (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           name TEXT NOT NULL,
+           user_id INTEGER NOT NULL REFERENCES users(id),
+           description TEXT DEFAULT '',
+           sort_order REAL,
+           tags TEXT NOT NULL DEFAULT '',
+           badge_title TEXT NOT NULL DEFAULT '',
+           modified_at TEXT,
+           scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+           UNIQUE(name, user_id)
+         )"
+
+        "CREATE TABLE projects (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           name TEXT NOT NULL,
+           user_id INTEGER NOT NULL REFERENCES users(id),
+           description TEXT DEFAULT '',
+           sort_order REAL,
+           tags TEXT NOT NULL DEFAULT '',
+           badge_title TEXT NOT NULL DEFAULT '',
+           modified_at TEXT,
+           scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+           UNIQUE(name, user_id)
+         )"
+
+        "CREATE TABLE goals (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           name TEXT NOT NULL,
+           user_id INTEGER NOT NULL REFERENCES users(id),
+           description TEXT DEFAULT '',
+           sort_order REAL,
+           tags TEXT NOT NULL DEFAULT '',
+           badge_title TEXT NOT NULL DEFAULT '',
+           modified_at TEXT,
+           scope TEXT NOT NULL DEFAULT 'both' CHECK (scope IN ('private', 'both', 'work')),
+           UNIQUE(name, user_id)
+         )"
+
+        "INSERT INTO people (id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope)
+         SELECT id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope
+           FROM categories WHERE category_type = 'person'"
+
+        "INSERT INTO places (id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope)
+         SELECT id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope
+           FROM categories WHERE category_type = 'place'"
+
+        "INSERT INTO projects (id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope)
+         SELECT id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope
+           FROM categories WHERE category_type = 'project'"
+
+        "INSERT INTO goals (id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope)
+         SELECT id, name, user_id, description, sort_order, tags, badge_title, modified_at, scope
+           FROM categories WHERE category_type = 'goal'"
+
+        "DROP TABLE categories"
+        "DROP TABLE _rollback_guard"]
+
+ ;; NOT copied from 007-fix-category-unique-per-user, which sets
+ ;; `:transactions false` for its table rebuild. That flag is a no-op:
+ ;; ragtime.next-jdbc wraps a migration only when :transactions is one of
+ ;; #{:up :both true}, so `false` -- and the missing key every other migration
+ ;; here has -- both mean "no transaction". 007 documents an intent it does not
+ ;; implement.
+ ;;
+ ;; This one asks for the transaction, because it is the only migration in this
+ ;; project that rewrites existing rows rather than adding a column: half of it
+ ;; applied would mean categories created, join tables remapped and the four
+ ;; source tables still present, with no record of how far it got. SQLite has
+ ;; transactional DDL, so the rebuild rolls back cleanly instead. :both also
+ ;; covers :down, where it matters just as much -- the guard above aborts the
+ ;; rollback by design, and inside a transaction that abort leaves nothing
+ ;; behind, not even the guard table.
+ :transactions :both}

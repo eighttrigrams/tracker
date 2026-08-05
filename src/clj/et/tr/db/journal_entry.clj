@@ -11,21 +11,10 @@
            [java.time.temporal TemporalAdjusters]))
 
 (defn- build-journal-entry-category-clauses [categories]
-  (let [people-clause (db/build-category-subquery :journal_entry_categories :journal_entry_id :journal_entries "person" (:people categories))
-        places-clause (db/build-category-subquery :journal_entry_categories :journal_entry_id :journal_entries "place" (:places categories))
-        projects-clause (db/build-category-subquery :journal_entry_categories :journal_entry_id :journal_entries "project" (:projects categories))
-        goals-clause (db/build-category-subquery :journal_entry_categories :journal_entry_id :journal_entries "goal" (:goals categories))]
-    (filterv some? [people-clause places-clause projects-clause goals-clause])))
+  (db/build-category-clauses :journal_entry_categories :journal_entry_id :journal_entries categories))
 
-(defn- associate-categories-with-journal-entries [entries categories-by-entry people-by-id places-by-id projects-by-id goals-by-id]
-  (mapv (fn [entry]
-          (let [entry-categories (get categories-by-entry (:id entry) [])]
-            (assoc entry
-                   :people (db/extract-category entry-categories "person" people-by-id)
-                   :places (db/extract-category entry-categories "place" places-by-id)
-                   :projects (db/extract-category entry-categories "project" projects-by-id)
-                   :goals (db/extract-category entry-categories "goal" goals-by-id))))
-        entries))
+(defn- associate-categories-with-journal-entries [entries categories-by-entry lookups]
+  (db/assoc-category-groups entries categories-by-entry lookups))
 
 (defn list-journal-entries
   ([ds user-id] (list-journal-entries ds user-id {}))
@@ -60,9 +49,9 @@
                                           :from [:journal_entry_categories]
                                           :where [:in :journal_entry_id entry-ids]})
                              db/jdbc-opts))
-         {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
+         lookups (db/fetch-category-lookups conn user-where {:context context :strict strict})
          categories-by-entry (group-by :journal_entry_id categories-data)]
-     (-> (associate-categories-with-journal-entries entries categories-by-entry people-by-id places-by-id projects-by-id goals-by-id)
+     (-> (associate-categories-with-journal-entries entries categories-by-entry lookups)
          (relation/associate-relations-with-items "jen" conn)))))
 
 (defn list-today-journal-entries
@@ -108,9 +97,9 @@
                                          :from [:journal_entry_categories]
                                          :where [:in :journal_entry_id entry-ids]})
                             db/jdbc-opts))
-        {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where {:context context :strict strict})
+        lookups (db/fetch-category-lookups conn user-where {:context context :strict strict})
         categories-by-entry (group-by :journal_entry_id categories-data)]
-    (-> (associate-categories-with-journal-entries entries categories-by-entry people-by-id places-by-id projects-by-id goals-by-id)
+    (-> (associate-categories-with-journal-entries entries categories-by-entry lookups)
         (relation/associate-relations-with-items "jen" conn))))
 
 (defn journal-entry-owned-by-user? [ds entry-id user-id]
@@ -134,10 +123,10 @@
                                            :from [:journal_entry_categories]
                                            :where [:= :journal_entry_id entry-id]})
                               db/jdbc-opts)
-            {:keys [people-by-id places-by-id projects-by-id goals-by-id]} (db/fetch-category-lookups conn user-where)
+            lookups (db/fetch-category-lookups conn user-where)
             categories-by-entry (group-by :journal_entry_id categories-data)]
         (first (relation/associate-relations-with-items
-                 (associate-categories-with-journal-entries [entry] categories-by-entry people-by-id places-by-id projects-by-id goals-by-id)
+                 (associate-categories-with-journal-entries [entry] categories-by-entry lookups)
                  "jen" conn))))))
 
 (defn update-journal-entry
@@ -232,7 +221,7 @@
                               :returning db/journal-entry-select-columns})
                  db/jdbc-opts)]
     (tel/log! {:level :info :data {:journal-entry-id (:id result) :user-id user-id}} "Journal entry added")
-    (assoc result :people [] :places [] :projects [] :goals [])))
+    (merge result db/empty-category-groups)))
 
 (defn prune-empty-entries [ds user-id]
   (let [conn (db/get-conn ds)

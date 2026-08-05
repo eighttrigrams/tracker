@@ -8,13 +8,12 @@
             [et.tr.server.common :as common]
             [et.tr.db.event :as db.event]))
 
-(def ^:private category-table
-  {"person" :people "place" :places "project" :projects "goal" :goals})
-
 (defn fetch-category-title [category-type category-id]
-  (when-let [tbl (category-table category-type)]
+  (when (contains? db/valid-category-types category-type)
     (:name (jdbc/execute-one! (db/get-conn (common/ensure-ds))
-             (sql/format {:select [:name] :from [tbl] :where [:= :id category-id]})
+             (sql/format {:select [:name] :from [:categories]
+                          :where [:and [:= :id category-id]
+                                  (db/category-type-where category-type)]})
              db/jdbc-opts))))
 
 (defn fetch-row [table id]

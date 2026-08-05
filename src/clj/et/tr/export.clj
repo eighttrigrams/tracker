@@ -1,5 +1,6 @@
 (ns et.tr.export
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [et.tr.db :as db])
   (:import [java.util.zip ZipOutputStream ZipEntry]
            [java.io ByteArrayOutputStream]
            [java.text Normalizer Normalizer$Form]
@@ -17,6 +18,16 @@
         final-str (if (str/blank? sanitized) "untitled" sanitized)]
     (subs final-str 0 (min (count final-str) 50))))
 
+(defn- category-frontmatter
+  "One `<group>: [...]` line per Category Group the item carries, in the order
+  db/category-groups lists them. Groups the item has nothing in are omitted, so
+  an export only grows a `workstreams:`/`assets:` line once something uses them."
+  [item]
+  (apply str
+         (for [{:keys [key]} db/category-groups
+               :when (seq (get item key))]
+           (str (name key) ": " (pr-str (get item key)) "\n"))))
+
 (defn- task-to-markdown [task]
   (let [frontmatter (str "---\n"
                          "id: " (:id task) "\n"
@@ -28,10 +39,7 @@
                          "scope: \"" (:scope task) "\"\n"
                          "importance: \"" (:importance task) "\"\n"
                          "sort_order: " (:sort_order task) "\n"
-                         (when (seq (:people task)) (str "people: " (pr-str (:people task)) "\n"))
-                         (when (seq (:places task)) (str "places: " (pr-str (:places task)) "\n"))
-                         (when (seq (:projects task)) (str "projects: " (pr-str (:projects task)) "\n"))
-                         (when (seq (:goals task)) (str "goals: " (pr-str (:goals task)) "\n"))
+                         (category-frontmatter task)
                          "---\n\n")
         title (str "# " (:title task) "\n\n")
         description (or (:description task) "")]
@@ -47,8 +55,7 @@
                          "importance: \"" (:importance resource) "\"\n"
                          "sort_order: " (:sort_order resource) "\n"
                          (when (seq (:tags resource)) (str "tags: \"" (:tags resource) "\"\n"))
-                         (when (seq (:people resource)) (str "people: " (pr-str (:people resource)) "\n"))
-                         (when (seq (:projects resource)) (str "projects: " (pr-str (:projects resource)) "\n"))
+                         (category-frontmatter resource)
                          "---\n\n")
         title (str "# " (:title resource) "\n\n")
         description (or (:description resource) "")]
@@ -73,18 +80,11 @@
           (.putNextEntry zos (ZipEntry. filename))
           (.write zos (.getBytes (resource-to-markdown resource) "UTF-8"))
           (.closeEntry zos)))
-      (.putNextEntry zos (ZipEntry. "people.edn"))
-      (.write zos (.getBytes (pr-str (:people data)) "UTF-8"))
-      (.closeEntry zos)
-      (.putNextEntry zos (ZipEntry. "places.edn"))
-      (.write zos (.getBytes (pr-str (:places data)) "UTF-8"))
-      (.closeEntry zos)
-      (.putNextEntry zos (ZipEntry. "projects.edn"))
-      (.write zos (.getBytes (pr-str (:projects data)) "UTF-8"))
-      (.closeEntry zos)
-      (.putNextEntry zos (ZipEntry. "goals.edn"))
-      (.write zos (.getBytes (pr-str (:goals data)) "UTF-8"))
-      (.closeEntry zos)
+      ;; One .edn per Category Group, including the two the unification added.
+      (doseq [{:keys [key]} db/category-groups]
+        (.putNextEntry zos (ZipEntry. (str (name key) ".edn")))
+        (.write zos (.getBytes (pr-str (get data key)) "UTF-8"))
+        (.closeEntry zos))
       (.putNextEntry zos (ZipEntry. "relations.edn"))
       (.write zos (.getBytes (pr-str (:relations data)) "UTF-8"))
       (.closeEntry zos))

@@ -4,24 +4,13 @@
             [et.tr.db :as db]
             [et.tr.db.category-rule :as db.category-rule]))
 
-(def ^:private type->table
-  {"person" :people
-   "place" :places
-   "project" :projects
-   "goal" :goals})
-
-(def ^:private seed-key->type
-  {:people "person"
-   :places "place"
-   :projects "project"
-   :goals "goal"})
-
 (defn- seed-ids [conn user-id category-type names]
   (mapv :id (jdbc/execute! conn
               (sql/format {:select [:id]
-                           :from [(type->table category-type)]
+                           :from [:categories]
                            :where [:and
                                    (db/user-id-where-clause user-id)
+                                   (db/category-type-where category-type)
                                    [:in :name (vec names)]]})
               db/jdbc-opts)))
 
@@ -35,7 +24,8 @@
                             [:in (keyword (str (name join-table) ".category_id")) category-ids]]}]]))
 
 (defn build-exclusion-clauses
-  "Turn {:people/:places/:projects/:goals [category-name...]} seeds into WHERE
+  "Turn {:people/:places/:workstreams/:projects/:goals/:assets [category-name...]}
+  seeds into WHERE
   clauses hiding every entity that carries one of them. The seeds are expanded
   through the user's category rules first (transitively, cycle-safe), because
   rule closures are materialised directionally at categorize time: a task
@@ -50,7 +40,7 @@
    (let [conn (db/get-conn ds)
          seeds (vec (for [[seed-key names] excluded-categories
                           :when (seq names)
-                          :let [category-type (seed-key->type seed-key)]
+                          :let [category-type (db/category-key->type seed-key)]
                           :when category-type
                           id (seed-ids conn user-id category-type names)]
                       [category-type id]))]
@@ -62,4 +52,4 @@
                                  (db.category-rule/resolve-closure ds user-id seeds))]
          (filterv some?
                   (map #(exclusion-clause join-table entity-id-col entity-ref % (get ids-by-type %))
-                       ["person" "place" "project" "goal"])))))))
+                       db/category-type-order)))))))

@@ -36,10 +36,7 @@
         importance (get-in req [:params "importance"])
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))
-        people (common/parse-category-param (get-in req [:params "people"]))
-        places (common/parse-category-param (get-in req [:params "places"]))
-        projects (common/parse-category-param (get-in req [:params "projects"]))
-        goals (common/parse-category-param (get-in req [:params "goals"]))
+        categories (common/parse-category-params (:params req))
         excluded-categories (common/parse-excluded-categories (:params req))
         domain (get-in req [:params "domain"])
         excluded-domains-param (get-in req [:params "excludedDomains"])
@@ -50,8 +47,6 @@
         offset (common/parse-int-opt (get-in req [:params "offset"]))
         lean? (not= "full" (get-in req [:params "detail"]))
         paged? (= "true" (get-in req [:params "paged"]))
-        categories (when (or people places projects goals)
-                     {:people people :places places :projects projects :goals goals})
         rows (vec (db.resource/list-resources (common/ensure-ds) user-id
                     {:search-term search-term :importance importance :context context :strict strict
                      :categories categories :excluded-categories excluded-categories :domain domain :excluded-domains excluded-domains
