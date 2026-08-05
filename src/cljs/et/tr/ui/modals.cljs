@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [clojure.string]
             [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.url :as url]
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
@@ -155,24 +156,19 @@
 
 (defn confirm-delete-category-modal []
   (when-let [{:keys [type category]} (:confirm-delete-category @state/*app-state)]
-    (let [type-label (case type
-                       "person" (t :category/person)
-                       "place" (t :category/place)
-                       "project" (t :category/project)
-                       "goal" (t :category/goal)
-                       type)
-          delete-fn (case type
-                      "person" state/delete-person
-                      "place" state/delete-place
-                      "project" state/delete-project
-                      "goal" state/delete-goal)]
+    ;; Both the wording and the delete come from constants/category-groups, the
+    ;; one registry of the Groups. Hand-written `case` forms over the types are
+    ;; how workstream and asset were missed here when the Groups went from four
+    ;; to six; a seventh Group is one entry in the registry and nothing here.
+    (let [{:keys [key singular]} (constants/category-type->group type)
+          type-label (t singular)]
       [generic-confirm-modal
        {:header (tf :modal/delete-category type-label)
         :body-paragraphs [{:text (tf :modal/delete-category-confirm type-label)}
                           {:text (:name category) :class "task-title"}
                           {:text (tf :modal/delete-category-warning type-label) :class "warning"}]
         :on-cancel state/clear-confirm-delete-category
-        :on-confirm #(delete-fn (:id category))}])))
+        :on-confirm #(state/delete-category key (:id category))}])))
 
 (def confirm-delete-message-modal
   (make-confirm-delete-modal
@@ -436,13 +432,11 @@
                    (state/update-resource id @title (when link @link) desc tg expected saved!))
        :issue (state/update-issue id @title @description @tags expected saved!)
        :message (state/update-message id @title @description expected saved!)
-       (let [category-type (subs (name type) 9)
-             update-fn (case category-type
-                         "person" state/update-person
-                         "place" state/update-place
-                         "project" state/update-project
-                         "goal" state/update-goal)]
-         (update-fn id @title @description @tags @badge-title expected saved!))))))
+       ;; Everything else is a category, whose modal type is :category-<type>.
+       ;; The Group it belongs to comes from constants/category-groups — see
+       ;; confirm-delete-category-modal for why this is not a `case`.
+       (let [group-key (constants/category-type->key (subs (name type) 9))]
+         (state/update-category group-key id @title @description @tags @badge-title expected saved!))))))
 
 (def ^:private day-keys
   [{:num "1" :label-key :date/mon}
