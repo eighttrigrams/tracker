@@ -237,6 +237,58 @@
           WHERE m.category_type = relations.target_type
             AND m.old_id = relations.target_id)"
 
+      ;; `events` is the one remaining place a category id is referenced, and
+      ;; it is DELIBERATELY NOT REMAPPED. The owner settled it: "yes, we dont
+      ;; touch the existing events log. this is append only". A log is a record
+      ;; of what happened, and what happened is that the row had that id then;
+      ;; rewriting history to make old rows resolve against the new ids would
+      ;; be a bigger lie than the discontinuity. `record-event!`
+      ;; (db/event.clj:37) already writes append-only; this is the other half
+      ;; of that decision, recorded where a reader will come looking for what
+      ;; the migration chose not to touch.
+      ;;
+      ;; So `events.entity_id` -- and the `category-id` inside `payload` JSON,
+      ;; 617 rows of it -- keep the OLD ids, for both the pre-migration rows
+      ;; and the mapping. Measured on the owner's database after the
+      ;; migration, over the 494 rows whose entity_type names one of the six
+      ;; Groups (person 121, place 212, project 126, goal 30, workstream 3,
+      ;; asset 2):
+      ;;
+      ;;   - joined strictly on (entity_type, entity_id), exactly ONE resolves
+      ;;     -- and it is a row written AFTER the migration by the new code, so
+      ;;     it is right rather than lucky. Of the pre-migration rows, none.
+      ;;   - joined on entity_id alone, 14 stale `place` rows (entity_id
+      ;;     196..201) land on `person` rows p1..p3. They resolve to the WRONG
+      ;;     ENTITY: those numbers were places once and are people now.
+      ;;
+      ;; The collision has a mechanism worth knowing. The offset above is
+      ;; MAX(live id) = 195, so new ids start at 196 -- but the pre-migration
+      ;; sqlite_sequence had places at 201, meaning 196..201 HAD been issued to
+      ;; places that were later deleted, and the log still names them. Basing
+      ;; the offset on MAX(sqlite_sequence.seq) instead would have started at
+      ;; 202 and collided with nothing ever issued. That is the fix if this is
+      ;; ever revisited; it is not applied now because the ids are already
+      ;; assigned and renumbering them again would cost more than it buys.
+      ;;
+      ;; It is latent, not live. `entity_id` is read in exactly two places:
+      ;; db/event.clj (a select list, no join) and
+      ;; ui/views/settings.cljs:234, where summary-line renders "person #83"
+      ;; and never looks up a name. Every payload also carries
+      ;; `category-title` beside its `category-id`, so those rows describe
+      ;; themselves without the join.
+      ;;
+      ;; WARNING to whoever adds the join: do NOT resolve events.entity_id to
+      ;; a category name without handling this discontinuity. A naive join
+      ;; silently attributes fourteen of the owner's place events to three of
+      ;; his people, with no error and no empty cell to notice.
+      ;;
+      ;; And note the id alone cannot tell you which era a row belongs to.
+      ;; 196..201 are both the ids some deleted places once held and the ids
+      ;; six people hold now, which is exactly why those fourteen resolve. The
+      ;; discriminators that do work are `events.ts` against this migration's
+      ;; timestamp in `ragtime_migrations`, and the payload's own
+      ;; `category-title`, which needs no join at all -- prefer the title.
+
       "DROP TABLE people"
       "DROP TABLE places"
       "DROP TABLE projects"
