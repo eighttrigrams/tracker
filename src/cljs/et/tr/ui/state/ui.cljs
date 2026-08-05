@@ -1,5 +1,6 @@
 (ns et.tr.ui.state.ui
-  (:require [et.tr.ui.state.mail :as mail-state]
+  (:require [et.tr.ui.constants :as constants]
+             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.issues :as issues-state]
             [et.tr.ui.state.meets :as meets-state]
@@ -23,8 +24,10 @@
             :strict strict
             :filter-people (:shared/filter-people @app-state)
             :filter-places (:shared/filter-places @app-state)
+            :filter-workstreams (:shared/filter-workstreams @app-state)
             :filter-projects (:shared/filter-projects @app-state)
-            :filter-goals (:shared/filter-goals @app-state)}
+            :filter-goals (:shared/filter-goals @app-state)
+            :filter-assets (:shared/filter-assets @app-state)}
      (:tasks-page/filter-recurring @app-state)
      (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state)))
      ;; While viewing a focused issue, keep task re-fetches (e.g. after a done
@@ -40,11 +43,13 @@
     :strict strict
     :filter-people (:shared/filter-people @app-state)
     :filter-places (:shared/filter-places @app-state)
+    :filter-workstreams (:shared/filter-workstreams @app-state)
     :filter-projects (:shared/filter-projects @app-state)
-    :filter-goals (:shared/filter-goals @app-state)}))
+    :filter-goals (:shared/filter-goals @app-state)
+    :filter-assets (:shared/filter-assets @app-state)}))
 
 (defn- initialize-tasks-page [app-state fetch-tasks-fn]
-  (swap! app-state assoc :tasks-page/collapsed-filters #{:people :places :projects :goals})
+  (swap! app-state assoc :tasks-page/collapsed-filters constants/all-category-filters)
   (let [last-sort-mode (:tasks-page/last-sort-mode @app-state)]
     (swap! app-state assoc :sort-mode last-sort-mode))
   (focus-tasks-search)
@@ -55,7 +60,7 @@
             (initialize-tasks-page app-state fetch-tasks))
    :today (fn []
             (swap! app-state assoc
-                   :today-page/collapsed-filters #{:people :places :projects :goals}
+                   :today-page/collapsed-filters constants/all-category-filters
                    :sort-mode :today)
             (fetch-tasks (today-fetch-opts app-state))
             (fetch-today-meets (today-fetch-opts app-state))
@@ -103,9 +108,9 @@
          :error nil
          :category-selector/open nil
          :category-selector/search ""
-         :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
-         :today-page/category-search {:people "" :places "" :projects "" :goals ""}
-         :meets-page/category-search {:people "" :places "" :projects "" :goals ""}
+         :tasks-page/category-search constants/empty-category-searches
+         :today-page/category-search constants/empty-category-searches
+         :meets-page/category-search constants/empty-category-searches
          :tasks-page/expanded-task nil
          :today-page/expanded-task nil
          :today-page/expanded-meet nil

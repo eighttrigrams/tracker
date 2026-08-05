@@ -3,19 +3,16 @@
             [et.tr.filters :as filters]
             [et.tr.ui.constants :as constants]))
 
-(defn has-active-filters? [app-state]
-  (let [filter-people (:shared/filter-people @app-state)
-        filter-places (:shared/filter-places @app-state)
-        filter-projects (:shared/filter-projects @app-state)
-        filter-goals (:shared/filter-goals @app-state)]
-    (or (seq filter-people) (seq filter-places) (seq filter-projects) (seq filter-goals))))
+(defn- shared-filter-key [group-key]
+  (keyword "shared" (str "filter-" (name group-key))))
 
-(defn- filter-type->key [filter-type]
-  (case filter-type
-    constants/CATEGORY-TYPE-PERSON :shared/filter-people
-    constants/CATEGORY-TYPE-PLACE :shared/filter-places
-    constants/CATEGORY-TYPE-PROJECT :shared/filter-projects
-    constants/CATEGORY-TYPE-GOAL :shared/filter-goals))
+(defn has-active-filters? [app-state]
+  (boolean (some #(seq (get @app-state (shared-filter-key %)))
+                 constants/category-key-order)))
+
+(def ^:private filter-type->key
+  (into {} (map (fn [{:keys [type key]}] [type (shared-filter-key key)]))
+        constants/category-groups))
 
 (defn has-filter-for-type? [app-state filter-type]
   (seq (get @app-state (filter-type->key filter-type))))
@@ -27,8 +24,10 @@
            :strict (:strict-mode @app-state)
            :filter-people (:shared/filter-people @app-state)
            :filter-places (:shared/filter-places @app-state)
+           :filter-workstreams (:shared/filter-workstreams @app-state)
            :filter-projects (:shared/filter-projects @app-state)
-           :filter-goals (:shared/filter-goals @app-state)}
+           :filter-goals (:shared/filter-goals @app-state)
+           :filter-assets (:shared/filter-assets @app-state)}
     (:tasks-page/filter-recurring @app-state)
     (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state)))))
 
@@ -44,17 +43,12 @@
   (swap! app-state assoc (filter-type->key filter-type) #{})
   (fetch-tasks-fn (current-fetch-opts app-state)))
 
-(defn clear-filter-people [app-state fetch-tasks-fn]
-  (clear-filter app-state fetch-tasks-fn constants/CATEGORY-TYPE-PERSON))
-
-(defn clear-filter-places [app-state fetch-tasks-fn]
-  (clear-filter app-state fetch-tasks-fn constants/CATEGORY-TYPE-PLACE))
-
-(defn clear-filter-projects [app-state fetch-tasks-fn]
-  (clear-filter app-state fetch-tasks-fn constants/CATEGORY-TYPE-PROJECT))
-
-(defn clear-filter-goals [app-state fetch-tasks-fn]
-  (clear-filter app-state fetch-tasks-fn constants/CATEGORY-TYPE-GOAL))
+(defn clear-filter-people [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-PERSON))
+(defn clear-filter-places [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-PLACE))
+(defn clear-filter-workstreams [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-WORKSTREAM))
+(defn clear-filter-projects [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-PROJECT))
+(defn clear-filter-goals [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-GOAL))
+(defn clear-filter-assets [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-ASSET))
 
 (defn set-importance-filter [app-state fetch-tasks-fn level]
   (swap! app-state assoc :tasks-page/importance-filter level)
@@ -66,15 +60,17 @@
 
 (defn clear-uncollapsed-task-filters [app-state fetch-tasks-fn]
   (let [collapsed (:tasks-page/collapsed-filters @app-state)
-        all-filters #{:people :places :projects :goals}
+        all-filters constants/all-category-filters
         any-visible? (seq (clojure.set/difference all-filters collapsed))]
     (when-not any-visible?
       (swap! app-state assoc
              :shared/filter-people #{}
              :shared/filter-places #{}
+             :shared/filter-workstreams #{}
              :shared/filter-projects #{}
              :shared/filter-goals #{}
-             :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
+             :shared/filter-assets #{}
+             :tasks-page/category-search constants/empty-category-searches
              :tasks-page/filter-search ""
              :tasks-page/importance-filter nil
              :tasks-page/expanded-task nil)
@@ -83,7 +79,7 @@
 
 (defn toggle-filter-collapsed [app-state filter-key]
   (let [was-collapsed (contains? (:tasks-page/collapsed-filters @app-state) filter-key)
-        all-filters #{:people :places :projects :goals}]
+        all-filters constants/all-category-filters]
     (swap! app-state update :tasks-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
@@ -138,8 +134,5 @@
   (:tasks @app-state))
 
 (defn has-active-shared-filters? [app-state]
-  (let [filter-people (:shared/filter-people @app-state)
-        filter-places (:shared/filter-places @app-state)
-        filter-projects (:shared/filter-projects @app-state)]
-    (or (seq filter-people) (seq filter-places) (seq filter-projects))))
+  (has-active-filters? app-state))
 

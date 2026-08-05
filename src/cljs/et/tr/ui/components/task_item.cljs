@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [clojure.string :as str]
             [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.category-selector :as category-selector]
             [et.tr.ui.components.relation-badges :as relation-badges]
@@ -111,10 +112,7 @@
                            "important" "★"
                            "critical" "★★"
                            nil)
-        all-types [[state/CATEGORY-TYPE-PERSON :people]
-                   [state/CATEGORY-TYPE-PLACE :places]
-                   [state/CATEGORY-TYPE-PROJECT :projects]
-                   [state/CATEGORY-TYPE-GOAL :goals]]
+        all-types constants/category-type-pairs
         has-categories? (some #(seq (get task (second %))) all-types)
         show-categories? (and (state/show-collapsed-categories?) has-categories?)
         has-relations? (seq (:relations task))]
@@ -180,11 +178,7 @@
 
 (defn category-selector [_task _category-type _entities _label]
   (fn [task* category-type* entities* label*]
-    (let [task-categories (case category-type*
-                            state/CATEGORY-TYPE-PERSON (:people task*)
-                            state/CATEGORY-TYPE-PLACE (:places task*)
-                            state/CATEGORY-TYPE-PROJECT (:projects task*)
-                            state/CATEGORY-TYPE-GOAL (:goals task*))]
+    (let [task-categories (get task* (constants/category-type->key category-type*) [])]
       [category-selector/category-selector
        {:entity task*
         :entity-id-key :id
@@ -203,12 +197,7 @@
 
 (defn meet-category-selector [_meet _category-type _entities _label]
   (fn [meet* category-type* entities* label*]
-    (let [current (case category-type*
-                    state/CATEGORY-TYPE-PERSON (:people meet*)
-                    state/CATEGORY-TYPE-PLACE (:places meet*)
-                    state/CATEGORY-TYPE-PROJECT (:projects meet*)
-                    state/CATEGORY-TYPE-GOAL (:goals meet*)
-                    [])]
+    (let [current (get meet* (constants/category-type->key category-type*) [])]
       [category-selector/category-selector
        {:entity meet*
         :entity-id-key :id
@@ -227,12 +216,7 @@
 
 (defn issue-category-selector [_issue _category-type _entities _label]
   (fn [issue* category-type* entities* label*]
-    (let [current (case category-type*
-                    state/CATEGORY-TYPE-PERSON (:people issue*)
-                    state/CATEGORY-TYPE-PLACE (:places issue*)
-                    state/CATEGORY-TYPE-PROJECT (:projects issue*)
-                    state/CATEGORY-TYPE-GOAL (:goals issue*)
-                    [])]
+    (let [current (get issue* (constants/category-type->key category-type*) [])]
       [category-selector/category-selector
        {:entity issue*
         :entity-id-key :id
@@ -251,12 +235,7 @@
 
 (defn journal-entry-category-selector [_entry _category-type _entities _label]
   (fn [entry* category-type* entities* label*]
-    (let [current (case category-type*
-                    state/CATEGORY-TYPE-PERSON (:people entry*)
-                    state/CATEGORY-TYPE-PLACE (:places entry*)
-                    state/CATEGORY-TYPE-PROJECT (:projects entry*)
-                    state/CATEGORY-TYPE-GOAL (:goals entry*)
-                    [])]
+    (let [current (get entry* (constants/category-type->key category-type*) [])]
       [category-selector/category-selector
        {:entity entry*
         :entity-id-key :id

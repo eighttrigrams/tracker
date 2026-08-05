@@ -5,7 +5,8 @@
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
             [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
-            [et.tr.ui.state.exclusions :as exclusions]))
+            [et.tr.ui.state.exclusions :as exclusions]
+            [et.tr.ui.state.category-filters :as category-filters]))
 
 (defonce *issues-page-state (r/atom {:expanded-issue nil
                                      :editing-issue nil
@@ -20,15 +21,12 @@
 
 (def ^:private page-size 50)
 
-(defn- filtered? [{:keys [search-term importance urgency filter-people filter-places filter-projects filter-goals]}]
+(defn- filtered? [{:keys [search-term importance urgency] :as opts}]
   (boolean
     (or (>= (count (str search-term)) 2)
         importance
         urgency
-        (seq filter-people)
-        (seq filter-places)
-        (seq filter-projects)
-        (seq filter-goals))))
+        (category-filters/any-selected? opts))))
 
 (defn- ids->names [ids collection]
   (let [id-set (set ids)
@@ -37,11 +35,8 @@
 
 (defn fetch-issues [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *issues-page-state update :fetch-request-id inc))
-        {:keys [search-term importance urgency context strict filter-people filter-places filter-projects filter-goals sort-mode]} opts
-        people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
-        place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
-        project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
-        goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
+        {:keys [search-term importance urgency context strict sort-mode]} opts
+        category-params (category-filters/query-string app-state opts)
         excluded-params (exclusions/query-params app-state)
         paginate? (not (filtered? opts))
         offset (or (:offset opts) 0)
@@ -53,10 +48,7 @@
               urgency (str "urgency=" (name urgency) "&")
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
-              (seq people-names) (str "people=" (js/encodeURIComponent (clojure.string/join "," people-names)) "&")
-              (seq place-names) (str "places=" (js/encodeURIComponent (clojure.string/join "," place-names)) "&")
-              (seq project-names) (str "projects=" (js/encodeURIComponent (clojure.string/join "," project-names)) "&")
-              (seq goal-names) (str "goals=" (js/encodeURIComponent (clojure.string/join "," goal-names)) "&")
+              (seq category-params) (str category-params)
               (seq excluded-params) (str (clojure.string/join "&" excluded-params) "&")
               sort-mode (str "sortMode=" (name sort-mode) "&"))]
     (GET url

@@ -1,6 +1,7 @@
 (ns et.tr.ui.views.issues
   (:require [reagent.core]
             [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.state.issues :as issues-state]
             [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.components.drag-drop :as drag-drop]
@@ -10,10 +11,7 @@
             [et.tr.i18n :refer [t]]))
 
 (def ^:private issues-category-shortcut-keys
-  {"Digit1" :people
-   "Digit2" :places
-   "Digit3" :projects
-   "Digit4" :goals})
+  constants/category-shortcut-keys)
 
 (def issues-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) issues-category-shortcut-keys)))
@@ -22,12 +20,7 @@
   issues-category-shortcut-keys)
 
 (defn- issue-category-selector [issue category-type entities label]
-  (let [current-categories (case category-type
-                             state/CATEGORY-TYPE-PERSON (:people issue)
-                             state/CATEGORY-TYPE-PLACE (:places issue)
-                             state/CATEGORY-TYPE-PROJECT (:projects issue)
-                             state/CATEGORY-TYPE-GOAL (:goals issue)
-                             [])]
+  (let [current-categories (get issue (constants/category-type->key category-type) [])]
     [category-selector/category-selector
      {:entity issue
       :entity-id-key :id
@@ -196,14 +189,7 @@
                                            :page-prefix "issues"}])
 
 (def ^:private issues-sidebar-filter-configs
-  [{:filter-key :people :title-key :category/people :items-key :people
-    :filter-state-key :shared/filter-people :category-type state/CATEGORY-TYPE-PERSON}
-   {:filter-key :places :title-key :category/places :items-key :places
-    :filter-state-key :shared/filter-places :category-type state/CATEGORY-TYPE-PLACE}
-   {:filter-key :projects :title-key :category/projects :items-key :projects
-    :filter-state-key :shared/filter-projects :category-type state/CATEGORY-TYPE-PROJECT}
-   {:filter-key :goals :title-key :category/goals :items-key :goals
-    :filter-state-key :shared/filter-goals :category-type state/CATEGORY-TYPE-GOAL}])
+  constants/sidebar-filter-configs)
 
 (defn sidebar-filters []
   (let [app-state @state/*app-state

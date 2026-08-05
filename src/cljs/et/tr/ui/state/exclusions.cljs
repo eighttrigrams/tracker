@@ -3,13 +3,16 @@
             [et.tr.ui.constants :as constants]))
 
 (def groups
-  "The four negative category filter groups. :state-key holds the excluded
-  categories as an id->name map, :list-key the category list they belong to,
-  :param the query param the API takes."
-  [{:type constants/CATEGORY-TYPE-PERSON  :state-key :shared/exclude-people   :list-key :people   :param "excluded-people"}
-   {:type constants/CATEGORY-TYPE-PLACE   :state-key :shared/exclude-places   :list-key :places   :param "excluded-places"}
-   {:type constants/CATEGORY-TYPE-PROJECT :state-key :shared/exclude-projects :list-key :projects :param "excluded-projects"}
-   {:type constants/CATEGORY-TYPE-GOAL    :state-key :shared/exclude-goals    :list-key :goals    :param "excluded-goals"}])
+  "One negative category filter group per Category Group. :state-key holds the
+  excluded categories as an id->name map, :list-key the category list they
+  belong to, :param the query param the API takes. Derived from the one registry
+  so a new Group gets its negative filter for free."
+  (mapv (fn [{:keys [type key]}]
+          {:type type
+           :state-key (keyword "shared" (str "exclude-" (name key)))
+           :list-key key
+           :param (str "excluded-" (name key))})
+        constants/category-groups))
 
 (def ^:private type->state-key
   (into {} (map (juxt :type :state-key) groups)))

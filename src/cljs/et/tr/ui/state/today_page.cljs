@@ -1,5 +1,6 @@
 (ns et.tr.ui.state.today-page
-  (:require [clojure.set]
+  (:require [et.tr.ui.constants :as constants]
+             [clojure.set]
             [et.tr.ui.date :as date]))
 
 (def ^:private today-str date/today-str)
@@ -37,10 +38,12 @@
    :strict (:strict-mode @app-state)
    :filter-people (:shared/filter-people @app-state)
    :filter-places (:shared/filter-places @app-state)
+   :filter-workstreams (:shared/filter-workstreams @app-state)
    :filter-projects (:shared/filter-projects @app-state)
-   :filter-goals (:shared/filter-goals @app-state)})
+   :filter-goals (:shared/filter-goals @app-state)
+   :filter-assets (:shared/filter-assets @app-state)})
 
-(def ^:private all-filter-keys #{:people :places :projects :goals})
+(def ^:private all-filter-keys constants/all-category-filters)
 
 (defn clear-uncollapsed-today-filters [app-state fetch-fn]
   (let [collapsed (:today-page/collapsed-filters @app-state)
@@ -49,9 +52,11 @@
       (swap! app-state assoc
              :shared/filter-people #{}
              :shared/filter-places #{}
+             :shared/filter-workstreams #{}
              :shared/filter-projects #{}
              :shared/filter-goals #{}
-             :today-page/category-search {:people "" :places "" :projects "" :goals ""})
+             :shared/filter-assets #{}
+             :today-page/category-search constants/empty-category-searches)
       (.scrollTo js/window 0 0)
       (fetch-fn (current-fetch-opts app-state)))))
 

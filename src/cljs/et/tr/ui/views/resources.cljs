@@ -1,6 +1,7 @@
 (ns et.tr.ui.views.resources
   (:require [reagent.core]
             [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.journals :as journals-state]
             [et.tr.ui.state.journal-entries :as journal-entries-state]
@@ -14,10 +15,7 @@
             [et.tr.i18n :refer [t]]))
 
 (def ^:private resources-category-shortcut-keys
-  {"Digit1" :people
-   "Digit2" :places
-   "Digit3" :projects
-   "Digit4" :goals})
+  constants/category-shortcut-keys)
 
 (def resources-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) resources-category-shortcut-keys)))
@@ -45,12 +43,7 @@
      :frameBorder "0"}]])
 
 (defn- resource-category-selector [resource category-type entities label]
-  (let [current-categories (case category-type
-                             state/CATEGORY-TYPE-PERSON (:people resource)
-                             state/CATEGORY-TYPE-PLACE (:places resource)
-                             state/CATEGORY-TYPE-PROJECT (:projects resource)
-                             state/CATEGORY-TYPE-GOAL (:goals resource)
-                             [])]
+  (let [current-categories (get resource (constants/category-type->key category-type) [])]
     [category-selector/category-selector
      {:entity resource
       :entity-id-key :id
@@ -234,26 +227,7 @@
                                            :page-prefix "resources"}])
 
 (def ^:private resources-sidebar-filter-configs
-  [{:filter-key :people
-    :title-key :category/people
-    :items-key :people
-    :filter-state-key :shared/filter-people
-    :category-type state/CATEGORY-TYPE-PERSON}
-   {:filter-key :places
-    :title-key :category/places
-    :items-key :places
-    :filter-state-key :shared/filter-places
-    :category-type state/CATEGORY-TYPE-PLACE}
-   {:filter-key :projects
-    :title-key :category/projects
-    :items-key :projects
-    :filter-state-key :shared/filter-projects
-    :category-type state/CATEGORY-TYPE-PROJECT}
-   {:filter-key :goals
-    :title-key :category/goals
-    :items-key :goals
-    :filter-state-key :shared/filter-goals
-    :category-type state/CATEGORY-TYPE-GOAL}])
+  constants/sidebar-filter-configs)
 
 (defn- sidebar-filters []
   (let [app-state @state/*app-state
@@ -280,12 +254,7 @@
       (t :journals/journals)]]))
 
 (defn- journal-category-selector [journal category-type entities label]
-  (let [current-categories (case category-type
-                             state/CATEGORY-TYPE-PERSON (:people journal)
-                             state/CATEGORY-TYPE-PLACE (:places journal)
-                             state/CATEGORY-TYPE-PROJECT (:projects journal)
-                             state/CATEGORY-TYPE-GOAL (:goals journal)
-                             [])]
+  (let [current-categories (get journal (constants/category-type->key category-type) [])]
     [category-selector/category-selector
      {:entity journal
       :entity-id-key :id

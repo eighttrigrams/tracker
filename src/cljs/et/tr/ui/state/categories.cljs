@@ -1,7 +1,15 @@
 (ns et.tr.ui.state.categories
+  "Client state for the Category Groups. Every group behaves identically — one
+  table on the server, one shape here — so the per-group entry points are
+  generated from et.tr.ui.constants/category-groups rather than written out six
+  times."
   (:require [ajax.core :refer [GET]]
             [et.tr.filters :as filters]
-            [et.tr.ui.api :as api]))
+            [et.tr.ui.api :as api]
+            [et.tr.ui.constants :as constants]))
+
+(defn- endpoint [group-key]
+  (constants/category-key->endpoint group-key))
 
 (defn- scope-query-string [app-state]
   (let [mode (:work-private-mode @app-state)
@@ -9,33 +17,27 @@
     (cond-> (str "?context=" (name mode))
       strict? (str "&strict=true"))))
 
-(defn- fetch-collection [auth-headers endpoint state-key app-state]
-  (GET (str endpoint (scope-query-string app-state))
+(defn fetch-categories
+  "Reload one group's collection into app-state under its plural key."
+  [app-state auth-headers group-key]
+  (GET (str (endpoint group-key) (scope-query-string app-state))
     {:response-format :json
      :keywords? true
      :headers (auth-headers)
-     :handler #(swap! app-state assoc state-key %)}))
+     :handler #(swap! app-state assoc group-key %)}))
 
-(defn fetch-people [app-state auth-headers]
-  (fetch-collection auth-headers "/api/people" :people app-state))
+(defn fetch-all-categories [app-state auth-headers]
+  (doseq [group-key constants/category-key-order]
+    (fetch-categories app-state auth-headers group-key)))
 
-(defn fetch-places [app-state auth-headers]
-  (fetch-collection auth-headers "/api/places" :places app-state))
-
-(defn fetch-projects [app-state auth-headers]
-  (fetch-collection auth-headers "/api/projects" :projects app-state))
-
-(defn fetch-goals [app-state auth-headers]
-  (fetch-collection auth-headers "/api/goals" :goals app-state))
-
-(defn- set-category-scope [app-state auth-headers endpoint state-key id scope]
-  (api/put-json (str endpoint id "/scope")
+(defn set-category-scope [app-state auth-headers group-key id scope]
+  (api/put-json (str (endpoint group-key) id "/scope")
     {:scope scope}
     (auth-headers)
     (fn [result]
       (let [mode (:work-private-mode @app-state)
             strict? (:strict-mode @app-state)]
-        (swap! app-state update state-key
+        (swap! app-state update group-key
                (fn [coll]
                  (->> coll
                       (mapv #(if (= (:id %) id)
@@ -45,66 +47,35 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update scope")))))
 
-(defn set-people-scope [app-state auth-headers id scope]
-  (set-category-scope app-state auth-headers "/api/people/" :people id scope))
-
-(defn set-places-scope [app-state auth-headers id scope]
-  (set-category-scope app-state auth-headers "/api/places/" :places id scope))
-
-(defn set-projects-scope [app-state auth-headers id scope]
-  (set-category-scope app-state auth-headers "/api/projects/" :projects id scope))
-
-(defn set-goals-scope [app-state auth-headers id scope]
-  (set-category-scope app-state auth-headers "/api/goals/" :goals id scope))
-
 (defn- sort-by-modified [items]
   (->> items (sort-by :modified_at #(compare %2 %1)) vec))
 
-(defn- add-category-entity [app-state auth-headers endpoint state-key error-msg name on-success]
-  (api/post-json endpoint {:name name} (auth-headers)
+(defn add-category [app-state auth-headers group-key name on-success]
+  (api/post-json (endpoint group-key) {:name name} (auth-headers)
     (fn [entity]
-      (swap! app-state update state-key #(sort-by-modified (conj % entity)))
+      (swap! app-state update group-key #(sort-by-modified (conj % entity)))
       (when on-success (on-success)))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] error-msg)))))
+      (swap! app-state assoc :error
+             (get-in resp [:response :error]
+                     (str "Failed to add " (name (:type (constants/category-key->group group-key)))))))))
 
-(defn add-person [app-state auth-headers name on-success]
-  (add-category-entity app-state auth-headers "/api/people" :people "Failed to add person" name on-success))
-
-(defn add-place [app-state auth-headers name on-success]
-  (add-category-entity app-state auth-headers "/api/places" :places "Failed to add place" name on-success))
-
-(defn add-project [app-state auth-headers name on-success]
-  (add-category-entity app-state auth-headers "/api/projects" :projects "Failed to add project" name on-success))
-
-(defn add-goal [app-state auth-headers name on-success]
-  (add-category-entity app-state auth-headers "/api/goals" :goals "Failed to add goal" name on-success))
-
-(defn- update-category-entity [app-state auth-headers fetch-tasks-fn endpoint state-key error-msg id name description tags badge-title expected-modified-at on-success on-error]
-  (api/put-json (str endpoint id)
+(defn update-category [app-state auth-headers fetch-tasks-fn group-key
+                       id name description tags badge-title expected-modified-at
+                       on-success on-error]
+  (api/put-json (str (endpoint group-key) id)
     (cond-> {:name name :description description :tags tags :badge-title badge-title}
       expected-modified-at (assoc :expected-modified-at expected-modified-at))
     (auth-headers)
     (fn [updated]
-      (swap! app-state update state-key
+      (swap! app-state update group-key
              #(sort-by-modified (mapv (fn [item] (if (= (:id item) id) updated item)) %)))
       (fetch-tasks-fn)
       (when on-success (on-success)))
     (or on-error
         (fn [resp]
-          (swap! app-state assoc :error (get-in resp [:response :error] error-msg))))))
-
-(defn update-person [app-state auth-headers fetch-tasks-fn id name description tags badge-title expected-modified-at on-success on-error]
-  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/people/" :people "Failed to update person" id name description tags badge-title expected-modified-at on-success on-error))
-
-(defn update-place [app-state auth-headers fetch-tasks-fn id name description tags badge-title expected-modified-at on-success on-error]
-  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/places/" :places "Failed to update place" id name description tags badge-title expected-modified-at on-success on-error))
-
-(defn update-project [app-state auth-headers fetch-tasks-fn id name description tags badge-title expected-modified-at on-success on-error]
-  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/projects/" :projects "Failed to update project" id name description tags badge-title expected-modified-at on-success on-error))
-
-(defn update-goal [app-state auth-headers fetch-tasks-fn id name description tags badge-title expected-modified-at on-success on-error]
-  (update-category-entity app-state auth-headers fetch-tasks-fn "/api/goals/" :goals "Failed to update goal" id name description tags badge-title expected-modified-at on-success on-error))
+          (swap! app-state assoc :error
+                 (get-in resp [:response :error] "Failed to update category"))))))
 
 (defn set-confirm-delete-category [app-state category-type category]
   (swap! app-state assoc :confirm-delete-category {:type category-type :category category}))
@@ -112,29 +83,17 @@
 (defn clear-confirm-delete-category [app-state]
   (swap! app-state assoc :confirm-delete-category nil))
 
-(defn- delete-category-entity [app-state auth-headers fetch-tasks-fn endpoint state-key error-msg id]
-  (api/delete-simple (str endpoint id)
+(defn delete-category [app-state auth-headers fetch-tasks-fn group-key id]
+  (api/delete-simple (str (endpoint group-key) id)
     (auth-headers)
     (fn [_]
-      (swap! app-state update state-key
+      (swap! app-state update group-key
              (fn [items] (filterv #(not= (:id %) id) items)))
       (fetch-tasks-fn)
       (clear-confirm-delete-category app-state))
     (fn [resp]
-      (swap! app-state assoc :error (get-in resp [:response :error] error-msg))
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete category"))
       (clear-confirm-delete-category app-state))))
-
-(defn delete-person [app-state auth-headers fetch-tasks-fn id]
-  (delete-category-entity app-state auth-headers fetch-tasks-fn "/api/people/" :people "Failed to delete person" id))
-
-(defn delete-place [app-state auth-headers fetch-tasks-fn id]
-  (delete-category-entity app-state auth-headers fetch-tasks-fn "/api/places/" :places "Failed to delete place" id))
-
-(defn delete-project [app-state auth-headers fetch-tasks-fn id]
-  (delete-category-entity app-state auth-headers fetch-tasks-fn "/api/projects/" :projects "Failed to delete project" id))
-
-(defn delete-goal [app-state auth-headers fetch-tasks-fn id]
-  (delete-category-entity app-state auth-headers fetch-tasks-fn "/api/goals/" :goals "Failed to delete goal" id))
 
 (defn set-editing-category [app-state category-type id]
   (swap! app-state assoc :category-page/editing {:type category-type :id id}))
@@ -151,24 +110,13 @@
 (defn clear-category-drag-state [app-state]
   (swap! app-state assoc :drag-category nil :drag-over-category nil))
 
-(defn reorder-category [app-state auth-headers fetch-people-fn fetch-places-fn fetch-projects-fn fetch-goals-fn
-                        category-type category-id target-category-id position]
-  (let [endpoint (case category-type
-                   :people "/api/people/"
-                   :places "/api/places/"
-                   :projects "/api/projects/"
-                   :goals "/api/goals/")
-        fetch-fn (case category-type
-                   :people fetch-people-fn
-                   :places fetch-places-fn
-                   :projects fetch-projects-fn
-                   :goals fetch-goals-fn)]
-    (api/post-json (str endpoint category-id "/reorder")
-      {:target-category-id target-category-id :position position}
-      (auth-headers)
-      (fn [_]
-        (clear-category-drag-state app-state)
-        (fetch-fn))
-      (fn [resp]
-        (clear-category-drag-state app-state)
-        (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder"))))))
+(defn reorder-category [app-state auth-headers group-key category-id target-category-id position]
+  (api/post-json (str (endpoint group-key) category-id "/reorder")
+    {:target-category-id target-category-id :position position}
+    (auth-headers)
+    (fn [_]
+      (clear-category-drag-state app-state)
+      (fetch-categories app-state auth-headers group-key))
+    (fn [resp]
+      (clear-category-drag-state app-state)
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to reorder")))))

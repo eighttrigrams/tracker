@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.item-card :as item-card]
             [et.tr.i18n :refer [t]]))
@@ -20,12 +21,10 @@
 ;; capture: Reagent re-renders on rAF, so a fast click after a tab switch
 ;; (or fill+click pair) can otherwise fire a handler that closed over the
 ;; previous render's category-type or empty input value.
-(def ^:private active-tab->category-type
-  {:cat-people :people :cat-places :places :cat-projects :projects :cat-goals :goals})
+(def ^:private active-tab->category-type constants/tab->category-key)
 
-(def ^:private category-type->add-fn
-  {:people state/add-person :places state/add-place
-   :projects state/add-project :goals state/add-goal})
+(defn- add-fn-for [group-key]
+  (fn [name on-success] (state/add-category group-key name on-success)))
 
 (defn- current-category-type []
   (active-tab->category-type (:active-tab @state/*app-state)))
@@ -39,10 +38,9 @@
                         (state/set-categories-filter-search ct ""))
         do-add (fn []
                  (let [ct (current-category-type)
-                       v (current-search-value)
-                       add-fn (category-type->add-fn ct)]
-                   (when (and (seq v) add-fn)
-                     (add-fn v clear-search))))
+                       v (current-search-value)]
+                   (when (and (seq v) ct)
+                     ((add-fn-for ct) v clear-search))))
         input-value (or (current-search-value) "")]
     [:div.combined-search-add-form
      [:input {:type "text"
@@ -103,14 +101,9 @@
        (when (seq (:description item))
          [:span.category-description [task-item/markdown (:description item)]])]))
 
-(def ^:private state-key->set-scope
-  {:people state/set-people-scope :places state/set-places-scope
-   :projects state/set-projects-scope :goals state/set-goals-scope})
-
 (defn- category-card [item category-type state-key]
   (let [expanded? (let [exp (:categories-page/expanded @state/*app-state)]
-                    (and exp (= (:type exp) state-key) (= (:id exp) (:id item))))
-        set-scope (state-key->set-scope state-key)]
+                    (and exp (= (:type exp) state-key) (= (:id exp) (:id item))))]
     [item-card/item-card
      {:item item
       :expanded? expanded?
@@ -128,18 +121,14 @@
                           [:span.category-card-tags (:tags item)])])
       :description {:edit-type (keyword (str "category-" category-type))}
       :footer {:scope {:value (:scope item)
-                       :on-set #(set-scope (:id item) %)}}}]))
+                       :on-set #(state/set-category-scope state-key (:id item) %)}}}]))
 
 (defn category-cards-page [category-type]
   (let [search-term (get-in @state/*app-state [:categories-page/filter-search category-type])
         items (filter #(matches-search? % search-term)
                       (get @state/*app-state category-type))
-        [add-label category-type-str]
-        (case category-type
-          :people  [:category/search-or-add-person  state/CATEGORY-TYPE-PERSON]
-          :places  [:category/search-or-add-place   state/CATEGORY-TYPE-PLACE]
-          :projects [:category/search-or-add-project state/CATEGORY-TYPE-PROJECT]
-          :goals   [:category/search-or-add-goal    state/CATEGORY-TYPE-GOAL])]
+        {add-label :search-add category-type-str :type}
+        (constants/category-key->group category-type)]
     [:div.category-cards-page {:key (name category-type)}
      [combined-search-add-form category-type (t add-label)]
      [:div.category-cards-grid
@@ -151,22 +140,16 @@
            [category-card item category-type-str category-type])))]]))
 
 (def ^:private rule-type->label-key
-  {"person" :category/person
-   "place" :category/place
-   "project" :category/project
-   "goal" :category/goal})
+  (into {} (map (juxt :type :singular)) constants/category-groups))
 
 (defn- rule-category-label [type name]
   (str (t (rule-type->label-key type)) ": " name))
 
 (defn- rules-category-options []
-  (let [s @state/*app-state
-        collect (fn [type coll]
-                  (map (fn [c] {:type type :id (:id c) :name (:name c)}) coll))]
-    (vec (concat (collect "person" (:rules/people s))
-                 (collect "place" (:rules/places s))
-                 (collect "project" (:rules/projects s))
-                 (collect "goal" (:rules/goals s))))))
+  (let [s @state/*app-state]
+    (vec (for [{:keys [type key]} constants/category-groups
+               c (get s (keyword "rules" (name key)))]
+           {:type type :id (:id c) :name (:name c)}))))
 
 (defn- parse-rule-ref [v]
   (when (seq v)

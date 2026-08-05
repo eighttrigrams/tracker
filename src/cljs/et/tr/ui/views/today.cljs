@@ -2,6 +2,7 @@
   (:require [clojure.string]
             [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.date :as date]
             [et.tr.ui.modals :as modals]
             [et.tr.ui.components.drag-drop :as drag-drop]
@@ -11,10 +12,7 @@
             [et.tr.i18n :refer [t]]))
 
 (def ^:private today-category-shortcut-keys
-  {"Digit1" :people
-   "Digit2" :places
-   "Digit3" :projects
-   "Digit4" :goals})
+  constants/category-shortcut-keys)
 
 (def today-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) today-category-shortcut-keys)))
@@ -297,26 +295,7 @@
                                            :page-prefix "today"}])
 
 (def ^:private today-sidebar-filter-configs
-  [{:filter-key :people
-    :title-key :category/people
-    :items-key :people
-    :filter-state-key :shared/filter-people
-    :category-type state/CATEGORY-TYPE-PERSON}
-   {:filter-key :places
-    :title-key :category/places
-    :items-key :places
-    :filter-state-key :shared/filter-places
-    :category-type state/CATEGORY-TYPE-PLACE}
-   {:filter-key :projects
-    :title-key :category/projects
-    :items-key :projects
-    :filter-state-key :shared/filter-projects
-    :category-type state/CATEGORY-TYPE-PROJECT}
-   {:filter-key :goals
-    :title-key :category/goals
-    :items-key :goals
-    :filter-state-key :shared/filter-goals
-    :category-type state/CATEGORY-TYPE-GOAL}])
+  constants/sidebar-filter-configs)
 
 (defn today-sidebar-filters []
   (let [app-state @state/*app-state

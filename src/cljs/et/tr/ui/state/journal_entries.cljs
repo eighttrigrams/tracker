@@ -4,7 +4,8 @@
             [reagent.core :as r]
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
-            [et.tr.ui.state.exclusions :as exclusions]))
+            [et.tr.ui.state.exclusions :as exclusions]
+            [et.tr.ui.state.category-filters :as category-filters]))
 
 (defonce *journal-entries-page-state (r/atom {:expanded-entry nil
                                               :confirm-delete-entry nil
@@ -20,11 +21,8 @@
 
 (defn fetch-journal-entries [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *journal-entries-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode journal-id]} opts
-        people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
-        place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
-        project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
-        goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
+        {:keys [search-term importance context strict sort-mode journal-id]} opts
+        category-params (category-filters/query-string app-state opts)
         excluded-params (exclusions/query-params app-state)
         url (cond-> "/api/journal-entries?"
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
@@ -32,10 +30,7 @@
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
               journal-id (str "journalId=" journal-id "&")
-              (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
-              (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
-              (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
-              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&")
+              (seq category-params) (str category-params)
               (seq excluded-params) (str (str/join "&" excluded-params) "&")
               sort-mode (str "sortMode=" (name sort-mode) "&"))]
     (GET url

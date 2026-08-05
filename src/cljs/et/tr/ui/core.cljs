@@ -68,7 +68,7 @@
      :on-click #(state/set-active-tab tab-key)}
     (t translation-key)]))
 
-(def ^:private category-tabs #{:cat-people :cat-places :cat-projects :cat-goals :cat-rules})
+(def ^:private category-tabs (conj (set (map :tab constants/category-groups)) :cat-rules))
 (def ^:private settings-tabs #{:settings-profile :settings-mottos :settings-shortcuts :settings-history})
 
 (defn tabs []
@@ -85,10 +85,9 @@
             :on-click #(state/set-active-tab (or (:last-global-tab @state/*app-state) :tasks))}
            "←"]]
          [:div.tabs
-          [tab-button active-tab :cat-people :category/people]
-          [tab-button active-tab :cat-places :category/places]
-          [tab-button active-tab :cat-projects :category/projects]
-          [tab-button active-tab :cat-goals :category/goals]
+          (doall
+           (for [{:keys [tab label]} constants/category-groups]
+             ^{:key (name tab)} [tab-button active-tab tab label]))
           [tab-button active-tab :cat-rules :category/rules]]]
 
         (contains? settings-tabs active-tab)
@@ -177,19 +176,18 @@
          [:div.top-bar-right
           (when (contains? #{:today :tasks :resources :issues :meets :reports} active-tab)
             [controls/relation-mode-toggle])
-          (when (contains? #{:today :tasks :resources :issues :meets :mail :reports
-                             :cat-people :cat-places :cat-projects :cat-goals} active-tab)
+          (when (contains? (into #{:today :tasks :resources :issues :meets :mail :reports}
+                                 (map :tab) constants/category-groups)
+                           active-tab)
             [controls/work-private-toggle])
           [controls/user-info]]]
-        (case active-tab
+        (if-let [group-key (constants/tab->category-key active-tab)]
+          [categories/category-cards-page group-key]
+          (case active-tab
           :today [today/today-tab]
           :resources [resources/resources-tab]
           :issues [issues/issues-tab]
           :meets [meets/meets-tab]
-          :cat-people [categories/category-cards-page :people]
-          :cat-places [categories/category-cards-page :places]
-          :cat-projects [categories/category-cards-page :projects]
-          :cat-goals [categories/category-cards-page :goals]
           :cat-rules [categories/rules-page]
           :reports [reports/reports-tab]
           :mail [mail/mail-page]
@@ -223,13 +221,9 @@
                 :else
                 [:<>
                  [tasks/combined-search-add-form]
-                 [tasks/tasks-list]])]]))])]))
+                 [tasks/tasks-list]])]])))])]))
 
-(def ^:private filter-key->category-type
-  {:people constants/CATEGORY-TYPE-PERSON
-   :places constants/CATEGORY-TYPE-PLACE
-   :projects constants/CATEGORY-TYPE-PROJECT
-   :goals constants/CATEGORY-TYPE-GOAL})
+(def ^:private filter-key->category-type constants/category-key->type)
 
 (defn- handle-category-shortcut [e filter-key toggle-fn]
   (.preventDefault e)

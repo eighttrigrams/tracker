@@ -25,6 +25,14 @@
   --cat-project-color: #c77800;
   --cat-goal-rgb: 255, 69, 58;
   --cat-goal-color: #d70015;
+  /* The two Groups the unification added. Picked to stay distinct from the
+     four above and from each other: teal for Workstreams (between the green
+     of People and the blue of Places on the wheel, but darker), purple for
+     Assets (the one hue the set had no neighbour in). */
+  --cat-workstream-rgb: 48, 176, 199;
+  --cat-workstream-color: #0f7f93;
+  --cat-asset-rgb: 175, 82, 222;
+  --cat-asset-color: #8944ab;
 }
 html.dark-mode {
   color-scheme: dark;

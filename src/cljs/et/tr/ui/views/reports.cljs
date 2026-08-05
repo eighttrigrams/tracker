@@ -1,5 +1,6 @@
 (ns et.tr.ui.views.reports
   (:require [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.state.reports :as reports-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.task-item :as task-item]
@@ -8,10 +9,7 @@
             [et.tr.i18n :as i18n :refer [t]]))
 
 (def ^:private reports-category-shortcut-keys
-  {"Digit1" :people
-   "Digit2" :places
-   "Digit3" :projects
-   "Digit4" :goals})
+  constants/category-shortcut-keys)
 
 (def reports-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) reports-category-shortcut-keys)))
@@ -37,26 +35,7 @@
                                            :page-prefix "reports"}])
 
 (def ^:private reports-sidebar-filter-configs
-  [{:filter-key :people
-    :title-key :category/people
-    :items-key :people
-    :filter-state-key :shared/filter-people
-    :category-type state/CATEGORY-TYPE-PERSON}
-   {:filter-key :places
-    :title-key :category/places
-    :items-key :places
-    :filter-state-key :shared/filter-places
-    :category-type state/CATEGORY-TYPE-PLACE}
-   {:filter-key :projects
-    :title-key :category/projects
-    :items-key :projects
-    :filter-state-key :shared/filter-projects
-    :category-type state/CATEGORY-TYPE-PROJECT}
-   {:filter-key :goals
-    :title-key :category/goals
-    :items-key :goals
-    :filter-state-key :shared/filter-goals
-    :category-type state/CATEGORY-TYPE-GOAL}])
+  constants/sidebar-filter-configs)
 
 (def ^:private items-filter-options
   [[:all :reports/filter-all]

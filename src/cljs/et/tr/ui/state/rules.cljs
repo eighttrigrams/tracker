@@ -1,5 +1,6 @@
 (ns et.tr.ui.state.rules
   (:require [ajax.core :refer [GET]]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.api :as api]))
 
 (defn fetch-rules [app-state auth-headers]
@@ -18,10 +19,12 @@
 
 (defn fetch-rules-page [app-state auth-headers]
   (fetch-rules app-state auth-headers)
-  (fetch-all-of app-state auth-headers "/api/people" :rules/people)
-  (fetch-all-of app-state auth-headers "/api/places" :rules/places)
-  (fetch-all-of app-state auth-headers "/api/projects" :rules/projects)
-  (fetch-all-of app-state auth-headers "/api/goals" :rules/goals))
+  ;; Unscoped lists, one per Category Group: a rule may name any category, so
+  ;; the pickers must offer every group.
+  (doseq [group-key constants/category-key-order]
+    (fetch-all-of app-state auth-headers
+                  (constants/category-key->endpoint group-key)
+                  (keyword "rules" (name group-key)))))
 
 (defn add-rule [app-state auth-headers source-type source-id target-type target-id on-success]
   (api/post-json "/api/category-rules"

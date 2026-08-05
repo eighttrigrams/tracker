@@ -3,6 +3,7 @@
             [reagent.core :as r]
             ["react-dom" :as react-dom]
             [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.save-flash :as save-flash]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.relation-link :as relation-link]
@@ -425,23 +426,18 @@
 
 (defn- card-categories [{:keys [item selector-fn relations-prefix]}]
   (if (state/show-collapsed-categories?)
-    (let [{:keys [people places projects goals]} @state/*app-state]
-      [:div.item-tags
-       (when relations-prefix
-         [relation-badges/relation-badges-expanded (:relations item) relations-prefix (:id item)])
-       [selector-fn item state/CATEGORY-TYPE-PERSON people (t :category/person)]
-       [selector-fn item state/CATEGORY-TYPE-PLACE places (t :category/place)]
-       [selector-fn item state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-       [selector-fn item state/CATEGORY-TYPE-GOAL goals (t :category/goal)]])
+    (let [app-state @state/*app-state]
+      (into [:div.item-tags
+             (when relations-prefix
+               [relation-badges/relation-badges-expanded (:relations item) relations-prefix (:id item)])]
+            (for [{:keys [type key singular]} constants/category-groups]
+              [selector-fn item type (get app-state key) (t singular)])))
     [:div.item-tags-readonly
      (when relations-prefix
        [relation-badges/relation-badges-expanded (:relations item) relations-prefix (:id item)])
      [task-item/category-badges
       {:item item
-       :category-types [[state/CATEGORY-TYPE-PERSON :people]
-                        [state/CATEGORY-TYPE-PLACE :places]
-                        [state/CATEGORY-TYPE-PROJECT :projects]
-                        [state/CATEGORY-TYPE-GOAL :goals]]
+       :category-types constants/category-type-pairs
        :toggle-fn state/toggle-shared-filter
        :has-filter-fn state/has-filter-for-type?
        :force-show? true}]]))
@@ -509,10 +505,7 @@
         [relation-badges/relation-badges-collapsed (:relations item) (:relations-prefix categories) (:id item)])
       [task-item/category-badges
        {:item item
-        :category-types [[state/CATEGORY-TYPE-PERSON :people]
-                         [state/CATEGORY-TYPE-PLACE :places]
-                         [state/CATEGORY-TYPE-PROJECT :projects]
-                         [state/CATEGORY-TYPE-GOAL :goals]]
+        :category-types constants/category-type-pairs
         :toggle-fn state/toggle-shared-filter
         :has-filter-fn state/has-filter-for-type?}]])
    readonly-extra])

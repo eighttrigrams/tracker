@@ -32,15 +32,32 @@
 
 (def ^:const CATEGORY-TYPE-PERSON constants/CATEGORY-TYPE-PERSON)
 (def ^:const CATEGORY-TYPE-PLACE constants/CATEGORY-TYPE-PLACE)
+(def ^:const CATEGORY-TYPE-WORKSTREAM constants/CATEGORY-TYPE-WORKSTREAM)
 (def ^:const CATEGORY-TYPE-PROJECT constants/CATEGORY-TYPE-PROJECT)
 (def ^:const CATEGORY-TYPE-GOAL constants/CATEGORY-TYPE-GOAL)
+(def ^:const CATEGORY-TYPE-ASSET constants/CATEGORY-TYPE-ASSET)
+
+;; Every Category Group, derived from the one registry, so a new group reaches
+;; the collections, the shared filters, the per-page searches and the collapse
+;; sets without six more literals per site.
+(def category-keys constants/category-key-order)
+(def all-category-filters (set category-keys))
+(def empty-category-collections (zipmap category-keys (repeat [])))
+(def empty-category-searches (zipmap category-keys (repeat "")))
+
+(defn filter-state-key [group-key] (keyword "shared" (str "filter-" (name group-key))))
+(defn exclude-state-key [group-key] (keyword "shared" (str "exclude-" (name group-key))))
+(defn fetch-opt-key [group-key] (keyword (str "filter-" (name group-key))))
+
+(def empty-category-filters
+  (into {} (map (fn [k] [(filter-state-key k) #{}])) category-keys))
+(def empty-category-excludes
+  (into {} (map (fn [k] [(exclude-state-key k) {}])) category-keys))
 
 (def initial-collection-state
-  {:tasks []
-   :people []
-   :places []
-   :projects []
-   :goals []
+  (merge
+   empty-category-collections
+   {:tasks []
    :messages []
    :resources []
    :issues []
@@ -54,14 +71,22 @@
    :today-journal-entries []
    :today-page/day-lists {}
    :upcoming-horizon nil
-   :working-on-task-id nil})
+   :working-on-task-id nil}))
 
-(defonce *app-state (r/atom {;; Data collections
+(defonce *app-state (r/atom (merge
+                            ;; One entry per Category Group for each of the
+                            ;; three shapes the pages read: the collections
+                            ;; themselves, the positive filters and the
+                            ;; negative ones. Merged in from the registry so a
+                            ;; new Group cannot be half-initialised — a missing
+                            ;; :shared/filter-<group> key does not error, it
+                            ;; just quietly conj's onto nil and the filter stops
+                            ;; being a set.
+                            empty-category-collections
+                            empty-category-filters
+                            empty-category-excludes
+                            {;; Data collections
                             :tasks []
-                            :people []
-                            :places []
-                            :projects []
-                            :goals []
                             :messages []
                             :resources []
                             :issues []
@@ -76,25 +101,17 @@
                             :available-users []
 
                             ;; Shared category filters (across all tabs)
-                            :shared/filter-people #{}
-                            :shared/filter-places #{}
-                            :shared/filter-projects #{}
-                            :shared/filter-goals #{}
 
                             ;; Shared negative category filters (across all
                             ;; tabs). Mutually exclusive with the positive ones:
                             ;; while any of these is set the sidebar shows them
                             ;; instead of the four groups.
-                            :shared/exclude-people {}
-                            :shared/exclude-places {}
-                            :shared/exclude-projects {}
-                            :shared/exclude-goals {}
 
                             ;; Tasks page state
                             :tasks-page/filter-search ""
-                            :tasks-page/category-search {:people "" :places "" :projects "" :goals ""}
+                            :tasks-page/category-search empty-category-searches
                             :tasks-page/importance-filter nil
-                            :tasks-page/collapsed-filters #{:people :places :projects :goals}
+                            :tasks-page/collapsed-filters all-category-filters
                             :tasks-page/expanded-task nil
                             :editing-task nil
                             :editing-modal nil
@@ -105,8 +122,8 @@
                             :today-meets []
 
                             ;; Today page state
-                            :today-page/collapsed-filters #{:people :places :projects :goals}
-                            :today-page/category-search {:people "" :places "" :projects "" :goals ""}
+                            :today-page/collapsed-filters all-category-filters
+                            :today-page/category-search empty-category-searches
                             :today-page/expanded-task nil
                             :today-page/expanded-meet nil
                             :today-page/selected-view :urgent
@@ -116,12 +133,12 @@
                             :upcoming-horizon nil
 
                             ;; Resources page state
-                            :resources-page/collapsed-filters #{:people :places :projects :goals}
-                            :resources-page/category-search {:people "" :places "" :projects "" :goals ""}
+                            :resources-page/collapsed-filters all-category-filters
+                            :resources-page/category-search empty-category-searches
 
                             ;; Issues page state
-                            :issues-page/collapsed-filters #{:people :places :projects :goals}
-                            :issues-page/category-search {:people "" :places "" :projects "" :goals ""}
+                            :issues-page/collapsed-filters all-category-filters
+                            :issues-page/category-search empty-category-searches
 
                             ;; Tasks page recurring mode
                             :tasks-page/recurring-mode false
@@ -136,8 +153,8 @@
                             :today-page/journal-summary-mode true
 
                             ;; Reports page state
-                            :reports-page/collapsed-filters #{:people :places :projects :goals}
-                            :reports-page/category-search {:people "" :places "" :projects "" :goals ""}
+                            :reports-page/collapsed-filters all-category-filters
+                            :reports-page/category-search empty-category-searches
                             :reports-page/items-filter :all
                             ;; Journals view defaults to text (summary) mode, not cards.
                             :reports-page/journals-summary-mode true
@@ -146,8 +163,8 @@
                             ;; Meets page state
                             :meets-page/series-mode false
                             :meets-page/filter-series nil
-                            :meets-page/collapsed-filters #{:people :places :projects :goals}
-                            :meets-page/category-search {:people "" :places "" :projects "" :goals ""}
+                            :meets-page/collapsed-filters all-category-filters
+                            :meets-page/category-search empty-category-searches
 
                             ;; Task dropdown state
                             :task-dropdown-open nil
@@ -170,7 +187,7 @@
                             :drag-over-category nil
                             :category-page/editing nil
                             :categories-page/expanded nil
-                            :categories-page/filter-search {:people "" :places "" :projects "" :goals ""}
+                            :categories-page/filter-search empty-category-searches
                             :show-user-switcher false
                             :show-collapsed-categories? true
                             :work-private-mode :both
@@ -183,7 +200,7 @@
                             :logged-in? false
                             :token nil
                             :current-user nil
-                            :confirm-delete-user nil}))
+                            :confirm-delete-user nil})))
 
 (declare edit-conflict-handler)
 
@@ -226,8 +243,11 @@
 (declare fetch-users)
 (declare fetch-people)
 (declare fetch-places)
+(declare fetch-workstreams)
 (declare fetch-projects)
 (declare fetch-goals)
+(declare fetch-assets)
+(declare fetch-all-categories)
 (declare fetch-working-on)
 
 (defn- fetch-all [user]
@@ -241,10 +261,7 @@
       (fetch-today-meets)
       (fetch-today-journal-entries)
       (fetch-working-on)
-      (fetch-people)
-      (fetch-places)
-      (fetch-projects)
-      (fetch-goals)
+      (fetch-all-categories)
       (when (has-mail?)
         (fetch-messages)))))
 
@@ -455,11 +472,16 @@
 (declare fetch-today-all)
 (declare today-fetch-opts)
 
-(defn active-filter-categories []
-  {:people (:shared/filter-people @*app-state)
-   :places (:shared/filter-places @*app-state)
-   :projects (:shared/filter-projects @*app-state)
-   :goals (:shared/filter-goals @*app-state)})
+(defn active-filter-categories
+  "The selected category names per Group, keyed by the plural group key."
+  []
+  (into {} (map (fn [k] [k (get @*app-state (filter-state-key k))])) category-keys))
+
+(defn active-filter-state
+  "The same selection keyed the way the fetch-opts layer wants it
+  (:filter-people, :filter-workstreams, ...)."
+  []
+  (into {} (map (fn [k] [(fetch-opt-key k) (get @*app-state (filter-state-key k))])) category-keys))
 
 (defn- resources-fetch-opts []
   {:search-term (:filter-search @resources-state/*resources-page-state)
@@ -471,8 +493,10 @@
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
+   :filter-workstreams (:shared/filter-workstreams @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)
+   :filter-assets (:shared/filter-assets @*app-state)})
 
 (defn fetch-resources
   ([] (fetch-resources (resources-fetch-opts)))
@@ -585,8 +609,10 @@
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
+   :filter-workstreams (:shared/filter-workstreams @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)
+   :filter-assets (:shared/filter-assets @*app-state)})
 
 (defn fetch-issues
   ([] (fetch-issues (issues-fetch-opts)))
@@ -599,8 +625,10 @@
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
+   :filter-workstreams (:shared/filter-workstreams @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)
+   :filter-assets (:shared/filter-assets @*app-state)})
 
 (defn fetch-today-issues []
   (fetch-issues (today-issues-fetch-opts)))
@@ -703,7 +731,7 @@
 
 (defn toggle-issues-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:issues-page/collapsed-filters @*app-state) filter-key)
-        all-filters #{:people :places :projects :goals}]
+        all-filters all-category-filters]
     (swap! *app-state update :issues-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
@@ -727,15 +755,12 @@
 
 (defn clear-uncollapsed-issue-filters []
   (let [collapsed (:issues-page/collapsed-filters @*app-state)
-        all-filters #{:people :places :projects :goals}
+        all-filters all-category-filters
         any-visible? (seq (clojure.set/difference all-filters collapsed))]
     (when-not any-visible?
+      (swap! *app-state merge empty-category-filters)
       (swap! *app-state assoc
-             :shared/filter-people #{}
-             :shared/filter-places #{}
-             :shared/filter-projects #{}
-             :shared/filter-goals #{}
-             :issues-page/category-search {:people "" :places "" :projects "" :goals ""})
+             :issues-page/category-search empty-category-searches)
       (.scrollTo js/window 0 0)
       (issues-state/clear-all-issue-filters fetch-issues))))
 
@@ -753,8 +778,10 @@
              :strict (:strict-mode @*app-state)
              :filter-people (:shared/filter-people @*app-state)
              :filter-places (:shared/filter-places @*app-state)
+             :filter-workstreams (:shared/filter-workstreams @*app-state)
              :filter-projects (:shared/filter-projects @*app-state)
              :filter-goals (:shared/filter-goals @*app-state)
+             :filter-assets (:shared/filter-assets @*app-state)
              :week-offset (:week-offset @meets-state/*meets-page-state)
              :week-limit meets-week-limit}
       series-filter (assoc :series-id (:id series-filter)))))
@@ -863,8 +890,10 @@
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
+   :filter-workstreams (:shared/filter-workstreams @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)
+   :filter-assets (:shared/filter-assets @*app-state)})
 
 (defn fetch-meeting-series
   ([] (fetch-meeting-series (meeting-series-fetch-opts)))
@@ -954,8 +983,10 @@
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
+   :filter-workstreams (:shared/filter-workstreams @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)
+   :filter-assets (:shared/filter-assets @*app-state)})
 
 (defn fetch-recurring-tasks
   ([] (fetch-recurring-tasks (recurring-tasks-fetch-opts)))
@@ -1020,8 +1051,10 @@
    :strict (:strict-mode @*app-state)
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
+   :filter-workstreams (:shared/filter-workstreams @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)})
+   :filter-goals (:shared/filter-goals @*app-state)
+   :filter-assets (:shared/filter-assets @*app-state)})
 
 (defn fetch-journals
   ([] (fetch-journals (journals-fetch-opts)))
@@ -1073,8 +1106,10 @@
      :strict (:strict-mode @*app-state)
      :filter-people (:shared/filter-people @*app-state)
      :filter-places (:shared/filter-places @*app-state)
+     :filter-workstreams (:shared/filter-workstreams @*app-state)
      :filter-projects (:shared/filter-projects @*app-state)
      :filter-goals (:shared/filter-goals @*app-state)
+     :filter-assets (:shared/filter-assets @*app-state)
      :journal-id (when journal-filter (:id journal-filter))}))
 
 (defn fetch-journal-entries
@@ -1274,7 +1309,7 @@
 
 (defn toggle-meets-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:meets-page/collapsed-filters @*app-state) filter-key)
-        all-filters #{:people :places :projects :goals}]
+        all-filters all-category-filters]
     (swap! *app-state update :meets-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
@@ -1298,15 +1333,12 @@
 
 (defn clear-uncollapsed-meet-filters []
   (let [collapsed (:meets-page/collapsed-filters @*app-state)
-        all-filters #{:people :places :projects :goals}
+        all-filters all-category-filters
         any-visible? (seq (clojure.set/difference all-filters collapsed))]
     (when-not any-visible?
+      (swap! *app-state merge empty-category-filters)
       (swap! *app-state assoc
-             :shared/filter-people #{}
-             :shared/filter-places #{}
-             :shared/filter-projects #{}
-             :shared/filter-goals #{}
-             :meets-page/category-search {:people "" :places "" :projects "" :goals ""})
+             :meets-page/category-search empty-category-searches)
       (.scrollTo js/window 0 0)
       (if (:meets-page/series-mode @*app-state)
         (meeting-series-state/clear-all-meeting-series-filters fetch-meeting-series)
@@ -1314,7 +1346,7 @@
 
 (defn toggle-resources-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:resources-page/collapsed-filters @*app-state) filter-key)
-        all-filters #{:people :places :projects :goals}]
+        all-filters all-category-filters]
     (swap! *app-state update :resources-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
@@ -1337,10 +1369,7 @@
   (swap! *app-state assoc-in [:resources-page/category-search category-key] search-term))
 
 (def ^:private shared-filter-key
-  {constants/CATEGORY-TYPE-PERSON :shared/filter-people
-   constants/CATEGORY-TYPE-PLACE :shared/filter-places
-   constants/CATEGORY-TYPE-PROJECT :shared/filter-projects
-   constants/CATEGORY-TYPE-GOAL :shared/filter-goals})
+  (into {} (map (fn [k] [(constants/category-key->type k) (filter-state-key k)])) category-keys))
 
 (defn- refetch-current-tab []
   (case (:active-tab @*app-state)
@@ -1407,15 +1436,12 @@
 
 (defn clear-uncollapsed-resource-filters []
   (let [collapsed (:resources-page/collapsed-filters @*app-state)
-        all-filters #{:people :places :projects :goals}
+        all-filters all-category-filters
         any-visible? (seq (clojure.set/difference all-filters collapsed))]
     (when-not any-visible?
+      (swap! *app-state merge empty-category-filters)
       (swap! *app-state assoc
-             :shared/filter-people #{}
-             :shared/filter-places #{}
-             :shared/filter-projects #{}
-             :shared/filter-goals #{}
-             :resources-page/category-search {:people "" :places "" :projects "" :goals ""})
+             :resources-page/category-search empty-category-searches)
       (.scrollTo js/window 0 0)
       (resources-state/clear-all-resource-filters fetch-resources))))
 
@@ -1519,29 +1545,32 @@
 (defn switch-user [user]
   (users/switch-user *app-state initial-collection-state fetch-all user))
 
-(defn fetch-people []
-  (categories/fetch-people *app-state auth-headers))
+;; Per-group facades over the group-agnostic state.categories fns. Kept as
+;; named vars (rather than making every call site pass a group key) because the
+;; views already call them by name, and a group is a compile-time constant at
+;; each of those sites.
+(defn fetch-categories [group-key]
+  (categories/fetch-categories *app-state auth-headers group-key))
 
-(defn fetch-places []
-  (categories/fetch-places *app-state auth-headers))
+(defn fetch-people [] (fetch-categories :people))
+(defn fetch-places [] (fetch-categories :places))
+(defn fetch-workstreams [] (fetch-categories :workstreams))
+(defn fetch-projects [] (fetch-categories :projects))
+(defn fetch-goals [] (fetch-categories :goals))
+(defn fetch-assets [] (fetch-categories :assets))
 
-(defn fetch-projects []
-  (categories/fetch-projects *app-state auth-headers))
+(defn fetch-all-categories []
+  (categories/fetch-all-categories *app-state auth-headers))
 
-(defn fetch-goals []
-  (categories/fetch-goals *app-state auth-headers))
+(defn set-category-scope [group-key id scope]
+  (categories/set-category-scope *app-state auth-headers group-key id scope))
 
-(defn set-people-scope [id scope]
-  (categories/set-people-scope *app-state auth-headers id scope))
-
-(defn set-places-scope [id scope]
-  (categories/set-places-scope *app-state auth-headers id scope))
-
-(defn set-projects-scope [id scope]
-  (categories/set-projects-scope *app-state auth-headers id scope))
-
-(defn set-goals-scope [id scope]
-  (categories/set-goals-scope *app-state auth-headers id scope))
+(defn set-people-scope [id scope] (set-category-scope :people id scope))
+(defn set-places-scope [id scope] (set-category-scope :places id scope))
+(defn set-workstreams-scope [id scope] (set-category-scope :workstreams id scope))
+(defn set-projects-scope [id scope] (set-category-scope :projects id scope))
+(defn set-goals-scope [id scope] (set-category-scope :goals id scope))
+(defn set-assets-scope [id scope] (set-category-scope :assets id scope))
 
 (defn set-categories-filter-search [category-type search-term]
   (swap! *app-state assoc-in [:categories-page/filter-search category-type] search-term))
@@ -1555,51 +1584,43 @@
 (defn delete-rule [rule-id]
   (rules/delete-rule *app-state auth-headers rule-id))
 
-(defn add-person [name on-success]
-  (categories/add-person *app-state auth-headers name on-success))
+(defn add-category [group-key name on-success]
+  (categories/add-category *app-state auth-headers group-key name on-success))
 
-(defn add-place [name on-success]
-  (categories/add-place *app-state auth-headers name on-success))
+(defn add-person [name on-success] (add-category :people name on-success))
+(defn add-place [name on-success] (add-category :places name on-success))
+(defn add-workstream [name on-success] (add-category :workstreams name on-success))
+(defn add-project [name on-success] (add-category :projects name on-success))
+(defn add-goal [name on-success] (add-category :goals name on-success))
+(defn add-asset [name on-success] (add-category :assets name on-success))
 
-(defn add-project [name on-success]
-  (categories/add-project *app-state auth-headers name on-success))
-
-(defn add-goal [name on-success]
-  (categories/add-goal *app-state auth-headers name on-success))
+(defn update-category
+  ([group-key id name description tags badge-title on-success]
+   (update-category group-key id name description tags badge-title nil on-success))
+  ([group-key id name description tags badge-title expected-modified-at on-success]
+   (let [modal-type (keyword (str "category-" (constants/category-key->type group-key)))]
+     (categories/update-category *app-state auth-headers fetch-tasks group-key
+                                 id name description tags badge-title expected-modified-at on-success
+                                 (edit-conflict-handler modal-type "Failed to update category")))))
 
 (defn update-person
-  ([id name description tags badge-title on-success]
-   (update-person id name description tags badge-title nil on-success))
-  ([id name description tags badge-title expected-modified-at on-success]
-   (categories/update-person *app-state auth-headers fetch-tasks id name description tags badge-title expected-modified-at on-success
-                             (edit-conflict-handler :category-person "Failed to update person"))))
-
+  ([id n d t b on-success] (update-category :people id n d t b nil on-success))
+  ([id n d t b expected on-success] (update-category :people id n d t b expected on-success)))
 (defn update-place
-  ([id name description tags badge-title on-success]
-   (update-place id name description tags badge-title nil on-success))
-  ([id name description tags badge-title expected-modified-at on-success]
-   (categories/update-place *app-state auth-headers fetch-tasks id name description tags badge-title expected-modified-at on-success
-                            (edit-conflict-handler :category-place "Failed to update place"))))
-
+  ([id n d t b on-success] (update-category :places id n d t b nil on-success))
+  ([id n d t b expected on-success] (update-category :places id n d t b expected on-success)))
+(defn update-workstream
+  ([id n d t b on-success] (update-category :workstreams id n d t b nil on-success))
+  ([id n d t b expected on-success] (update-category :workstreams id n d t b expected on-success)))
 (defn update-project
-  ([id name description tags badge-title on-success]
-   (update-project id name description tags badge-title nil on-success))
-  ([id name description tags badge-title expected-modified-at on-success]
-   (categories/update-project *app-state auth-headers fetch-tasks id name description tags badge-title expected-modified-at on-success
-                              (edit-conflict-handler :category-project "Failed to update project"))))
-
+  ([id n d t b on-success] (update-category :projects id n d t b nil on-success))
+  ([id n d t b expected on-success] (update-category :projects id n d t b expected on-success)))
 (defn update-goal
-  ([id name description tags badge-title on-success]
-   (update-goal id name description tags badge-title nil on-success))
-  ([id name description tags badge-title expected-modified-at on-success]
-   (categories/update-goal *app-state auth-headers fetch-tasks id name description tags badge-title expected-modified-at on-success
-                           (edit-conflict-handler :category-goal "Failed to update goal"))))
-
-(def ^:private filter-key->update-category-fn
-  {:people   update-person
-   :places   update-place
-   :projects update-project
-   :goals    update-goal})
+  ([id n d t b on-success] (update-category :goals id n d t b nil on-success))
+  ([id n d t b expected on-success] (update-category :goals id n d t b expected on-success)))
+(defn update-asset
+  ([id n d t b on-success] (update-category :assets id n d t b nil on-success))
+  ([id n d t b expected on-success] (update-category :assets id n d t b expected on-success)))
 
 (defn bump-category-modified
   "Bump a category's modified_at to now via the existing optimistic-concurrency
@@ -1609,9 +1630,9 @@
   updates local state, re-sorts, and handles the 409 conflict path like every
   other edit."
   [filter-key item]
-  (when-let [update-fn (filter-key->update-category-fn filter-key)]
-    (update-fn (:id item) (:name item) (:description item) (:tags item) (:badge_title item)
-               (:modified_at item) nil)))
+  (when (contains? (set category-keys) filter-key)
+    (update-category filter-key (:id item) (:name item) (:description item)
+                     (:tags item) (:badge_title item) (:modified_at item) nil)))
 
 (defn set-confirm-delete-category [category-type category]
   (categories/set-confirm-delete-category *app-state category-type category))
@@ -1619,17 +1640,15 @@
 (defn clear-confirm-delete-category []
   (categories/clear-confirm-delete-category *app-state))
 
-(defn delete-person [id]
-  (categories/delete-person *app-state auth-headers fetch-tasks id))
+(defn delete-category [group-key id]
+  (categories/delete-category *app-state auth-headers fetch-tasks group-key id))
 
-(defn delete-place [id]
-  (categories/delete-place *app-state auth-headers fetch-tasks id))
-
-(defn delete-project [id]
-  (categories/delete-project *app-state auth-headers fetch-tasks id))
-
-(defn delete-goal [id]
-  (categories/delete-goal *app-state auth-headers fetch-tasks id))
+(defn delete-person [id] (delete-category :people id))
+(defn delete-place [id] (delete-category :places id))
+(defn delete-workstream [id] (delete-category :workstreams id))
+(defn delete-project [id] (delete-category :projects id))
+(defn delete-goal [id] (delete-category :goals id))
+(defn delete-asset [id] (delete-category :assets id))
 
 (defn set-editing-category [category-type id]
   (categories/set-editing-category *app-state category-type id))
@@ -1646,10 +1665,9 @@
 (defn clear-category-drag-state []
   (categories/clear-category-drag-state *app-state))
 
-(defn reorder-category [category-type category-id target-category-id position]
-  (categories/reorder-category *app-state auth-headers
-                               fetch-people fetch-places fetch-projects fetch-goals
-                               category-type category-id target-category-id position))
+(defn reorder-category [group-key category-id target-category-id position]
+  (categories/reorder-category *app-state auth-headers group-key
+                               category-id target-category-id position))
 
 (defn- fetch-opts-for-current-tab []
   (case (:active-tab @*app-state)
@@ -1659,8 +1677,10 @@
                      :strict (:strict-mode @*app-state)
                      :filter-people (:shared/filter-people @*app-state)
                      :filter-places (:shared/filter-places @*app-state)
+                     :filter-workstreams (:shared/filter-workstreams @*app-state)
                      :filter-projects (:shared/filter-projects @*app-state)
-                     :filter-goals (:shared/filter-goals @*app-state)}
+                     :filter-goals (:shared/filter-goals @*app-state)
+                     :filter-assets (:shared/filter-assets @*app-state)}
              (:tasks-page/filter-recurring @*app-state)
              (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @*app-state))))
     :issues (cond-> {:context (:work-private-mode @*app-state)
@@ -1671,8 +1691,10 @@
             :strict (:strict-mode @*app-state)
             :filter-people (:shared/filter-people @*app-state)
             :filter-places (:shared/filter-places @*app-state)
+            :filter-workstreams (:shared/filter-workstreams @*app-state)
             :filter-projects (:shared/filter-projects @*app-state)
-            :filter-goals (:shared/filter-goals @*app-state)}
+            :filter-goals (:shared/filter-goals @*app-state)
+            :filter-assets (:shared/filter-assets @*app-state)}
     {:context (:work-private-mode @*app-state)
      :strict (:strict-mode @*app-state)}))
 
@@ -2035,8 +2057,10 @@
    :items-filter (:reports-page/items-filter @*app-state)
    :filter-people (:shared/filter-people @*app-state)
    :filter-places (:shared/filter-places @*app-state)
+   :filter-workstreams (:shared/filter-workstreams @*app-state)
    :filter-projects (:shared/filter-projects @*app-state)
    :filter-goals (:shared/filter-goals @*app-state)
+   :filter-assets (:shared/filter-assets @*app-state)
    :week-offset (:week-offset @reports-state/*reports-page-state)
    :week-limit (:week-limit @reports-state/*reports-page-state)})
 
@@ -2065,7 +2089,7 @@
 
 (defn toggle-reports-filter-collapsed [filter-key]
   (let [was-collapsed (contains? (:reports-page/collapsed-filters @*app-state) filter-key)
-        all-filters #{:people :places :projects :goals}]
+        all-filters all-category-filters]
     (swap! *app-state update :reports-page/collapsed-filters
            (fn [collapsed]
              (if (contains? collapsed filter-key)
@@ -2098,25 +2122,19 @@
 
 (defn clear-uncollapsed-report-filters []
   (let [collapsed (:reports-page/collapsed-filters @*app-state)
-        all-filters #{:people :places :projects :goals}
+        all-filters all-category-filters
         uncollapsed (clojure.set/difference all-filters collapsed)]
     (if (empty? uncollapsed)
-      (swap! *app-state assoc
-             :shared/filter-people #{}
-             :shared/filter-places #{}
-             :shared/filter-projects #{}
-             :shared/filter-goals #{}
-             :reports-page/category-search {:people "" :places "" :projects "" :goals ""})
+      (do
+        (swap! *app-state merge empty-category-filters)
+        (swap! *app-state assoc
+               :reports-page/category-search empty-category-searches))
       (do
         (doseq [filter-key uncollapsed]
-          (case filter-key
-            :people (swap! *app-state assoc :shared/filter-people #{})
-            :places (swap! *app-state assoc :shared/filter-places #{})
-            :projects (swap! *app-state assoc :shared/filter-projects #{})
-            :goals (swap! *app-state assoc :shared/filter-goals #{})))
+          (swap! *app-state assoc (filter-state-key filter-key) #{}))
         (swap! *app-state assoc
                :reports-page/collapsed-filters all-filters
-               :reports-page/category-search {:people "" :places "" :projects "" :goals ""})))
+               :reports-page/category-search empty-category-searches)))
     (fetch-reports)))
 
 (defn- fetch-meets-or-series []
@@ -2143,8 +2161,10 @@
                                         :fetch-reports fetch-reports
                                         :fetch-people fetch-people
                                         :fetch-places fetch-places
+                                        :fetch-workstreams fetch-workstreams
                                         :fetch-projects fetch-projects
                                         :fetch-goals fetch-goals
+                                        :fetch-assets fetch-assets
                                         :fetch-rules-page fetch-rules-page
                                         :fetch-mottos fetch-mottos
                                         :fetch-working-on fetch-working-on
@@ -2191,19 +2211,21 @@
        (url/push-state! (str path (when (= tab :edit) "?section=edit")))))))
 
 (def ^:private edit-modal-api-paths
-  {:task "/api/tasks/"
-   :meet "/api/meets/"
-   :resource "/api/resources/"
-   :issue "/api/issues/"
-   :journal "/api/journals/"
-   :journal-entry "/api/journal-entries/"
-   :recurring-task "/api/recurring-tasks/"
-   :meeting-series "/api/meeting-series/"
-   :message "/api/messages/"
-   :category-person "/api/people/"
-   :category-place "/api/places/"
-   :category-project "/api/projects/"
-   :category-goal "/api/goals/"})
+  ;; ...plus one :category-<type> entry per Group, so the edit modal can refetch
+  ;; any category row whichever group it is in.
+  (merge
+   {:task "/api/tasks/"
+    :meet "/api/meets/"
+    :resource "/api/resources/"
+    :issue "/api/issues/"
+    :journal "/api/journals/"
+    :journal-entry "/api/journal-entries/"
+    :recurring-task "/api/recurring-tasks/"
+    :meeting-series "/api/meeting-series/"
+    :message "/api/messages/"}
+   (into {} (map (fn [k] [(keyword (str "category-" (constants/category-key->type k)))
+                          (constants/category-key->endpoint k)]))
+         constants/category-key-order)))
 
 (defn open-edit-modal
   "Opens the edit modal for entity-type on a freshly-fetched copy of the row so
@@ -2288,10 +2310,9 @@
   category lists carrying :scope; a filter id was only selectable while its
   category was in scope, so it is present here to be re-tested."
   [mode strict?]
-  (doseq [[list-key filter-key exclude-key] [[:people :shared/filter-people :shared/exclude-people]
-                                             [:places :shared/filter-places :shared/exclude-places]
-                                             [:projects :shared/filter-projects :shared/exclude-projects]
-                                             [:goals :shared/filter-goals :shared/exclude-goals]]]
+  (doseq [list-key category-keys
+          :let [filter-key (filter-state-key list-key)
+                exclude-key (exclude-state-key list-key)]]
     (let [categories (get @*app-state list-key)
           known-ids (into #{} (map :id) categories)
           in-scope-ids (->> categories
@@ -2314,18 +2335,12 @@
 (defn set-work-private-mode [mode]
   (prune-shared-category-filters! mode (:strict-mode @*app-state))
   (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-issues fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports mode)
-  (fetch-people)
-  (fetch-places)
-  (fetch-projects)
-  (fetch-goals))
+  (fetch-all-categories))
 
 (defn toggle-strict-mode []
   (prune-shared-category-filters! (:work-private-mode @*app-state) (not (:strict-mode @*app-state)))
   (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-issues fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports)
-  (fetch-people)
-  (fetch-places)
-  (fetch-projects)
-  (fetch-goals))
+  (fetch-all-categories))
 
 (defn toggle-dark-mode []
   (ui/toggle-dark-mode *app-state))

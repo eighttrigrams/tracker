@@ -4,6 +4,7 @@
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
             [et.tr.ui.state.exclusions :as exclusions]
+            [et.tr.ui.state.category-filters :as category-filters]
             [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE
                                         CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
 
@@ -25,23 +26,17 @@
   ([app-state auth-headers calculate-best-horizon-fn]
    (fetch-tasks app-state auth-headers calculate-best-horizon-fn nil))
   ([app-state auth-headers calculate-best-horizon-fn {:keys [search-term importance context strict
-                                                              filter-people filter-places filter-projects filter-goals
-                                                              recurring-task-id issue-id]}]
+                                                              recurring-task-id issue-id]
+                                                       :as opts}]
    (let [sort-mode (name (:sort-mode @app-state))
-         people-param (build-category-param filter-people (:people @app-state))
-         places-param (build-category-param filter-places (:places @app-state))
-         projects-param (build-category-param filter-projects (:projects @app-state))
-         goals-param (build-category-param filter-goals (:goals @app-state))
+         category-params (category-filters/query-params app-state opts)
          excluded-params (exclusions/query-params app-state)
          url (cond-> (str "/api/tasks?sort=" sort-mode)
                (seq search-term) (str "&q=" (js/encodeURIComponent search-term))
                importance (str "&importance=" (name importance))
                context (str "&context=" (name context))
                strict (str "&strict=true")
-               people-param (str "&people=" people-param)
-               places-param (str "&places=" places-param)
-               projects-param (str "&projects=" projects-param)
-               goals-param (str "&goals=" goals-param)
+               (seq category-params) (str "&" (str/join "&" category-params))
                (seq excluded-params) (str "&" (str/join "&" excluded-params))
                recurring-task-id (str "&recurring-task-id=" recurring-task-id)
                issue-id (str "&issue=" issue-id))]

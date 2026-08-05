@@ -1,6 +1,7 @@
 (ns et.tr.ui.components.filter-section
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.i18n :refer [t]]))
@@ -32,14 +33,10 @@
         [:path {:d "M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"}]
         [:circle {:cx "12" :cy "12" :r "3"}]]]]]))
 
-(def ^:private filter-key->entity-type
-  {:people   :category-person
-   :places   :category-place
-   :projects :category-project
-   :goals    :category-goal})
+(def ^:private filter-key->entity-type constants/category-key->edit-modal-type)
 
 (defn negative-filter-section
-  "Replaces the sidebar's four filter groups while a negative category filter is
+  "Replaces the sidebar's per-Group filter sections while a negative category filter is
   active: the excluded categories as struck-through chips, colour-grouped by
   type, each with an x that drops just that one, plus an x on the header that
   clears them all. Only the shift-clicked seeds appear — the categories the

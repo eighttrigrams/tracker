@@ -1,5 +1,6 @@
 (ns et.tr.ui.views.meets
   (:require [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.ui.date :as date]
@@ -11,10 +12,7 @@
 (declare series-create-meeting-button)
 
 (def ^:private meets-category-shortcut-keys
-  {"Digit1" :people
-   "Digit2" :places
-   "Digit3" :projects
-   "Digit4" :goals})
+  constants/category-shortcut-keys)
 
 (def meets-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) meets-category-shortcut-keys)))
@@ -23,12 +21,7 @@
   meets-category-shortcut-keys)
 
 (defn- meet-category-selector [meet category-type entities label]
-  (let [current-categories (case category-type
-                             state/CATEGORY-TYPE-PERSON (:people meet)
-                             state/CATEGORY-TYPE-PLACE (:places meet)
-                             state/CATEGORY-TYPE-PROJECT (:projects meet)
-                             state/CATEGORY-TYPE-GOAL (:goals meet)
-                             [])]
+  (let [current-categories (get meet (constants/category-type->key category-type) [])]
     [category-selector/category-selector
      {:entity meet
       :entity-id-key :id
@@ -161,26 +154,7 @@
                                            :page-prefix "meets"}])
 
 (def ^:private meets-sidebar-filter-configs
-  [{:filter-key :people
-    :title-key :category/people
-    :items-key :people
-    :filter-state-key :shared/filter-people
-    :category-type state/CATEGORY-TYPE-PERSON}
-   {:filter-key :places
-    :title-key :category/places
-    :items-key :places
-    :filter-state-key :shared/filter-places
-    :category-type state/CATEGORY-TYPE-PLACE}
-   {:filter-key :projects
-    :title-key :category/projects
-    :items-key :projects
-    :filter-state-key :shared/filter-projects
-    :category-type state/CATEGORY-TYPE-PROJECT}
-   {:filter-key :goals
-    :title-key :category/goals
-    :items-key :goals
-    :filter-state-key :shared/filter-goals
-    :category-type state/CATEGORY-TYPE-GOAL}])
+  constants/sidebar-filter-configs)
 
 (defn- sidebar-filters []
   (let [app-state @state/*app-state
@@ -200,12 +174,7 @@
                                      :collapsed? (contains? collapsed-filters filter-key)}])))))
 
 (defn- series-category-selector [series category-type entities label]
-  (let [current-categories (case category-type
-                             state/CATEGORY-TYPE-PERSON (:people series)
-                             state/CATEGORY-TYPE-PLACE (:places series)
-                             state/CATEGORY-TYPE-PROJECT (:projects series)
-                             state/CATEGORY-TYPE-GOAL (:goals series)
-                             [])]
+  (let [current-categories (get series (constants/category-type->key category-type) [])]
     [category-selector/category-selector
      {:entity series
       :entity-id-key :id

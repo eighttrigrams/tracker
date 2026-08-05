@@ -165,6 +165,24 @@
   color: var(--cat-goal-color);
 }
 
+.filter-section.workstreams .filter-item.active {
+  background: rgba(var(--cat-workstream-rgb), 0.2);
+  color: var(--cat-workstream-color);
+}
+.filter-section.workstreams .filter-item-label {
+  background: rgba(var(--cat-workstream-rgb), 0.2);
+  color: var(--cat-workstream-color);
+}
+
+.filter-section.assets .filter-item.active {
+  background: rgba(var(--cat-asset-rgb), 0.2);
+  color: var(--cat-asset-color);
+}
+.filter-section.assets .filter-item-label {
+  background: rgba(var(--cat-asset-rgb), 0.2);
+  color: var(--cat-asset-color);
+}
+
 /* Exclusion filter styles for Today page */
 .filter-section.places.exclusion-filter .filter-item.excluded {
   background: rgba(var(--cat-place-rgb), 0.2);
@@ -200,9 +218,23 @@
   text-decoration: line-through;
 }
 
-/* The negative filter replaces the four groups: one "Excluded" header over the
-   per-type chip groups, which sit closer together than the groups they stand
-   in for. */
+.filter-section.workstreams.exclusion-filter .filter-item.excluded,
+.filter-section.workstreams.exclusion-filter .filter-item-label {
+  background: rgba(var(--cat-workstream-rgb), 0.2);
+  color: var(--cat-workstream-color);
+  text-decoration: line-through;
+}
+
+.filter-section.assets.exclusion-filter .filter-item.excluded,
+.filter-section.assets.exclusion-filter .filter-item-label {
+  background: rgba(var(--cat-asset-rgb), 0.2);
+  color: var(--cat-asset-color);
+  text-decoration: line-through;
+}
+
+/* The negative filter replaces the per-Group sections: one "Excluded" header
+   over the per-type chip groups, which sit closer together than the groups
+   they stand in for. */
 .exclusion-filters .filter-section { margin-bottom: 8px; }
 .exclusion-filters .filter-section:last-child { margin-bottom: 0; }
 .exclusion-filters .filter-item-label .remove-item { text-decoration: none; }

@@ -5,7 +5,8 @@
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
             [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
-            [et.tr.ui.state.exclusions :as exclusions]))
+            [et.tr.ui.state.exclusions :as exclusions]
+            [et.tr.ui.state.category-filters :as category-filters]))
 
 (defonce *resources-page-state (r/atom {:expanded-resource nil
                                         :editing-resource nil
@@ -20,17 +21,13 @@
 
 (def ^:private page-size 50)
 
-(defn- filtered? [{:keys [search-term importance domain excluded-domains
-                          filter-people filter-places filter-projects filter-goals]}]
+(defn- filtered? [{:keys [search-term importance domain excluded-domains] :as opts}]
   (boolean
     (or (>= (count (str search-term)) 2)
         importance
         (seq domain)
         (seq excluded-domains)
-        (seq filter-people)
-        (seq filter-places)
-        (seq filter-projects)
-        (seq filter-goals))))
+        (category-filters/any-selected? opts))))
 
 (defn- ids->names [ids collection]
   (let [id-set (set ids)
@@ -39,11 +36,8 @@
 
 (defn fetch-resources [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *resources-page-state update :fetch-request-id inc))
-        {:keys [search-term importance context strict filter-people filter-places filter-projects filter-goals sort-mode]} opts
-        people-names (when (seq filter-people) (ids->names filter-people (:people @app-state)))
-        place-names (when (seq filter-places) (ids->names filter-places (:places @app-state)))
-        project-names (when (seq filter-projects) (ids->names filter-projects (:projects @app-state)))
-        goal-names (when (seq filter-goals) (ids->names filter-goals (:goals @app-state)))
+        {:keys [search-term importance context strict sort-mode]} opts
+        category-params (category-filters/query-string app-state opts)
         excluded-params (exclusions/query-params app-state)
         domain (:domain opts)
         excluded-domains (:excluded-domains opts)
@@ -58,10 +52,7 @@
               strict (str "strict=true&")
               (seq domain) (str "domain=" (js/encodeURIComponent domain) "&")
               (seq excluded-domains) (str "excludedDomains=" (js/encodeURIComponent (str/join "," excluded-domains)) "&")
-              (seq people-names) (str "people=" (js/encodeURIComponent (str/join "," people-names)) "&")
-              (seq place-names) (str "places=" (js/encodeURIComponent (str/join "," place-names)) "&")
-              (seq project-names) (str "projects=" (js/encodeURIComponent (str/join "," project-names)) "&")
-              (seq goal-names) (str "goals=" (js/encodeURIComponent (str/join "," goal-names)) "&")
+              (seq category-params) (str category-params)
               (seq excluded-params) (str (str/join "&" excluded-params) "&")
               sort-mode (str "sortMode=" (name sort-mode) "&"))]
     (GET url

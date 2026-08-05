@@ -1,6 +1,7 @@
 (ns et.tr.ui.views.tasks
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
@@ -11,10 +12,7 @@
             [et.tr.i18n :refer [t]]))
 
 (def ^:private tasks-category-shortcut-keys
-  {"Digit1" :people
-   "Digit2" :places
-   "Digit3" :projects
-   "Digit4" :goals})
+  constants/category-shortcut-keys)
 
 (def tasks-category-shortcut-numbers
   (into {} (map (fn [[k v]] [v (subs k 5)]) tasks-category-shortcut-keys)))
@@ -130,26 +128,7 @@
                                   :label-class nil}])
 
 (def ^:private sidebar-filter-configs
-  [{:filter-key :people
-    :title-key :category/people
-    :items-key :people
-    :filter-state-key :shared/filter-people
-    :category-type state/CATEGORY-TYPE-PERSON}
-   {:filter-key :places
-    :title-key :category/places
-    :items-key :places
-    :filter-state-key :shared/filter-places
-    :category-type state/CATEGORY-TYPE-PLACE}
-   {:filter-key :projects
-    :title-key :category/projects
-    :items-key :projects
-    :filter-state-key :shared/filter-projects
-    :category-type state/CATEGORY-TYPE-PROJECT}
-   {:filter-key :goals
-    :title-key :category/goals
-    :items-key :goals
-    :filter-state-key :shared/filter-goals
-    :category-type state/CATEGORY-TYPE-GOAL}])
+  constants/sidebar-filter-configs)
 
 (defn sidebar-filters []
   (let [app-state @state/*app-state
@@ -365,12 +344,7 @@
         s])]))
 
 (defn- rtask-category-selector [rtask category-type entities label]
-  (let [current-categories (case category-type
-                             state/CATEGORY-TYPE-PERSON (:people rtask)
-                             state/CATEGORY-TYPE-PLACE (:places rtask)
-                             state/CATEGORY-TYPE-PROJECT (:projects rtask)
-                             state/CATEGORY-TYPE-GOAL (:goals rtask)
-                             [])]
+  (let [current-categories (get rtask (constants/category-type->key category-type) [])]
     [category-selector/category-selector
      {:entity rtask
       :entity-id-key :id
@@ -398,11 +372,9 @@
                    (.stopPropagation e)
                    (state/open-edit-modal :recurring-task rtask))}
       "✎"])
-   [:div.item-tags
-    [rtask-category-selector rtask state/CATEGORY-TYPE-PERSON people (t :category/person)]
-    [rtask-category-selector rtask state/CATEGORY-TYPE-PLACE places (t :category/place)]
-    [rtask-category-selector rtask state/CATEGORY-TYPE-PROJECT projects (t :category/project)]
-    [rtask-category-selector rtask state/CATEGORY-TYPE-GOAL goals (t :category/goal)]]
+   (into [:div.item-tags]
+         (for [{:keys [type key singular]} constants/category-groups]
+           [rtask-category-selector rtask type (get @state/*app-state key) (t singular)]))
    [:div.item-actions
     [rtask-scope-selector rtask]
     [item-card/footer-button {:label (t :task/delete) :variant :delete
@@ -463,10 +435,7 @@
   [:div.item-tags-readonly
    [task-item/category-badges
     {:item rtask
-     :category-types [[state/CATEGORY-TYPE-PERSON :people]
-                      [state/CATEGORY-TYPE-PLACE :places]
-                      [state/CATEGORY-TYPE-PROJECT :projects]
-                      [state/CATEGORY-TYPE-GOAL :goals]]
+     :category-types constants/category-type-pairs
      :toggle-fn state/toggle-shared-filter
      :has-filter-fn state/has-filter-for-type?}]])
 
