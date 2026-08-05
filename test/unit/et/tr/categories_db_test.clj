@@ -209,3 +209,216 @@
       (db.task/set-task-field *ds* *user-id* (:id task) :scope "work")
       (let [t (first (db.task/list-tasks *ds* *user-id* :recent {:context "work" :strict true}))]
         (is (= #{"Boss"} (set (map :name (:people t)))))))))
+
+;; ---------------------------------------------------------------------------
+;; Changing an item's Group
+;;
+;; The whole reason the four category tables were unified into one: a Group is a
+;; column value, so a move is an UPDATE and the row keeps its id — and with the
+;; id, everything hanging off it. These tests exist to prove exactly that, and
+;; each one names a thing that must survive rather than asserting "it moved".
+
+(defn- join-rows [table]
+  (jdbc/execute! (:conn *ds*)
+    (sql/format {:select [:*] :from [table]})
+    {:builder-fn rs/as-unqualified-maps}))
+
+(defn- category-row [id]
+  (jdbc/execute-one! (:conn *ds*)
+    (sql/format {:select [:*] :from [:categories] :where [:= :id id]})
+    {:builder-fn rs/as-unqualified-maps}))
+
+(def ^:private all-join-tables
+  [:task_categories :issue_categories :resource_categories :meet_categories
+   :meeting_series_categories :recurring_task_categories
+   :journal_categories :journal_entry_categories])
+
+(defn- mirror-disagreements
+  "Every join row whose category_type differs from the categories row it names,
+  across all eight join tables. The invariant the denormalised mirror has to
+  keep; anything in here is drift."
+  []
+  (vec (for [table all-join-tables
+             row (jdbc/execute! (:conn *ds*)
+                   (sql/format {:select [:j.category_type :j.category_id
+                                         [:c.category_type :cat_type]]
+                                :from [[table :j]]
+                                :join [[:categories :c] [:= :c.id :j.category_id]]
+                                :where [:<> :j.category_type :c.category_type]})
+                   {:builder-fn rs/as-unqualified-maps})]
+         (assoc row :table table))))
+
+(deftest change-group-keeps-the-id-and-every-field
+  (let [project (db.category/add-project *ds* *user-id* "Renovations")
+        id (:id project)]
+    (db.category/update-project *ds* *user-id* id "Renovations" "the description" "tag1 tag2" "RN")
+    (db.category/set-project-field *ds* *user-id* id :scope "work")
+    (let [before (category-row id)
+          moved (db.category/set-category-group *ds* *user-id* id "workstream")
+          after (category-row id)]
+      (testing "the row is the same row"
+        (is (= id (:id moved)))
+        (is (= id (:id after))))
+      (testing "and it is now a workstream"
+        (is (= "workstream" (:category_type after)))
+        (is (= "workstream" (:category_type moved))))
+      (testing "name, description, tags, badge title and scope all survive"
+        (is (= "Renovations" (:name after)))
+        (is (= "the description" (:description after)))
+        (is (= "tag1 tag2" (:tags after)))
+        (is (= "RN" (:badge_title after)))
+        (is (= "work" (:scope after)))
+        (is (= (select-keys before [:name :description :tags :badge_title :scope :user_id])
+               (select-keys after [:name :description :tags :badge_title :scope :user_id]))))
+      (testing "it is listed under its new group and no longer under the old one"
+        (is (= ["Renovations"] (map :name (db.category/list-workstreams *ds* *user-id*))))
+        (is (= [] (map :name (db.category/list-projects *ds* *user-id*))))))))
+
+(deftest change-group-keeps-associations-in-every-entity-type
+  (let [project (db.category/add-project *ds* *user-id* "Renovations")
+        id (:id project)
+        task (db.task/add-task *ds* *user-id* "Fix the roof")
+        issue (db.issue/add-issue *ds* *user-id* "Roof leaks")
+        resource (db.resource/add-resource *ds* *user-id* "Roofing guide" "https://example.com" "both")
+        meet (db.meet/add-meet *ds* *user-id* "Roofer visit")]
+    (db.task/categorize-task *ds* *user-id* (:id task) "project" id)
+    (db.issue/categorize-issue *ds* *user-id* (:id issue) "project" id)
+    (db.resource/categorize-resource *ds* *user-id* (:id resource) "project" id)
+    (db.meet/categorize-meet *ds* *user-id* (:id meet) "project" id)
+
+    (db.category/set-category-group *ds* *user-id* id "workstream")
+
+    (testing "the task still carries it, now under :workstreams"
+      (let [t (first (db.task/list-tasks *ds* *user-id*))]
+        (is (= ["Renovations"] (map :name (:workstreams t))))
+        (is (= [] (:projects t)))))
+    (testing "so does the issue"
+      (let [i (first (db.issue/list-issues *ds* *user-id*))]
+        (is (= ["Renovations"] (map :name (:workstreams i))))))
+    (testing "so does the resource"
+      (let [r (first (db.resource/list-resources *ds* *user-id*))]
+        (is (= ["Renovations"] (map :name (:workstreams r))))))
+    (testing "so does the meet"
+      (let [m (first (db.meet/list-meets *ds* *user-id*))]
+        (is (= ["Renovations"] (map :name (:workstreams m))))))
+    (testing "no association was dropped or duplicated"
+      (is (= 1 (count-join-rows :task_categories)))
+      (is (= 1 (count-join-rows :issue_categories)))
+      (is (= 1 (count-join-rows :resource_categories)))
+      (is (= 1 (count-join-rows :meet_categories))))))
+
+(deftest change-group-updates-the-mirror-in-every-join-table
+  (let [project (db.category/add-project *ds* *user-id* "Renovations")
+        id (:id project)
+        task (db.task/add-task *ds* *user-id* "Fix the roof")
+        issue (db.issue/add-issue *ds* *user-id* "Roof leaks")]
+    (db.task/categorize-task *ds* *user-id* (:id task) "project" id)
+    (db.issue/categorize-issue *ds* *user-id* (:id issue) "project" id)
+    (is (empty? (mirror-disagreements)) "precondition: the mirror agrees before the move")
+
+    (db.category/set-category-group *ds* *user-id* id "asset")
+
+    (testing "the mirror never disagrees with categories.category_type"
+      (is (empty? (mirror-disagreements))))
+    (testing "and it holds the NEW type, not the old one"
+      (is (= ["asset"] (distinct (map :category_type (join-rows :task_categories)))))
+      (is (= ["asset"] (distinct (map :category_type (join-rows :issue_categories))))))))
+
+(deftest change-group-moves-the-item-to-the-end-of-the-destination-order
+  (let [a (db.category/add-workstream *ds* *user-id* "WS A")
+        b (db.category/add-workstream *ds* *user-id* "WS B")
+        project (db.category/add-project *ds* *user-id* "Renovations")]
+    (testing "the destination group already has an order"
+      (is (= 1.0 (:sort_order a)))
+      (is (= 2.0 (:sort_order b))))
+    (testing "the mover's own sort_order means nothing in the group it joins"
+      (is (= 1.0 (:sort_order project))))
+    (let [moved (db.category/set-category-group *ds* *user-id* (:id project) "workstream")]
+      (testing "so it is appended, exactly where a newly created item would land"
+        (is (= 3.0 (:sort_order moved))))
+      (testing "and nothing else in the destination moved"
+        (is (= {"WS A" 1.0 "WS B" 2.0 "Renovations" 3.0}
+               (into {} (map (juxt :name :sort_order))
+                     (db.category/list-workstreams *ds* *user-id*))))))))
+
+(deftest change-group-follows-the-category-rules
+  (testing "a rule names its endpoints by (type, id) too, so it has to move with
+            the item or it would silently stop firing"
+    (let [project (db.category/add-project *ds* *user-id* "Renovations")
+          person (db.category/add-person *ds* *user-id* "Roofer")
+          task (db.task/add-task *ds* *user-id* "Fix the roof")]
+      (db.category-rule/add-rule *ds* *user-id* "project" (:id project) "person" (:id person))
+      (db.category/set-category-group *ds* *user-id* (:id project) "workstream")
+      (testing "the rule now names the workstream"
+        (let [rule (first (db.category-rule/list-rules *ds* *user-id*))]
+          (is (= "workstream" (:source_type rule)))
+          (is (= (:id project) (:source_id rule)))
+          (is (= "Renovations" (:source_name rule)))))
+      (testing "and it still fires: categorizing with it pulls the target in"
+        (db.task/categorize-task *ds* *user-id* (:id task) "workstream" (:id project))
+        (let [t (first (db.task/list-tasks *ds* *user-id*))]
+          (is (= ["Renovations"] (map :name (:workstreams t))))
+          (is (= ["Roofer"] (map :name (:people t)))))))))
+
+(deftest change-group-to-the-same-group-is-a-no-op
+  (let [project (db.category/add-project *ds* *user-id* "Renovations")
+        task (db.task/add-task *ds* *user-id* "Fix the roof")]
+    (db.task/categorize-task *ds* *user-id* (:id task) "project" (:id project))
+    (let [before (category-row (:id project))
+          result (db.category/set-category-group *ds* *user-id* (:id project) "project")]
+      (is (some? result) "a no-op move still answers with the row")
+      (is (= "project" (:category_type result)))
+      (testing "nothing changed, not even sort_order or modified_at"
+        (is (= before (category-row (:id project)))))
+      (is (= 1 (count-join-rows :task_categories))))))
+
+(deftest change-group-refuses-what-is-not-the-callers
+  (let [other-id (:id (db.user/create-user *ds* "someone-else" "pw"))
+        project (db.category/add-project *ds* *user-id* "Renovations")]
+    (testing "another user's category is not found, and is left alone"
+      (is (nil? (db.category/set-category-group *ds* other-id (:id project) "workstream")))
+      (is (= "project" (:category_type (category-row (:id project))))))
+    (testing "a category that does not exist is not found"
+      (is (nil? (db.category/set-category-group *ds* *user-id* 999999 "workstream"))))))
+
+(deftest change-group-rejects-an-unknown-group
+  (let [project (db.category/add-project *ds* *user-id* "Renovations")]
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (db.category/set-category-group *ds* *user-id* (:id project) "nonsense")))
+    (is (= "project" (:category_type (category-row (:id project)))))))
+
+(deftest reordering-one-group-leaves-the-others-alone
+  (testing "all six Groups share categories.sort_order now, so the ordering
+            registry can no longer hold them apart by column — what keeps a drag
+            in one group off another group's items is that a reorder is computed
+            among one group's rows only. Guarded here because
+            et.tr.ordering-isolation-test cannot express it."
+    (let [p1 (db.category/add-person *ds* *user-id* "P1")
+          p2 (db.category/add-person *ds* *user-id* "P2")
+          j1 (db.category/add-project *ds* *user-id* "J1")
+          j2 (db.category/add-project *ds* *user-id* "J2")
+          before-projects (into {} (map (juxt :name :sort_order))
+                                (db.category/list-projects *ds* *user-id*))]
+      (db.category/reorder-category *ds* *user-id* (:id p1)
+                                    (/ (+ (:sort_order p1) (:sort_order p2)) 2.0)
+                                    :categories)
+      (testing "the people order changed"
+        (is (not= (:sort_order p1)
+                  (db.category/get-category-sort-order *ds* *user-id* (:id p1) "person"))))
+      (testing "and no project's position moved"
+        (is (= before-projects
+               (into {} (map (juxt :name :sort_order))
+                     (db.category/list-projects *ds* *user-id*)))))
+      (testing "nor did the projects' rows change at all"
+        (is (= (:sort_order j1) (db.category/get-category-sort-order *ds* *user-id* (:id j1) "project")))
+        (is (= (:sort_order j2) (db.category/get-category-sort-order *ds* *user-id* (:id j2) "project")))))))
+
+(deftest names-are-unique-per-user-across-all-groups
+  (testing "one table, one UNIQUE(name, user_id) — so a name taken by any group
+            is taken for every group. This is a real change from four tables and
+            is asserted rather than discovered."
+    (db.category/add-person *ds* *user-id* "Ambiguous")
+    (is (thrown? Exception (db.category/add-project *ds* *user-id* "Ambiguous")))
+    (testing "but another user may still use it"
+      (let [other-id (:id (db.user/create-user *ds* "another" "pw"))]
+        (is (some? (db.category/add-project *ds* other-id "Ambiguous")))))))

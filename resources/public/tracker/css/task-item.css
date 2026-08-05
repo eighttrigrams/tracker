@@ -483,6 +483,20 @@
   background-color: #ff9500;
   color: white;
 }
+/* :neutral — an ordinary, non-destructive footer action (the Category card's
+   Group control is the first). The unstyled default has no colour of its own
+   and picks up the disabled look, so a plain action needs a variant like any
+   other. Blue, matching the non-destructive entries in the dropdown below. */
+.combined-main-btn.neutral,
+.combined-dropdown-btn.neutral {
+  color: #007aff;
+  border-color: rgba(0, 122, 255, 0.4);
+}
+.combined-main-btn.neutral:hover,
+.combined-dropdown-btn.neutral:hover {
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
 .combined-main-btn.delete-btn,
 .combined-dropdown-btn.delete-btn {
   border-color: #ff3b30;
@@ -529,7 +543,8 @@
 .task-dropdown-menu .dropdown-item.toggle-maybe,
 .task-dropdown-menu .dropdown-item.toggle-over,
 .task-dropdown-menu .dropdown-item.toggle-work-on,
-.task-dropdown-menu .dropdown-item.archive {
+.task-dropdown-menu .dropdown-item.archive,
+.task-dropdown-menu .dropdown-item.change-group {
   color: #007aff;
 }
 /* The right-click menu wears the footer dropdown's look but is placed against

@@ -124,6 +124,29 @@
                               :where [:and [:= :id rule-id] (db/user-id-where-clause user-id)]}))]
     {:success (pos? (:next.jdbc/update-count result))}))
 
+(defn retype-rules-for-category
+  "Follow a category into its new Group. category_rules names its endpoints by
+  (type, id) just as the join tables do, so it is a third mirror of
+  categories.category_type and has to move with the item -- otherwise the
+  item's rules would go on pointing at a (old-type, id) pair that no longer
+  names anything, and would silently stop firing. Called from
+  set-category-group inside its transaction."
+  [tx user-id old-type new-type category-id]
+  (jdbc/execute-one! tx
+    (sql/format {:update :category_rules
+                 :set {:source_type new-type}
+                 :where [:and
+                         (db/user-id-where-clause user-id)
+                         [:= :source_type old-type]
+                         [:= :source_id category-id]]}))
+  (jdbc/execute-one! tx
+    (sql/format {:update :category_rules
+                 :set {:target_type new-type}
+                 :where [:and
+                         (db/user-id-where-clause user-id)
+                         [:= :target_type old-type]
+                         [:= :target_id category-id]]})))
+
 (defn delete-rules-for-category
   "Remove every rule that references the given category as source or target.
   Called from delete-category so rules never dangle after a category is gone."

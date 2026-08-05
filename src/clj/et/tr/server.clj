@@ -302,6 +302,11 @@
       (PUT "/:id/scope" [] category-handler/set-asset-scope-handler)
       (POST "/:id/reorder" [] (fn [req] (category-handler/reorder-category-handler req db.category/list-assets))))
 
+    ;; Group-agnostic, because changing an item's group is the one operation
+    ;; that cannot belong to a single group's URL space.
+    (context "/categories" []
+      (PUT "/:id/group" [] category-handler/set-category-group-handler))
+
     (context "/messages" []
       (GET "/" [] message-handler/list-messages-handler)
       (GET "/:id" [] message-handler/get-message-handler)

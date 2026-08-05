@@ -6,7 +6,7 @@ const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
 
-// The four sidebar category lists load once at app start, and the positive
+// The sidebar's per-Group category lists load once at app start, and the positive
 // filter is picked out of them and resolves its ids to names against them, so a
 // reload after seeding is what puts the seeded categories within reach of the
 // "I filter by project" step. The negative filter needs no reload: it stores the
@@ -130,5 +130,6 @@ Then(
 
 Then("the sidebar should show the category filter groups", async ({ page }) => {
   await expect(page.locator(".sidebar .exclusion-filters")).toHaveCount(0);
-  await expect(page.locator(".sidebar .filter-section .collapse-toggle")).toHaveCount(4);
+  // One per Category Group: People, Places, Workstreams, Projects, Goals, Assets.
+  await expect(page.locator(".sidebar .filter-section .collapse-toggle")).toHaveCount(6);
 });

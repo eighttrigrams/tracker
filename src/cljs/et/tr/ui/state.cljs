@@ -1650,6 +1650,20 @@
 (defn delete-goal [id] (delete-category :goals id))
 (defn delete-asset [id] (delete-category :assets id))
 
+(defn set-category-group
+  "Move one category into another Group. `from-key` is the group it is leaving
+  (the page it is being moved from), `to-type` the category_type it joins."
+  [from-key to-type id on-success]
+  (categories/set-category-group *app-state auth-headers fetch-tasks from-key to-type id on-success))
+
+(defn set-category-group-dropdown
+  "Which category card's Group dropdown is open, as [group-key id] (nil for
+  none). Held here rather than in the card so it survives the card's re-render
+  and so only one can be open at a time — the same arrangement every other card
+  dropdown uses."
+  [k]
+  (swap! *app-state assoc :categories-page/group-dropdown k))
+
 (defn set-editing-category [category-type id]
   (categories/set-editing-category *app-state category-type id))
 

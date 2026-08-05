@@ -231,3 +231,75 @@
 (defn set-project-field [ds user-id id field value] (set-category-field ds user-id id field value "project"))
 (defn set-goal-field [ds user-id id field value] (set-category-field ds user-id id field value "goal"))
 (defn set-asset-field [ds user-id id field value] (set-category-field ds user-id id field value "asset"))
+
+(defn set-category-group
+  "Move one category into another Group.
+
+  This is the operation the unification exists for. It is an UPDATE of
+  categories.category_type, so the row keeps its id -- and therefore keeps its
+  name, description, tags, badge title, scope and every association hanging off
+  that id. Nothing is copied and nothing is recreated.
+
+  The eight <entity>_categories tables carry category_type as a denormalised
+  mirror of the same value, so each of them is updated for this category_id in
+  the SAME transaction. Category rules key on (type, id) too and are moved with
+  it. A mirror left disagreeing would put the item under its old group in some
+  views and its new one in others, which is worse than either.
+
+  sort_order: the item is appended to the END of the destination group, i.e.
+  max(sort_order)+1 there. Its old value is a position in a list it has left and
+  means nothing in the new one; keeping it would drop the item at an arbitrary
+  point in the destination. Appending is also what add-category does for a new
+  item, so a moved item arrives where a newly created one would.
+
+  Returns the updated row, or nil when the category does not exist for this
+  user. Moving an item to the group it is already in is a no-op that still
+  returns the row."
+  [ds user-id category-id new-type]
+  (db/validate-category-type! new-type)
+  (let [conn (db/get-conn ds)]
+    (jdbc/with-transaction [tx conn]
+      (when-let [current (jdbc/execute-one! tx
+                           (sql/format {:select [:id :category_type]
+                                        :from [:categories]
+                                        :where [:and [:= :id category-id]
+                                                (db/user-id-where-clause user-id)]})
+                           db/jdbc-opts)]
+        (let [old-type (:category_type current)]
+          (if (= old-type new-type)
+            (jdbc/execute-one! tx
+              (sql/format {:select [:id :name :description :tags :sort_order :badge_title
+                                    :scope :modified_at :category_type]
+                           :from [:categories]
+                           :where [:= :id category-id]})
+              db/jdbc-opts)
+            (let [max-order (or (:max_order (jdbc/execute-one! tx
+                                              (sql/format {:select [[[:max :sort_order] :max_order]]
+                                                           :from [:categories]
+                                                           :where [:and
+                                                                   (db/category-type-where new-type)
+                                                                   (db/user-id-where-clause user-id)]})
+                                              db/jdbc-opts))
+                                0)
+                  result (jdbc/execute-one! tx
+                           (sql/format {:update :categories
+                                        :set {:category_type new-type
+                                              :sort_order (+ max-order 1.0)
+                                              :modified_at [:raw "datetime('now')"]}
+                                        :where [:and [:= :id category-id]
+                                                (db/user-id-where-clause user-id)]
+                                        :returning [:id :name :description :tags :sort_order
+                                                    :badge_title :scope :modified_at :category_type]})
+                           db/jdbc-opts)]
+              ;; Keep the mirror in step -- same transaction, all or nothing.
+              (doseq [[join-table _ _] join-tables]
+                (jdbc/execute-one! tx
+                  (sql/format {:update join-table
+                               :set {:category_type new-type}
+                               :where [:and [:= :category_type old-type]
+                                       [:= :category_id category-id]]})))
+              (db.category-rule/retype-rules-for-category tx user-id old-type new-type category-id)
+              (tel/log! {:level :info
+                         :data {:id category-id :from old-type :to new-type :user-id user-id}}
+                        "Category group changed")
+              result)))))))

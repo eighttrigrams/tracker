@@ -289,3 +289,35 @@
     (if (nil? new-order)
       {:status 404 :body {:error "Target not found"}}
       {:status 200 :body (db.category/reorder-category (common/ensure-ds) user-id category-id new-order :categories)})))
+
+(defn set-category-group-handler
+  "PUT /api/categories/:id/group — move a category into another Group. Body:
+  {:group} where :group is one of \"person\", \"place\", \"workstream\",
+  \"project\", \"goal\", \"asset\".
+
+  The item keeps its id and therefore its name, description, tags, badge title,
+  scope and every association it had with tasks, issues, resources, meets,
+  meeting series, recurring tasks, journals and journal entries; the
+  category_type mirrored in those join tables and in the user's category rules
+  is updated in the same transaction. Its sort_order becomes the last position
+  in the destination group, since its old value was a position in a list it has
+  left.
+
+  Returns 200 with the updated row, 400 {:error} on an unknown group, and 404
+  {:error} when the category does not exist or is not owned by the caller.
+  Moving an item to the group it is already in is a no-op that still returns
+  200."
+  [req]
+  (let [user-id (common/get-user-id req)
+        category-id (Integer/parseInt (get-in req [:params :id]))
+        new-group (get-in req [:body :group])]
+    (if-not (contains? db/valid-category-types new-group)
+      {:status 400 :body {:success false
+                          :error (str "Invalid group. Must be one of: "
+                                      (str/join ", " db/category-type-order))}}
+      (let [before (events/fetch-fields :categories category-id [:category_type :sort_order])]
+        (if-let [result (db.category/set-category-group (common/ensure-ds) user-id category-id new-group)]
+          (do (events/record-update! req (keyword new-group) category-id before
+                                     (select-keys result [:category_type :sort_order]))
+              {:status 200 :body result})
+          {:status 404 :body {:success false :error "Category not found"}})))))

@@ -34,6 +34,13 @@
 
 .category-card.expanded {
   border-color: var(--accent);
+  /* Lifted for the same reason `.items > li.expanded` is: every card is its own
+     stacking context (backdrop-filter), so a later sibling paints over an
+     earlier one — including over a footer dropdown hanging out of it. Without
+     this the Group menu is still clickable but the cards below wash it out.
+     The categories grid only needed it once it had a card dropdown of its own. */
+  position: relative;
+  z-index: 100;
 }
 
 .category-card-body {

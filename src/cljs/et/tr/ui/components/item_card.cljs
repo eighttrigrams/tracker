@@ -71,6 +71,11 @@
     :done "done"
     :undone "undone"
     :acknowledge "acknowledge-reminder"
+    ;; A plain action that is neither destructive nor a state toggle. Without
+    ;; it a footer-button falls through to the unstyled default, which borrows
+    ;; the disabled look and reads as un-clickable; the dropdown menu likewise
+    ;; defaults to delete-red, so an ordinary action there looks dangerous.
+    :neutral "neutral"
     nil))
 
 ;; Every mounted card popup's close! fn, keyed by a per-mount token. Registered

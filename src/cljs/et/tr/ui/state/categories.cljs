@@ -95,6 +95,25 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete category"))
       (clear-confirm-delete-category app-state))))
 
+(defn set-category-group
+  "Move a category into another Group. The item keeps its id and all its
+  associations, so the only client-side work is reloading the group it left and
+  the group it joined — and the entity lists, whose badges are grouped by type."
+  [app-state auth-headers fetch-tasks-fn from-key to-type id on-success]
+  (let [to-key (constants/category-type->key to-type)]
+    (api/put-json (str "/api/categories/" id "/group")
+      {:group to-type}
+      (auth-headers)
+      (fn [_]
+        (fetch-categories app-state auth-headers from-key)
+        (when (not= from-key to-key)
+          (fetch-categories app-state auth-headers to-key))
+        (fetch-tasks-fn)
+        (when on-success (on-success)))
+      (fn [resp]
+        (swap! app-state assoc :error
+               (get-in resp [:response :error] "Failed to change group"))))))
+
 (defn set-editing-category [app-state category-type id]
   (swap! app-state assoc :category-page/editing {:type category-type :id id}))
 

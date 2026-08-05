@@ -1,12 +1,14 @@
 Feature: Today page category filters
 
-  Scenario: Today sidebar shows the standard four sidebar sections
+  Scenario: Today sidebar shows one section per Category Group
     Given I am on the app
     When I navigate to the "Today" tab
     Then the "Today" sidebar should show the "people" filter section
     And the "Today" sidebar should show the "places" filter section
+    And the "Today" sidebar should show the "workstreams" filter section
     And the "Today" sidebar should show the "projects" filter section
     And the "Today" sidebar should show the "goals" filter section
+    And the "Today" sidebar should show the "assets" filter section
 
   Scenario: Selecting a place on Today filters today's items
     Given I am on the app

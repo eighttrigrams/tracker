@@ -101,6 +101,33 @@
        (when (seq (:description item))
          [:span.category-description [task-item/markdown (:description item)]])]))
 
+(defn- change-group-button-spec
+  "The per-item Group control. A split button whose primary opens the list and
+  whose dropdown carries the other five Groups; picking one moves the item.
+
+  It is a footer-button rather than a bespoke control so it inherits what every
+  other card dropdown has: the open state lives outside the card and the menu is
+  wrapped in close-on-unmount, so it cannot outlive the card that owns it.
+
+  Only the Groups the item is not already in are offered — 'move to where you
+  are' is not an action, and the current Group is already named on the button."
+  [item state-key]
+  (let [id (:id item)
+        open? (= [state-key id] (:categories-page/group-dropdown @state/*app-state))]
+    {:label (t :category/change-group)
+     :variant :neutral
+     :title (t :category/change-group-hint)
+     :on-click #(state/set-category-group-dropdown (when-not open? [state-key id]))
+     :dropdown
+     {:open? open?
+      :on-toggle #(state/set-category-group-dropdown (when-not open? [state-key id]))
+      :items (vec (for [{:keys [type key singular]} constants/category-groups
+                        :when (not= key state-key)]
+                    {:label (t singular)
+                     :class "change-group"
+                     :on-click #(do (state/set-category-group-dropdown nil)
+                                    (state/set-category-group state-key type id nil))}))}}))
+
 (defn- category-card [item category-type state-key]
   (let [expanded? (let [exp (:categories-page/expanded @state/*app-state)]
                     (and exp (= (:type exp) state-key) (= (:id exp) (:id item))))]
@@ -121,7 +148,8 @@
                           [:span.category-card-tags (:tags item)])])
       :description {:edit-type (keyword (str "category-" category-type))}
       :footer {:scope {:value (:scope item)
-                       :on-set #(state/set-category-scope state-key (:id item) %)}}}]))
+                       :on-set #(state/set-category-scope state-key (:id item) %)}
+               :main-actions (change-group-button-spec item state-key)}}]))
 
 (defn category-cards-page [category-type]
   (let [search-term (get-in @state/*app-state [:categories-page/filter-search category-type])
