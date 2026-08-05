@@ -387,31 +387,13 @@
                  (db.category/set-category-group *ds* *user-id* (:id project) "nonsense")))
     (is (= "project" (:category_type (category-row (:id project)))))))
 
-(deftest reordering-one-group-leaves-the-others-alone
-  (testing "all six Groups share categories.sort_order now, so the ordering
-            registry can no longer hold them apart by column — what keeps a drag
-            in one group off another group's items is that a reorder is computed
-            among one group's rows only. Guarded here because
-            et.tr.ordering-isolation-test cannot express it."
-    (let [p1 (db.category/add-person *ds* *user-id* "P1")
-          p2 (db.category/add-person *ds* *user-id* "P2")
-          j1 (db.category/add-project *ds* *user-id* "J1")
-          j2 (db.category/add-project *ds* *user-id* "J2")
-          before-projects (into {} (map (juxt :name :sort_order))
-                                (db.category/list-projects *ds* *user-id*))]
-      (db.category/reorder-category *ds* *user-id* (:id p1)
-                                    (/ (+ (:sort_order p1) (:sort_order p2)) 2.0)
-                                    :categories)
-      (testing "the people order changed"
-        (is (not= (:sort_order p1)
-                  (db.category/get-category-sort-order *ds* *user-id* (:id p1) "person"))))
-      (testing "and no project's position moved"
-        (is (= before-projects
-               (into {} (map (juxt :name :sort_order))
-                     (db.category/list-projects *ds* *user-id*)))))
-      (testing "nor did the projects' rows change at all"
-        (is (= (:sort_order j1) (db.category/get-category-sort-order *ds* *user-id* (:id j1) "project")))
-        (is (= (:sort_order j2) (db.category/get-category-sort-order *ds* *user-id* (:id j2) "project")))))))
+;; A reorder addressed to one Group must not move another Group's rows. That
+;; used to be asserted here, against db.category/reorder-category — but that
+;; call reaches db/write-order!, a single-row `UPDATE ... WHERE id = ?`, so
+;; "no project's position moved" could not fail whatever the handler did. The
+;; assertion needs the handler, which is the only layer that knows which group
+;; the request was addressed to; it now lives in
+;; et.tr.category-reorder-integration-test, where it has been watched fail.
 
 (deftest names-are-unique-per-user-across-all-groups
   (testing "one table, one UNIQUE(name, user_id) — so a name taken by any group

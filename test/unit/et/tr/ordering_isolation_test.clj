@@ -32,8 +32,8 @@
    ;; the registry has one entry to probe rather than four. Two rows in the
    ;; same group, because a reorder is only ever computed within a group --
    ;; that per-group isolation is guarded by
-   ;; et.tr.categories-db-test/reordering-one-group-leaves-the-others-alone,
-   ;; which this registry can no longer express.
+   ;; et.tr.category-reorder-integration-test, which this registry can no
+   ;; longer express.
    :categories (create! "/api/people" ["Person A" "Person B"] :name)})
 
 (defn- join-all!

@@ -274,20 +274,32 @@
   Body: {:target-category-id :position} where :position is \"before\" or
   \"after\". Computes a new fractional :sort_order between the target and its
   neighbor (or ±1.0 at the ends), persists it, and returns {:success true
-  :sort_order}; 404 when the target is not in the list.
+  :sort_order}; 404 when the target is not in the list, and 404 when the
+  subject :id is not in it either.
 
   All six groups share the single :categories ordering context, because they
-  share categories.sort_order. What keeps a drag in one group from moving
-  another group's item is `list-fn`: the new position is only ever computed
-  among the rows of the group being reordered."
+  share categories.sort_order. `list-fn` keeps the new position computed among
+  one group's rows — but the row it is written to is named by the URL, and
+  before the unification a mismatch between the two was caught by the schema:
+  the write was `UPDATE projects ... WHERE id = <a person>`, matching nothing.
+  One table means that write now succeeds, reordering the subject's own group
+  by a position computed in a group it does not belong to. Hence the explicit
+  membership check: both ends of the request must name the same group."
   [req list-fn]
   (let [user-id (common/get-user-id req)
         category-id (Integer/parseInt (get-in req [:params :id]))
         {:keys [target-category-id position]} (:body req)
         all-categories (list-fn (common/ensure-ds) user-id)
+        in-group? (some #(= category-id (:id %)) all-categories)
         new-order (ordering/value-between :categories all-categories target-category-id position)]
-    (if (nil? new-order)
+    (cond
+      (not in-group?)
+      {:status 404 :body {:success false :error "Category not in this group"}}
+
+      (nil? new-order)
       {:status 404 :body {:error "Target not found"}}
+
+      :else
       {:status 200 :body (db.category/reorder-category (common/ensure-ds) user-id category-id new-order :categories)})))
 
 (defn set-category-group-handler
