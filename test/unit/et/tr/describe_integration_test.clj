@@ -1,6 +1,7 @@
 (ns et.tr.describe-integration-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.string :as str]
+            [et.tr.db :as db]
             [et.tr.integration-helpers :refer [with-integration-db GET-json]]))
 
 (use-fixtures :each with-integration-db)
@@ -13,11 +14,30 @@
       (is (sequential? body))
       (is (pos? (count body))))
 
-    (testing "the usage skill rides along under :skill"
-      (let [skill (:skill (:body response))]
-        (is (string? skill))
-        (is (str/starts-with? skill "# Using tracker effectively"))
-        (is (not (str/includes? skill "---\nname: tracker-user")))))
+    (testing "the usage prompt text rides along under :usage"
+      (let [usage (:usage (:body response))]
+        ;; These have to be assertions that can fail: the old "the served text
+        ;; does not contain the frontmatter" one passes against an empty string
+        ;; now that no frontmatter exists anywhere to strip. So: the resource
+        ;; resolved through io/resource, it starts at the markdown, and it is
+        ;; the whole file rather than a truncated one.
+        (is (string? usage))
+        (is (str/starts-with? usage "# Using tracker effectively\n"))
+        (is (= usage (str/trim usage)))
+        (doseq [section ["## What tracker covers (scope)"
+                         "## Reading well"
+                         "## Writing"
+                         "## Common request patterns"]]
+          (is (str/includes? usage section) (str section " missing from :usage")))))
+
+    (testing "the usage text names every Group the API has"
+      ;; The drift this text is prone to: it named four Groups for as long as
+      ;; the unification had shipped six. Adding a seventh should fail here.
+      (let [usage (:usage (:body response))]
+        (doseq [group-key db/category-key-order]
+          (let [label (str/capitalize (name group-key))]
+            (is (str/includes? usage label)
+                (str "Group " label " missing from :usage"))))))
 
     (testing "every entry has the rhizome-style shape {:name :ns :arglists :doc}"
       (doseq [entry body]

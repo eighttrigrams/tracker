@@ -160,18 +160,20 @@
     et.tr.server.source-handler
     et.tr.server.motto-handler])
 
-(def ^:private skill-resource "tracker-user/SKILL.md")
+(def ^:private usage-resource
+  "The prompt text /api/describe serves next to the endpoint catalogue: the
+  access patterns the auto-generated catalogue cannot convey. It is prompt
+  text, not a Claude Code skill — nothing loads it as one, so it has no
+  frontmatter and no skill name — which means it has to be updated by hand
+  whenever the API changes, like any other part of this endpoint's response.
+  Under `tracker/` because plurama's uberjar copies every app's `resources`
+  into one flat classpath root, where a bare `api-usage.md` could collide."
+  "tracker/api-usage.md")
 
-(defn- strip-frontmatter
-  "Drop a leading YAML frontmatter block, so what /api/describe serves starts
-  at the markdown itself."
-  [md]
-  (str/replace-first md #"(?s)\A---\n.*?\n---\n" ""))
-
-(def ^:private skill-md
+(def ^:private usage-md
   (delay
-    (when-let [r (io/resource skill-resource)]
-      (str/trim (strip-frontmatter (slurp r))))))
+    (when-let [r (io/resource usage-resource)]
+      (str/trim (slurp r)))))
 
 (defn- describe-endpoints []
   (->> describe-namespaces
@@ -188,7 +190,7 @@
 (defn describe-handler [_req]
   {:status 200
    :body {:endpoints (describe-endpoints)
-          :skill @skill-md}})
+          :usage @usage-md}})
 
 (defroutes api-routes
   (context "/api" []

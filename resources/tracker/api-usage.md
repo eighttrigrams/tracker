@@ -1,23 +1,17 @@
----
-name: tracker-user
-description: What the human's tracker holds (tasks, meets, journals, resources, YouTube/podcast/feed subscriptions, people/places/projects/goals) and how to read and write it well. Use whenever a question is about the human's tasks, schedule, saved links or subscriptions.
----
-
 # Using tracker effectively
 
 Tracker is the human's personal tracker app, read and written over its HTTP
 API. Every endpoint lives under `/api` — always send the full path, e.g.
-`/api/today-board` or `/api/tasks?category=Acme&limit=100`. For brevity the
+`/api/today-board` or `/api/tasks?projects=Acme&limit=100`. For brevity the
 paths below are written without that prefix.
 
 ## What tracker covers (scope)
 
-Tracker is not only tasks. A single user's tracker holds **tasks, meetings
-("meets") and meeting series, recurring tasks, journals and journal entries,
-saved resources (links and videos), mottos**, and **"sources"** — the user's
-**YouTube channel subscriptions, podcast feeds, and Atom/RSS feeds** plus
-their per-source settings. People / places / projects / goals are the
-categories that tie items together through relations.
+Tracker is not only tasks. A single user's tracker holds **tasks, issues,
+meetings ("meets") and meeting series, recurring tasks, journals and journal
+entries, saved resources (links and videos), mottos**, and **"sources"** — the
+user's **YouTube channel subscriptions, podcast feeds, and Atom/RSS feeds**
+plus their per-source settings.
 
 So questions about the user's **YouTube subscriptions, saved YouTube videos,
 podcasts, or RSS feeds are in scope** and are answered from tracker — do
@@ -25,11 +19,36 @@ podcasts, or RSS feeds are in scope** and are answered from tracker — do
 the assumption that tracker does not track something; check
 `/describe` first.
 
+## Categories and relations
+
+Two different things tie items together, and they are not the same:
+
+- **Categories** are the badges on an item. They come in **six Groups —
+  People, Places, Workstreams, Projects, Goals, Assets** — and they are also
+  what most list endpoints filter by: one comma-separated query param per
+  Group, plus an `excluded-<group>` sibling for each.
+- **Relations** are direct links between two items — a task and a resource, a
+  meet and a journal entry — independent of any category.
+
+The six Groups are rows of one `categories` table told apart by a column, so
+two things follow that a per-Group model would get wrong. A category **name is
+unique per user across all Groups**: creating "Acme" as a Project fails with a
+409 when a Person of that name already exists. And a **Group is mutable**: an
+item can be moved into another Group, keeping its id and hence its
+description, tags, badge title, scope and every association it had with tasks,
+issues, resources, meets and journals. So do not treat a category's Group as
+part of its identity, and re-read it rather than remembering it.
+
+Category lists come back in the human's own manual order (the order they are
+dragged into on the Categories page, and the order the sidebars show). Keep
+that order when listing them back; don't re-sort alphabetically.
+
 ## Discover the endpoints — don't guess
 
 Call `GET /describe` — it is the authoritative reference: every route with
-its method, path, body fields, query params, views and sort modes. This skill
-covers *how to use* tracker; it deliberately lists no endpoints.
+its method, path, body fields, query params, views and sort modes. This text
+covers *how to use* tracker and is served in that same response; it
+deliberately lists no endpoints, leaving that to the catalogue beside it.
 
 If the human mentions a "view", "filter", "sort" or "tab" you don't recognise
 (e.g. "saved", "archived", "today"), look it up there before answering.
@@ -41,11 +60,12 @@ If the human mentions a "view", "filter", "sort" or "tab" you don't recognise
   request is genuinely ambiguous.
 - **Find the filter before saying "no".** List endpoints take query params
   (look them up in `/describe`): resources filter by
-  `domain`/`excluded-domains`, tasks by scope/importance/urgency/category,
-  meets by date/category. "My Google Docs" or "links from X" is a `domain`
-  filter on the resources list — a domain is **not** a category and **not** a
-  missing feature.
-- **Query params go in the path.** `/tasks?category=Acme&limit=100`. A body is
+  `domain`/`excludedDomains`, tasks by `context`/`importance` and by Group
+  (`?projects=Acme`), meets by their `sort` window (`past`/`upcoming`) and by
+  Group. "My Google Docs" or "links from X" is a `domain` filter on the
+  resources list — a domain is **not** a category and **not** a missing
+  feature.
+- **Query params go in the path.** `/tasks?projects=Acme&limit=100`. A body is
   only for POST/PUT payloads; params put in a separate body/`query`/`params`
   field are **dropped on a GET** — the filter and limit then silently do
   nothing and you get the default capped list back.
