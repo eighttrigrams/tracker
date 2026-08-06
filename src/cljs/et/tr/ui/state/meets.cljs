@@ -4,7 +4,6 @@
             [reagent.core :as r]
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -220,13 +219,6 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize meet")))))
 
-(defn- categorize-meet-batch [auth-headers meet-id category-type ids]
-  (doseq [id ids]
-    (api/post-json (str "/api/meets/" meet-id "/categorize")
-      {:category-type category-type :category-id id}
-      (auth-headers)
-      (fn [_]))))
-
 (defn add-meet-with-categories [app-state auth-headers fetch-meets-fn current-scope-fn title categories on-success]
   (POST "/api/meets"
     {:params {:title title :scope (current-scope-fn)}
@@ -235,15 +227,10 @@
      :keywords? true
      :headers (auth-headers)
      :handler (fn [meet]
-                (let [meet-id (:id meet)
-                      {:keys [people places projects goals]} categories]
-                  (categorize-meet-batch auth-headers meet-id CATEGORY-TYPE-PERSON people)
-                  (categorize-meet-batch auth-headers meet-id CATEGORY-TYPE-PLACE places)
-                  (categorize-meet-batch auth-headers meet-id CATEGORY-TYPE-PROJECT projects)
-                  (categorize-meet-batch auth-headers meet-id CATEGORY-TYPE-GOAL goals)
-                  (js/setTimeout fetch-meets-fn 500)
-                  (swap! app-state update :meets #(cons meet %))
-                  (when on-success (on-success))))
+                (category-filters/apply-filter-categories! auth-headers "meets" (:id meet) categories)
+                (js/setTimeout fetch-meets-fn 500)
+                (swap! app-state update :meets #(cons meet %))
+                (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meet")))}))
 

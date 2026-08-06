@@ -4,9 +4,7 @@
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
             [et.tr.ui.state.exclusions :as exclusions]
-            [et.tr.ui.state.category-filters :as category-filters]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE
-                                        CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]))
+            [et.tr.ui.state.category-filters :as category-filters]))
 
 (defn- ids-to-names [ids category-list]
   (let [id-set (set ids)]
@@ -49,13 +47,6 @@
                    (when (nil? (:upcoming-horizon @app-state))
                      (swap! app-state assoc :upcoming-horizon (calculate-best-horizon-fn app-state))))}))))
 
-(defn- categorize-task-batch [auth-headers task-id category-type ids]
-  (doseq [id ids]
-    (api/post-json (str "/api/tasks/" task-id "/categorize")
-      {:category-type category-type :category-id id}
-      (auth-headers)
-      (fn [_]))))
-
 (defn add-task-with-categories [app-state auth-headers fetch-tasks-fn current-scope-fn current-importance-fn title categories on-success]
   (POST "/api/tasks"
     {:params {:title title :scope (current-scope-fn) :importance (current-importance-fn)}
@@ -64,15 +55,10 @@
      :keywords? true
      :headers (auth-headers)
      :handler (fn [task]
-                (let [task-id (:id task)
-                      {:keys [people places projects goals]} categories]
-                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-PERSON people)
-                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-PLACE places)
-                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-PROJECT projects)
-                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-GOAL goals)
-                  (js/setTimeout fetch-tasks-fn 500)
-                  (swap! app-state update :tasks #(cons task %))
-                  (when on-success (on-success))))
+                (category-filters/apply-filter-categories! auth-headers "tasks" (:id task) categories)
+                (js/setTimeout fetch-tasks-fn 500)
+                (swap! app-state update :tasks #(cons task %))
+                (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))
 

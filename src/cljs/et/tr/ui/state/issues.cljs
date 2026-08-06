@@ -4,7 +4,6 @@
             [reagent.core :as r]
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -184,13 +183,6 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize issue")))))
 
-(defn- categorize-issue-batch [auth-headers issue-id category-type ids]
-  (doseq [id ids]
-    (api/post-json (str "/api/issues/" issue-id "/categorize")
-      {:category-type category-type :category-id id}
-      (auth-headers)
-      (fn [_]))))
-
 (defn add-issue-with-categories [app-state auth-headers fetch-issues-fn current-scope-fn title categories on-success]
   (POST "/api/issues"
     {:params {:title title :scope (current-scope-fn)}
@@ -199,15 +191,10 @@
      :keywords? true
      :headers (auth-headers)
      :handler (fn [issue]
-                (let [issue-id (:id issue)
-                      {:keys [people places projects goals]} categories]
-                  (categorize-issue-batch auth-headers issue-id CATEGORY-TYPE-PERSON people)
-                  (categorize-issue-batch auth-headers issue-id CATEGORY-TYPE-PLACE places)
-                  (categorize-issue-batch auth-headers issue-id CATEGORY-TYPE-PROJECT projects)
-                  (categorize-issue-batch auth-headers issue-id CATEGORY-TYPE-GOAL goals)
-                  (js/setTimeout fetch-issues-fn 500)
-                  (swap! app-state update :issues #(cons issue %))
-                  (when on-success (on-success))))
+                (category-filters/apply-filter-categories! auth-headers "issues" (:id issue) categories)
+                (js/setTimeout fetch-issues-fn 500)
+                (swap! app-state update :issues #(cons issue %))
+                (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add issue")))}))
 
@@ -226,13 +213,6 @@
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to load issue")))}))
 
-(defn- categorize-task-batch [auth-headers task-id category-type ids]
-  (doseq [id ids]
-    (api/post-json (str "/api/tasks/" task-id "/categorize")
-      {:category-type category-type :category-id id}
-      (auth-headers)
-      (fn [_]))))
-
 (defn create-task-for-issue
   "Create a task (with the given title) belonging to the issue, then associate
   the currently-selected sidebar categories with it — mirroring how the Tasks
@@ -245,14 +225,11 @@
      :keywords? true
      :headers (auth-headers)
      :handler (fn [task]
-                (let [task-id (:id task)
-                      {:keys [people places projects goals]} categories]
-                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-PERSON people)
-                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-PLACE places)
-                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-PROJECT projects)
-                  (categorize-task-batch auth-headers task-id CATEGORY-TYPE-GOAL goals)
-                  (js/setTimeout fetch-issues-fn 500)
-                  (when on-success (on-success))))
+                ;; "tasks", not "issues": the Issue page is creating a Task, and
+                ;; it is the Task that gets the sidebar's categories.
+                (category-filters/apply-filter-categories! auth-headers "tasks" (:id task) categories)
+                (js/setTimeout fetch-issues-fn 500)
+                (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to create task")))}))
 

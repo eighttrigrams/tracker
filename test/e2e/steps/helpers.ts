@@ -96,6 +96,26 @@ export async function dragCard(
   await dispatchDrag(page, selector, source, "dragend", 0.5);
 }
 
+// Activate a sidebar category filter (places/projects/…) robustly. The picker
+// starts collapsed, so expand it, then click the item. The sidebar re-renders
+// as categories load in and as the selected item bumps to the top of the
+// most-recently-modified ordering, which can swallow the click; retry until the
+// filter is actually applied — the "x" clear button only renders once a filter
+// is active — so downstream steps never race an un-applied filter.
+export async function selectSidebarFilter(page: any, section: string, name: string) {
+  const sec = page.locator(`.filter-section.${section}`);
+  if ((await sec.locator(".filter-item").count()) === 0) {
+    await sec.locator(".collapse-toggle").click();
+  }
+  const clear = sec.locator(".clear-filter");
+  await expect(async () => {
+    if (await clear.isVisible()) return;
+    await sec.locator(".filter-item").filter({ hasText: name }).click({ timeout: 3000 });
+    await expect(clear).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+  await page.waitForLoadState("networkidle");
+}
+
 const apiHeaders = { "Content-Type": "application/json", "X-User-Id": "null" };
 const categoryKey: Record<string, string> = {
   person: "people",

@@ -10,6 +10,7 @@
 
   The counterpart for the negative filters is et.tr.ui.state.exclusions."
   (:require [clojure.string :as str]
+            [et.tr.ui.api :as api]
             [et.tr.ui.constants :as constants]))
 
 (defn- ids->names [ids category-list]
@@ -46,3 +47,28 @@
   [app-state opts]
   (let [params (query-params app-state opts)]
     (if (seq params) (str (str/join "&" params) "&") "")))
+
+(defn apply-filter-categories!
+  "Give a newly created Item every Category the caller is filtering by.
+
+  `collection` is the API's URL segment for the Item's kind — \"tasks\",
+  \"issues\", \"meets\", \"meeting-series\", \"recurring-tasks\",
+  \"resources\" — and `categories` is the map `active-filter-categories`
+  builds, one entry per Group key.
+
+  Iterates `constants/category-groups` rather than naming the Groups, which is
+  the whole point: Workstreams and Assets were added to that list in 2df2c3c
+  and every hand-written enumeration of the Groups silently stopped being
+  complete — a new Item under a Workstream filter simply lost it, in all seven
+  of the add paths that had spelled the four original Groups out. A seventh
+  Group is carried by this without a call site changing.
+
+  A Group with nothing selected is `nil` here and `doseq` over nil is a no-op,
+  so an unfiltered Group costs no request."
+  [auth-headers collection id categories]
+  (doseq [{:keys [key type]} constants/category-groups
+          category-id (get categories key)]
+    (api/post-json (str "/api/" collection "/" id "/categorize")
+      {:category-type type :category-id category-id}
+      (auth-headers)
+      (fn [_]))))

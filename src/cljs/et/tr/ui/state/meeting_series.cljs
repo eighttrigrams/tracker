@@ -4,7 +4,6 @@
             [reagent.core :as r]
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -126,13 +125,6 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize meeting series")))))
 
-(defn- categorize-meeting-series-batch [auth-headers series-id category-type ids]
-  (doseq [id ids]
-    (api/post-json (str "/api/meeting-series/" series-id "/categorize")
-      {:category-type category-type :category-id id}
-      (auth-headers)
-      (fn [_]))))
-
 (defn add-meeting-series-with-categories [app-state auth-headers fetch-fn current-scope-fn title categories on-success]
   (POST "/api/meeting-series"
     {:params {:title title :scope (current-scope-fn)}
@@ -141,15 +133,10 @@
      :keywords? true
      :headers (auth-headers)
      :handler (fn [series]
-                (let [series-id (:id series)
-                      {:keys [people places projects goals]} categories]
-                  (categorize-meeting-series-batch auth-headers series-id CATEGORY-TYPE-PERSON people)
-                  (categorize-meeting-series-batch auth-headers series-id CATEGORY-TYPE-PLACE places)
-                  (categorize-meeting-series-batch auth-headers series-id CATEGORY-TYPE-PROJECT projects)
-                  (categorize-meeting-series-batch auth-headers series-id CATEGORY-TYPE-GOAL goals)
-                  (js/setTimeout fetch-fn 500)
-                  (swap! app-state update :meeting-series #(cons series %))
-                  (when on-success (on-success))))
+                (category-filters/apply-filter-categories! auth-headers "meeting-series" (:id series) categories)
+                (js/setTimeout fetch-fn 500)
+                (swap! app-state update :meeting-series #(cons series %))
+                (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meeting series")))}))
 

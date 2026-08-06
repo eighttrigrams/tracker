@@ -3,7 +3,6 @@
             [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -122,13 +121,6 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize recurring task")))))
 
-(defn- categorize-recurring-task-batch [auth-headers rtask-id category-type ids]
-  (doseq [id ids]
-    (api/post-json (str "/api/recurring-tasks/" rtask-id "/categorize")
-      {:category-type category-type :category-id id}
-      (auth-headers)
-      (fn [_]))))
-
 (defn add-recurring-task-with-categories [app-state auth-headers fetch-fn current-scope-fn title categories on-success]
   (POST "/api/recurring-tasks"
     {:params {:title title :scope (current-scope-fn)}
@@ -137,15 +129,10 @@
      :keywords? true
      :headers (auth-headers)
      :handler (fn [rtask]
-                (let [rtask-id (:id rtask)
-                      {:keys [people places projects goals]} categories]
-                  (categorize-recurring-task-batch auth-headers rtask-id CATEGORY-TYPE-PERSON people)
-                  (categorize-recurring-task-batch auth-headers rtask-id CATEGORY-TYPE-PLACE places)
-                  (categorize-recurring-task-batch auth-headers rtask-id CATEGORY-TYPE-PROJECT projects)
-                  (categorize-recurring-task-batch auth-headers rtask-id CATEGORY-TYPE-GOAL goals)
-                  (js/setTimeout fetch-fn 500)
-                  (swap! app-state update :recurring-tasks #(cons rtask %))
-                  (when on-success (on-success))))
+                (category-filters/apply-filter-categories! auth-headers "recurring-tasks" (:id rtask) categories)
+                (js/setTimeout fetch-fn 500)
+                (swap! app-state update :recurring-tasks #(cons rtask %))
+                (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add recurring task")))}))
 

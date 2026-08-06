@@ -4,7 +4,6 @@
             [reagent.core :as r]
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -180,13 +179,6 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize resource")))))
 
-(defn- categorize-resource-batch [auth-headers resource-id category-type ids]
-  (doseq [id ids]
-    (api/post-json (str "/api/resources/" resource-id "/categorize")
-      {:category-type category-type :category-id id}
-      (auth-headers)
-      (fn [_]))))
-
 (defn add-resource-with-categories [app-state auth-headers fetch-resources-fn current-scope-fn title link categories on-success]
   (POST "/api/resources"
     {:params {:title title :link link :scope (current-scope-fn)}
@@ -195,15 +187,10 @@
      :keywords? true
      :headers (auth-headers)
      :handler (fn [resource]
-                (let [resource-id (:id resource)
-                      {:keys [people places projects goals]} categories]
-                  (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-PERSON people)
-                  (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-PLACE places)
-                  (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-PROJECT projects)
-                  (categorize-resource-batch auth-headers resource-id CATEGORY-TYPE-GOAL goals)
-                  (js/setTimeout fetch-resources-fn 500)
-                  (swap! app-state update :resources #(cons resource %))
-                  (when on-success (on-success))))
+                (category-filters/apply-filter-categories! auth-headers "resources" (:id resource) categories)
+                (js/setTimeout fetch-resources-fn 500)
+                (swap! app-state update :resources #(cons resource %))
+                (when on-success (on-success)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add resource")))}))
 

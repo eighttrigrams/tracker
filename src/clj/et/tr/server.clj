@@ -557,6 +557,27 @@
   [(worker/start-scheduler (common/ensure-ds))
    (source-worker/start-scheduler (common/ensure-ds))])
 
+(defn- e2e-db-path!
+  "Where the e2e run keeps its database: a file under data/, wiped at boot.
+
+  Not :sqlite-memory, which is what this used to be. An in-memory SQLite is only
+  reachable from more than one connection through cache=shared, and in that mode
+  a second writer is refused with SQLITE_LOCKED_SHAREDCACHE straight away — the
+  busy handler is never invoked for it, as db/init-conn's own comment says. The
+  SPA writes concurrently: adding an Item under a filter in every Group fires one
+  categorize post per Group at once, and under cache=shared some of them 500 and
+  those categories are silently lost, which reads as a bug in the code under
+  test. Dev and prod are both :sqlite-file, and take those simultaneous writes
+  without complaint (each connection has its own cache, and the driver's busy
+  timeout waits for the write lock), so this gives the suite the same storage as
+  the thing it is testing rather than a stricter one."
+  []
+  (let [path "data/e2e.db"]
+    (io/make-parents path)
+    (doseq [suffix ["" "-journal" "-wal" "-shm"]]
+      (io/delete-file (str path suffix) true))
+    path))
+
 (defn -main [& args]
   (reset! common/*config (common/load-config))
   (let [prod? (common/prod-mode?)
@@ -570,7 +591,7 @@
       (throw (ex-info "Cannot use :dangerously-skip-logins? in production mode" {})))
     (tel/log! :info (str "Starting system in " (if prod? "production" "development") " mode"))
     (when e2e?
-      (swap! common/*config assoc :db {:type :sqlite-memory}))
+      (swap! common/*config assoc :db {:type :sqlite-file :path (e2e-db-path!)}))
     (common/ensure-ds)
     (when (and (not prod?) (not e2e?))
       (when-let [nrepl-port (:nrepl-port @common/*config)]
