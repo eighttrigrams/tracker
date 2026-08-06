@@ -1067,8 +1067,14 @@
   ([opts]
    (journals-state/fetch-journals *app-state auth-headers opts)))
 
+(defn add-journal-with-categories [title schedule-type categories on-success]
+  (journals-state/add-journal-with-categories *app-state auth-headers fetch-journals current-scope
+                                              title schedule-type categories on-success))
+
 (defn add-journal [title schedule-type on-success]
-  (journals-state/add-journal *app-state auth-headers current-scope title schedule-type on-success fetch-journals))
+  (if (has-active-shared-filters?)
+    (add-journal-with-categories title schedule-type (active-filter-categories) on-success)
+    (journals-state/add-journal *app-state auth-headers current-scope title schedule-type on-success fetch-journals)))
 
 (defn update-journal
   ([journal-id title description tags on-success]

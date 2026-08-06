@@ -4,7 +4,6 @@
             [reagent.core :as r]
             [et.tr.filters :as filters]
             [et.tr.ui.api :as api]
-            [et.tr.ui.constants :refer [CATEGORY-TYPE-PERSON CATEGORY-TYPE-PLACE CATEGORY-TYPE-PROJECT CATEGORY-TYPE-GOAL]]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -46,6 +45,25 @@
     (auth-headers)
     (fn [_]
       (fetch-fn)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add journal")))))
+
+(defn add-journal-with-categories
+  "A Journal added while the sidebar has Category filters up carries them, the
+  same way a Task, Issue, Meet, Meeting Series, Recurring Task or Resource does.
+
+  The Journals list is the Resources page in Journals mode: same sidebar, same
+  six filter sections, and journals-fetch-opts sends every one of them to the
+  server — so a Journal added under a filter and not carrying it drops straight
+  out of the list it was added from."
+  [app-state auth-headers fetch-fn current-scope-fn title schedule-type categories on-success]
+  (api/post-json "/api/journals"
+    {:title title :scope (current-scope-fn) :schedule-type schedule-type}
+    (auth-headers)
+    (fn [journal]
+      (category-filters/apply-filter-categories! auth-headers "journals" (:id journal) categories)
+      (js/setTimeout fetch-fn 500)
       (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add journal")))))
