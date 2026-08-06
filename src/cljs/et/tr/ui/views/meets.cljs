@@ -51,7 +51,7 @@
                                          (state/set-series-filter {:id (:meeting_series_id meet) :title (:title meet)}))}
       "🔁"])])
 
-(defn- meet-item [meet expanded-id people places projects goals]
+(defn- meet-item [meet expanded-id]
   (let [is-expanded (= expanded-id (:id meet))]
     [item-card/item-card
      {:item meet
@@ -74,14 +74,14 @@
                :main-actions {:label (t :task/delete) :variant :delete
                               :on-click #(state/set-confirm-delete-meet meet)}}}]))
 
-(defn- meet-week-section [week-key week-meets expanded-meet people places projects goals]
+(defn- meet-week-section [week-key week-meets expanded-meet]
   (let [[_ week-num] week-key]
     [:div.report-week-group {:key (str (first week-key) "-" (second week-key))}
      [:h3.report-week-header (i18n/tf :meets/week week-num)]
      (into [:ul.items]
            (map (fn [meet]
                   ^{:key (:id meet)}
-                  [meet-item meet expanded-meet people places projects goals])
+                  [meet-item meet expanded-meet])
                 week-meets))]))
 
 (defn- importance-filter-toggle []
@@ -198,7 +198,7 @@
                 (state/open-create-date-modal :meeting-series series))}
    (t :meets/create-meeting)])
 
-(defn- series-item [series expanded-id people places projects goals]
+(defn- series-item [series expanded-id]
   (let [is-expanded (= expanded-id (:id series))]
     [item-card/item-card
      {:item series
@@ -289,7 +289,7 @@
       (t :meets/series)]]))
 
 (defn meets-tab []
-  (let [{:keys [meets meeting-series people places projects goals]} @state/*app-state
+  (let [{:keys [meets meeting-series]} @state/*app-state
         series-mode (state/series-mode?)
         series-filter (state/series-filter)
         summary-mode? (:meets-page/meet-summary-mode @state/*app-state)
@@ -315,7 +315,7 @@
           [:ul.items
            (for [s meeting-series]
              ^{:key (:id s)}
-             [series-item s expanded-series people places projects goals])])
+             [series-item s expanded-series])])
 
         (and series-filter summary-mode?)
         [meets-summary]
@@ -335,7 +335,7 @@
              (into [:div.report-weeks]
                    (for [wk week-keys]
                      ^{:key (str (first wk) "-" (second wk))}
-                     [meet-week-section wk (get meets-by-week wk) expanded-meet people places projects goals]))
+                     [meet-week-section wk (get meets-by-week wk) expanded-meet]))
              (when (:has-more? @meets-state/*meets-page-state)
                [:div.load-more
                 [:button.load-more-btn {:on-click #(state/load-more-meets)}

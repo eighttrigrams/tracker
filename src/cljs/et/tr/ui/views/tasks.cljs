@@ -290,7 +290,7 @@
     (.substring modified-at 0 10)))
 
 (defn tasks-list []
-  (let [{:keys [people places projects goals tasks-page/expanded-task sort-mode drag-task drag-over-task]} @state/*app-state
+  (let [{:keys [tasks-page/expanded-task sort-mode drag-task drag-over-task]} @state/*app-state
         tasks (state/filtered-tasks)
         manual-mode? (= sort-mode :manual)
         due-date-mode? (= sort-mode :due-date)
@@ -361,7 +361,7 @@
       :close-selector-fn state/close-category-selector
       :set-search-fn state/set-category-selector-search}]))
 
-(defn- rtask-expanded-view [rtask people places projects goals]
+(defn- rtask-expanded-view [rtask]
   [:div.item-details
    (if (seq (:description rtask))
      [task-item/clampable-description
@@ -451,12 +451,12 @@
        (not has-schedule?) (assoc :title (t :tasks/create-next-disabled-no-schedule)))
      (t :tasks/create-task)]))
 
-(defn- rtask-item [rtask expanded-id people places projects goals]
+(defn- rtask-item [rtask expanded-id]
   (let [is-expanded (= expanded-id (:id rtask))]
     [:li {:class (when is-expanded "expanded")}
      [rtask-header rtask is-expanded]
      (if is-expanded
-       [rtask-expanded-view rtask people places projects goals]
+       [rtask-expanded-view rtask]
        [:<>
         [rtask-categories-readonly rtask]
         [rtask-create-task-button rtask]])]))
@@ -497,11 +497,11 @@
        [:button.clear-search {:on-click #(state/set-recurring-task-filter-search "")} "x"])]))
 
 (defn- recurring-tasks-list []
-  (let [{:keys [recurring-tasks people places projects goals]} @state/*app-state
+  (let [{:keys [recurring-tasks]} @state/*app-state
         {:keys [expanded-rtask]} @recurring-tasks-state/*recurring-tasks-page-state]
     (if (empty? recurring-tasks)
       [:p.empty-message (t :tasks/no-recurring)]
       [:ul.items
        (for [rtask recurring-tasks]
          ^{:key (:id rtask)}
-         [rtask-item rtask expanded-rtask people places projects goals])])))
+         [rtask-item rtask expanded-rtask])])))

@@ -60,7 +60,7 @@
       :close-selector-fn state/close-category-selector
       :set-search-fn state/set-category-selector-search}]))
 
-(defn- resource-item [resource expanded-id people places projects goals drag-enabled? drag-resource drag-over-resource]
+(defn- resource-item [resource expanded-id drag-enabled? drag-resource drag-over-resource]
   (let [is-expanded (= expanded-id (:id resource))
         is-dragging (= drag-resource (:id resource))
         is-drag-over (= drag-over-resource (:id resource))
@@ -287,7 +287,7 @@
                 (state/open-create-date-modal :journal journal))}
    (t :journals/create-entry)])
 
-(defn- journal-item [journal expanded-id people places projects goals]
+(defn- journal-item [journal expanded-id]
   (let [is-expanded (= expanded-id (:id journal))]
     [item-card/item-card
      {:item journal
@@ -355,14 +355,14 @@
               [:button.cancel {:on-click #(reset! adding-mode nil)} (t :modal/cancel)]]]])]))))
 
 (defn- journals-list []
-  (let [{:keys [journals people places projects goals]} @state/*app-state
+  (let [{:keys [journals]} @state/*app-state
         {:keys [expanded-journal]} @journals-state/*journals-page-state]
     (if (empty? journals)
       [:p.empty-message (t :journals/no-journals)]
       [:ul.items
        (for [journal journals]
          ^{:key (:id journal)}
-         [journal-item journal expanded-journal people places projects goals])])))
+         [journal-item journal expanded-journal])])))
 
 (defn- journal-entries-summary []
   (let [entries (:journal-entries @state/*app-state)]
@@ -411,7 +411,7 @@
                                          (state/set-journal-filter {:id (:journal_id entry) :title (:title entry)}))}
       "🔁"])])
 
-(defn- journal-entry-item [entry expanded-id people places projects goals]
+(defn- journal-entry-item [entry expanded-id]
   (let [is-expanded (= expanded-id (:id entry))]
     [item-card/item-card
      {:item entry
@@ -434,17 +434,17 @@
                               :on-click #(state/set-confirm-delete-journal-entry entry)}}}]))
 
 (defn- journal-entries-list []
-  (let [{:keys [journal-entries people places projects goals]} @state/*app-state
+  (let [{:keys [journal-entries]} @state/*app-state
         {:keys [expanded-entry]} @journal-entries-state/*journal-entries-page-state]
     (if (empty? journal-entries)
       [:p.empty-message (t :journals/no-entries)]
       [:ul.items
        (for [entry journal-entries]
          ^{:key (:id entry)}
-         [journal-entry-item entry expanded-entry people places projects goals])])))
+         [journal-entry-item entry expanded-entry])])))
 
 (defn resources-tab []
-  (let [{:keys [resources people places projects goals drag-resource drag-over-resource]} @state/*app-state
+  (let [{:keys [resources drag-resource drag-over-resource]} @state/*app-state
         journals-mode (state/journals-mode?)
         journal-filter (state/journal-filter)
         {:keys [expanded-resource sort-mode]} @resources-state/*resources-page-state
@@ -483,7 +483,7 @@
             [:ul.items
              (for [resource resources]
                ^{:key (:id resource)}
-               [resource-item resource expanded-resource people places projects goals drag-enabled? drag-resource drag-over-resource])]
+               [resource-item resource expanded-resource drag-enabled? drag-resource drag-over-resource])]
             (when (:has-more? @resources-state/*resources-page-state)
               [:div.load-more
                [:button.load-more-btn {:on-click #(state/load-more-resources)}
