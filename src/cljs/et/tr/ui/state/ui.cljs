@@ -1,6 +1,7 @@
 (ns et.tr.ui.state.ui
   (:require [et.tr.ui.constants :as constants]
-             [et.tr.ui.state.mail :as mail-state]
+            [et.tr.ui.state.category-filters :as category-filters]
+            [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.issues :as issues-state]
             [et.tr.ui.state.meets :as meets-state]
@@ -40,16 +41,11 @@
   ([app-state]
    (tasks-fetch-opts app-state (:work-private-mode @app-state) (:strict-mode @app-state)))
   ([app-state context strict]
-   (cond-> {:search-term (:tasks-page/filter-search @app-state)
-            :importance (:tasks-page/importance-filter @app-state)
-            :context context
-            :strict strict
-            :filter-people (:shared/filter-people @app-state)
-            :filter-places (:shared/filter-places @app-state)
-            :filter-workstreams (:shared/filter-workstreams @app-state)
-            :filter-projects (:shared/filter-projects @app-state)
-            :filter-goals (:shared/filter-goals @app-state)
-            :filter-assets (:shared/filter-assets @app-state)}
+   (cond-> (merge (category-filters/fetch-opts app-state)
+                  {:search-term (:tasks-page/filter-search @app-state)
+                   :importance (:tasks-page/importance-filter @app-state)
+                   :context context
+                   :strict strict})
      (:tasks-page/filter-recurring @app-state)
      (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state)))
      ;; While viewing a focused issue, keep task re-fetches (e.g. after a done
@@ -61,14 +57,9 @@
   ([app-state]
    (today-fetch-opts app-state (:work-private-mode @app-state) (:strict-mode @app-state)))
   ([app-state context strict]
-   {:context context
-    :strict strict
-    :filter-people (:shared/filter-people @app-state)
-    :filter-places (:shared/filter-places @app-state)
-    :filter-workstreams (:shared/filter-workstreams @app-state)
-    :filter-projects (:shared/filter-projects @app-state)
-    :filter-goals (:shared/filter-goals @app-state)
-    :filter-assets (:shared/filter-assets @app-state)}))
+   (merge (category-filters/fetch-opts app-state)
+          {:context context
+           :strict strict})))
 
 (defn- initialize-tasks-page [app-state fetch-tasks-fn]
   (swap! app-state assoc :tasks-page/collapsed-filters constants/all-category-filters)

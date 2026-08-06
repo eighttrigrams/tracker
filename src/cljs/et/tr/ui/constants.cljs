@@ -73,6 +73,24 @@
   "[[type plural-key] ...] in Group order — the shape the badge renderers walk."
   (mapv (juxt :type :key) category-groups))
 
+(defn shared-filter-key
+  "app-state key holding the Categories selected in one Group's sidebar filter.
+  Shared across pages, hence the namespace: the Tasks page and the Issues page
+  filter by the same selection."
+  [group-key]
+  (keyword "shared" (str "filter-" (name group-key))))
+
+(defn fetch-opt-key
+  "The same selection under the name the fetch-opts layer and the query string
+  use for it."
+  [group-key]
+  (keyword (str "filter-" (name group-key))))
+
+(def cleared-shared-filters
+  "Every Group's sidebar filter emptied, for the clear-all gestures. One map
+  rather than six `:shared/filter-<group> #{}` lines per gesture."
+  (into {} (map (fn [k] [(shared-filter-key k) #{}])) category-key-order))
+
 (def sidebar-filter-configs
   "One sidebar filter group per Category Group, in Group order. Every page's
   sidebar (Tasks, Today, Issues, Meets, Resources, Reports) renders exactly this

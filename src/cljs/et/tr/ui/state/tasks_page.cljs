@@ -1,10 +1,12 @@
 (ns et.tr.ui.state.tasks-page
   (:require [clojure.set]
             [et.tr.filters :as filters]
-            [et.tr.ui.constants :as constants]))
+            [et.tr.ui.constants :as constants]
+            [et.tr.ui.state.category-filters :as category-filters]))
 
-(defn- shared-filter-key [group-key]
-  (keyword "shared" (str "filter-" (name group-key))))
+;; constants/shared-filter-key, not a local copy: this was the third of four
+;; definitions of the same key builder in the client.
+(def ^:private shared-filter-key constants/shared-filter-key)
 
 (defn has-active-filters? [app-state]
   (boolean (some #(seq (get @app-state (shared-filter-key %)))
@@ -18,16 +20,11 @@
   (seq (get @app-state (filter-type->key filter-type))))
 
 (defn- current-fetch-opts [app-state]
-  (cond-> {:search-term (:tasks-page/filter-search @app-state)
-           :importance (:tasks-page/importance-filter @app-state)
-           :context (:work-private-mode @app-state)
-           :strict (:strict-mode @app-state)
-           :filter-people (:shared/filter-people @app-state)
-           :filter-places (:shared/filter-places @app-state)
-           :filter-workstreams (:shared/filter-workstreams @app-state)
-           :filter-projects (:shared/filter-projects @app-state)
-           :filter-goals (:shared/filter-goals @app-state)
-           :filter-assets (:shared/filter-assets @app-state)}
+  (cond-> (merge (category-filters/fetch-opts app-state)
+                 {:search-term (:tasks-page/filter-search @app-state)
+                  :importance (:tasks-page/importance-filter @app-state)
+                  :context (:work-private-mode @app-state)
+                  :strict (:strict-mode @app-state)})
     (:tasks-page/filter-recurring @app-state)
     (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state)))))
 
@@ -43,13 +40,6 @@
   (swap! app-state assoc (filter-type->key filter-type) #{})
   (fetch-tasks-fn (current-fetch-opts app-state)))
 
-(defn clear-filter-people [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-PERSON))
-(defn clear-filter-places [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-PLACE))
-(defn clear-filter-workstreams [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-WORKSTREAM))
-(defn clear-filter-projects [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-PROJECT))
-(defn clear-filter-goals [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-GOAL))
-(defn clear-filter-assets [app-state f] (clear-filter app-state f constants/CATEGORY-TYPE-ASSET))
-
 (defn set-importance-filter [app-state fetch-tasks-fn level]
   (swap! app-state assoc :tasks-page/importance-filter level)
   (fetch-tasks-fn (assoc (current-fetch-opts app-state) :importance level)))
@@ -63,17 +53,12 @@
         all-filters constants/all-category-filters
         any-visible? (seq (clojure.set/difference all-filters collapsed))]
     (when-not any-visible?
-      (swap! app-state assoc
-             :shared/filter-people #{}
-             :shared/filter-places #{}
-             :shared/filter-workstreams #{}
-             :shared/filter-projects #{}
-             :shared/filter-goals #{}
-             :shared/filter-assets #{}
-             :tasks-page/category-search constants/empty-category-searches
-             :tasks-page/filter-search ""
-             :tasks-page/importance-filter nil
-             :tasks-page/expanded-task nil)
+      (swap! app-state merge
+             constants/cleared-shared-filters
+             {:tasks-page/category-search constants/empty-category-searches
+              :tasks-page/filter-search ""
+              :tasks-page/importance-filter nil
+              :tasks-page/expanded-task nil})
       (.scrollTo js/window 0 0)
       (fetch-tasks-fn (current-fetch-opts app-state)))))
 

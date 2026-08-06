@@ -18,10 +18,23 @@
        (filter #(contains? (set ids) (:id %)))
        (mapv :name)))
 
-(defn filter-opt-key
+(def filter-opt-key
   "The fetch-opts key holding one Group's selected ids, e.g. :filter-workstreams."
-  [group-key]
-  (keyword (str "filter-" (name group-key))))
+  constants/fetch-opt-key)
+
+(defn fetch-opts
+  "The sidebar's current Category selection in the shape every list's fetch-opts
+  map wants it: {:filter-people #{ids} ... :filter-assets #{ids}}.
+
+  Fifteen fetch-opts maps used to write those six lines out — eleven in
+  et.tr.ui.state, two in state.ui, one each in state.tasks-page and
+  state.today-page — which is ninety lines that all had to be edited together
+  when a Group was added, and the same shape as the enumerations that were not."
+  [app-state]
+  (into {}
+        (map (fn [k] [(constants/fetch-opt-key k)
+                      (get @app-state (constants/shared-filter-key k))]))
+        constants/category-key-order))
 
 (defn any-selected?
   "True when `opts` names a selection in any Group — what the list namespaces

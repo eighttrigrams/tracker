@@ -14,6 +14,7 @@
             [et.tr.ui.state.categories :as categories]
             [et.tr.ui.state.rules :as rules]
             [et.tr.ui.state.exclusions :as exclusions]
+            [et.tr.ui.state.category-filters :as category-filters]
             [et.tr.ui.state.tasks :as tasks]
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.ui.state.today-page :as today-page]
@@ -30,12 +31,6 @@
             [et.tr.ui.state.mottos :as mottos-state]
             [et.tr.ui.state.ui :as ui]))
 
-(def ^:const CATEGORY-TYPE-PERSON constants/CATEGORY-TYPE-PERSON)
-(def ^:const CATEGORY-TYPE-PLACE constants/CATEGORY-TYPE-PLACE)
-(def ^:const CATEGORY-TYPE-WORKSTREAM constants/CATEGORY-TYPE-WORKSTREAM)
-(def ^:const CATEGORY-TYPE-PROJECT constants/CATEGORY-TYPE-PROJECT)
-(def ^:const CATEGORY-TYPE-GOAL constants/CATEGORY-TYPE-GOAL)
-(def ^:const CATEGORY-TYPE-ASSET constants/CATEGORY-TYPE-ASSET)
 
 ;; Every Category Group, derived from the one registry, so a new group reaches
 ;; the collections, the shared filters, the per-page searches and the collapse
@@ -45,12 +40,14 @@
 (def empty-category-collections (zipmap category-keys (repeat [])))
 (def empty-category-searches (zipmap category-keys (repeat "")))
 
-(defn filter-state-key [group-key] (keyword "shared" (str "filter-" (name group-key))))
+;; The two Group-key builders live in constants, so the four copies the client had
+;; of each are one. Only the negative filters' key is still built here, since
+;; nothing outside this namespace and state.exclusions asks for it.
+(def filter-state-key constants/shared-filter-key)
+(def fetch-opt-key constants/fetch-opt-key)
 (defn exclude-state-key [group-key] (keyword "shared" (str "exclude-" (name group-key))))
-(defn fetch-opt-key [group-key] (keyword (str "filter-" (name group-key))))
 
-(def empty-category-filters
-  (into {} (map (fn [k] [(filter-state-key k) #{}])) category-keys))
+(def empty-category-filters constants/cleared-shared-filters)
 (def empty-category-excludes
   (into {} (map (fn [k] [(exclude-state-key k) {}])) category-keys))
 
@@ -478,19 +475,14 @@
   (into {} (map (fn [k] [(fetch-opt-key k) (get @*app-state (filter-state-key k))])) category-keys))
 
 (defn- resources-fetch-opts []
-  {:search-term (:filter-search @resources-state/*resources-page-state)
-   :importance (:importance-filter @resources-state/*resources-page-state)
-   :domain (:domain-filter @resources-state/*resources-page-state)
-   :excluded-domains (:excluded-domains @resources-state/*resources-page-state)
-   :sort-mode (:sort-mode @resources-state/*resources-page-state)
-   :context (:work-private-mode @*app-state)
-   :strict (:strict-mode @*app-state)
-   :filter-people (:shared/filter-people @*app-state)
-   :filter-places (:shared/filter-places @*app-state)
-   :filter-workstreams (:shared/filter-workstreams @*app-state)
-   :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)
-   :filter-assets (:shared/filter-assets @*app-state)})
+  (merge (category-filters/fetch-opts *app-state)
+         {:search-term (:filter-search @resources-state/*resources-page-state)
+          :importance (:importance-filter @resources-state/*resources-page-state)
+          :domain (:domain-filter @resources-state/*resources-page-state)
+          :excluded-domains (:excluded-domains @resources-state/*resources-page-state)
+          :sort-mode (:sort-mode @resources-state/*resources-page-state)
+          :context (:work-private-mode @*app-state)
+          :strict (:strict-mode @*app-state)}))
 
 (defn fetch-resources
   ([] (fetch-resources (resources-fetch-opts)))
@@ -596,17 +588,12 @@
 (declare add-issue-with-categories)
 
 (defn- issues-fetch-opts []
-  {:search-term (:filter-search @issues-state/*issues-page-state)
-   :importance (:importance-filter @issues-state/*issues-page-state)
-   :sort-mode (:sort-mode @issues-state/*issues-page-state)
-   :context (:work-private-mode @*app-state)
-   :strict (:strict-mode @*app-state)
-   :filter-people (:shared/filter-people @*app-state)
-   :filter-places (:shared/filter-places @*app-state)
-   :filter-workstreams (:shared/filter-workstreams @*app-state)
-   :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)
-   :filter-assets (:shared/filter-assets @*app-state)})
+  (merge (category-filters/fetch-opts *app-state)
+         {:search-term (:filter-search @issues-state/*issues-page-state)
+          :importance (:importance-filter @issues-state/*issues-page-state)
+          :sort-mode (:sort-mode @issues-state/*issues-page-state)
+          :context (:work-private-mode @*app-state)
+          :strict (:strict-mode @*app-state)}))
 
 (defn fetch-issues
   ([] (fetch-issues (issues-fetch-opts)))
@@ -614,15 +601,10 @@
    (issues-state/fetch-issues *app-state auth-headers opts)))
 
 (defn- today-issues-fetch-opts []
-  {:urgency "urgent"
-   :context (:work-private-mode @*app-state)
-   :strict (:strict-mode @*app-state)
-   :filter-people (:shared/filter-people @*app-state)
-   :filter-places (:shared/filter-places @*app-state)
-   :filter-workstreams (:shared/filter-workstreams @*app-state)
-   :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)
-   :filter-assets (:shared/filter-assets @*app-state)})
+  (merge (category-filters/fetch-opts *app-state)
+         {:urgency "urgent"
+          :context (:work-private-mode @*app-state)
+          :strict (:strict-mode @*app-state)}))
 
 (defn fetch-today-issues []
   (fetch-issues (today-issues-fetch-opts)))
@@ -775,21 +757,16 @@
 (defn- meets-fetch-opts []
   (let [series-filter (:meets-page/filter-series @*app-state)
         summary-mode? (:meets-page/meet-summary-mode @*app-state)]
-    (cond-> {:search-term (:filter-search @meets-state/*meets-page-state)
-             :importance (:importance-filter @meets-state/*meets-page-state)
-             :sort-mode (if (and series-filter summary-mode?)
-                          :summary
-                          (:sort-mode @meets-state/*meets-page-state))
-             :context (:work-private-mode @*app-state)
-             :strict (:strict-mode @*app-state)
-             :filter-people (:shared/filter-people @*app-state)
-             :filter-places (:shared/filter-places @*app-state)
-             :filter-workstreams (:shared/filter-workstreams @*app-state)
-             :filter-projects (:shared/filter-projects @*app-state)
-             :filter-goals (:shared/filter-goals @*app-state)
-             :filter-assets (:shared/filter-assets @*app-state)
-             :week-offset (:week-offset @meets-state/*meets-page-state)
-             :week-limit meets-week-limit}
+    (cond-> (merge (category-filters/fetch-opts *app-state)
+                   {:search-term (:filter-search @meets-state/*meets-page-state)
+                    :importance (:importance-filter @meets-state/*meets-page-state)
+                    :sort-mode (if (and series-filter summary-mode?)
+                                 :summary
+                                 (:sort-mode @meets-state/*meets-page-state))
+                    :context (:work-private-mode @*app-state)
+                    :strict (:strict-mode @*app-state)
+                    :week-offset (:week-offset @meets-state/*meets-page-state)
+                    :week-limit meets-week-limit})
       series-filter (assoc :series-id (:id series-filter)))))
 
 (defn fetch-meets
@@ -891,15 +868,10 @@
 (declare fetch-meeting-series)
 
 (defn- meeting-series-fetch-opts []
-  {:search-term (:filter-search @meeting-series-state/*meeting-series-page-state)
-   :context (:work-private-mode @*app-state)
-   :strict (:strict-mode @*app-state)
-   :filter-people (:shared/filter-people @*app-state)
-   :filter-places (:shared/filter-places @*app-state)
-   :filter-workstreams (:shared/filter-workstreams @*app-state)
-   :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)
-   :filter-assets (:shared/filter-assets @*app-state)})
+  (merge (category-filters/fetch-opts *app-state)
+         {:search-term (:filter-search @meeting-series-state/*meeting-series-page-state)
+          :context (:work-private-mode @*app-state)
+          :strict (:strict-mode @*app-state)}))
 
 (defn fetch-meeting-series
   ([] (fetch-meeting-series (meeting-series-fetch-opts)))
@@ -984,15 +956,10 @@
 (declare fetch-recurring-tasks)
 
 (defn- recurring-tasks-fetch-opts []
-  {:search-term (:filter-search @recurring-tasks-state/*recurring-tasks-page-state)
-   :context (:work-private-mode @*app-state)
-   :strict (:strict-mode @*app-state)
-   :filter-people (:shared/filter-people @*app-state)
-   :filter-places (:shared/filter-places @*app-state)
-   :filter-workstreams (:shared/filter-workstreams @*app-state)
-   :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)
-   :filter-assets (:shared/filter-assets @*app-state)})
+  (merge (category-filters/fetch-opts *app-state)
+         {:search-term (:filter-search @recurring-tasks-state/*recurring-tasks-page-state)
+          :context (:work-private-mode @*app-state)
+          :strict (:strict-mode @*app-state)}))
 
 (defn fetch-recurring-tasks
   ([] (fetch-recurring-tasks (recurring-tasks-fetch-opts)))
@@ -1052,15 +1019,10 @@
 (declare fetch-today-journal-entries)
 
 (defn- journals-fetch-opts []
-  {:search-term (:filter-search @journals-state/*journals-page-state)
-   :context (:work-private-mode @*app-state)
-   :strict (:strict-mode @*app-state)
-   :filter-people (:shared/filter-people @*app-state)
-   :filter-places (:shared/filter-places @*app-state)
-   :filter-workstreams (:shared/filter-workstreams @*app-state)
-   :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)
-   :filter-assets (:shared/filter-assets @*app-state)})
+  (merge (category-filters/fetch-opts *app-state)
+         {:search-term (:filter-search @journals-state/*journals-page-state)
+          :context (:work-private-mode @*app-state)
+          :strict (:strict-mode @*app-state)}))
 
 (defn fetch-journals
   ([] (fetch-journals (journals-fetch-opts)))
@@ -1113,16 +1075,11 @@
 
 (defn- journal-entries-fetch-opts []
   (let [journal-filter (:resources-page/filter-journal @*app-state)]
-    {:sort-mode :added
-     :context (:work-private-mode @*app-state)
-     :strict (:strict-mode @*app-state)
-     :filter-people (:shared/filter-people @*app-state)
-     :filter-places (:shared/filter-places @*app-state)
-     :filter-workstreams (:shared/filter-workstreams @*app-state)
-     :filter-projects (:shared/filter-projects @*app-state)
-     :filter-goals (:shared/filter-goals @*app-state)
-     :filter-assets (:shared/filter-assets @*app-state)
-     :journal-id (when journal-filter (:id journal-filter))}))
+    (merge (category-filters/fetch-opts *app-state)
+           {:sort-mode :added
+            :context (:work-private-mode @*app-state)
+            :strict (:strict-mode @*app-state)
+            :journal-id (when journal-filter (:id journal-filter))})))
 
 (defn fetch-journal-entries
   ([] (fetch-journal-entries (journal-entries-fetch-opts)))
@@ -1571,13 +1528,6 @@
 (defn set-category-scope [group-key id scope]
   (categories/set-category-scope *app-state auth-headers group-key id scope))
 
-(defn set-people-scope [id scope] (set-category-scope :people id scope))
-(defn set-places-scope [id scope] (set-category-scope :places id scope))
-(defn set-workstreams-scope [id scope] (set-category-scope :workstreams id scope))
-(defn set-projects-scope [id scope] (set-category-scope :projects id scope))
-(defn set-goals-scope [id scope] (set-category-scope :goals id scope))
-(defn set-assets-scope [id scope] (set-category-scope :assets id scope))
-
 (defn set-categories-filter-search [category-type search-term]
   (swap! *app-state assoc-in [:categories-page/filter-search category-type] search-term))
 
@@ -1592,13 +1542,6 @@
 
 (defn add-category [group-key name on-success]
   (categories/add-category *app-state auth-headers group-key name on-success))
-
-(defn add-person [name on-success] (add-category :people name on-success))
-(defn add-place [name on-success] (add-category :places name on-success))
-(defn add-workstream [name on-success] (add-category :workstreams name on-success))
-(defn add-project [name on-success] (add-category :projects name on-success))
-(defn add-goal [name on-success] (add-category :goals name on-success))
-(defn add-asset [name on-success] (add-category :assets name on-success))
 
 (defn update-category
   ([group-key id name description tags badge-title on-success]
@@ -1691,30 +1634,20 @@
 
 (defn- fetch-opts-for-current-tab []
   (case (:active-tab @*app-state)
-    :tasks (cond-> {:search-term (:tasks-page/filter-search @*app-state)
-                     :importance (:tasks-page/importance-filter @*app-state)
-                     :context (:work-private-mode @*app-state)
-                     :strict (:strict-mode @*app-state)
-                     :filter-people (:shared/filter-people @*app-state)
-                     :filter-places (:shared/filter-places @*app-state)
-                     :filter-workstreams (:shared/filter-workstreams @*app-state)
-                     :filter-projects (:shared/filter-projects @*app-state)
-                     :filter-goals (:shared/filter-goals @*app-state)
-                     :filter-assets (:shared/filter-assets @*app-state)}
+    :tasks (cond-> (merge (category-filters/fetch-opts *app-state)
+                          {:search-term (:tasks-page/filter-search @*app-state)
+                           :importance (:tasks-page/importance-filter @*app-state)
+                           :context (:work-private-mode @*app-state)
+                           :strict (:strict-mode @*app-state)})
              (:tasks-page/filter-recurring @*app-state)
              (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @*app-state))))
     :issues (cond-> {:context (:work-private-mode @*app-state)
                      :strict (:strict-mode @*app-state)}
               (:issues-page/filter-issue @*app-state)
               (assoc :issue-id (:id (:issues-page/filter-issue @*app-state))))
-    :today {:context (:work-private-mode @*app-state)
-            :strict (:strict-mode @*app-state)
-            :filter-people (:shared/filter-people @*app-state)
-            :filter-places (:shared/filter-places @*app-state)
-            :filter-workstreams (:shared/filter-workstreams @*app-state)
-            :filter-projects (:shared/filter-projects @*app-state)
-            :filter-goals (:shared/filter-goals @*app-state)
-            :filter-assets (:shared/filter-assets @*app-state)}
+    :today (merge (category-filters/fetch-opts *app-state)
+                  {:context (:work-private-mode @*app-state)
+                   :strict (:strict-mode @*app-state)})
     {:context (:work-private-mode @*app-state)
      :strict (:strict-mode @*app-state)}))
 
@@ -1968,18 +1901,6 @@
 (defn clear-filter [filter-type]
   (tasks-page/clear-filter *app-state fetch-tasks filter-type))
 
-(defn clear-filter-people []
-  (tasks-page/clear-filter-people *app-state fetch-tasks))
-
-(defn clear-filter-places []
-  (tasks-page/clear-filter-places *app-state fetch-tasks))
-
-(defn clear-filter-projects []
-  (tasks-page/clear-filter-projects *app-state fetch-tasks))
-
-(defn clear-filter-goals []
-  (tasks-page/clear-filter-goals *app-state fetch-tasks))
-
 (defn set-importance-filter [level]
   (tasks-page/set-importance-filter *app-state fetch-tasks level))
 
@@ -2075,17 +1996,12 @@
 
 
 (defn- reports-fetch-opts []
-  {:context (:work-private-mode @*app-state)
-   :strict (:strict-mode @*app-state)
-   :items-filter (:reports-page/items-filter @*app-state)
-   :filter-people (:shared/filter-people @*app-state)
-   :filter-places (:shared/filter-places @*app-state)
-   :filter-workstreams (:shared/filter-workstreams @*app-state)
-   :filter-projects (:shared/filter-projects @*app-state)
-   :filter-goals (:shared/filter-goals @*app-state)
-   :filter-assets (:shared/filter-assets @*app-state)
-   :week-offset (:week-offset @reports-state/*reports-page-state)
-   :week-limit (:week-limit @reports-state/*reports-page-state)})
+  (merge (category-filters/fetch-opts *app-state)
+         {:context (:work-private-mode @*app-state)
+          :strict (:strict-mode @*app-state)
+          :items-filter (:reports-page/items-filter @*app-state)
+          :week-offset (:week-offset @reports-state/*reports-page-state)
+          :week-limit (:week-limit @reports-state/*reports-page-state)}))
 
 (defn fetch-reports
   ;; Leaving Reports and coming back re-runs this via the tab initializer; it
