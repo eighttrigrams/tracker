@@ -68,7 +68,6 @@
      :on-click #(state/set-active-tab tab-key)}
     (t translation-key)]))
 
-(def ^:private category-tabs (conj (set (map :tab constants/category-groups)) :cat-rules))
 (def ^:private settings-tabs #{:settings-profile :settings-mottos :settings-shortcuts :settings-history})
 
 (defn tabs []
@@ -77,7 +76,7 @@
       [:div.tabs
        [tab-button active-tab :users :nav/users]]
       (cond
-        (contains? category-tabs active-tab)
+        (contains? constants/category-tabs active-tab)
         [:div.tabs-group-row
          [:div.nav-back-group
           [:button.tab.nav-back-btn

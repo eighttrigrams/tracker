@@ -51,6 +51,24 @@
 (def category-key->endpoint
   (into {} (map (fn [{:keys [key]}] [key (str "/api/" (name key) "/")])) category-groups))
 
+(def first-category-tab
+  "The Categories tab to open when nothing else says which — the first Group in
+  the registry rather than a named one, so removing or reordering Groups cannot
+  leave this pointing at a tab that no longer exists."
+  (:tab (first category-groups)))
+
+(def category-tabs
+  "Every tab that belongs to the Categories section: one per Group, plus the
+  Rules page, which is not a Group but lives in the same tab row.
+
+  One generated set, used both by the nav (which asks whether the Categories tab
+  row is what should be on screen) and by state.ui's `supersection-key` (which
+  asks whether leaving this tab should be remembered as the last Categories
+  tab). It was written out by hand in the second of those and named four of the
+  six Groups, so leaving Workstreams or Assets recorded nothing and the sidebar's
+  Categories button took you back to whichever Group you had been on before."
+  (conj (set (map :tab category-groups)) :cat-rules))
+
 (def category-type-pairs
   "[[type plural-key] ...] in Group order — the shape the badge renderers walk."
   (mapv (juxt :type :key) category-groups))

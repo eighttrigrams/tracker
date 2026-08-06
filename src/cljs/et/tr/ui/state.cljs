@@ -241,12 +241,6 @@
 (declare fetch-resources-or-journals)
 (declare fetch-meets)
 (declare fetch-users)
-(declare fetch-people)
-(declare fetch-places)
-(declare fetch-workstreams)
-(declare fetch-projects)
-(declare fetch-goals)
-(declare fetch-assets)
 (declare fetch-all-categories)
 (declare fetch-working-on)
 
@@ -1557,19 +1551,13 @@
 (defn switch-user [user]
   (users/switch-user *app-state initial-collection-state fetch-all user))
 
-;; Per-group facades over the group-agnostic state.categories fns. Kept as
-;; named vars (rather than making every call site pass a group key) because the
-;; views already call them by name, and a group is a compile-time constant at
-;; each of those sites.
+;; Group-agnostic: every caller passes the Group key. There used to be a
+;; per-Group facade per function here (fetch-people, fetch-places, ...) on the
+;; grounds that "the views already call them by name" — no view did, the six
+;; fetch-* facades existed only to be spread across make-tab-initializers' own
+;; hand-written list of Groups, and that list named four of them.
 (defn fetch-categories [group-key]
   (categories/fetch-categories *app-state auth-headers group-key))
-
-(defn fetch-people [] (fetch-categories :people))
-(defn fetch-places [] (fetch-categories :places))
-(defn fetch-workstreams [] (fetch-categories :workstreams))
-(defn fetch-projects [] (fetch-categories :projects))
-(defn fetch-goals [] (fetch-categories :goals))
-(defn fetch-assets [] (fetch-categories :assets))
 
 (defn fetch-all-categories []
   (categories/fetch-all-categories *app-state auth-headers))
@@ -2188,12 +2176,7 @@
                                         :fetch-today-issues fetch-today-issues
                                         :fetch-meets fetch-meets-or-series
                                         :fetch-reports fetch-reports
-                                        :fetch-people fetch-people
-                                        :fetch-places fetch-places
-                                        :fetch-workstreams fetch-workstreams
-                                        :fetch-projects fetch-projects
-                                        :fetch-goals fetch-goals
-                                        :fetch-assets fetch-assets
+                                        :fetch-category fetch-categories
                                         :fetch-rules-page fetch-rules-page
                                         :fetch-mottos fetch-mottos
                                         :fetch-working-on fetch-working-on

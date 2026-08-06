@@ -14,7 +14,8 @@
     [:div.sidebar-top-row
      [:button.category-nav-pencil
       {:title (t :nav/categories)
-       :on-click #(state/set-active-tab (or (:last-category-tab @state/*app-state) :cat-people))}
+       :on-click #(state/set-active-tab (or (:last-category-tab @state/*app-state)
+                                            constants/first-category-tab))}
       [:svg {:viewBox "0 0 24 24" :fill "none" :stroke "currentColor"
              :stroke-width "2" :stroke-linecap "round" :stroke-linejoin "round"
              :width "20" :height "20"}

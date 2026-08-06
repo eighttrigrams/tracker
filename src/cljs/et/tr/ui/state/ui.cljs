@@ -77,49 +77,60 @@
   (focus-tasks-search)
   (fetch-tasks-fn (tasks-fetch-opts app-state)))
 
-(defn make-tab-initializers [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-issues fetch-today-issues fetch-meets fetch-reports fetch-people fetch-places fetch-projects fetch-goals fetch-rules-page fetch-mottos fetch-working-on is-admin has-mail]}]
-  {:tasks (fn []
-            (initialize-tasks-page app-state fetch-tasks))
-   :today (fn []
-            (swap! app-state assoc
-                   :today-page/collapsed-filters constants/all-category-filters
-                   :sort-mode :today)
-            (fetch-tasks (today-fetch-opts app-state))
-            (fetch-today-meets (today-fetch-opts app-state))
-            (fetch-today-journal-entries (today-fetch-opts app-state))
-            (fetch-today-issues)
-            (fetch-working-on))
-   :mail (fn []
-           (when (has-mail)
-             (fetch-messages)))
-   :resources (fn []
-                (fetch-resources)
-                (focus-input! "resources-filter-search"))
-   :issues (fn []
-             (fetch-issues)
-             (focus-input! "issues-filter-search"))
-   :meets (fn []
-            (fetch-meets)
-            (focus-input! "meets-filter-search"))
-   :reports (fn []
-              (fetch-reports))
-   :cat-people   (fn [] (fetch-people))
-   :cat-places   (fn [] (fetch-places))
-   :cat-projects (fn [] (fetch-projects))
-   :cat-goals    (fn [] (fetch-goals))
-   :cat-rules    (fn [] (fetch-rules-page))
-   :settings-mottos (fn []
-                      (fetch-mottos)
-                      (focus-input! "mottos-filter-search"))})
+(defn make-tab-initializers
+  "What to run when each tab becomes the active one.
+
+  `fetch-category` takes a Group key, and the six Categories tabs are generated
+  from `constants/category-groups` rather than listed. They used to be listed,
+  and the list named four: the caller already passed a `:fetch-workstreams` and a
+  `:fetch-assets`, this destructuring dropped them on the floor, and entering the
+  Workstreams or Assets page ran no fetch at all. A Group added to the registry
+  now gets its initializer without this map changing."
+  [app-state {:keys [fetch-tasks fetch-today-meets fetch-today-journal-entries fetch-messages fetch-resources fetch-issues fetch-today-issues fetch-meets fetch-reports fetch-category fetch-rules-page fetch-mottos fetch-working-on is-admin has-mail]}]
+  (into
+   (into {} (map (fn [{:keys [tab key]}] [tab (fn [] (fetch-category key))])) constants/category-groups)
+   {:tasks (fn []
+             (initialize-tasks-page app-state fetch-tasks))
+    :today (fn []
+             (swap! app-state assoc
+                    :today-page/collapsed-filters constants/all-category-filters
+                    :sort-mode :today)
+             (fetch-tasks (today-fetch-opts app-state))
+             (fetch-today-meets (today-fetch-opts app-state))
+             (fetch-today-journal-entries (today-fetch-opts app-state))
+             (fetch-today-issues)
+             (fetch-working-on))
+    :mail (fn []
+            (when (has-mail)
+              (fetch-messages)))
+    :resources (fn []
+                 (fetch-resources)
+                 (focus-input! "resources-filter-search"))
+    :issues (fn []
+              (fetch-issues)
+              (focus-input! "issues-filter-search"))
+    :meets (fn []
+             (fetch-meets)
+             (focus-input! "meets-filter-search"))
+    :reports (fn []
+               (fetch-reports))
+    ;; Rules is in the Categories tab row but is not a Group, so it stays a
+    ;; hand-written entry rather than coming out of the registry.
+    :cat-rules (fn [] (fetch-rules-page))
+    :settings-mottos (fn []
+                       (fetch-mottos)
+                       (focus-input! "mottos-filter-search"))}))
 
 (def ^:private global-tabs #{:today :tasks :meets :resources :issues :reports :mail})
-(def ^:private category-tabs #{:cat-people :cat-places :cat-projects :cat-goals :cat-rules})
 (def ^:private settings-tabs #{:settings-profile :settings-mottos :settings-shortcuts :settings-history})
 
 (defn- supersection-key [tab]
   (cond
     (global-tabs tab) :last-global-tab
-    (category-tabs tab) :last-category-tab
+    ;; constants/category-tabs, not a set written out here: this was the hand-written
+    ;; one that named four of the six Groups, so leaving Workstreams or Assets
+    ;; recorded no last-Categories-tab at all.
+    (constants/category-tabs tab) :last-category-tab
     (settings-tabs tab) :last-settings-tab))
 
 (defn set-active-tab [app-state tab-initializers tab]
