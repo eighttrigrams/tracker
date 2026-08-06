@@ -158,8 +158,13 @@ When("I add {string} on the {string} page", async ({ page }, title: string, coll
   await page.locator(".combined-search-add-form button").first().click();
   // The Journals form asks for a schedule type before it creates anything. Keyed
   // off the modal being on screen rather than off a list of collections that open
-  // one, so a second form that asks something needs no entry here.
+  // one, so a second form that asks something needs no entry here — and waited
+  // for rather than polled once, because the modal renders a beat after the click
+  // and an isVisible() that arrives first reads as "no modal" and leaves the add
+  // unfinished. The wait is what the other collections pay for the generality;
+  // they have no modal, so it expires and the catch moves on.
   const scheduleChoice = page.locator(".modal .schedule-mode-selector .toggle-option").first();
+  await scheduleChoice.waitFor({ state: "visible", timeout: 2000 }).catch(() => {});
   if (await scheduleChoice.isVisible().catch(() => false)) {
     await scheduleChoice.click();
   }
