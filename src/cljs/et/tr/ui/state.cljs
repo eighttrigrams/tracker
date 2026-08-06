@@ -677,6 +677,18 @@
 (defn clear-confirm-delete-issue []
   (issues-state/clear-confirm-delete-issue))
 
+(defn set-confirm-convert-issue [issue]
+  (issues-state/set-confirm-convert-issue issue))
+
+(defn clear-confirm-convert-issue []
+  (issues-state/clear-confirm-convert-issue))
+
+(defn convert-issue-to-task [issue-id]
+  (issues-state/convert-issue-to-task *app-state auth-headers fetch-issues fetch-tasks issue-id))
+
+(defn issue-has-tasks? [issue]
+  (issues-state/issue-has-tasks? issue))
+
 (defn set-issue-resolved [issue-id resolved?]
   (issues-state/set-issue-resolved *app-state auth-headers fetch-issues issue-id resolved?))
 

@@ -11,6 +11,7 @@
                                      :editing-issue nil
                                      :confirm-delete-issue nil
                                      :confirm-unresolve-issue nil
+                                     :confirm-convert-issue nil
                                      :issue-dropdown-open nil
                                      :filter-search ""
                                      :importance-filter nil
@@ -105,6 +106,36 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to delete issue"))
       (swap! *issues-page-state assoc :confirm-delete-issue nil))))
+
+;; Both lists changed — the Issue left one and a Task arrived in the other — so
+;; both are refetched rather than patched in memory: the new Task's position, its
+;; categories and its re-pointed relations are all the server's answer.
+(defn convert-issue-to-task [app-state auth-headers fetch-issues-fn fetch-tasks-fn issue-id]
+  (api/post-json (str "/api/issues/" issue-id "/convert-to-task")
+    {}
+    (auth-headers)
+    (fn [_]
+      (swap! app-state update :issues
+             (fn [issues] (filterv #(not= (:id %) issue-id) issues)))
+      (swap! *issues-page-state assoc :confirm-convert-issue nil)
+      (fetch-issues-fn)
+      (fetch-tasks-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert issue"))
+      (swap! *issues-page-state assoc :confirm-convert-issue nil))))
+
+(defn set-confirm-convert-issue [issue]
+  (swap! *issues-page-state assoc :confirm-convert-issue issue))
+
+(defn clear-confirm-convert-issue []
+  (swap! *issues-page-state assoc :confirm-convert-issue nil))
+
+(defn issue-has-tasks?
+  "Whether any Task belongs to this Issue, done or undone — the listing attaches
+  them (`:tasks`), so the client can tell without asking. Conversion's guard
+  counts both, unlike `issue-has-undone-tasks?`."
+  [issue]
+  (boolean (seq (:tasks issue))))
 
 (defn set-issue-scope [app-state auth-headers issue-id scope]
   (api/put-json (str "/api/issues/" issue-id "/scope")

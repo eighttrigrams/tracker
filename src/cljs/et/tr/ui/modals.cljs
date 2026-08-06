@@ -87,11 +87,13 @@
    [:div.modal {:on-click #(.stopPropagation %)}
     [:div.modal-header header]
     [:div.modal-body
+     ;; The key goes on the vector each branch returns, not on the `if` — read-time
+     ;; metadata on the form itself never reaches the element, and React says so on
+     ;; the console for every confirm modal with more than one paragraph.
      (for [[idx p] (map-indexed vector body-paragraphs)]
-       ^{:key idx}
        (if (:class p)
-         [:p {:class (:class p)} (:text p)]
-         [:p (:text p)]))]
+         ^{:key idx} [:p {:class (:class p)} (:text p)]
+         ^{:key idx} [:p (:text p)]))]
     [:div.modal-footer
      [:button.cancel {:on-click on-cancel} (t :modal/cancel)]
      [:button.confirm-delete {:on-click on-confirm} (or confirm-label (t :modal/delete))]]]])
@@ -199,6 +201,20 @@
     :title-key :title
     :clear-fn state/clear-confirm-delete-issue
     :delete-fn state/delete-issue}))
+
+(defn confirm-convert-issue-modal []
+  ;; Behind a confirmation for the same reason Delete is: the issue is gone
+  ;; afterwards and nothing brings it back. The body says what survives the
+  ;; move, because that is not guessable from a button labelled "convert".
+  (when-let [issue (:confirm-convert-issue @issues-state/*issues-page-state)]
+    [generic-confirm-modal
+     {:header (t :modal/convert-issue)
+      :body-paragraphs [{:text (t :modal/convert-issue-confirm)}
+                        {:text (:title issue) :class "task-title"}
+                        {:text (t :modal/convert-issue-warning) :class "warning"}]
+      :on-cancel state/clear-confirm-convert-issue
+      :on-confirm #(state/convert-issue-to-task (:id issue))
+      :confirm-label (t :modal/convert)}]))
 
 (defn confirm-unresolve-issue-modal []
   (when-let [issue (:confirm-unresolve-issue @issues-state/*issues-page-state)]

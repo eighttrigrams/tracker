@@ -346,6 +346,7 @@
       (POST "/:id/reorder" [] issue-handler/reorder-issue-handler)
       (POST "/:id/reorder-urgent" [] issue-handler/reorder-issue-in-urgent-handler)
       (POST "/:id/create-task" [] issue-handler/create-task-for-issue-handler)
+      (POST "/:id/convert-to-task" [] issue-handler/convert-issue-to-task-handler)
       (PUT "/:id/scope" [] issue-handler/set-issue-scope-handler)
       (PUT "/:id/importance" [] issue-handler/set-issue-importance-handler)
       (PUT "/:id/urgency" [] issue-handler/set-issue-urgency-handler)

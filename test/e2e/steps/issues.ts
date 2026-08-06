@@ -225,3 +225,34 @@ Then(
 Then("I should see the inbox page", async ({ page }) => {
   await expect(page.locator(".mail-page")).toBeVisible();
 });
+
+// Conversion is the destructive one of the two affordances on an issue card —
+// the issue is gone afterwards — so it goes through a confirm modal, like Delete.
+When("I click the convert button on issue {string}", async ({ page }, issueTitle: string) => {
+  const modal = page.locator(".modal-overlay");
+  await expect(async () => {
+    if (await modal.isVisible()) return;
+    const btn = page.locator(".items li").filter({ hasText: issueTitle }).locator(".convert-issue-btn");
+    await btn.click({ timeout: 3000 });
+    await expect(modal).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+});
+
+When("I confirm the convert modal", async ({ page }) => {
+  await page.locator(".modal-overlay .confirm-delete").click();
+  await page.waitForLoadState("networkidle");
+});
+
+Then("the convert button on issue {string} is not present", async ({ page }, title: string) => {
+  const card = page.locator(".items li").filter({ hasText: title });
+  await expect(card).toBeVisible({ timeout: 5000 });
+  await expect(card.locator(".convert-issue-btn")).toHaveCount(0);
+});
+
+// Paired with the check above: the card is still showing its other affordance,
+// so an absent convert button means "hidden on purpose" rather than "card not
+// rendered yet".
+Then("the create-task button on issue {string} is present", async ({ page }, title: string) => {
+  const card = page.locator(".items li").filter({ hasText: title });
+  await expect(card.locator(".create-next-meeting-btn")).toHaveCount(1);
+});

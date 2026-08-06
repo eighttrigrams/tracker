@@ -70,6 +70,20 @@
                 (state/open-create-task-modal issue))}
    (t :tasks/create-task)])
 
+(defn- issue-convert-button [issue]
+  ;; Sits beside create-task and does the opposite: that one hangs a task off the
+  ;; issue, this one turns the issue into one and the issue stops existing —
+  ;; hence the confirmation, as with Delete. It is simply absent while any task
+  ;; belongs to the issue (the listing attaches them, so the client knows without
+  ;; asking) and while the issue is resolved; the server's 409s are still the
+  ;; boundary, but a button whose only outcome is one of them is not a button.
+  [:button.convert-issue-btn
+   {:on-click (fn [e]
+                (.stopPropagation e)
+                (state/set-confirm-convert-issue issue))
+    :title (t :issues/convert-to-task-title)}
+   (t :issues/convert-to-task)])
+
 (defn- issue-item [issue expanded-id drag-enabled? drag-issue drag-over-issue]
   (let [is-expanded (= expanded-id (:id issue))
         is-dragging (= drag-issue (:id issue))
@@ -106,7 +120,10 @@
                     :on-edit state/edit-issue-description}
       :categories {:selector-fn issue-category-selector :relations-prefix "iss"}
       :readonly-extra (when-not (state/issue-resolved? issue)
-                        [issue-create-task-button issue])
+                        [:<>
+                         [issue-create-task-button issue]
+                         (when-not (state/issue-has-tasks? issue)
+                           [issue-convert-button issue])])
       :footer {:scope {:value (:scope issue)
                        :on-set #(state/set-issue-scope (:id issue) %)}
                :importance {:value (:importance issue)

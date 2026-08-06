@@ -149,6 +149,51 @@
             {:status 201 :body task})))
       {:status 404 :body {:success false :error "Issue not found"}})))
 
+(defn convert-issue-to-task-handler
+  "POST /api/issues/:id/convert-to-task — turn this issue into a task. **The
+  issue is gone afterwards**, which is what separates this from its neighbour
+  POST /api/issues/:id/create-task: that one materializes a task that *belongs*
+  to the issue and leaves the issue standing, this one replaces it.
+
+  The task carries the issue's title, description, tags, scope, importance,
+  urgency and relation badge title, **its categories**, and **its relations** —
+  the relations are re-pointed at the task in both directions rather than
+  dropped, because whatever sits at the other end still means them. The manual
+  orderings do not come along: the Issues list and the Tasks list are separate
+  orders, so the task lands where a new task lands rather than at the issue's
+  old position.
+
+  **409 when any task belongs to the issue**, done or undone — an issue with
+  tasks hanging off it cannot become one of them — and **409 for a resolved
+  issue**, matching create-task: a resolved issue is one the owner has declared
+  settled, and turning it into an open task says the opposite.
+
+  Returns 201 with the created task, 404 {:success false :error} when the id is
+  not the caller's. Records both events, the issue's :delete first and the task's
+  :create second, so the log reads as one story."
+  [req]
+  (let [user-id (common/get-user-id req)
+        issue-id (Integer/parseInt (get-in req [:params :id]))
+        ;; Snapshotted before the conversion, like delete-issue-handler: the row
+        ;; the audit log has to keep is gone by the time it returns.
+        snapshot (events/fetch-row :issues issue-id)
+        result (db.issue/convert-issue-to-task (common/ensure-ds) user-id issue-id)]
+    (cond
+      (nil? result)
+      {:status 404 :body {:success false :error "Issue not found"}}
+
+      (= :has-tasks (:error result))
+      {:status 409 :body {:error "Cannot convert an issue that has associated tasks"}}
+
+      (= :resolved (:error result))
+      {:status 409 :body {:error "Cannot convert a resolved issue"}}
+
+      :else
+      (let [task (db.task/get-task (common/ensure-ds) user-id (:id result))]
+        (events/record-delete! req :issue issue-id snapshot)
+        (events/record-create! req :task (:id result) task)
+        {:status 201 :body task}))))
+
 (defn set-issue-resolved-handler
   "PUT /api/issues/:id/resolved — mark an issue resolved or reopened. Body:
   {:resolved} as a boolean (required; 400 if absent). Refuses to resolve while

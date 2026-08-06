@@ -267,6 +267,120 @@
                      :returning [:id :resolved :resolved_at :modified_at]})
         db/jdbc-opts))))
 
+(defn- issue-task-count
+  "Number of the caller's tasks belonging to the issue, done or undone —
+  conversion's guard, which is stricter than `undone-task-count`'s on purpose:
+  resolving claims the work finished, converting claims this Issue *is* the
+  work, and a done Task hanging off it contradicts that just as loudly."
+  [conn user-id issue-id]
+  (:c (jdbc/execute-one! conn
+        (sql/format {:select [[[:count :*] :c]]
+                     :from [:tasks]
+                     :where [:and (db/user-id-where-clause user-id)
+                             [:= :issue_id issue-id]]})
+        db/jdbc-opts)))
+
+(defn convert-issue-to-task
+  "Turn an Issue into a Task. The Issue is gone afterwards and nothing points
+  back at it, which is what makes this the opposite of `set-task-issue`'s
+  belongs-to link rather than a variant of it.
+
+  Everything about the content moves: title, description, tags, scope,
+  importance, urgency, relation_badge_title, the Issue's categories, and its
+  relations — which are re-pointed rather than dropped, because the item at the
+  other end still means the relation. The manual orderings do not: the Issues
+  list and the Tasks list are two orders and neither is derived from the other,
+  so the Task lands where `add-task` puts a new Task (top of the Tasks page) and,
+  when it is urgent, at the top of its urgency's block in Urgent Matters — the
+  position an item entering that context is given, not the Issue's own.
+
+  One transaction, because a half-done conversion would leave either an Issue
+  whose categories are gone or a Task duplicating a live Issue.
+
+  Returns the created task row on success, {:error :has-tasks} when any Task
+  belongs to the Issue, {:error :resolved} for a resolved Issue, and nil when no
+  Issue of the caller's has that id."
+  [ds user-id issue-id]
+  (jdbc/with-transaction [tx (db/get-conn ds)]
+    (let [issue (jdbc/execute-one! tx
+                  (sql/format {:select db/issue-select-columns
+                               :from [:issues]
+                               :where [:and [:= :id issue-id] (db/user-id-where-clause user-id)]})
+                  db/jdbc-opts)]
+      (cond
+        (nil? issue) nil
+        (= 1 (:resolved issue)) {:error :resolved}
+        (pos? (issue-task-count tx user-id issue-id)) {:error :has-tasks}
+
+        :else
+        (let [min-order (or (:min_order (jdbc/execute-one! tx
+                                          (sql/format {:select [[[:min :sort_order] :min_order]]
+                                                       :from [:tasks]
+                                                       :where (db/user-id-where-clause user-id)})
+                                          db/jdbc-opts))
+                            1.0)
+              urgent? (contains? db/urgent-urgencies (:urgency issue))
+              min-urgent (when urgent?
+                           (or (:min_order (jdbc/execute-one! tx
+                                             (sql/format {:select [[[:min (ordering/column :tasks-urgent)] :min_order]]
+                                                          :from [:tasks]
+                                                          :where [:and (db/user-id-where-clause user-id)
+                                                                  [:= :urgency (:urgency issue)]]})
+                                             db/jdbc-opts))
+                               1.0))
+              task (jdbc/execute-one! tx
+                     (sql/format {:insert-into :tasks
+                                  :values [(cond-> {:title (:title issue)
+                                                    :description (:description issue)
+                                                    :tags (:tags issue)
+                                                    :scope (:scope issue)
+                                                    :importance (:importance issue)
+                                                    :urgency (:urgency issue)
+                                                    :relation_badge_title (:relation_badge_title issue)
+                                                    :sort_order (- min-order 1.0)
+                                                    :user_id user-id
+                                                    :modified_at (clock/sql-now)}
+                                             urgent? (assoc (ordering/column :tasks-urgent) (- min-urgent 1.0)))]
+                                  :returning db/task-select-columns})
+                     db/jdbc-opts)
+              task-id (:id task)
+              categories (jdbc/execute! tx
+                           (sql/format {:select [:category_type :category_id]
+                                        :from [:issue_categories]
+                                        :where [:= :issue_id issue-id]})
+                           db/jdbc-opts)]
+          (when (seq categories)
+            (jdbc/execute-one! tx
+              (sql/format {:insert-into :task_categories
+                           :values (mapv (fn [{:keys [category_type category_id]}]
+                                           {:task_id task-id
+                                            :category_type category_type
+                                            :category_id category_id})
+                                         categories)})))
+          ;; Relations are stored in both directions, so both ends are re-pointed.
+          ;; UNIQUE (source_type, source_id, target_type, target_id) cannot be hit
+          ;; by this: the Task was created a moment ago and has no relations of its
+          ;; own for a re-pointed row to collide with.
+          (jdbc/execute-one! tx
+            (sql/format {:update :relations
+                         :set {:source_type "tsk" :source_id task-id}
+                         :where [:and [:= :source_type "iss"] [:= :source_id issue-id]]}))
+          (jdbc/execute-one! tx
+            (sql/format {:update :relations
+                         :set {:target_type "tsk" :target_id task-id}
+                         :where [:and [:= :target_type "iss"] [:= :target_id issue-id]]}))
+          ;; No tasks to detach — the guard above refused the Issue if any belonged
+          ;; to it — so unlike delete-issue this only clears the join rows.
+          (jdbc/execute-one! tx
+            (sql/format {:delete-from :issue_categories
+                         :where [:= :issue_id issue-id]}))
+          (jdbc/execute-one! tx
+            (sql/format {:delete-from :issues
+                         :where [:= :id issue-id]}))
+          (tel/log! {:level :info :data {:issue-id issue-id :task-id task-id :user-id user-id}}
+                    "Issue converted to task")
+          task)))))
+
 (defn categorize-issue [ds user-id issue-id category-type category-id]
   (db/validate-category-type! category-type)
   (when (and (issue-owned-by-user? ds issue-id user-id)

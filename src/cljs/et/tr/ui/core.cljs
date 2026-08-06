@@ -118,6 +118,7 @@
       (:confirm-delete-resource @state/*app-state)
       (:confirm-delete-issue @issues-state/*issues-page-state)
       (:confirm-unresolve-issue @issues-state/*issues-page-state)
+      (:confirm-convert-issue @issues-state/*issues-page-state)
       (:confirm-delete-meet @state/*app-state)
       (:confirm-delete-rtask @recurring-tasks-state/*recurring-tasks-page-state)
       (:confirm-delete-journal @journals-state/*journals-page-state)
@@ -149,6 +150,7 @@
      [modals/confirm-delete-resource-modal]
      [modals/confirm-delete-issue-modal]
      [modals/confirm-unresolve-issue-modal]
+     [modals/confirm-convert-issue-modal]
      [modals/confirm-delete-meet-modal]
      [modals/confirm-delete-meeting-series-modal]
      [modals/confirm-delete-recurring-task-modal]
