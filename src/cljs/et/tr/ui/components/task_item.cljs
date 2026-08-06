@@ -93,7 +93,13 @@
           :bypass (toggle-fn (:type category) (:id category) true)
           :exclude (state/toggle-negative-filter (:type category) (:id category) (:name category))
           :toggle (toggle-fn (:type category) (:id category))
-          nil)))))
+          nil)
+        ;; The list has just narrowed under the badge, so the cursor goes where
+        ;; the next thing is typed — the same move the sidebar's badges already
+        ;; make. Which clicks earn it is `filters/refocus-search-after-badge-click?`,
+        ;; so the rule has one home and can be tested without a DOM.
+        (when (filters/refocus-search-after-badge-click? modifiers gate)
+          (state/focus-page-search))))))
 
 (defn category-badges [{:keys [item category-types toggle-fn has-filter-fn force-show?]}]
   (let [all-categories (mapcat (fn [[type k]] (map #(assoc % :type type) (get item k))) category-types)]

@@ -39,6 +39,15 @@
     shift?            (when (or negative-active? (not any-filters?)) :exclude)
     :else             (when-not (or negative-active? type-filtered?) :toggle)))
 
+(defn refocus-search-after-badge-click?
+  "Whether a click on a card's category badge should put the cursor back in the
+  page's search box. Only the positive filter does: :exclude and :bypass are
+  different acts, and a click the gate refuses selected nothing, so there is
+  nothing to come back from — which is the case worth having a test for, since
+  the list does not move and a stray focus jump is easy to miss."
+  [modifiers gate]
+  (= :toggle (badge-gesture modifiers gate)))
+
 (defn badge-consumes-click?
   "Whether the badge keeps a click to itself or lets it through to the row it
   sits in — on Today the badges render inside the clickable card header, so a

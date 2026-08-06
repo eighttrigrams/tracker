@@ -207,3 +207,33 @@
       (is (false? (filters/badge-consumes-click? {:alt? true} gate)))
       (is (false? (filters/badge-consumes-click? shift gate)))
       (is (true? (filters/badge-consumes-click? shift-alt gate))))))
+
+(deftest refocus-search-after-badge-click?-test
+  (testing "a plain click that applies the positive filter takes the cursor back"
+    (is (true? (filters/refocus-search-after-badge-click? plain clean-slate)))
+    (is (true? (filters/refocus-search-after-badge-click? {:alt? true} clean-slate)))
+    (is (true? (filters/refocus-search-after-badge-click?
+                plain (assoc clean-slate :any-filters? true)))))
+
+  (testing "the other two gestures do not — he asked for selecting a filter, not for excluding or bypassing"
+    (is (false? (filters/refocus-search-after-badge-click? shift clean-slate)))
+    (is (false? (filters/refocus-search-after-badge-click? shift-alt clean-slate))))
+
+  ;; The case that would go unnoticed: nothing was selected, so there is nothing
+  ;; to come back from, and a cursor that jumped anyway would look like the app
+  ;; had done something.
+  (testing "a refused click moves nothing"
+    (let [type-filtered (assoc clean-slate :any-filters? true :type-filtered? true)
+          negative (assoc clean-slate :negative-active? true)]
+      (is (nil? (filters/badge-gesture plain type-filtered)))
+      (is (false? (filters/refocus-search-after-badge-click? plain type-filtered)))
+      (is (nil? (filters/badge-gesture plain negative)))
+      (is (false? (filters/refocus-search-after-badge-click? plain negative)))
+      (is (false? (filters/refocus-search-after-badge-click? shift-alt negative)))))
+
+  (testing "over every gate state, exactly the :toggle clicks refocus"
+    (doseq [gate all-gates
+            modifiers [plain shift shift-alt {:alt? true}]]
+      (is (= (= :toggle (filters/badge-gesture modifiers gate))
+             (filters/refocus-search-after-badge-click? modifiers gate))
+          (str "gate " gate " modifiers " modifiers)))))

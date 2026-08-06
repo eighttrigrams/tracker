@@ -14,6 +14,28 @@
 (defn focus-tasks-search []
   (focus-input! "tasks-filter-search"))
 
+(def ^:private page-search-prefixes
+  "The tabs whose search box is named after them. The id convention is
+  `<page-prefix>-filter-search`, and the prefix is the same `:page-prefix` the
+  views hand components/filter-section; a tab that is not here falls back to
+  \"tasks\", exactly as that component's `(or page-prefix \"tasks\")` does."
+  #{:today :issues :meets :resources :reports})
+
+(defn focus-page-search
+  "Put the cursor in the search box of the page on screen.
+
+  The prefix comes from `:active-tab` rather than from a prop threaded down to
+  the card: a card is only ever rendered on the page that is active, and reading
+  the tab is one function against a prop that would have to pass through
+  item-card and every view that configures it. Not `focus-tasks-search`, which is
+  the Tasks-only shortcut and would put the cursor in the Tasks box while the
+  Issues page is on screen. Focusing a page that has no search box (Today) is a
+  no-op, since focus-input! only acts on an element that exists."
+  [app-state]
+  (let [tab (:active-tab @app-state)]
+    (focus-input! (str (if (contains? page-search-prefixes tab) (name tab) "tasks")
+                       "-filter-search"))))
+
 (defn- tasks-fetch-opts
   ([app-state]
    (tasks-fetch-opts app-state (:work-private-mode @app-state) (:strict-mode @app-state)))

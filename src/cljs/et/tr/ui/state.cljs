@@ -2019,6 +2019,9 @@
 (defn focus-tasks-search []
   (tasks-page/focus-tasks-search))
 
+(defn focus-page-search []
+  (ui/focus-page-search *app-state))
+
 (defn filtered-tasks []
   (tasks-page/filtered-tasks *app-state))
 
