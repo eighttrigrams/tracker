@@ -117,12 +117,17 @@ export async function selectSidebarFilter(page: any, section: string, name: stri
 }
 
 const apiHeaders = { "Content-Type": "application/json", "X-User-Id": "null" };
-const categoryKey: Record<string, string> = {
-  person: "people",
-  place: "places",
-  project: "projects",
-  goal: "goals",
-};
+
+// A category badge as the API hands it back: exactly {id, name, badge_title}, one
+// list per Group on every Item. Recognising it by that shape is how the check
+// below finds the category without a category-type -> plural-key table. There was
+// such a table here and it named four of the six Groups, so apiCategorize with a
+// "workstream" or an "asset" looked up undefined, found nothing, and threw
+// "did not persist" at a categorize that had in fact persisted.
+const CATEGORY_FIELDS = ["id", "name", "badge_title"];
+const isCategoryList = (v: unknown): v is Array<{ id: number }> =>
+  Array.isArray(v) &&
+  v.every((c) => c && typeof c === "object" && Object.keys(c).every((k) => CATEGORY_FIELDS.includes(k)));
 
 // POSTs the categorize and reads the item back once to confirm it landed. The
 // read-back used to sit in a retry loop, added when categorize writes were
@@ -141,7 +146,9 @@ export async function apiCategorize(
     data: { "category-type": categoryType, "category-id": categoryId },
   });
   const item = await (await request.get(itemUrl, { headers: apiHeaders })).json();
-  const attached = (item[categoryKey[categoryType]] ?? []).some((c: any) => c.id === categoryId);
+  const attached = Object.values(item)
+    .filter(isCategoryList)
+    .some((list) => list.some((c) => c.id === categoryId));
   if (!attached) {
     throw new Error(`apiCategorize: ${categoryType}:${categoryId} did not persist on ${itemUrl}`);
   }

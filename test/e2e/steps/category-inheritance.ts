@@ -29,6 +29,7 @@ const listUrl: Record<string, string> = {
   "meeting-series": "/api/meeting-series",
   "recurring-tasks": "/api/recurring-tasks",
   resources: "/api/resources",
+  journals: "/api/journals",
 };
 
 // Which input the title goes into, per add path. Every one of these forms adds
@@ -41,6 +42,9 @@ const searchInput: Record<string, string> = {
   "meeting-series": "#meets-filter-search",
   "recurring-tasks": "#tasks-filter-search",
   resources: "#resources-filter-search",
+  // Journals mode is the Resources page, so it is the resources input — the id
+  // is shared and the two forms are never mounted together.
+  journals: "#resources-filter-search",
 };
 
 // Counted from the moment an add step starts, so "six Groups selected sends six
@@ -152,6 +156,13 @@ When("I add {string} on the {string} page", async ({ page }, title: string, coll
   countCategorizePosts(page);
   await setFieldValue(page.locator(searchInput[collection]), title);
   await page.locator(".combined-search-add-form button").first().click();
+  // The Journals form asks for a schedule type before it creates anything. Keyed
+  // off the modal being on screen rather than off a list of collections that open
+  // one, so a second form that asks something needs no entry here.
+  const scheduleChoice = page.locator(".modal .schedule-mode-selector .toggle-option").first();
+  if (await scheduleChoice.isVisible().catch(() => false)) {
+    await scheduleChoice.click();
+  }
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(1500);
 });

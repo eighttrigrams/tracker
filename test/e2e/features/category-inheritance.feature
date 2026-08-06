@@ -70,9 +70,26 @@ Feature: A new Item inherits the Category filters it was added under
     Then the "resources" item "Inherit all on resources" carries a category from every Group
     And one categorize request was sent per Group
 
-  # The seventh add path: the Issue page creating a Task that belongs to the
-  # Issue. It posts to /api/tasks, not /api/issues, which is the one call site
-  # whose collection segment is not its own page's.
+  # The eighth add path, and the one the work order's own count of seven missed:
+  # the Journal. Its add form is the Resources page in Journals mode, under the
+  # same sidebar as the other seven, and its list is filtered by the same six
+  # filters — so a Journal that does not carry them drops out of the list it was
+  # added from. The extra click is the schedule-type modal this form opens; no
+  # other add form asks anything before creating.
+  Scenario: A journal added under a filter in every Group carries a category from every Group
+    Given I am on the app
+    And a category exists in every Group
+    And I reload the page
+    When I click the "Resources" tab
+    And I click the "Journals" button
+    And I filter by the seeded category in every Group
+    And I add "Inherit all on journals" on the "journals" page
+    Then the "journals" item "Inherit all on journals" carries a category from every Group
+    And one categorize request was sent per Group
+
+  # The Issue page creating a Task that belongs to the Issue. It posts to
+  # /api/tasks, not /api/issues, which is the one call site whose collection
+  # segment is not its own page's.
   Scenario: A task created from an issue carries a category from every Group
     Given I am on the app
     And a category exists in every Group
