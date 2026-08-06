@@ -87,6 +87,50 @@
 (def category-key-order (mapv :key category-groups))
 (def valid-category-types (set category-type-order))
 
+(def categorizable-entities
+  "Every kind of Item that can carry Categories — one entry per
+  `<kind>_categories` join table, which is the same set as the route contexts
+  that mount `POST /:id/categorize`.
+
+  The Groups had a registry (`category-groups` above) and the kinds did not, so
+  the kinds went on being counted by hand. They were counted wrong twice: the
+  work order that fixed Category inheritance said seven add paths and the review
+  of it agreed, and both had missed the Journal, whose add form sits under the
+  same sidebar as the other seven.
+
+  `:inherits-add-filters?` is whether this kind's client add path gives a new
+  Item the Categories its list was filtered by, through
+  `et.tr.ui.state.category-filters/apply-filter-categories!`. Where it is false
+  the Item is still categorizable — it just does not get its Categories that way,
+  and `:why-not` says what it gets them from instead. A kind is not allowed to be
+  false without a reason; see et.tr.category-inheritance-coverage-test, which
+  holds this list against the routes and against the e2e feature so a ninth kind
+  cannot arrive without either a scenario or a stated reason."
+  [{:kind :task :segment "tasks" :join-table :task_categories
+    :inherits-add-filters? true}
+   {:kind :issue :segment "issues" :join-table :issue_categories
+    :inherits-add-filters? true}
+   {:kind :meet :segment "meets" :join-table :meet_categories
+    :inherits-add-filters? true}
+   {:kind :meeting-series :segment "meeting-series" :join-table :meeting_series_categories
+    :inherits-add-filters? true}
+   {:kind :recurring-task :segment "recurring-tasks" :join-table :recurring_task_categories
+    :inherits-add-filters? true}
+   {:kind :resource :segment "resources" :join-table :resource_categories
+    :inherits-add-filters? true}
+   {:kind :journal :segment "journals" :join-table :journal_categories
+    :inherits-add-filters? true}
+   {:kind :journal-entry :segment "journal-entries" :join-table :journal_entry_categories
+    :inherits-add-filters? false
+    :why-not (str "A journal entry is not added from a filter-bearing form. The only way to "
+                  "make one is POST /api/journals/:id/create-entry — a date on a particular "
+                  "journal, no title of its own — and that copies the journal's own Categories "
+                  "into the entry inside the same transaction. Its filing comes from its "
+                  "parent, which is a stronger claim than the sidebar's, and giving it the "
+                  "sidebar's as well would file it under two answers at once.")}])
+
+(def categorizable-join-tables (mapv :join-table categorizable-entities))
+
 (defn validate-category-type! [category-type]
   (when-not (contains? valid-category-types category-type)
     (throw (ex-info "Invalid category type" {:category-type category-type}))))
@@ -438,8 +482,16 @@
             :relations relations})))
 
 (defn reset-all-data! [ds]
-  (let [conn (get-conn ds)]
-    (doseq [table [:relations :working_on :task_categories :resource_categories :issue_categories :meet_categories :meeting_series_categories :recurring_task_categories :journal_entry_categories :journal_categories :tasks :messages :resources :issues :meets :meeting_series :recurring_tasks :journal_entries :journals :mottos :categories :users]]
+  (let [conn (get-conn ds)
+        ;; The join tables come from categorizable-entities rather than being
+        ;; listed again: this used to be the second hand-written enumeration of
+        ;; the eight, and a ninth kind added here and forgotten there would have
+        ;; leaked its rows from one e2e scenario into the next.
+        tables (concat [:relations :working_on]
+                       categorizable-join-tables
+                       [:tasks :messages :resources :issues :meets :meeting_series
+                        :recurring_tasks :journal_entries :journals :mottos :categories :users])]
+    (doseq [table tables]
       (jdbc/execute-one! conn (sql/format {:delete-from table})))
     (jdbc/execute-one! conn
       (sql/format {:insert-into :users
