@@ -203,15 +203,22 @@
 (defn top-of-order
   "The value that puts a row first in `context` among the caller's rows that
   `extra-where` selects — the same step-below-the-minimum scheme the add-*
-  functions use."
-  [ds context user-id extra-where]
-  (- (or (:min_order (jdbc/execute-one! (get-conn ds)
-                       (sql/format {:select [[[:min (ordering/column context)] :min_order]]
-                                    :from [(ordering/table context)]
-                                    :where [:and (user-id-where-clause user-id) extra-where]})
-                       jdbc-opts))
-        1.0)
-     1.0))
+  functions use. Without an `extra-where`, first among all of them.
+
+  `ds` may be a transaction: get-conn passes a Connection through, so a caller
+  that has to compute this inside its own transaction can still use this rather
+  than writing the query out again."
+  ([ds context user-id] (top-of-order ds context user-id nil))
+  ([ds context user-id extra-where]
+   (- (or (:min_order (jdbc/execute-one! (get-conn ds)
+                        (sql/format {:select [[[:min (ordering/column context)] :min_order]]
+                                     :from [(ordering/table context)]
+                                     :where (if extra-where
+                                              [:and (user-id-where-clause user-id) extra-where]
+                                              (user-id-where-clause user-id))})
+                        jdbc-opts))
+         1.0)
+      1.0)))
 
 (defn write-order!
   "Write `value` into the column `context` owns, for the caller's row `id`. The

@@ -313,21 +313,12 @@
         (pos? (issue-task-count tx user-id issue-id)) {:error :has-tasks}
 
         :else
-        (let [min-order (or (:min_order (jdbc/execute-one! tx
-                                          (sql/format {:select [[[:min :sort_order] :min_order]]
-                                                       :from [:tasks]
-                                                       :where (db/user-id-where-clause user-id)})
-                                          db/jdbc-opts))
-                            1.0)
-              urgent? (contains? db/urgent-urgencies (:urgency issue))
-              min-urgent (when urgent?
-                           (or (:min_order (jdbc/execute-one! tx
-                                             (sql/format {:select [[[:min (ordering/column :tasks-urgent)] :min_order]]
-                                                          :from [:tasks]
-                                                          :where [:and (db/user-id-where-clause user-id)
-                                                                  [:= :urgency (:urgency issue)]]})
-                                             db/jdbc-opts))
-                               1.0))
+        ;; Both positions come from db/top-of-order rather than being computed
+        ;; here: it is the one place the step-below-the-minimum scheme lives, and
+        ;; place-in-urgent-list! already gives an arriving Task its urgent
+        ;; position through it. Passing `tx` keeps both reads inside this
+        ;; transaction.
+        (let [urgent? (contains? db/urgent-urgencies (:urgency issue))
               task (jdbc/execute-one! tx
                      (sql/format {:insert-into :tasks
                                   :values [(cond-> {:title (:title issue)
@@ -337,10 +328,12 @@
                                                     :importance (:importance issue)
                                                     :urgency (:urgency issue)
                                                     :relation_badge_title (:relation_badge_title issue)
-                                                    :sort_order (- min-order 1.0)
+                                                    :sort_order (db/top-of-order tx :tasks-page user-id)
                                                     :user_id user-id
                                                     :modified_at (clock/sql-now)}
-                                             urgent? (assoc (ordering/column :tasks-urgent) (- min-urgent 1.0)))]
+                                             urgent? (assoc (ordering/column :tasks-urgent)
+                                                            (db/top-of-order tx :tasks-urgent user-id
+                                                                             [:= :urgency (:urgency issue)])))]
                                   :returning db/task-select-columns})
                      db/jdbc-opts)
               task-id (:id task)

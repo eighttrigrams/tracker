@@ -8,6 +8,7 @@
             [honey.sql :as sql]
             [et.tr.db :as db]
             [et.tr.db.event :as db.event]
+            [et.tr.db.task :as db.task]
             [et.tr.integration-helpers :refer [with-integration-db *ds* *user-id*
                                                POST-json PUT-json GET-json]]))
 
@@ -160,6 +161,30 @@
         (is (not= 500.0 (:sort_order task)))
         (is (= "Bottom of the issues list" (first manual-order))
             "a new task goes to the top of the manual order")))))
+
+(deftest an-urgent-issue-arrives-at-the-top-of-its-urgency-block
+  (testing "the converted task is given a position in Urgent Matters, not the issue's"
+    ;; Urgent Matters is an ordering context of its own and an item entering one is
+    ;; given a concrete position there — the same rule place-in-urgent-list! follows
+    ;; for a task that becomes urgent. Nothing asserted it before, so replacing the
+    ;; hand-rolled minimum with db/top-of-order had no cover.
+    (let [sitting (:id (create-task! "Already urgent"))
+          _ (PUT-json (str "/api/tasks/" sitting "/urgency") {:urgency "urgent"})
+          issue-id (:id (create-issue! "Urgent matter"))]
+      (PUT-json (str "/api/issues/" issue-id "/urgency") {:urgency "urgent"})
+      ;; Push the issue to the bottom of the Issues page's urgent order; a copied
+      ;; position would put the task below the one already sitting there.
+      (jdbc/execute-one! (db/get-conn *ds*)
+        (sql/format {:update :issues :set {:sort_order_urgent 900.0} :where [:= :id issue-id]}))
+      (let [task (:body (convert! issue-id))
+            ;; list-urgent-tasks is the order Urgent Matters renders — one block per
+            ;; urgency, by sort_order_urgent — so this reads the position the way the
+            ;; page does rather than trusting the column.
+            block (mapv :id (db.task/list-urgent-tasks *ds* *user-id* "urgent"))]
+        (is (= "urgent" (:urgency task)))
+        (is (not= 900.0 (:sort_order_urgent task)) "the issue's urgent position was not copied")
+        (is (= [(:id task) sitting] block)
+            "an item entering Urgent Matters goes to the top of its urgency's block")))))
 
 (deftest another-users-issue-is-404
   (testing "404 rather than 409 — an issue that is not the caller's is not there at all"
