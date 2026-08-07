@@ -8,6 +8,28 @@
             [et.tr.ui.state.reports :as reports-state]
             [et.tr.ui.state.relations :as relations-state]))
 
+;; **Three of these ids sit on two elements each, and that is checked, not an
+;; oversight.** `tasks-filter-search`, `meets-filter-search` and
+;; `resources-filter-search` are each written by two different search-add-forms
+;; — a page's own and its sub-mode's — but the two are arms of the *same* `cond`,
+;; so only one of a pair is ever mounted:
+;;
+;;   tasks-filter-search      core.cljs         recurring-mode → recurring-search-add-form
+;;                                              :else          → combined-search-add-form
+;;   meets-filter-search      views/meets       series-mode    → series-search-add-form
+;;                                              :else          → search-add-form
+;;   resources-filter-search  views/resources   journals-mode  → journal-search-add-form
+;;                                              :else          → search-add-form
+;;
+;; Each of those conds has a middle arm too — recurring-filter, series-filter,
+;; journal-filter — and all three render a filter-bar, which carries no search
+;; box at all. So `getElementById` cannot return the wrong element: there is
+;; never a second one for it to choose between.
+;;
+;; Written down because the obvious reading of a grep is that the ids need
+;; renaming. They do not, and it would cost twice: every lookup here would have
+;; to learn which sub-mode is on to know what to ask for, and the e2e steps
+;; (`test/e2e/steps/*.ts`) address the boxes by exactly these ids.
 (defn focus-input! [id]
   (js/setTimeout #(when-let [el (.getElementById js/document id)]
                     (.focus el #js {:preventScroll true})) 0))

@@ -104,6 +104,12 @@
                                     (clear-fn)
                                     (set-search-fn filter-key ""))
                                   (toggle-collapsed-fn filter-key)
+                                  ;; The only lookup that *builds* the id rather
+                                  ;; than being handed one. Three of the ids it
+                                  ;; can spell are on two elements each and that
+                                  ;; is safe for a checked reason — see the note
+                                  ;; over `state.ui/focus-input!`, which is also
+                                  ;; what a new page-prefix has to keep true.
                                   (js/setTimeout
                                    #(when-let [el (.getElementById js/document (str (or page-prefix "tasks") "-filter-search"))]
                                       (.focus el)) 0))
