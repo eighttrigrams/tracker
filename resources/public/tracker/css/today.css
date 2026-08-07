@@ -67,6 +67,51 @@
   color: white;
   transform: none;
 }
+/* The button and its menu are one hover region: the menu is a descendant of
+   .today-add, so the pointer moving onto it never leaves. Hence no margin-top
+   either, unlike .category-selector-panel — a 4px gap here is 4px of neither,
+   and crossing it would close the menu on the way to the thing it opened. */
+.today-add {
+  position: relative;
+  display: inline-block;
+}
+.today-add-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--glass-bg-elevated);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+.today-add-menu-item {
+  width: 100%;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.9em;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.today-add-menu-item:hover {
+  background: var(--accent);
+  color: white;
+  transform: none;
+}
+.today-add-btn.menu-open {
+  background: var(--accent);
+  color: white;
+}
 .today-add-btn {
   font-size: 1.2em;
   background: none;

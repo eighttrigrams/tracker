@@ -373,47 +373,111 @@
       (state/add-task-to-today title on-success)
       (state/add-task-lined-up-for title (state/selected-day-date) on-success))))
 
+;; No mirror of the branch above. That one is about a task being flagged for
+;; today, which is a different fact from a task being dated — a meet has no
+;; today flag at all, only a start date, and selected-day-date is today's date
+;; at offset 0. So one call serves all five days.
+;;
+;; The id comes from the create response rather than from the head of
+;; (:meets @*app-state): the meet this dates has to be the meet this created.
+(defn- add-meet-for-selected-day [title on-success]
+  (let [date (state/selected-day-date)]
+    (state/add-meet title
+                    (fn [meet]
+                      (state/set-meet-start-date (:id meet) date)
+                      (when on-success (on-success))))))
+
+(defn- today-add-menu
+  "The Task/Meet choice. Its own component so that the dismissals can live on
+  its mount: the menu opens on hover as well as on click, and a menu opened by
+  hovering has taken no focus, so Escape has to be listened for on the document
+  rather than on an element of ours."
+  [{:keys [close!]}]
+  (let [el (atom nil)
+        outside? (fn [e] (not (some-> @el (.contains (.-target e)))))
+        on-key (fn [e] (when (= "Escape" (.-key e)) (close!)))
+        ;; A touch device has no pointer to move away, so tapping elsewhere is
+        ;; the only way to close a menu that a tap opened. Checked for
+        ;; containment so a press on a choice is not a dismissal — closing here
+        ;; would unmount the button before its click could fire.
+        dismiss (fn [e] (when (outside? e) (close!)))]
+    (r/create-class
+      {:display-name "today-add-menu"
+       :component-did-mount
+       (fn [_]
+         (.addEventListener js/document "keydown" on-key)
+         (.addEventListener js/document "mousedown" dismiss true))
+       :component-will-unmount
+       (fn [_]
+         (.removeEventListener js/document "keydown" on-key)
+         (.removeEventListener js/document "mousedown" dismiss true))
+       :reagent-render
+       (fn [{:keys [choose!]}]
+         [:div.today-add-menu {:ref #(reset! el %)}
+          [:button.today-add-menu-item.add-task
+           {:on-click (fn [e] (.stopPropagation e) (choose! :task))}
+           (t :today/create-task)]
+          [:button.today-add-menu-item.add-meet
+           {:on-click (fn [e] (.stopPropagation e) (choose! :meet))}
+           (t :today/create-meet)]])})))
+
 (defn- today-add-button []
-  (let [ui-state (r/atom {:mode :closed})]
+  (let [ui-state (r/atom {:mode :closed})
+        close! #(swap! ui-state assoc :mode :closed)
+        open-menu! #(swap! ui-state assoc :mode :menu)
+        choose! (fn [kind]
+                  (swap! ui-state assoc :mode :input :kind kind :input-value "")
+                  (js/setTimeout #(when-let [el (.querySelector js/document ".today-add-input")]
+                                    (.focus el)) 0))
+        submit! (fn [title]
+                  (when (seq (.trim (or title "")))
+                    (if (= :meet (:kind @ui-state))
+                      (add-meet-for-selected-day title close!)
+                      (add-task-for-selected-day title close!))
+                    (close!)))]
     (fn []
       (when-not (state/relation-mode-active?)
-        (let [{:keys [mode input-value]} @ui-state]
-          (case mode
-            :closed
-            [:button.today-add-btn
-             {:on-click (fn [e]
-                          (.stopPropagation e)
-                          (swap! ui-state assoc :mode :input :input-value "")
-                          (js/setTimeout #(when-let [el (.querySelector js/document ".today-add-input")]
-                                            (.focus el)) 0))}
-             "+"]
+        (let [{:keys [mode kind input-value]} @ui-state
+              meet? (= :meet kind)]
+          ;; The button and the menu share one hover region rather than sitting
+          ;; in two adjacent ones, so the pointer travelling from the one to the
+          ;; other never leaves it and the menu does not close in the gap.
+          [:div.today-add
+           {:on-mouse-enter (fn [_] (when (= :closed mode) (open-menu!)))
+            :on-mouse-leave (fn [_] (when (= :menu mode) (close!)))}
+           (case mode
+             :input
+             [:div.today-add-form {:class (if meet? "meet" "task")}
+              [:input.today-add-input
+               {:type "text"
+                :auto-complete "off"
+                :placeholder (if meet? (t :meets/add-placeholder) (t :tasks/add-placeholder))
+                :value (or input-value "")
+                :on-change #(swap! ui-state assoc :input-value (.. % -target -value))
+                :on-key-down (fn [e]
+                               (when (= "Enter" (.-key e))
+                                 (submit! (.-value (.-target e))))
+                               (when (= "Escape" (.-key e))
+                                 (close!)))}]
+              [:button.today-add-submit
+               {:on-click (fn [e]
+                            (.stopPropagation e)
+                            (submit! (:input-value @ui-state)))}
+               (t :tasks/add-button)]]
 
-            :input
-            [:div.today-add-form
-             [:input.today-add-input
-              {:type "text"
-               :auto-complete "off"
-               :placeholder (t :tasks/add-placeholder)
-               :value (or input-value "")
-               :on-change #(swap! ui-state assoc :input-value (.. % -target -value))
-               :on-key-down (fn [e]
-                              (when (= "Enter" (.-key e))
-                                (let [title (.-value (.-target e))]
-                                  (when (seq (.trim title))
-                                    (add-task-for-selected-day title #(swap! ui-state assoc :mode :closed))
-                                    (swap! ui-state assoc :mode :closed))))
-                              (when (= "Escape" (.-key e))
-                                (swap! ui-state assoc :mode :closed)))}]
-             [:button.today-add-submit
-              {:on-click (fn [e]
-                           (.stopPropagation e)
-                           (let [title (:input-value @ui-state)]
-                             (when (seq (.trim (or title "")))
-                               (add-task-for-selected-day title #(swap! ui-state assoc :mode :closed))
-                               (swap! ui-state assoc :mode :closed))))}
-              (t :tasks/add-button)]]
-
-            nil))))))
+             [:<>
+              ;; The click opens the menu; it does not toggle it. A tap on a
+              ;; touch device arrives as a mouseenter *and* a click, and a
+              ;; toggle would close the menu the mouseenter had just opened — on
+              ;; the one kind of device the click is here for.
+              [:button.today-add-btn
+               {:class (when (= :menu mode) "menu-open")
+                :on-click (fn [e]
+                            (.stopPropagation e)
+                            (open-menu!))}
+               "+"]
+              (when (= :menu mode)
+                [today-add-menu {:choose! choose! :close! close!}])])])))))
 
 (defn- handle-add-to-day-drop [drag-task-id]
   (let [selected-day (or (:today-page/selected-day @state/*app-state) 0)
