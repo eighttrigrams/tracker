@@ -10,7 +10,15 @@ const scopeIndex: Record<string, number> = { private: 0, both: 1, work: 2 };
 When("I switch scope to {string}", async ({ page }, scope: string) => {
   const toggle = page.locator(".top-bar-right .work-private-toggle");
   await expect(toggle).toBeVisible();
-  await toggle.locator(".toggle-option").nth(scopeIndex[scope]).click();
+  const button = toggle.locator(".toggle-option").nth(scopeIndex[scope]);
+  await button.click();
+  // Wait for the `active` class to arrive, not just for the refetch: reagent
+  // re-renders on its own schedule and networkidle resolves as soon as the
+  // fetch this click triggered is done, which is routinely before the class
+  // has moved. Any following step that selects by that class would otherwise
+  // read the previous render and click the wrong button — which, in a switcher
+  // where the already-active button does something else, is not a no-op.
+  await expect(button).toHaveClass(/active/);
   await page.waitForLoadState("networkidle");
 });
 
