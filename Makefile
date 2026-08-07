@@ -41,7 +41,7 @@ e2e-docker:
 	./scripts/run-e2e-docker.sh
 
 lint:
-	clj-kondo --lint src/clj src/cljc test/unit
+	clj-kondo --lint src/clj src/cljc src/cljs test/unit
 
 clean:
 	rm -rf target node_modules .shadow-cljs resources/public/js
