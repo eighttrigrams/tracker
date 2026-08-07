@@ -194,18 +194,11 @@
                   db/jdbc-opts)]
       (when rtask
         (jdbc/with-transaction [tx conn]
-          (let [min-order (or (:min_order (jdbc/execute-one! tx
-                                            (sql/format {:select [[[:min :sort_order] :min_order]]
-                                                         :from [:tasks]
-                                                         :where (db/user-id-where-clause user-id)})
-                                            db/jdbc-opts))
-                              1.0)
-                new-order (- min-order 1.0)
-                today-type? (= "today" (:task_type rtask))
+          (let [today-type? (= "today" (:task_type rtask))
                 today-str (clock/today-str)
                 is-today? (= date today-str)
                 task-values (cond-> {:title (:title rtask)
-                                     :sort_order new-order
+                                     :sort_order (db/top-of-order tx :tasks-page user-id)
                                      :user_id user-id
                                      :modified_at [:raw "datetime('now')"]
                                      :scope (:scope rtask)
