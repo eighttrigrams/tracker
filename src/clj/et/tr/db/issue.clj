@@ -14,17 +14,10 @@
   ([ds user-id title scope]
    (let [conn (db/get-conn ds)
          valid-scope (db/normalize-scope scope)
-         min-order (or (:min_order (jdbc/execute-one! conn
-                                     (sql/format {:select [[[:min :sort_order] :min_order]]
-                                                  :from [:issues]
-                                                  :where (db/user-id-where-clause user-id)})
-                                     db/jdbc-opts))
-                       1.0)
-         new-order (- min-order 1.0)
          result (jdbc/execute-one! conn
                   (sql/format {:insert-into :issues
                                :values [{:title title
-                                         :sort_order new-order
+                                         :sort_order (db/top-of-order conn :issues-page user-id)
                                          :user_id user-id
                                          :modified_at [:raw "datetime('now')"]
                                          :scope valid-scope}]
