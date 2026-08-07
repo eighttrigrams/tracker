@@ -172,6 +172,27 @@ When("I add {string} on the {string} page", async ({ page }, title: string, coll
   await page.waitForTimeout(1500);
 });
 
+// The Today page's add is not a .combined-search-add-form — it is a menu behind
+// the plus at the foot of the day list — so it needs its own step. It lives here
+// rather than with the other today-add steps because the counting and the
+// read-back above are module state: a step in another file would leave
+// categorizePosts unarmed and the count assertion reading the previous
+// scenario's.
+When(
+  "I add {string} as a meet on the Today page",
+  async ({ page }, title: string) => {
+    countCategorizePosts(page);
+    await page.locator(".today-add-btn").hover();
+    await page.locator(".today-add-option.add-meet").click();
+    const input = page.locator(".today-add-input");
+    await expect(input).toBeVisible();
+    await setFieldValue(input, title);
+    await input.press("Enter");
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(1500);
+  },
+);
+
 Then(
   "the {string} item {string} carries a category from every Group",
   async ({ request }, collection: string, title: string) => {

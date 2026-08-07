@@ -87,6 +87,21 @@ Feature: A new Item inherits the Category filters it was added under
     Then the "journals" item "Inherit all on journals" carries a category from every Group
     And one categorize request was sent per Group
 
+  # The tenth add path, and the newest: the Today page's plus, which creates a
+  # Meet dated to the day it is showing. It posts no /api/meets of its own —
+  # it goes through state/add-meet like the Meets page's form does, and this is
+  # what says so, because a call site that posted directly would look identical
+  # until you counted the categories it came back with.
+  Scenario: A meet added from the Today page carries a category from every Group
+    Given I am on the app
+    And a category exists in every Group
+    And I reload the page
+    When I navigate to the "Today" tab
+    And I filter by the seeded category in every Group
+    And I add "Inherit all on today meets" as a meet on the Today page
+    Then the "meets" item "Inherit all on today meets" carries a category from every Group
+    And one categorize request was sent per Group
+
   # The Issue page creating a Task that belongs to the Issue. It posts to
   # /api/tasks, not /api/issues, which is the one call site whose collection
   # segment is not its own page's.
