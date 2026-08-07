@@ -19,15 +19,8 @@
   ([ds user-id title scope importance]
    (let [conn (db/get-conn ds)
          valid-scope (db/normalize-scope scope)
-         min-order (or (:min_order (jdbc/execute-one! conn
-                                     (sql/format {:select [[[:min :sort_order] :min_order]]
-                                                  :from [:tasks]
-                                                  :where (db/user-id-where-clause user-id)})
-                                     db/jdbc-opts))
-                       1.0)
-         new-order (- min-order 1.0)
          values (cond-> {:title title
-                         :sort_order new-order
+                         :sort_order (db/top-of-order conn :tasks-page user-id)
                          :user_id user-id
                          :modified_at (clock/sql-now)
                          :scope valid-scope}
@@ -544,17 +537,10 @@
                                         :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
                            db/jdbc-opts)]
         (let [description (or (:description message) "")
-              min-order (or (:min_order (jdbc/execute-one! tx
-                                          (sql/format {:select [[[:min :sort_order] :min_order]]
-                                                       :from [:tasks]
-                                                       :where (db/user-id-where-clause user-id)})
-                                          db/jdbc-opts))
-                            1.0)
-              new-order (- min-order 1.0)
               task (jdbc/execute-one! tx
                      (sql/format {:insert-into :tasks
                                   :values [{:title (:title message)
-                                            :sort_order new-order
+                                            :sort_order (db/top-of-order tx :tasks-page user-id)
                                             :user_id user-id
                                             :modified_at (clock/sql-now)
                                             :scope (or (:scope message) "both")
