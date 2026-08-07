@@ -10,18 +10,11 @@
 (defn add-resource [ds user-id title link scope]
   (let [conn (db/get-conn ds)
         valid-scope (db/normalize-scope scope)
-        min-order (or (:min_order (jdbc/execute-one! conn
-                                    (sql/format {:select [[[:min :sort_order] :min_order]]
-                                                 :from [:resources]
-                                                 :where (db/user-id-where-clause user-id)})
-                                    db/jdbc-opts))
-                      1.0)
-        new-order (- min-order 1.0)
         result (jdbc/execute-one! conn
                  (sql/format {:insert-into :resources
                               :values [{:title title
                                         :link link
-                                        :sort_order new-order
+                                        :sort_order (db/top-of-order conn :resources-page user-id)
                                         :user_id user-id
                                         :modified_at [:raw "datetime('now')"]
                                         :scope valid-scope}]
@@ -148,18 +141,11 @@
                                         :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
                            db/jdbc-opts)]
         (let [description (or (:description message) "")
-              min-order (or (:min_order (jdbc/execute-one! tx
-                                          (sql/format {:select [[[:min :sort_order] :min_order]]
-                                                       :from [:resources]
-                                                       :where (db/user-id-where-clause user-id)})
-                                          db/jdbc-opts))
-                            1.0)
-              new-order (- min-order 1.0)
               resource (jdbc/execute-one! tx
                          (sql/format {:insert-into :resources
                                       :values [{:title (or title (:title message))
                                                 :link link
-                                                :sort_order new-order
+                                                :sort_order (db/top-of-order tx :resources-page user-id)
                                                 :user_id user-id
                                                 :modified_at [:raw "datetime('now')"]
                                                 :scope (or (:scope message) "both")
