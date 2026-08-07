@@ -179,17 +179,10 @@
                     db/jdbc-opts)]
       (when journal
         (jdbc/with-transaction [tx conn]
-          (let [min-order (or (:min_order (jdbc/execute-one! tx
-                                            (sql/format {:select [[[:min :sort_order] :min_order]]
-                                                         :from [:journal_entries]
-                                                         :where (db/user-id-where-clause user-id)})
-                                            db/jdbc-opts))
-                              1.0)
-                new-order (- min-order 1.0)
-                entry (jdbc/execute-one! tx
+          (let [entry (jdbc/execute-one! tx
                         (sql/format {:insert-into :journal_entries
                                      :values [{:title (:title journal)
-                                               :sort_order new-order
+                                               :sort_order (db/top-of-order tx :journal-entries user-id)
                                                :user_id user-id
                                                :modified_at [:raw "datetime('now')"]
                                                :entry_date date
