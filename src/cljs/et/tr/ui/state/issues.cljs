@@ -28,11 +28,6 @@
         urgency
         (category-filters/any-selected? opts))))
 
-(defn- ids->names [ids collection]
-  (let [id-set (set ids)
-        matching (filter #(contains? id-set (:id %)) collection)]
-    (mapv :name matching)))
-
 (defn fetch-issues [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *issues-page-state update :fetch-request-id inc))
         {:keys [search-term importance urgency context strict sort-mode]} opts
