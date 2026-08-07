@@ -780,7 +780,15 @@
   (let [next-offset (+ (:week-offset @meets-state/*meets-page-state) meets-week-limit)]
     (fetch-meets (assoc (meets-fetch-opts) :week-offset next-offset :append? true))))
 
-(defn add-meet [title on-success]
+(defn add-meet
+  "Create a meet, and call `on-success` with the created row.
+
+  Every add path goes through here rather than posting to /api/meets itself,
+  because this is where a new meet inherits the Category filters it was added
+  under — a call site that posted directly would look like it worked and quietly
+  drop the filters, which is the bug 'Give a new Item every Category its add was
+  filtered by' closed across nine of them."
+  [title on-success]
   (if (has-active-shared-filters?)
     (add-meet-with-categories title (active-filter-categories) on-success)
     (meets-state/add-meet *app-state auth-headers current-scope title on-success fetch-meets)))

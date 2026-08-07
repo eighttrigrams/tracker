@@ -125,13 +125,13 @@
                         (do
                           (.preventDefault e)
                           (state/add-meet input-value
-                                          #(state/set-meet-filter-search "")))
+                                          (fn [_] (state/set-meet-filter-search ""))))
 
                         (= (.-key e) "Escape")
                         (state/set-meet-filter-search "")))}]
      [:button {:on-click #(when (seq input-value)
                             (state/add-meet input-value
-                                            (fn [] (state/set-meet-filter-search ""))))}
+                                            (fn [_] (state/set-meet-filter-search ""))))}
       (t :tasks/add-button)]
      (when (seq input-value)
        [:button.clear-search {:on-click #(state/set-meet-filter-search "")} "x"])]))

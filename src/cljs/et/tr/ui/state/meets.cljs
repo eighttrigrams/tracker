@@ -63,13 +63,18 @@
                             (do (swap! app-state assoc :meets [])
                                 (swap! *meets-page-state assoc :has-more? false)))))})))
 
+;; `on-success` is handed the created meet, which the 201 already carries. A
+;; caller that has something to do to the new row — dating it to the day it was
+;; added from, say — would otherwise have to go looking for it in the atom, and
+;; the only handle it could look by is "first in the list", which assumes both
+;; that the create prepended it and that nothing else touched the list meanwhile.
 (defn add-meet [app-state auth-headers current-scope-fn title on-success fetch-meets-fn]
   (api/post-json "/api/meets"
     {:title title :scope (current-scope-fn)}
     (auth-headers)
-    (fn [_]
+    (fn [meet]
       (fetch-meets-fn)
-      (when on-success (on-success)))
+      (when on-success (on-success meet)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meet")))))
 
@@ -230,7 +235,10 @@
                 (category-filters/apply-filter-categories! auth-headers "meets" (:id meet) categories)
                 (js/setTimeout fetch-meets-fn 500)
                 (swap! app-state update :meets #(cons meet %))
-                (when on-success (on-success)))
+                ;; Same contract as add-meet's: both branches of state/add-meet
+                ;; hand the caller the created meet, so a caller need not know
+                ;; which of the two ran.
+                (when on-success (on-success meet)))
      :error-handler (fn [resp]
                       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meet")))}))
 
