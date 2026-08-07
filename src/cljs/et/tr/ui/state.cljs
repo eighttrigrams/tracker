@@ -1340,6 +1340,15 @@
 (def ^:private shared-filter-key
   (into {} (map (fn [k] [(constants/category-key->type k) (filter-state-key k)])) category-keys))
 
+;; The one answer to "refetch what is on screen", for the category filters, the
+;; scope switcher and the strict toggle alike (see state.ui). Every list a tab
+;; can show is reachable from here, sub-modes included — that is the whole point
+;; of there being one of these, and a second copy of it is what let the scope
+;; switcher miss the recurring list.
+;;
+;; `:mail` is here because the switcher reaches the Inbox too. It is the one tab
+;; with no category sidebar, so the filter callers never arrive on it and it was
+;; never needed until the switcher started coming through here.
 (defn- refetch-current-tab []
   (case (:active-tab @*app-state)
     :tasks (if (:tasks-page/recurring-mode @*app-state)
@@ -1351,6 +1360,7 @@
              (fetch-meeting-series)
              (fetch-meets))
     :reports (fetch-reports)
+    :mail (fetch-messages)
     :today (fetch-today-all (today-fetch-opts))
     nil))
 
@@ -2268,12 +2278,12 @@
 
 (defn set-work-private-mode [mode]
   (prune-shared-category-filters! mode (:strict-mode @*app-state))
-  (ui/set-work-private-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-issues fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports mode)
+  (ui/set-work-private-mode *app-state refetch-current-tab mode)
   (fetch-all-categories))
 
 (defn toggle-strict-mode []
   (prune-shared-category-filters! (:work-private-mode @*app-state) (not (:strict-mode @*app-state)))
-  (ui/toggle-strict-mode *app-state fetch-tasks fetch-today-meets fetch-resources-or-journals fetch-issues fetch-meets-or-series fetch-messages fetch-today-journal-entries fetch-reports)
+  (ui/toggle-strict-mode *app-state refetch-current-tab)
   (fetch-all-categories))
 
 (defn toggle-dark-mode []

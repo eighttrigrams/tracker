@@ -59,29 +59,23 @@
     (focus-input! (str (if (contains? page-search-prefixes tab) (name tab) "tasks")
                        "-filter-search"))))
 
-(defn- tasks-fetch-opts
-  ([app-state]
-   (tasks-fetch-opts app-state (:work-private-mode @app-state) (:strict-mode @app-state)))
-  ([app-state context strict]
-   (cond-> (merge (category-filters/fetch-opts app-state)
-                  {:search-term (:tasks-page/filter-search @app-state)
-                   :importance (:tasks-page/importance-filter @app-state)
-                   :context context
-                   :strict strict})
-     (:tasks-page/filter-recurring @app-state)
-     (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state)))
-     ;; While viewing a focused issue, keep task re-fetches (e.g. after a done
-     ;; toggle) scoped to that issue's tasks so the listing stays consistent.
-     (and (= :issues (:active-tab @app-state)) (:issues-page/filter-issue @app-state))
-     (assoc :issue-id (:id (:issues-page/filter-issue @app-state))))))
+(defn- tasks-fetch-opts [app-state]
+  (cond-> (merge (category-filters/fetch-opts app-state)
+                 {:search-term (:tasks-page/filter-search @app-state)
+                  :importance (:tasks-page/importance-filter @app-state)
+                  :context (:work-private-mode @app-state)
+                  :strict (:strict-mode @app-state)})
+    (:tasks-page/filter-recurring @app-state)
+    (assoc :recurring-task-id (:id (:tasks-page/filter-recurring @app-state)))
+    ;; While viewing a focused issue, keep task re-fetches (e.g. after a done
+    ;; toggle) scoped to that issue's tasks so the listing stays consistent.
+    (and (= :issues (:active-tab @app-state)) (:issues-page/filter-issue @app-state))
+    (assoc :issue-id (:id (:issues-page/filter-issue @app-state)))))
 
-(defn- today-fetch-opts
-  ([app-state]
-   (today-fetch-opts app-state (:work-private-mode @app-state) (:strict-mode @app-state)))
-  ([app-state context strict]
-   (merge (category-filters/fetch-opts app-state)
-          {:context context
-           :strict strict})))
+(defn- today-fetch-opts [app-state]
+  (merge (category-filters/fetch-opts app-state)
+         {:context (:work-private-mode @app-state)
+          :strict (:strict-mode @app-state)}))
 
 (defn- initialize-tasks-page [app-state fetch-tasks-fn]
   (swap! app-state assoc :tasks-page/collapsed-filters constants/all-category-filters)
@@ -190,40 +184,29 @@
 (defn clear-editing [app-state]
   (swap! app-state assoc :editing-task nil))
 
-(defn- fetch-opts-for-current-tab [app-state context strict]
-  (case (:active-tab @app-state)
-    :tasks (tasks-fetch-opts app-state context strict)
-    :today (today-fetch-opts app-state context strict)
-    {:context context :strict strict}))
+;; Both of these took eight fetch functions and dispatched on `:active-tab`
+;; themselves. That dispatch was a second, worse copy of state.cljs's
+;; `refetch-current-tab`: it knew nothing of the sub-modes, so on the Tasks tab
+;; in recurring mode it refetched *plain tasks* and left the recurring list
+;; holding whatever it loaded when the view opened — the reported "all items are
+;; shown" — and on Today it left the urgent-issues list on the old scope. They
+;; take the one refetch function instead, so there is a single dispatch to keep
+;; correct. It arrives as a parameter rather than through a require because
+;; state.cljs requires this namespace, and that is also why the eight were
+;; passed in the first place.
+;;
+;; The refetch reads the mode off the atom while these used to pass it down
+;; explicitly. Equivalent, because the `swap!` storing it runs first — and the
+;; Today fan-out, which spreads one opts map over four lists, is covered by
+;; scope-switcher-submodes.feature for exactly that reason.
 
-(defn set-work-private-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-issues-fn fetch-meets-fn fetch-messages-fn fetch-today-journal-entries-fn fetch-reports-fn mode]
+(defn set-work-private-mode [app-state refetch-fn mode]
   (swap! app-state assoc :work-private-mode mode)
-  (case (:active-tab @app-state)
-    :resources (fetch-resources-fn)
-    :issues (fetch-issues-fn)
-    :meets (fetch-meets-fn)
-    :mail (fetch-messages-fn)
-    :reports (fetch-reports-fn)
-    :today (let [opts (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state))]
-             (fetch-tasks-fn opts)
-             (fetch-today-meets-fn opts)
-             (fetch-today-journal-entries-fn opts))
-    (fetch-tasks-fn (fetch-opts-for-current-tab app-state mode (:strict-mode @app-state)))))
+  (refetch-fn))
 
-(defn toggle-strict-mode [app-state fetch-tasks-fn fetch-today-meets-fn fetch-resources-fn fetch-issues-fn fetch-meets-fn fetch-messages-fn fetch-today-journal-entries-fn fetch-reports-fn]
-  (let [new-strict (not (:strict-mode @app-state))]
-    (swap! app-state assoc :strict-mode new-strict)
-    (case (:active-tab @app-state)
-      :resources (fetch-resources-fn)
-      :issues (fetch-issues-fn)
-      :meets (fetch-meets-fn)
-      :mail (fetch-messages-fn)
-      :reports (fetch-reports-fn)
-      :today (let [opts (fetch-opts-for-current-tab app-state (:work-private-mode @app-state) new-strict)]
-               (fetch-tasks-fn opts)
-               (fetch-today-meets-fn opts)
-               (fetch-today-journal-entries-fn opts))
-      (fetch-tasks-fn (fetch-opts-for-current-tab app-state (:work-private-mode @app-state) new-strict)))))
+(defn toggle-strict-mode [app-state refetch-fn]
+  (swap! app-state update :strict-mode not)
+  (refetch-fn))
 
 (defn toggle-dark-mode [app-state]
   (swap! app-state update :dark-mode not))
