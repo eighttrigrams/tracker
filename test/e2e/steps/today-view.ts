@@ -99,12 +99,12 @@ When("I click the second day button", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 });
 
-// The + no longer opens the task input; it opens the Task/Meet menu, and the
-// choice is what opens the input. That extra click is the price of Meet being
-// reachable on a touch device — see the work order.
+// The + no longer opens the task input. Hovering it opens the Task/Meet menu
+// and the choice is what opens the input — so this hovers where it used to
+// click, and adding a task is still the one click it always was.
 When("I add a task {string} via the today add button", async ({ page }, title: string) => {
-  await page.locator(".today-add-btn").click();
-  await page.locator(".today-add-menu-item.add-task").click();
+  await page.locator(".today-add-btn").hover();
+  await page.locator(".today-add-option.add-task").click();
   await setFieldValue(page.locator(".today-add-input"), title);
   await page.locator(".today-add-input").press("Enter");
   await page.waitForLoadState("networkidle");

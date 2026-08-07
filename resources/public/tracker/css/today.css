@@ -67,11 +67,14 @@
   color: white;
   transform: none;
 }
-/* The button and its menu are one hover region: the menu is a descendant of
-   .today-add, so the pointer moving onto it never leaves. Hence no margin-top
-   either, unlike .category-selector-panel — a 4px gap here is 4px of neither,
-   and crossing it would close the menu on the way to the thing it opened. */
-.today-add {
+/* Today page: the day list's plus opens its Task/Meet choice on hover. Rules
+   borrowed from .sort-toggle-dropdown in tabs.css — the Tasks page's sort
+   selector — under this page's own names, so the two can be restyled apart.
+   The two load-bearing lines are position: relative here and top: 100% below:
+   they make the menu a child of the hovered wrapper with no gap above it, so
+   the pointer reaches the options without ever leaving the region that opened
+   them. */
+.today-add-dropdown {
   position: relative;
   display: inline-block;
 }
@@ -79,38 +82,34 @@
   position: absolute;
   top: 100%;
   left: 0;
-  min-width: 180px;
+  z-index: 1000;
+  min-width: 100%;
   display: flex;
   flex-direction: column;
-  padding: 4px;
+  gap: 2px;
+  padding: 3px;
   background: var(--glass-bg-elevated);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  box-shadow: var(--glass-shadow);
 }
-.today-add-menu-item {
-  width: 100%;
-  padding: 7px 12px;
-  background: none;
-  border: none;
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 0.9em;
+.today-add-option {
+  padding: 6px 12px;
+  font-size: 0.8em;
+  font-weight: 500;
   text-align: left;
   white-space: nowrap;
-  cursor: pointer;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
 }
-.today-add-menu-item:hover {
-  background: var(--accent);
-  color: white;
+.today-add-option:hover {
+  background: var(--surface-subtle);
+  color: var(--text-primary);
   transform: none;
-}
-.today-add-btn.menu-open {
-  background: var(--accent);
-  color: white;
 }
 .today-add-btn {
   font-size: 1.2em;
@@ -127,7 +126,8 @@
   padding: 0;
   line-height: 1;
 }
-.today-add-btn:hover {
+.today-add-btn:hover,
+.today-add-btn.open {
   background: var(--accent);
   color: white;
   transform: none;
