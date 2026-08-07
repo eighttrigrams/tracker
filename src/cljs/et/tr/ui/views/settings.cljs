@@ -237,7 +237,7 @@
                  (= "" ent) (str "system"))]
     (str actor " " action " " target)))
 
-(defn- event-row [ev]
+(defn- event-row [_ev]
   (let [expanded? (r/atom false)]
     (fn [ev]
       [:li.history-item
