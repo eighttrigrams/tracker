@@ -1,3 +1,13 @@
+;; reagent is declared in shadow-cljs.edn and not in deps.edn, so it is never on
+;; the classpath clj-kondo builds and reagent.core cannot be resolved at all. The
+;; two reagent entries below are that one gap, not anything wrong in src/cljs:
+;;   - with-let binds exactly like let; without :lint-as, every binding it
+;;     introduces is reported as an unresolved symbol (an error, not a warning).
+;;   - unsafe-html does exist — reagent 2.0.1, reagent/core.cljs:374 — so the
+;;     :unresolved-var is the missing classpath and not a missing var. Excluded
+;;     the same way ajax.core's four already are, for the same reason.
 {:linters {:unused-binding {:level :warning}
-            :unresolved-var {:exclude [ajax.core/GET ajax.core/POST ajax.core/PUT ajax.core/DELETE]}}
+            :unresolved-var {:exclude [ajax.core/GET ajax.core/POST ajax.core/PUT ajax.core/DELETE
+                                       reagent.core/unsafe-html]}}
+ :lint-as {reagent.core/with-let clojure.core/let}
  :hooks {:analyze-call {et.tr.server/with-admin-message-context hooks.with-admin-message-context/with-admin-message-context}}}
