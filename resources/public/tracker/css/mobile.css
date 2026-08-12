@@ -1,0 +1,69 @@
+/* Tracker — mobile v1.
+ *
+ * Every rule in this file lives inside the media query, so above the
+ * breakpoint the file is inert: the desktop layout is untouched, rule for
+ * rule. Nothing in the existing stylesheets is edited.
+ *
+ * Scope of v1: read and navigate. The category sidebar is desktop-only, and
+ * no mobile-specific affordances are introduced — the phone gets the same
+ * surfaces the desktop has, laid out in one column.
+ */
+@media (max-width: 768px) {
+
+  /* 24px of body padding costs 12% of a 390px screen. */
+  body { padding: 12px; }
+
+  /* The top bar is what forces the page wide: the tab strip (709px in the
+     German UI) and the controls (358px) sit in one non-wrapping row. Let the
+     two blocks stack; the strip itself scrolls (below). */
+  .top-bar { flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; }
+  .top-bar-right { flex-wrap: wrap; }
+
+  /* One column. The sidebar is the category filter; it comes back later. */
+  .main-layout { flex-direction: column; gap: 0; }
+  .sidebar { display: none; }
+
+  /* Strips of pills keep their exact desktop appearance — same padding, same
+     radius, same colours — but scroll horizontally instead of stretching the
+     page. Chosen over wrapping or a hamburger because it leaves the design
+     untouched and every tab stays one swipe away. */
+  .tabs,
+  .day-selector,
+  .tasks-header,
+  .categories-subtabs,
+  .toggle-group {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar,
+  .day-selector::-webkit-scrollbar,
+  .tasks-header::-webkit-scrollbar,
+  .categories-subtabs::-webkit-scrollbar,
+  .toggle-group::-webkit-scrollbar { display: none; }
+
+  .tab,
+  .day-selector > *,
+  .categories-subtabs > *,
+  .toggle-group > * { flex: 0 0 auto; }
+  .toggle-group button,
+  .toggle-group .toggle-option { white-space: nowrap; }
+
+  /* Tapping a card expands it; its action row is the one remaining thing that
+     does not fit. Wrapping keeps the actions reachable. To make v1 strictly
+     read-only instead, replace these two rules with:
+       .item-actions { display: none; } */
+  .item-actions,
+  .item-actions-left,
+  .item-actions-right { flex-wrap: wrap; }
+  .item-actions-left,
+  .item-actions-right { min-width: 0; }
+
+  /* Safety nets, not features. No modal is reachable by tapping in v1, but
+     .edit-item-modal has min-width:500px and would burst a 390px screen if one
+     ever opened. 16px on inputs is the threshold below which iOS Safari
+     auto-zooms the page on focus. */
+  .edit-item-modal { min-width: 0; width: 94vw; height: 90vh; }
+  input, textarea, select { font-size: 16px; }
+}
