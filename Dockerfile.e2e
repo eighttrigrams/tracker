@@ -8,6 +8,11 @@ RUN apt-get update && apt-get install -y curl && \
 WORKDIR /app
 
 COPY deps.edn build.clj package.json package-lock.json shadow-cljs.edn ./
+# package.json depends on the IJKL editor library as file:vendor/...tgz — the
+# library itself lives outside every build context here, so what is committed is
+# the packed tarball. npm install cannot resolve the dependency without it, and
+# says so as ENOENT on a path it was never given.
+COPY vendor ./vendor
 RUN npm install
 RUN npx playwright install --with-deps chromium
 
