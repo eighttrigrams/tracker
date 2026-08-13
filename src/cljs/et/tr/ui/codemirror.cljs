@@ -47,14 +47,16 @@
         extensions #js [minimal-theme line-wrapping update-listener]
         state (.create EditorState #js {:doc doc :extensions extensions})
         view (new EditorView #js {:state state :parent element})]
-    ;; The full "Normal editing" set — not the library's default, which is the
-    ;; eight markdown motions blog uses. The two disagree about ctrl+j and
-    ;; ctrl+l: line start and end here, sentence motions there.
+    ;; One layout, shared with blog and personalist — there is no set to choose
+    ;; any more. It includes what this namespace used to hold, with one change:
+    ;; ctrl+j and ctrl+l are the markdown "sentence" motions rather than line
+    ;; start and end. That was tracker's own invention and appears nowhere in the
+    ;; scheme's README, so the apps were unified onto the documented behaviour.
     ;;
     ;; install puts a capture-phase listener on the view's element, which is how
     ;; this namespace always did it, so these keys win before CodeMirror's own
     ;; keymaps see the event.
-    (ijkl/install view commands (ijkl/editingBindings commands))
+    (ijkl/install view commands)
     view))
 
 (defn get-editor-value [view]
