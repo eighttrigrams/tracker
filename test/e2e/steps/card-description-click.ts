@@ -61,12 +61,22 @@ Then("the description editor holds {string}", async ({ page }, text: string) => 
 // The link in the fixture points at the app's own root, so the tab chromium opens
 // loads without a network. What is asserted is that a tab opened at all: that is
 // the browser acting on a cmd/ctrl-click the card no longer swallows.
+//
+// How far that tab has got by the time the "page" event fires is up to the
+// chromium build, though, and the two this suite runs on disagree: a full
+// chromium (what PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH selects) fires the event
+// with the link's url already in place, while the headless shell bundled into
+// Dockerfile.e2e fires it at tab creation, with the tab still on about:blank —
+// whose pathname reads "blank". A url taken once, right here, is therefore not
+// flaky but simply wrong on the docker target, retries included. toHaveURL
+// retries until the navigation lands, which is what makes the two agree, and it
+// names where the tab went rather than only that its path was a slash.
 Then("cmd-clicking {string} in the description opens a new tab", async ({ page, context }, label: string) => {
   const link = page.locator(`${description} a`).filter({ hasText: label });
   const [tab] = await Promise.all([
     context.waitForEvent("page"),
     link.click({ modifiers: ["ControlOrMeta"] }),
   ]);
-  expect(new URL(tab.url()).pathname).toBe("/");
+  await expect(tab).toHaveURL(new URL("/", page.url()).href);
   await tab.close();
 });
