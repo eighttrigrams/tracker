@@ -58,6 +58,14 @@ When("I press the keyboard shortcut for the {string} tab", async ({ page }, name
   await page.waitForLoadState("networkidle");
 });
 
+// The header toggles, so collapsing is the click that expanded the card — only
+// asserted the other way round.
+When("I collapse the task card {string}", async ({ page }, title: string) => {
+  const card = page.locator(".items li").filter({ hasText: title }).first();
+  await card.locator(".item-header").click();
+  await expect(card).not.toHaveClass(/expanded/);
+});
+
 When("I right-click the card {string}", async ({ page }, title: string) => {
   await page
     .locator(".items li")
@@ -92,15 +100,17 @@ Then("no card menu is open", async ({ page }) => {
 // That is the assertion that actually diverges: a document-level handler — the
 // thing this feature must not have — would swallow the browser's own menu
 // everywhere, and the second step would see it prevented.
-async function rightClickPrevented(page: any, selector: string, title?: string) {
+async function rightClickPrevented(page: any, selector: string, title?: string, inner?: string) {
   return await page.evaluate(
-    ({ selector, title }: any) => {
+    ({ selector, title, inner }: any) => {
       const candidates = [...document.querySelectorAll(selector)];
       const el = title
         ? candidates.find((e) => (e as HTMLElement).innerText.includes(title))
         : candidates[0];
       if (!el) throw new Error(`no element for ${selector} / ${title}`);
-      const target = title ? el.querySelector(".item-header")! : el;
+      const within = inner ?? (title ? ".item-header" : null);
+      const target = within ? el.querySelector(within)! : el;
+      if (!target) throw new Error(`no ${within} in ${selector} / ${title}`);
       const rect = target.getBoundingClientRect();
       const event = new MouseEvent("contextmenu", {
         bubbles: true,
@@ -111,7 +121,7 @@ async function rightClickPrevented(page: any, selector: string, title?: string) 
       target.dispatchEvent(event);
       return event.defaultPrevented;
     },
-    { selector, title },
+    { selector, title, inner },
   );
 }
 
@@ -121,6 +131,18 @@ Then(
     expect(await rightClickPrevented(page, ".items li", title)).toBe(true);
     await expect(page.locator(entries).first()).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(page.locator(menu)).toHaveCount(0);
+  },
+);
+
+// Both halves of an open card: the header, where a collapsed card would have
+// taken the click over, and the expanded body, where the native menu is what the
+// description and its links need.
+Then(
+  "a right-click on the card {string} is left to the browser",
+  async ({ page }, title: string) => {
+    expect(await rightClickPrevented(page, ".items li", title)).toBe(false);
+    expect(await rightClickPrevented(page, ".items li", title, ".item-details")).toBe(false);
     await expect(page.locator(menu)).toHaveCount(0);
   },
 );

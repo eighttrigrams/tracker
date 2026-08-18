@@ -228,7 +228,8 @@
 (defn- open-context-menu
   "Per-card contextmenu handler — never a document-level one: outside a card the
   browser's own menu has to stay reachable, and a card with nothing to offer
-  leaves it alone too. Editable fields inside a card keep their native menu, so
+  leaves it alone too, as does an expanded one, which `item-card` does not wire
+  this onto at all. Editable fields inside a card keep their native menu, so
   copy/paste there is not lost. Opening first closes every other card popup
   through `close-card-popups!` — footer dropdowns wherever they are, the Tasks
   page's send-to-day picker, and any menu already up. An open category selector
@@ -548,8 +549,15 @@
                                :date date
                                :date-class date-class
                                :header-extra header-extra}]]
-      [tag (merge {:class container-class
-                   :on-context-menu (open-context-menu menu-token menu-entries)}
+      [tag (merge {:class container-class}
+                  ;; Collapsed cards only. The menu is a stand-in for the footer,
+                  ;; and an expanded card has that footer on screen already — so
+                  ;; over its description, links and category badges the browser's
+                  ;; own menu (select, copy, copy link address, open in a new tab)
+                  ;; is worth more than a second route to buttons a few pixels
+                  ;; below.
+                  (when-not expanded?
+                    {:on-context-menu (open-context-menu menu-token menu-entries)})
                   attrs)
        (if header-wrapper (header-wrapper header) header)
        (if expanded?

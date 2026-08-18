@@ -24,6 +24,17 @@
 (defn- markdown-blocks [text]
   (str/split (or text "") #"\r?\n\r?\n+"))
 
+(defn- modified-click?
+  "Any modifier held. A click on a description is the card's own gesture — it
+  opens the edit modal — but with a modifier the click belongs to the browser:
+  cmd/ctrl on a link in the rendered markdown opens it in a new tab, shift in a
+  window, alt saves it. Answering those with the modal on top would bury the very
+  thing the gesture asked for, and the rule is kept blunt on purpose (any
+  modifier, not a list of the ones we happen to know) so a platform binding we
+  never thought of is not swallowed either."
+  [e]
+  (or (.-metaKey e) (.-ctrlKey e) (.-shiftKey e) (.-altKey e)))
+
 (defn clampable-description [_]
   (let [expanded? (r/atom false)]
     (fn [{:keys [text on-click content-type]}]
@@ -37,7 +48,8 @@
         [:<>
          [:div.item-description
           {:on-click (fn [e]
-                       (when (.. js/window getSelection -isCollapsed)
+                       (when (and (.. js/window getSelection -isCollapsed)
+                                  (not (modified-click? e)))
                          (.stopPropagation e)
                          (when on-click (on-click))))}
           [render visible]]
