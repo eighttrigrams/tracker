@@ -72,6 +72,42 @@ async function dispatchDrag(page: any, selector: string, title: string, type: st
   );
 }
 
+// A gesture is not finished when the page goes quiet. waitForLoadState
+// ("networkidle") only promises the page made no requests for 500ms, and it can
+// resolve before playwright has even registered a request the drop handler
+// started — so a step could return with a write still in flight. That is
+// invisible to page-side assertions, which retry, but not to the ones that read
+// the API through the `request` fixture: that context is not synchronised with
+// the page at all, so it can read the row before the write commits. One drop
+// fires two writes at once (set-task-today and acknowledge-task-reminder, see
+// views/today.cljs handle-add-to-day-drop), which is what made the window wide
+// enough to lose.
+//
+// So watch the writes the gesture actually fires and wait for their responses:
+// a write's response is only sent after the server has committed it, which is
+// the exact point the assertions depend on. A gesture that writes nothing
+// collects nothing and resolves immediately, so a refused drop does not hang.
+// The loop re-checks because a landing write can trigger another one.
+export async function withWritesSettled(page: any, gesture: () => Promise<void>) {
+  const writes: Promise<unknown>[] = [];
+  const onRequest = (r: any) => {
+    if (r.method() !== "GET" && r.url().includes("/api/")) {
+      writes.push(r.response().catch(() => null));
+    }
+  };
+  page.on("request", onRequest);
+  try {
+    await gesture();
+    await page.waitForLoadState("networkidle");
+    for (let seen = -1; seen !== writes.length; ) {
+      seen = writes.length;
+      await Promise.all(writes);
+    }
+  } finally {
+    page.off("request", onRequest);
+  }
+}
+
 // targetSelector differs from selector when the drop crosses lists — dragging
 // between the two urgency blocks, say.
 export async function dragCard(
@@ -89,10 +125,11 @@ export async function dragCard(
   await dispatchDrag(page, selector, source, "dragstart", 0.5);
   await expect(page.locator(".dragging").filter({ hasText: source })).toBeVisible({ timeout: 5000 });
   const frac = position === "before" ? 0.25 : 0.75;
-  for (const type of ["dragenter", "dragover", "drop"]) {
-    await dispatchDrag(page, targetSelector, target, type, frac);
-  }
-  await page.waitForLoadState("networkidle");
+  await withWritesSettled(page, async () => {
+    for (const type of ["dragenter", "dragover", "drop"]) {
+      await dispatchDrag(page, targetSelector, target, type, frac);
+    }
+  });
   await dispatchDrag(page, selector, source, "dragend", 0.5);
 }
 

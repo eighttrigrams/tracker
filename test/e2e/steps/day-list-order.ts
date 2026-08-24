@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { offsetDateStr } from "./helpers";
+import { offsetDateStr, withWritesSettled } from "./helpers";
 
 const { Given, When, Then } = createBdd();
 
@@ -83,10 +83,18 @@ async function endDrag(page: any, selector: string, title: string) {
 
 async function dropOnItem(page: any, target: string, position: string) {
   const frac = position === "before" ? 0.25 : 0.75;
-  for (const type of ["dragenter", "dragover", "drop"]) {
-    await fireDrag(page, DAY_ITEMS, target, type, frac);
-  }
-  await page.waitForLoadState("networkidle");
+  // The card being dropped onto has to be rendered before the sequence starts.
+  // A drag that began outside the day list — from Urgent Matters, or from the
+  // overdue section — says nothing about the day list having arrived, since the
+  // marks those drags wait for are on the source, not here. Without this the
+  // lookup inside fireDrag runs against a list that is still empty and throws
+  // "drag element not found".
+  await expect(page.locator(DAY_ITEMS).filter({ hasText: target })).toBeVisible({ timeout: 5000 });
+  await withWritesSettled(page, async () => {
+    for (const type of ["dragenter", "dragover", "drop"]) {
+      await fireDrag(page, DAY_ITEMS, target, type, frac);
+    }
+  });
 }
 
 Given(
@@ -192,10 +200,11 @@ When(
   "I drop the day-list task {string} beside the day list heading",
   async ({ page }, source: string) => {
     await startDrag(page, DAY_ITEMS, source);
-    for (const type of ["dragenter", "dragover", "drop"]) {
-      await fireDrag(page, DAY_HEADING, "", type, 0.5);
-    }
-    await page.waitForLoadState("networkidle");
+    await withWritesSettled(page, async () => {
+      for (const type of ["dragenter", "dragover", "drop"]) {
+        await fireDrag(page, DAY_HEADING, "", type, 0.5);
+      }
+    });
     await endDrag(page, DAY_ITEMS, source);
   },
 );
