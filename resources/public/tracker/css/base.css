@@ -149,3 +149,16 @@ button:active { transform: translateY(0); }
 button, input, select, textarea {
   transition: background-color 2s ease, border-color 2s ease, color 2s ease, box-shadow 2s ease, transform 0.2s ease;
 }
+
+/* A one-line editor standing in for an <input> (components/cm_input.cljs).
+ *
+ * Almost nothing belongs here on purpose. The editor is themed in ClojureScript
+ * from what the mirrored <input> *computes* to, because that is the only thing
+ * that captures `input {}` above together with `.item-edit-form input`,
+ * `.login-form input` and the rest -- rules a wrapper div matches none of. So
+ * the box, the font and the colours are set there, and the two things left are
+ * the ones a computed style cannot give you: a placeholder, which is a
+ * pseudo-element on an input and a real node in CodeMirror, and the wrapper's
+ * own lack of styling. */
+.cm-input-host { min-width: 0; }
+.cm-input-host .cm-placeholder { color: var(--text-secondary); }

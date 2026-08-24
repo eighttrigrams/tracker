@@ -14,6 +14,7 @@
             [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.save-flash :as save-flash]
             [et.tr.ui.components.cm-textarea :refer [cm-textarea]]
+            [et.tr.ui.components.cm-input :refer [cm-input]]
             [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.i18n :refer [t tf]]
             [et.tr.ui.date :as date]
@@ -904,29 +905,29 @@
                         [:a.preview-link {:href @link :target "_blank" :rel "noopener noreferrer"} @link])
                       [markdown-preview @description]]
                      [:div.item-edit-form
-                      [:input {:type "text"
-                               :auto-complete "off"
-                               :value @title
-                               :on-change #(reset! title (-> % .-target .-value))
-                               :placeholder (if is-category (t :category/name-placeholder) (t :task/title-placeholder))}]
+                      [cm-input {:type "text"
+                                 :auto-complete "off"
+                                 :value @title
+                                 :on-change #(reset! title (-> % .-target .-value))
+                                 :placeholder (if is-category (t :category/name-placeholder) (t :task/title-placeholder))}]
                       (when link
-                        [:input {:type "text"
-                                 :auto-complete "off"
-                                 :value @link
-                                 :on-change #(reset! link (-> % .-target .-value))
-                                 :placeholder (t :resources/link-placeholder)}])
+                        [cm-input {:type "text"
+                                   :auto-complete "off"
+                                   :value @link
+                                   :on-change #(reset! link (-> % .-target .-value))
+                                   :placeholder (t :resources/link-placeholder)}])
                       (when badge-title
-                        [:input {:type "text"
-                                 :auto-complete "off"
-                                 :value @badge-title
-                                 :on-change #(reset! badge-title (-> % .-target .-value))
-                                 :placeholder (t :category/badge-title-placeholder)}])
+                        [cm-input {:type "text"
+                                   :auto-complete "off"
+                                   :value @badge-title
+                                   :on-change #(reset! badge-title (-> % .-target .-value))
+                                   :placeholder (t :category/badge-title-placeholder)}])
                       (when tags
-                        [:input {:type "text"
-                                 :auto-complete "off"
-                                 :value @tags
-                                 :on-change #(reset! tags (-> % .-target .-value))
-                                 :placeholder (t :task/tags-placeholder)}])
+                        [cm-input {:type "text"
+                                   :auto-complete "off"
+                                   :value @tags
+                                   :on-change #(reset! tags (-> % .-target .-value))
+                                   :placeholder (t :task/tags-placeholder)}])
                       (if (state/vim-keys?)
                         [cm-textarea {:value description
                                       :on-change #(reset! description %)
