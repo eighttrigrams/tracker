@@ -197,7 +197,19 @@
                             :logged-in? false
                             :token nil
                             :current-user nil
-                            :confirm-delete-user nil})))
+                            :confirm-delete-user nil}
+
+                            ;; Last, so the scope switcher's two keys above are
+                            ;; the defaults for a browser that has never set
+                            ;; them and are overridden by whatever the last
+                            ;; session left in localStorage. Read here, at the
+                            ;; atom, rather than swapped in from core/init: the
+                            ;; first fetches of tasks, meets, issues and the
+                            ;; sidebar categories all read these keys, so a
+                            ;; restore that landed after them would show one
+                            ;; scope's lists under the other one's switcher
+                            ;; until something refetched.
+                            (ui/load-scope-from-storage))))
 
 (declare edit-conflict-handler)
 
@@ -2304,6 +2316,7 @@
   (swap! *app-state update :show-collapsed-categories? not))
 
 (ui/setup-dark-mode-watcher *app-state)
+(ui/setup-scope-persistence-watcher *app-state)
 
 (defn export-data []
   (ui/export-data auth-headers *app-state))

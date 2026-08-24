@@ -196,6 +196,77 @@
 ;; Today fan-out, which spreads one opts map over four lists, is covered by
 ;; scope-switcher-submodes.feature for exactly that reason.
 
+;; The switcher's two keys are the one piece of view state expected to outlive a
+;; reload. They decide what every list on every page is allowed to show, so a
+;; refresh that quietly reset them to :both/false widens every list at once —
+;; which reads as private items appearing on a work screen, not as a forgotten
+;; toggle. They go to localStorage rather than onto the user row because the
+;; scope is a property of the window being worked in (the work laptop stays on
+;; :work) and not of the account, the same reason :dark-mode is not a user
+;; setting either. Both keys together: the middle button and a click on the
+;; already-active end button toggle :strict-mode, so restoring the mode without
+;; the flag would come back as a different selection than the one left behind.
+(def ^:private scope-storage-key "scope-switcher")
+
+(def ^:private scope-modes
+  "The three the switcher can produce. Anything else in storage is a hand-edit or
+  a leftover from a rename, and is dropped here rather than allowed through to
+  the fetch layer, which would pass an unknown context to the server as-is."
+  #{:both :work :private})
+
+(defn load-scope-from-storage
+  "The stored switcher state, shaped to merge over the app-state defaults.
+
+  Returns nil — not the defaults — when nothing usable is stored, so the
+  defaults keep being stated in exactly one place (state.cljs's initial map)
+  instead of being duplicated here, where the two copies could drift. Every read
+  is validated: `JSON.parse` on a hand-edited value throws, a renamed mode
+  deserializes to a keyword no longer in `scope-modes`, and a non-object parses
+  to something `get` returns nil for.
+
+  An unusable mode discards the flag with it rather than restoring it alone. The
+  two are only ever written together, so a blob with a bad mode is a hand-edit or
+  a leftover from a rename, and `:strict-mode true` salvaged out of one lands on
+  the default `:both` — which is the intersection, the narrowest view the
+  switcher has, and nothing the user chose.
+
+  Wrapped in a try because this runs while the namespace loads, before anything
+  is rendered, and localStorage access itself throws in some privacy modes.
+  Uncaught, that is a blank page rather than a forgotten scope."
+  []
+  (try
+    (let [{:keys [mode strict]} (some-> (.getItem js/localStorage scope-storage-key)
+                                       js/JSON.parse
+                                       (js->clj :keywordize-keys true))
+          mode (keyword mode)]
+      (when (contains? scope-modes mode)
+        (cond-> {:work-private-mode mode}
+          (boolean? strict) (assoc :strict-mode strict))))
+    (catch :default _ nil)))
+
+(defn- save-scope-to-storage! [state]
+  (try
+    (.setItem js/localStorage scope-storage-key
+              (js/JSON.stringify #js {"mode" (name (:work-private-mode state))
+                                      "strict" (boolean (:strict-mode state))}))
+    (catch :default _ nil)))
+
+(defn setup-scope-persistence-watcher
+  "Mirror the switcher's two keys into storage whenever either changes.
+
+  A watch, in the shape of the dark-mode one below, rather than a write inside
+  `set-work-private-mode` and `toggle-strict-mode` — the two functions that own
+  those keys today. A third writer added later cannot then persist nothing,
+  which is the failure that reads as \"it forgets the scope, but only when I set
+  it from over here\". The guard keeps this off the write path of every other
+  `swap!` in the app, of which there is one per keystroke in a search box."
+  [app-state]
+  (add-watch app-state :scope-persistence
+    (fn [_ _ old-state new-state]
+      (when (or (not= (:work-private-mode old-state) (:work-private-mode new-state))
+                (not= (:strict-mode old-state) (:strict-mode new-state)))
+        (save-scope-to-storage! new-state)))))
+
 (defn set-work-private-mode [app-state refetch-fn mode]
   (swap! app-state assoc :work-private-mode mode)
   (refetch-fn))
