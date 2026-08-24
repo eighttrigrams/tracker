@@ -345,7 +345,7 @@
                         (swap! a assoc
                                edit-id-path (:id item)
                                title-path (:title item))))})
-       (:title item)])))
+       [task-item/inline-markdown (:title item)]])))
 
 (defn- card-title-area [{:keys [item expanded? title-class relation-link inline-edit badges title-extra title-content title-text-class title-icon]}]
   (let [title-el [card-title-el {:item item

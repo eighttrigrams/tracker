@@ -70,3 +70,33 @@
   padding-left: 1em;
   color: var(--text-secondary);
 }
+
+/* Inline markdown, for a title.
+ *
+ * The block rules above cannot serve here: a title lives inside .item-title,
+ * which is a -webkit-box with a 2-line clamp on it, so anything that introduces
+ * a block box breaks the clamp and the flex row it sits in. Everything here
+ * stays inline and inherits, and only says what emphasis, code and links look
+ * like. Sizes are relative so the same rules work in a card title, a modal and
+ * the recurring-task header, which are three different font sizes. */
+.md-inline { display: inline; }
+.md-inline strong { font-weight: 700; }
+.md-inline em { font-style: italic; }
+.md-inline del { opacity: 0.6; }
+.md-inline code {
+  background: var(--surface-subtle);
+  padding: 0.05em 0.3em;
+  border-radius: 3px;
+  font-family: 'SF Mono', SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 0.85em;
+  /* A title is often already clamped to two lines; a long token in backticks
+   * must be allowed to break rather than push the badges off the row. */
+  overflow-wrap: anywhere;
+}
+.md-inline a { color: var(--accent); text-decoration: none; }
+.md-inline a:hover { text-decoration: underline; }
+/* marked turns a blank-line-free paragraph into no <p> at all, but an image or a
+ * line break can still slip in from pasted text. Keep them from changing the
+ * height of the row. */
+.md-inline img { max-height: 1.2em; vertical-align: text-bottom; }
+.md-inline br { display: none; }

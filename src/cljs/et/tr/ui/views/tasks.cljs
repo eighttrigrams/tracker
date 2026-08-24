@@ -418,7 +418,7 @@
                         (swap! state/*app-state assoc
                           :rtasks-page/inline-edit-rtask (:id rtask)
                           :rtasks-page/inline-edit-title (:title rtask))))}
-         (:title rtask)])]
+         [task-item/inline-markdown (:title rtask)]])]
      (when is-expanded
        [:div.item-toolbar
         [:button.calendar-icon {:on-click (fn [e]

@@ -18,6 +18,26 @@
   [:div.markdown-content.html-content
    {:dangerouslySetInnerHTML (r/unsafe-html (or text ""))}])
 
+(defn inline-markdown
+  "Markdown's *inline* constructs only - bold, italics, code, links - for the
+  places that are one line and have to stay one line. A card title, above all.
+
+  `marked` proper is the wrong tool there: it parses blocks, so it wraps whatever
+  it is given in a <p>, and a <p> inside a flex row of title, badges and toolbar
+  lays out nothing like the span it replaced. `parseInline` does the same
+  emphasis, code and link parsing and returns a fragment, which is what a title
+  wants.
+
+  A <span> and not a <div>, for the same reason.
+
+  This carries exactly the same trust as `markdown` above and no more: marked
+  passes raw HTML through, so a title is as privileged as a description already
+  was. It is the existing bargain in this codebase, not a new one - but it is a
+  bargain, and it is worth knowing that it is now also made for titles."
+  [text]
+  [:span.md-inline
+   {:dangerouslySetInnerHTML (r/unsafe-html (.parseInline marked (or text "")))}])
+
 (defn- body-renderer [content-type]
   (if (= content-type "html") html markdown))
 
