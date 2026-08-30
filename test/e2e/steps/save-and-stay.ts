@@ -185,6 +185,66 @@ When("I discard the unsaved changes", async ({ page }) => {
   await page.locator(".modal-footer button.confirm-delete").click();
 });
 
+// Leaves the form diverged from the saved state without writing anything, which
+// is the precondition for the unsaved-changes prompt appearing on Escape.
+When(
+  "I change the modal title to {string} without saving",
+  async ({ page }, newTitle: string) => {
+    await setFieldValue(page.locator(modalTitle).first(), newTitle);
+  },
+);
+
+// The unsaved-changes prompt. Its two choices are ordered discard-then-keep in
+// the DOM, which is also left-to-right on screen, and the selected one is the
+// focused one.
+const unsavedFooter = ".unsaved-changes-footer";
+
+Then("the unsaved-changes prompt should be open", async ({ page }) => {
+  await expect(page.locator(unsavedFooter)).toBeVisible();
+});
+
+Then(
+  "the prompt's choices should read {string} then {string}",
+  async ({ page }, left: string, right: string) => {
+    await expect(page.locator(`${unsavedFooter} button`)).toHaveText([left, right]);
+  },
+);
+
+// Reads the selection off the document rather than off a class, because focus
+// *is* the selection here — that is what makes Enter take it.
+async function selectedChoice(page: any): Promise<string | null> {
+  return page.evaluate((sel: string) => {
+    const el = document.activeElement;
+    if (!el || !el.closest(sel)) return null;
+    return el.textContent;
+  }, unsavedFooter);
+}
+
+Then("the selected choice should be {string}", async ({ page }, label: string) => {
+  await expect.poll(() => selectedChoice(page)).toBe(label);
+});
+
+When("I press the select-left chord", async ({ page }) => {
+  await page.keyboard.press("Meta+KeyJ");
+});
+
+When("I press the select-right chord", async ({ page }) => {
+  await page.keyboard.press("Meta+KeyL");
+});
+
+When("I press Enter", async ({ page }) => {
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+});
+
+// cmd+9 in this prompt used to be wired to the discard. It must now do nothing
+// at all: the combo means "save" everywhere else in the app.
+When("I press the save combo in the prompt", async ({ page }) => {
+  await page.keyboard.press("Meta+Digit9");
+  await page.keyboard.press("Meta+KeyS");
+  await page.waitForTimeout(300);
+});
+
 When("the next task creation fails once", async ({ page }) => {
   let failed = false;
   await page.route("**/api/tasks", async (route) => {

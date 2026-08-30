@@ -810,16 +810,60 @@
                                    (sync-maybe!))}]
              (str " " (t :scheduling/maybe))]])]))))
 
-(defn- unsaved-changes-modal [{:keys [on-go-back on-discard]}]
-  [:div.modal-overlay
-   [modal-keyboard-shortcut {:on-confirm on-discard :on-escape on-go-back :enabled? true :enter-confirms? true}]
-   [:div.modal {:on-click #(.stopPropagation %)}
-    [:div.modal-header (t :modal/unsaved-changes)]
-    [:div.modal-body
-     [:p (t :modal/unsaved-changes-body)]]
-    [:div.modal-footer
-     [:button.cancel {:on-click on-go-back} (t :modal/go-back)]
-     [:button.confirm-delete {:on-click on-discard} (t :modal/discard)]]]])
+;; The prompt you get for leaving an edit with divergences from the saved
+;; state. Two choices, discard on the left and keeping the edit on the right,
+;; and the safe one is the default: Enter keeps editing. It used to be the
+;; other way round in both respects — the destructive choice sat on the right
+;; and `enter-confirms?` put it under Enter, so the key you press to dismiss a
+;; dialog was the key that threw the work away.
+;;
+;; The selection is real DOM focus rather than a painted-on class. Enter
+;; activating the selected choice is then the browser's own behaviour rather
+;; than a second implementation of it, and the choice stays reachable by Tab
+;; for anyone not using the chords.
+(defn- unsaved-changes-modal [_]
+  (let [state (atom {})
+        focus! (fn [k] (when-let [el (get @state k)] (.focus el)))]
+    (r/create-class
+     {:display-name "unsaved-changes-modal"
+      :component-did-mount
+      (fn [_]
+        (focus! :keep-editing)
+        (let [handler (fn [e]
+                        (when (.-metaKey e)
+                          ;; Absolute rather than relative: cmd+j is always the
+                          ;; left choice and cmd+l always the right one, so a
+                          ;; repeated press cannot walk onto the destructive
+                          ;; choice the way wrapping around the ends would.
+                          (condp = (.-code e)
+                            "KeyJ" (do (.preventDefault e) (focus! :discard))
+                            "KeyL" (do (.preventDefault e) (focus! :keep-editing))
+                            nil)))]
+          (swap! state assoc :handler handler)
+          (.addEventListener js/document "keydown" handler)))
+      :component-will-unmount
+      (fn [_]
+        (when-let [handler (:handler @state)]
+          (.removeEventListener js/document "keydown" handler)))
+      :reagent-render
+      (fn [{:keys [on-go-back on-discard]}]
+        [:div.modal-overlay
+         ;; enabled? false leaves this modal exactly the two choices it offers.
+         ;; In particular cmd+9 does nothing here: it means *save* everywhere
+         ;; else in the app, and it used to be wired to on-confirm — which in
+         ;; this modal was the discard.
+         [modal-keyboard-shortcut {:on-escape on-go-back :enabled? false}]
+         [:div.modal {:on-click #(.stopPropagation %)}
+          [:div.modal-header (t :modal/unsaved-changes)]
+          [:div.modal-body
+           [:p (t :modal/unsaved-changes-body)]]
+          [:div.modal-footer.unsaved-changes-footer
+           [:button.confirm-delete {:ref #(swap! state assoc :discard %)
+                                    :on-click on-discard}
+            (t :modal/discard)]
+           [:button.cancel {:ref #(swap! state assoc :keep-editing %)
+                            :on-click on-go-back}
+            (t :modal/go-back)]]]])})))
 
 (defn- time-tab-content [date-atom time-atom & {:keys [show-time-clear?] :or {show-time-clear? true}}]
   [:div.time-tab

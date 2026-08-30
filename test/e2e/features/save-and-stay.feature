@@ -165,3 +165,68 @@ Feature: Saving without leaving the edit modal
     And I change the modal title to "Still staying" and save without closing using the custom keymap
     Then the edit modal should still be open
     And the task "Still staying" should be stored for user "abandoner"
+
+  Scenario: The unsaved-changes prompt offers discard on the left and keeps editing by default
+    Given I am on the app
+    When I click the "Tasks" tab
+    And I add a task called "Prompt original"
+    And I open the edit modal for task "Prompt original"
+    And I change the modal title to "Prompt edited" without saving
+    And I press Escape in the modal
+    Then the unsaved-changes prompt should be open
+    And the prompt's choices should read "Discard" then "Go Back"
+    And the selected choice should be "Go Back"
+
+  Scenario: Enter on the unsaved-changes prompt keeps editing rather than discarding
+    Given I am on the app
+    When I click the "Tasks" tab
+    And I add a task called "Enter original"
+    And I open the edit modal for task "Enter original"
+    And I change the modal title to "Enter edited" without saving
+    And I press Escape in the modal
+    Then the unsaved-changes prompt should be open
+    When I press Enter
+    Then the edit modal should still be open
+    And the modal title field should show "Enter edited"
+    And the task "Enter original" should be stored
+
+  Scenario: The select chords move between the prompt's choices
+    Given I am on the app
+    When I click the "Tasks" tab
+    And I add a task called "Chords original"
+    And I open the edit modal for task "Chords original"
+    And I change the modal title to "Chords edited" without saving
+    And I press Escape in the modal
+    Then the selected choice should be "Go Back"
+    When I press the select-left chord
+    Then the selected choice should be "Discard"
+    When I press the select-right chord
+    Then the selected choice should be "Go Back"
+    When I press the select-left chord
+    And I press the select-left chord
+    Then the selected choice should be "Discard"
+
+  Scenario: Selecting discard and pressing Enter throws the edit away
+    Given I am on the app
+    When I click the "Tasks" tab
+    And I add a task called "Discarded original"
+    And I open the edit modal for task "Discarded original"
+    And I change the modal title to "Discarded edit" without saving
+    And I press Escape in the modal
+    Then the unsaved-changes prompt should be open
+    When I press the select-left chord
+    And I press Enter
+    Then no modal should be open
+    And the task "Discarded original" should be stored
+
+  Scenario: The save combo does nothing on the unsaved-changes prompt
+    Given I am on the app
+    When I click the "Tasks" tab
+    And I add a task called "Safe original"
+    And I open the edit modal for task "Safe original"
+    And I change the modal title to "Safe edited" without saving
+    And I press Escape in the modal
+    Then the unsaved-changes prompt should be open
+    When I press the save combo in the prompt
+    Then the unsaved-changes prompt should be open
+    And the task "Safe original" should be stored

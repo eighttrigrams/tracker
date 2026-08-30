@@ -273,3 +273,12 @@
   box-shadow: 0 0 12px rgba(52, 199, 89, 0.6), 0 0 28px rgba(52, 199, 89, 0.35);
   animation: fade-in-out 1.5s ease forwards;
 }
+
+/* The unsaved-changes prompt is driven by the keyboard (cmd+j / cmd+l to move
+   between the choices, Enter to take the selected one), so which choice Enter
+   would take has to be legible at a glance. The browser's default focus ring
+   all but disappears against the red discard button, hence a ring of our own. */
+.unsaved-changes-footer button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.45);
+}
