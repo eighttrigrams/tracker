@@ -1,6 +1,7 @@
 (ns et.tr.ui.views.issues
   (:require [reagent.core]
             [et.tr.ui.state :as state]
+            [et.tr.ui.keys :as keys]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.state.issues :as issues-state]
             [et.tr.ui.components.item-card :as item-card]
@@ -175,7 +176,11 @@
        :on-change #(state/set-issue-filter-search (-> % .-target .-value))
        :on-key-down (fn [e]
                       (cond
-                        (and (= (.-key e) "Enter") (seq input-value))
+                        ;; The save combo enacts Add. A bar with text typed into
+                        ;; it holds something unsaved exactly as a form does, so
+                        ;; the combo that means "save" there means "add" here.
+                        (and (or (= (.-key e) "Enter") (keys/save-combo? e))
+                             (seq input-value))
                         (do
                           (.preventDefault e)
                           (state/add-issue input-value #(state/set-issue-filter-search "")))

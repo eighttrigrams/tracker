@@ -1,6 +1,7 @@
 (ns et.tr.ui.views.tasks
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.keys :as keys]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.state.recurring-tasks :as recurring-tasks-state]
             [et.tr.ui.date :as date]
@@ -31,7 +32,11 @@
 (defn- handle-combined-keys [input-value done-mode?]
   (fn [e]
     (cond
-      (and (= (.-key e) "Enter") (not done-mode?))
+      ;; The save combo enacts Add. A bar with text typed into it holds
+      ;; something unsaved exactly as a form does, so the combo that means
+      ;; "save" there means "add" here. Still nothing to add in done-mode,
+      ;; where the bar only searches.
+      (and (or (= (.-key e) "Enter") (keys/save-combo? e)) (not done-mode?))
       (handle-add-task-shortcut e input-value)
 
       (= (.-key e) "Escape")

@@ -1,6 +1,7 @@
 (ns et.tr.ui.views.resources
   (:require [reagent.core]
             [et.tr.ui.state :as state]
+            [et.tr.ui.keys :as keys]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.state.resources :as resources-state]
             [et.tr.ui.state.journals :as journals-state]
@@ -194,7 +195,10 @@
        :on-change #(state/set-resource-filter-search (-> % .-target .-value))
        :on-key-down (fn [e]
                       (cond
-                        (and (= (.-key e) "Enter") (seq input-value))
+                        ;; The save combo enacts Add — see the note in
+                        ;; et.tr.ui.keys.
+                        (and (or (= (.-key e) "Enter") (keys/save-combo? e))
+                             (seq input-value))
                         (do
                           (.preventDefault e)
                           (add-resource-from-input input-value

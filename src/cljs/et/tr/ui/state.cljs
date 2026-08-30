@@ -2141,6 +2141,72 @@
 (defn toggle-expanded [page-key task-id]
   (ui/toggle-expanded *app-state page-key task-id))
 
+(defn collapse-expanded-card!
+  "Collapse whatever card the page on screen has open. Returns true if there was
+  one, so a caller can tell whether it consumed the key.
+
+  Putting the cursor back in the page's search box is deliberately *not* done
+  here: every `set-expanded-*` already returns it to its own page's box when
+  handed nil, and `ui/toggle-expanded` does the same for the Tasks page. This
+  only has to find the open card; the focus follows on its own.
+
+  Dispatch is on the active tab and then on the sub-mode rather than on \"which
+  expanded key happens to be set\", because the keys outlive their pages — only
+  two of them are cleared when the tab changes — so a card left open on Tasks
+  would otherwise be the one Escape closed while the Issues page is on screen.
+  The exception is `:tasks-page/expanded-task`, which the Issues page genuinely
+  shares: in its focused sub-mode the cards on screen *are* Tasks cards."
+  []
+  (let [app @*app-state
+        collapse-task! (fn []
+                         (when-let [id (:tasks-page/expanded-task app)]
+                           (toggle-expanded :tasks-page/expanded-task id)
+                           true))
+        collapse! (fn [id f] (when id (f nil) true))]
+    (boolean
+     (case (:active-tab app)
+       :tasks (if (:tasks-page/recurring-mode app)
+                (collapse! (:expanded-rtask @recurring-tasks-state/*recurring-tasks-page-state)
+                           set-expanded-rtask)
+                (collapse-task!))
+
+       :issues (or (collapse! (:expanded-issue @issues-state/*issues-page-state)
+                              set-expanded-issue)
+                   ;; The focused sub-mode lists this issue's tasks.
+                   (collapse-task!))
+
+       :meets (if (:meets-page/series-mode app)
+                (collapse! (:expanded-series @meeting-series-state/*meeting-series-page-state)
+                           set-expanded-series)
+                (collapse! (:expanded-meet @meets-state/*meets-page-state)
+                           set-expanded-meet))
+
+       :resources (cond
+                    (:resources-page/journals-mode app)
+                    (collapse! (:expanded-journal @journals-state/*journals-page-state)
+                               set-expanded-journal)
+
+                    (:resources-page/filter-journal app)
+                    (collapse! (:expanded-entry @journal-entries-state/*journal-entries-page-state)
+                               set-expanded-journal-entry)
+
+                    :else
+                    (collapse! (:expanded-resource @resources-state/*resources-page-state)
+                               set-expanded-resource))
+
+       :mail (collapse! (:expanded-message @mail/*mail-page-state)
+                        set-expanded-message)
+
+       ;; Today stacks four of them and cross-clears only two, so any that are
+       ;; set are closed together rather than one Escape at a time.
+       :today (let [open (filter #(get app %)
+                                 [:today-page/expanded-task :today-page/expanded-issue
+                                  :today-page/expanded-meet :today-page/expanded-journal-entry])]
+                (doseq [k open] (toggle-expanded k (get app k)))
+                (seq open))
+
+       nil))))
+
 (defn toggle-category-item-expanded [category-type id]
   (let [current (:categories-page/expanded @*app-state)]
     (if (and current (= (:type current) category-type) (= (:id current) id))

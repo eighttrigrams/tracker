@@ -1,5 +1,6 @@
 (ns et.tr.ui.views.meets
   (:require [et.tr.ui.state :as state]
+            [et.tr.ui.keys :as keys]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
@@ -121,7 +122,10 @@
        :on-change #(state/set-meet-filter-search (-> % .-target .-value))
        :on-key-down (fn [e]
                       (cond
-                        (and (= (.-key e) "Enter") (seq input-value))
+                        ;; The save combo enacts Add — see the note in
+                        ;; et.tr.ui.keys.
+                        (and (or (= (.-key e) "Enter") (keys/save-combo? e))
+                             (seq input-value))
                         (do
                           (.preventDefault e)
                           (state/add-meet input-value
@@ -234,7 +238,10 @@
        :on-change #(state/set-meeting-series-filter-search (-> % .-target .-value))
        :on-key-down (fn [e]
                       (cond
-                        (and (= (.-key e) "Enter") (seq input-value))
+                        ;; The save combo enacts Add — see the note in
+                        ;; et.tr.ui.keys.
+                        (and (or (= (.-key e) "Enter") (keys/save-combo? e))
+                             (seq input-value))
                         (do
                           (.preventDefault e)
                           (state/add-meeting-series input-value

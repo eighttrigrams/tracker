@@ -235,8 +235,32 @@
       (state/clear-shared-filter (filter-key->category-type filter-key)))
     (toggle-fn filter-key)))
 
+(defn- typing?
+  "Whether the keystroke is going into something that edits text — an input, a
+  textarea, or a CodeMirror, which is a contenteditable. Escape belongs to those
+  fields while the cursor is in one: in a search box it clears the search."
+  []
+  (when-let [el (.-activeElement js/document)]
+    (or (= "INPUT" (.-tagName el))
+        (= "TEXTAREA" (.-tagName el))
+        (.-isContentEditable el))))
+
 (defn- handle-keyboard-shortcuts [e]
   (when-not (any-modal-open?)
+    ;; Escape on its own, with the cursor outside any field: close the card that
+    ;; is open and put the cursor in the page's search box. The two halves are
+    ;; one gesture — the card was in the way of typing, and closing it without
+    ;; going anywhere would leave the keyboard nowhere useful. Collapsing does
+    ;; the focusing itself (see state/collapse-expanded-card!).
+    ;;
+    ;; Only when something was actually collapsed is the key consumed, so a
+    ;; page with nothing open leaves Escape to whatever else wants it.
+    (when (and (= "Escape" (.-code e))
+               (not (.-altKey e)) (not (.-metaKey e))
+               (not (.-ctrlKey e)) (not (.-shiftKey e))
+               (not (typing?))
+               (state/collapse-expanded-card!))
+      (.preventDefault e))
     (let [code (.-code e)
           {:keys [active-tab]} @state/*app-state
           tasks-shortcut-keys (tasks/get-tasks-category-shortcut-keys)

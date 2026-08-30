@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [clojure.string]
             [et.tr.ui.state :as state]
+            [et.tr.ui.keys :as keys]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.url :as url]
             [et.tr.ui.state.mail :as mail-state]
@@ -20,11 +21,7 @@
             [et.tr.ui.date :as date]
             ["marked" :refer [marked]]))
 
-(defn- save-combo? [e]
-  (and (.-metaKey e)
-       (if (state/vim-keys?)
-         (= "Digit9" (.-code e))
-         (= "KeyS" (.-code e)))))
+(def ^:private save-combo? keys/save-combo?)
 
 ;; Reaching Cmd+9 from Cmd+Escape means holding Cmd across both, and a held key
 ;; can repeat its keydown. So the modifiers alone must not count as "some other
