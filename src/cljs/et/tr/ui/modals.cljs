@@ -828,6 +828,10 @@
      {:display-name "unsaved-changes-modal"
       :component-did-mount
       (fn [_]
+        ;; Whatever was being edited when Escape was pressed. Taken before the
+        ;; prompt takes focus, and handed back on the way out, so going back
+        ;; puts the caret exactly where it was rather than nowhere.
+        (swap! state assoc :came-from (.-activeElement js/document))
         (focus! :keep-editing)
         (let [handler (fn [e]
                         (when (.-metaKey e)
@@ -847,12 +851,22 @@
           (.removeEventListener js/document "keydown" handler)))
       :reagent-render
       (fn [{:keys [on-go-back on-discard]}]
-        [:div.modal-overlay
+        (let [go-back (fn []
+                        (on-go-back)
+                        ;; After the render that takes the prompt away, so the
+                        ;; focus is not handed to an element that is about to be
+                        ;; behind a modal again.
+                        (js/setTimeout
+                         (fn []
+                           (when-let [el (:came-from @state)]
+                             (when (.-isConnected el) (.focus el))))
+                         0))]
+        [:div.modal-overlay.unsaved-changes-overlay
          ;; enabled? false leaves this modal exactly the two choices it offers.
          ;; In particular cmd+9 does nothing here: it means *save* everywhere
          ;; else in the app, and it used to be wired to on-confirm — which in
          ;; this modal was the discard.
-         [modal-keyboard-shortcut {:on-escape on-go-back :enabled? false}]
+         [modal-keyboard-shortcut {:on-escape go-back :enabled? false}]
          [:div.modal {:on-click #(.stopPropagation %)}
           [:div.modal-header (t :modal/unsaved-changes)]
           [:div.modal-body
@@ -862,8 +876,8 @@
                                     :on-click on-discard}
             (t :modal/discard)]
            [:button.cancel {:ref #(swap! state assoc :keep-editing %)
-                            :on-click on-go-back}
-            (t :modal/go-back)]]]])})))
+                            :on-click go-back}
+            (t :modal/go-back)]]]]))})))
 
 (defn- time-tab-content [date-atom time-atom & {:keys [show-time-clear?] :or {show-time-clear? true}}]
   [:div.time-tab
@@ -933,15 +947,25 @@
                   stay-refreshed (fn [refreshed]
                                    (reset! prev-entity refreshed)
                                    (swap! fields-state assoc :entity refreshed))]
-              (if @confirm-discard?
-                [unsaved-changes-modal
-                 {:on-go-back #(reset! confirm-discard? false)
-                  :on-discard #(do (reset! confirm-discard? false)
-                                   (state/clear-editing-modal))}]
-                [:div.modal-overlay
+              ;; The prompt is stacked *over* this modal rather than swapped in
+              ;; for it. Going back then costs nothing to restore: the fields
+              ;; were never unmounted, so the caret, the selection, the scroll
+              ;; position and each editor's own state are all still there, held
+              ;; by the browser. Rebuilding them by hand — remembering which
+              ;; field and what offset, and replaying it into a fresh CodeMirror
+              ;; — would be a reimplementation of what not destroying them gives
+              ;; for free, and a worse one.
+              [:<>
+               [:div.modal-overlay
                  [modal-keyboard-shortcut {:on-confirm #(edit-modal-save @fields-state)
                                            :on-confirm-stay #(edit-modal-save @fields-state stay-refreshed)
-                                           :on-escape try-escape :enabled? true}]
+                                           ;; While the prompt is up it owns the
+                                           ;; keyboard. This modal is still
+                                           ;; mounted and would otherwise answer
+                                           ;; Escape and the save combos from
+                                           ;; underneath it.
+                                           :on-escape (when-not @confirm-discard? try-escape)
+                                           :enabled? (not @confirm-discard?)}]
                  [:div.modal.edit-item-modal {:on-click #(.stopPropagation %)}
                   [:div.modal-body
                    [:div.edit-modal-tabs
@@ -1049,7 +1073,12 @@
                                         (state/set-confirm-delete-category category-type entity))}
                         (t :category/delete)]))
                    [:button.cancel {:on-click #(state/clear-editing-modal)} (t :modal/cancel)]
-                   [:button.confirm {:on-click #(edit-modal-save @fields-state)} (t :task/save)]]]]))))
+                   [:button.confirm {:on-click #(edit-modal-save @fields-state)} (t :task/save)]]]]
+               (when @confirm-discard?
+                 [unsaved-changes-modal
+                  {:on-go-back #(reset! confirm-discard? false)
+                   :on-discard #(do (reset! confirm-discard? false)
+                                    (state/clear-editing-modal))}])])))
         (do (reset! prev-entity nil)
             (reset! confirm-discard? false))))))
 

@@ -278,6 +278,16 @@
    between the choices, Enter to take the selected one), so which choice Enter
    would take has to be legible at a glance. The browser's default focus ring
    all but disappears against the red discard button, hence a ring of our own. */
+/* The prompt sits on top of the edit modal rather than replacing it, so that
+   going back keeps the caret. That means two overlays are on screen at once,
+   and a second 0.4 scrim over the first would dim the page to near-black and
+   blur it twice. This one carries no scrim of its own: the edit modal's is
+   already doing that job, and leaving the form legible underneath is the point
+   — you are being asked about the very edit you can see. */
+.unsaved-changes-overlay {
+  background: transparent;
+  backdrop-filter: none;
+}
 .unsaved-changes-footer button {
   /* The app's buttons ease box-shadow over 2s. That is fine for a hover, but
      far too slow for a selection: cmd+j would leave you watching the ring crawl

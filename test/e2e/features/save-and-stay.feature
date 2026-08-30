@@ -230,3 +230,17 @@ Feature: Saving without leaving the edit modal
     When I press the save combo in the prompt
     Then the unsaved-changes prompt should be open
     And the task "Safe original" should be stored
+
+  Scenario: Going back returns the caret to the field it came from
+    Given I am on the app
+    When I click the "Tasks" tab
+    And I add a task called "Caret original"
+    And I open the edit modal for task "Caret original"
+    And I change the modal title to "Caret edited" without saving
+    And I put the caret in the modal title at position 5
+    And I press Escape in the modal
+    Then the unsaved-changes prompt should be open
+    When I press Enter
+    Then the edit modal should still be open
+    And the caret should be back in the modal title at position 5
+    And the modal title field should show "Caret edited"

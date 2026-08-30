@@ -224,6 +224,35 @@ Then("the selected choice should be {string}", async ({ page }, label: string) =
   await expect.poll(() => selectedChoice(page)).toBe(label);
 });
 
+// Puts the caret somewhere specific in the title so that "back where it was" is
+// an assertion about a position, not merely about which element has focus.
+When(
+  "I put the caret in the modal title at position {int}",
+  async ({ page }, pos: number) => {
+    await page.locator(modalTitle).first().click();
+    await page.locator(modalTitle).first().evaluate((el: any, p: number) => {
+      el.focus();
+      el.setSelectionRange(p, p);
+    }, pos);
+  },
+);
+
+Then(
+  "the caret should be back in the modal title at position {int}",
+  async ({ page }, pos: number) => {
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const el = document.activeElement as HTMLInputElement | null;
+          if (!el) return null;
+          const inTitle = !!el.closest(".edit-item-modal .item-edit-form");
+          return { inTitle, tag: el.tagName, start: el.selectionStart ?? null };
+        }),
+      )
+      .toEqual({ inTitle: true, tag: "INPUT", start: pos });
+  },
+);
+
 When("I press the select-left chord", async ({ page }) => {
   await page.keyboard.press("Meta+KeyJ");
 });
