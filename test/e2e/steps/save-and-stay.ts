@@ -46,9 +46,51 @@ When(
   "I change the modal title to {string} and save without closing using the custom keymap",
   async ({ page }, newTitle: string) => {
     await setFieldValue(page.locator(modalTitle).first(), newTitle);
-    await pressAndStay(page, "Meta+Shift+Digit9");
+    await pressAndStay(page, "Meta+Digit9");
   },
 );
+
+// Cmd is held down across both keys, because that is the gesture being pinned:
+// Escape arms the chord and Digit9 completes it without the modifier ever coming
+// up. Two separate Meta+... presses would also satisfy the implementation — it
+// only reads metaKey per keydown — but they are not what the scheme asks of the
+// hand, so the test presses it the way a user does.
+async function pressSaveAndClose(page: any) {
+  await page.keyboard.down("Meta");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Digit9");
+  await page.keyboard.up("Meta");
+}
+
+When(
+  "I change the modal title to {string} and save and close using the custom keymap",
+  async ({ page }, newTitle: string) => {
+    await setFieldValue(page.locator(modalTitle).first(), newTitle);
+    await pressSaveAndClose(page);
+    await page.waitForLoadState("networkidle");
+  },
+);
+
+// The combo that used to save and stay. It is bound to nothing now, and this is
+// what says so: the modal has to be left untouched by it, not merely saved by
+// some other branch that happens to ignore shift.
+When(
+  "I change the modal title to {string} and press the retired save-and-stay combo",
+  async ({ page }, newTitle: string) => {
+    await setFieldValue(page.locator(modalTitle).first(), newTitle);
+    await page.keyboard.press("Meta+Shift+Digit9");
+    await page.waitForLoadState("networkidle");
+  },
+);
+
+// Arming and then walking away: the chord must not lie in wait and turn the next
+// plain save into a close.
+When("I press the save-and-exit prefix and then type in the title", async ({ page }) => {
+  await page.keyboard.down("Meta");
+  await page.keyboard.press("Escape");
+  await page.keyboard.up("Meta");
+  await page.locator(modalTitle).first().pressSequentially("x");
+});
 
 // A save that is refused, or whose date write fails, flashes no checkmark — so
 // these two steps have nothing of their own to synchronise on: the banner
@@ -265,5 +307,15 @@ Then(
     const user = users.find((u: any) => u.username === username);
     if (!user) throw new Error(`no user "${username}"`);
     expect(await titlesOfUser(request, String(user.id))).toContain(title);
+  },
+);
+
+Then(
+  "the task {string} should not be stored for user {string}",
+  async ({ request }, title: string, username: string) => {
+    const users = await (await request.get("/api/users", { headers })).json();
+    const user = users.find((u: any) => u.username === username);
+    if (!user) throw new Error(`no user "${username}"`);
+    expect(await titlesOfUser(request, String(user.id))).not.toContain(title);
   },
 );

@@ -115,7 +115,7 @@ Feature: Saving without leaving the edit modal
     And no modal should be open
     And the save checkmark should not be visible
 
-  Scenario: With the custom keymap the save-and-stay combo is Cmd+Shift+9
+  Scenario: With the custom keymap the save-and-stay combo is Cmd+9
     Given I am on the app
     And a user "vimmer" with the custom keymap exists
     And I reload the page
@@ -127,3 +127,41 @@ Feature: Saving without leaving the edit modal
     Then the edit modal should still be open
     And the modal title field should show "Vim stayed"
     And the task "Vim stayed" should be stored for user "vimmer"
+
+  Scenario: With the custom keymap Cmd+Esc Cmd+9 saves and closes
+    Given I am on the app
+    And a user "chorder" with the custom keymap exists
+    And I reload the page
+    When I switch to the user "chorder"
+    And I click the "Tasks" tab
+    And I add a task called "Chord original"
+    And I open the edit modal for task "Chord original"
+    And I change the modal title to "Chord closed" and save and close using the custom keymap
+    Then no modal should be open
+    And the task "Chord closed" should be stored for user "chorder"
+
+  Scenario: With the custom keymap Cmd+Shift+9 is bound to nothing
+    Given I am on the app
+    And a user "retiree" with the custom keymap exists
+    And I reload the page
+    When I switch to the user "retiree"
+    And I click the "Tasks" tab
+    And I add a task called "Retired original"
+    And I open the edit modal for task "Retired original"
+    And I change the modal title to "Never saved" and press the retired save-and-stay combo
+    Then the edit modal should still be open
+    And the save checkmark should not be visible
+    And the task "Never saved" should not be stored for user "retiree"
+
+  Scenario: An abandoned save-and-exit prefix does not close the next save
+    Given I am on the app
+    And a user "abandoner" with the custom keymap exists
+    And I reload the page
+    When I switch to the user "abandoner"
+    And I click the "Tasks" tab
+    And I add a task called "Abandoned original"
+    And I open the edit modal for task "Abandoned original"
+    And I press the save-and-exit prefix and then type in the title
+    And I change the modal title to "Still staying" and save without closing using the custom keymap
+    Then the edit modal should still be open
+    And the task "Still staying" should be stored for user "abandoner"

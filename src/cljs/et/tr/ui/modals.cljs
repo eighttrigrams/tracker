@@ -26,6 +26,20 @@
          (= "Digit9" (.-code e))
          (= "KeyS" (.-code e)))))
 
+;; Reaching Cmd+9 from Cmd+Escape means holding Cmd across both, and a held key
+;; can repeat its keydown. So the modifiers alone must not count as "some other
+;; key was pressed" when deciding whether the armed chord is still alive.
+(def ^:private modifier-codes
+  #{"MetaLeft" "MetaRight" "ShiftLeft" "ShiftRight"
+    "ControlLeft" "ControlRight" "AltLeft" "AltRight"})
+
+(defn- escape-prefix?
+  "Cmd+Escape, which arms the save-and-close chord rather than leaving. Plain
+  Escape keeps closing the modal: the modifier is what tells the two apart, so
+  the prefix costs the escape key nothing."
+  [e]
+  (and (.-metaKey e) (= "Escape" (.-code e))))
+
 (defn modal-keyboard-shortcut [{:keys [on-confirm on-confirm-stay on-escape enabled? enter-confirms?]}]
   (let [state (atom {:on-confirm on-confirm :on-confirm-stay on-confirm-stay :on-escape on-escape :enabled? enabled? :enter-confirms? enter-confirms?})]
     (r/create-class
@@ -33,22 +47,62 @@
       :component-did-mount
       (fn [_]
         (let [handler (fn [e]
-                        (let [{:keys [on-confirm on-confirm-stay on-escape enabled? enter-confirms?]} @state]
+                        (let [{:keys [on-confirm on-confirm-stay on-escape enabled? enter-confirms? armed?]} @state
+                              ;; The two schemes disagree about what a bare save
+                              ;; combo means, so they are kept apart wholesale
+                              ;; rather than by patching shift onto one branch.
+                              vim? (state/vim-keys?)]
                           (cond
+                            ;; Arms the chord. Nothing is saved yet — the modal
+                            ;; stays exactly as it was, waiting for the Cmd+9.
+                            (and vim? (escape-prefix? e))
+                            (do (.preventDefault e)
+                                (swap! state assoc :armed? true))
+
+                            ;; Armed, so this one saves *and* closes. Unarmed,
+                            ;; the very same keys only save (next branch).
+                            (and vim? armed? enabled?
+                                 (not (.-shiftKey e))
+                                 (save-combo? e))
+                            (do (.preventDefault e)
+                                (swap! state assoc :armed? false)
+                                (on-confirm))
+
+                            ;; Cmd+9 on its own saves and stays. Where staying is
+                            ;; meaningless — a confirm modal has no
+                            ;; on-confirm-stay — it confirms instead, which is
+                            ;; what the combo did before the chord existed.
+                            ;; Shift is deliberately excluded rather than
+                            ;; ignored: Cmd+Shift+9 used to be save-and-stay and
+                            ;; is now dead, so the old reflex does nothing at all
+                            ;; instead of quietly meaning something new. Nothing
+                            ;; is lost by that — the modal's unsaved-changes
+                            ;; prompt still catches the edit on the way out.
+                            (and vim? enabled?
+                                 (not (.-shiftKey e))
+                                 (save-combo? e))
+                            (do (.preventDefault e)
+                                (if on-confirm-stay
+                                  ;; Held down, the combo repeats; each repeat
+                                  ;; would race the previous save's modified_at.
+                                  (when-not (.-repeat e)
+                                    (on-confirm-stay))
+                                  (on-confirm)))
+
                             ;; Without an on-confirm-stay this falls through to
                             ;; the plain save below, so holding shift stays a
                             ;; no-op wherever staying is meaningless.
-                            (and enabled?
+                            (and (not vim?)
+                                 enabled?
                                  on-confirm-stay
                                  (.-shiftKey e)
                                  (save-combo? e))
                             (do (.preventDefault e)
-                                ;; Held down, the combo repeats; each repeat
-                                ;; would race the previous save's modified_at.
                                 (when-not (.-repeat e)
                                   (on-confirm-stay)))
 
-                            (and enabled?
+                            (and (not vim?)
+                                 enabled?
                                  (save-combo? e))
                             (do (.preventDefault e)
                                 (on-confirm))
@@ -62,7 +116,13 @@
                             (and on-escape
                                  (= "Escape" (.-code e)))
                             (do (.preventDefault e)
-                                (on-escape)))))]
+                                (on-escape))
+
+                            ;; Any other key breaks the chord, so a Cmd+Escape
+                            ;; the user did not follow through on cannot turn an
+                            ;; unrelated save later in the session into a close.
+                            (and armed? (not (modifier-codes (.-code e))))
+                            (swap! state assoc :armed? false))))]
           (swap! state assoc :handler handler)
           (.addEventListener js/document "keydown" handler)))
       :component-did-update

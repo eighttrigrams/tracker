@@ -222,10 +222,10 @@
      [:h4 (t :settings/shortcuts-modals)]
      [:div.shortcuts-list
       [:div.shortcut-item
-       [:span.shortcut-key "Cmd+S / Cmd+9"]
+       [:span.shortcut-key "Cmd+S / Cmd+Esc Cmd+9"]
        [:span.shortcut-desc (t :settings/shortcut-modal-save)]]
       [:div.shortcut-item
-       [:span.shortcut-key "Cmd+Shift+S / Cmd+Shift+9"]
+       [:span.shortcut-key "Cmd+Shift+S / Cmd+9"]
        [:span.shortcut-desc (t :settings/shortcut-modal-save-stay)]]]]]])
 
 (defn- summary-line [ev]
