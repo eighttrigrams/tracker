@@ -278,6 +278,13 @@
    between the choices, Enter to take the selected one), so which choice Enter
    would take has to be legible at a glance. The browser's default focus ring
    all but disappears against the red discard button, hence a ring of our own. */
+.unsaved-changes-footer button {
+  /* The app's buttons ease box-shadow over 2s. That is fine for a hover, but
+     far too slow for a selection: cmd+j would leave you watching the ring crawl
+     in, and after most of a second it is still faint enough to misread. Only
+     the shadow is sped up; the rest of the transition is left as it is. */
+  transition: background-color 2s, border-color 2s, color 2s, box-shadow 0.12s, transform 0.2s;
+}
 .unsaved-changes-footer button:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.45);
