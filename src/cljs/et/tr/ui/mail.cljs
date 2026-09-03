@@ -1,5 +1,6 @@
 (ns et.tr.ui.mail
   (:require [et.tr.ui.state :as state]
+            [et.tr.ui.keys :as keys]
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.views.sources :as sources-view]
             [et.tr.i18n :refer [t]]
@@ -282,7 +283,13 @@
                   :value @input-val
                   :placeholder (t :mail/add-placeholder)
                   :on-change #(reset! input-val (-> % .-target .-value))
-                  :on-key-down #(when (and (= (.-key %) "Enter") (not disabled?))
+                  ;; The save combo enacts Add, the same as in the combined
+                  ;; search-add bars — see et.tr.ui.keys. `disabled?` still
+                  ;; governs it: nothing to add from a blank box, and adding
+                  ;; is off while a filter is up.
+                  :on-key-down #(when (and (or (= (.-key %) "Enter") (keys/save-combo? %))
+                                           (not disabled?))
+                                  (.preventDefault %)
                                   (state/add-message @input-val (fn [] (reset! input-val ""))))}]
          [:button {:disabled disabled?
                    :on-click #(when-not disabled?
