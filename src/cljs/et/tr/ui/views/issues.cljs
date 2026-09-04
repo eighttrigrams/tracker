@@ -220,15 +220,16 @@
       [:div.sidebar
        [filter-section/category-badge-toggle]
        [filter-section/negative-filter-section]]
-      (into [:div.sidebar [filter-section/category-badge-toggle]]
-            (for [{:keys [filter-key title-key items-key filter-state-key category-type]} issues-sidebar-filter-configs]
-              [issues-filter-section {:title (t title-key)
-                                      :filter-key filter-key
-                                      :items (get app-state items-key)
-                                      :selected-ids (get app-state filter-state-key)
-                                      :toggle-fn #(state/toggle-shared-filter category-type %)
-                                      :clear-fn #(state/clear-shared-filter category-type)
-                                      :collapsed? (contains? collapsed-filters filter-key)}])))))
+      (conj (into [:div.sidebar [filter-section/category-badge-toggle]]
+                  (for [{:keys [filter-key title-key items-key filter-state-key category-type]} issues-sidebar-filter-configs]
+                    [issues-filter-section {:title (t title-key)
+                                            :filter-key filter-key
+                                            :items (get app-state items-key)
+                                            :selected-ids (get app-state filter-state-key)
+                                            :toggle-fn #(state/toggle-shared-filter category-type %)
+                                            :clear-fn #(state/clear-shared-filter category-type)
+                                            :collapsed? (contains? collapsed-filters filter-key)}]))
+            [filter-section/parked-bundle]))))
 
 (defn- issue-filter-bar []
   ;; Mirrors the recurring-tasks / journal filter bar shown when the page is

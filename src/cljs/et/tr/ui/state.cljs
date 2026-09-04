@@ -15,6 +15,7 @@
             [et.tr.ui.state.rules :as rules]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]
+            [et.tr.ui.state.parked-filters :as parked-filters]
             [et.tr.ui.state.tasks :as tasks]
             [et.tr.ui.state.tasks-page :as tasks-page]
             [et.tr.ui.state.today-page :as today-page]
@@ -758,7 +759,7 @@
         all-filters all-category-filters
         any-visible? (seq (clojure.set/difference all-filters collapsed))]
     (when-not any-visible?
-      (swap! *app-state merge empty-category-filters)
+      (parked-filters/park! *app-state)
       (swap! *app-state assoc
              :issues-page/category-search empty-category-searches)
       (.scrollTo js/window 0 0)
@@ -1325,7 +1326,7 @@
         all-filters all-category-filters
         any-visible? (seq (clojure.set/difference all-filters collapsed))]
     (when-not any-visible?
-      (swap! *app-state merge empty-category-filters)
+      (parked-filters/park! *app-state)
       (swap! *app-state assoc
              :meets-page/category-search empty-category-searches)
       (.scrollTo js/window 0 0)
@@ -1401,6 +1402,13 @@
   ([filter-type id bypass-rules?]
    (let [k (shared-filter-key filter-type)
          adding? (not (contains? (get @*app-state k) id))]
+     ;; Selecting anew ends the parked bundle: from here the selection on
+     ;; screen is being built by hand and the parked one is a stale copy of
+     ;; something left behind. Only on `adding?` for a reason that reads as an
+     ;; invariant — nothing can be deselected while a bundle exists, because a
+     ;; bundle only exists while every Group is empty.
+     (when adding?
+       (parked-filters/drop! *app-state))
      (swap! *app-state update k
             #(if (contains? % id) (disj % id) (conj % id)))
      (if (and adding? (not bypass-rules?))
@@ -1414,6 +1422,13 @@
 (defn clear-shared-filter [filter-type]
   (swap! *app-state assoc (shared-filter-key filter-type) #{})
   (refetch-current-tab))
+
+(defn parked-filter-pills []
+  (parked-filters/pills *app-state))
+
+(defn restore-parked-filters []
+  (when (parked-filters/restore! *app-state)
+    (refetch-current-tab)))
 
 (defn negative-filter-active? []
   (exclusions/active? *app-state))
@@ -1438,7 +1453,7 @@
         all-filters all-category-filters
         any-visible? (seq (clojure.set/difference all-filters collapsed))]
     (when-not any-visible?
-      (swap! *app-state merge empty-category-filters)
+      (parked-filters/park! *app-state)
       (swap! *app-state assoc
              :resources-page/category-search empty-category-searches)
       (.scrollTo js/window 0 0)
@@ -2095,7 +2110,7 @@
         uncollapsed (clojure.set/difference all-filters collapsed)]
     (if (empty? uncollapsed)
       (do
-        (swap! *app-state merge empty-category-filters)
+        (parked-filters/park! *app-state)
         (swap! *app-state assoc
                :reports-page/category-search empty-category-searches))
       (do
@@ -2370,6 +2385,10 @@
                             (map :id)
                             set)]
       (swap! *app-state update filter-key #(into #{} (filter in-scope-ids) %))
+      ;; The parked bundle is the same selection, one gesture ago, so it is
+      ;; pruned on the same rule — otherwise a click on the box could put back
+      ;; the very filter this just dropped.
+      (parked-filters/prune-group! *app-state list-key in-scope-ids)
       ;; A negative id, unlike a positive one, can come off the badge of a
       ;; category this list has never seen (created after app start), and the
       ;; list is only refetched after this runs. Such an id has no scope here to

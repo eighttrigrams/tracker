@@ -2,7 +2,8 @@
   (:require [clojure.set]
             [et.tr.filters :as filters]
             [et.tr.ui.constants :as constants]
-            [et.tr.ui.state.category-filters :as category-filters]))
+            [et.tr.ui.state.category-filters :as category-filters]
+            [et.tr.ui.state.parked-filters :as parked-filters]))
 
 ;; constants/shared-filter-key, not a local copy: this was the third of four
 ;; definitions of the same key builder in the client.
@@ -53,8 +54,8 @@
         all-filters constants/all-category-filters
         any-visible? (seq (clojure.set/difference all-filters collapsed))]
     (when-not any-visible?
+      (parked-filters/park! app-state)
       (swap! app-state merge
-             constants/cleared-shared-filters
              {:tasks-page/category-search constants/empty-category-searches
               :tasks-page/filter-search ""
               :tasks-page/importance-filter nil

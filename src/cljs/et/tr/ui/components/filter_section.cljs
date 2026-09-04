@@ -178,3 +178,24 @@
                   :on-click #(handle-badge-click item)}
                  (:name item)])
               visible-items))])]))))
+
+(defn parked-bundle
+  "The parked Category selection, under the six Group sections: one box holding
+  every pill Option+Esc took out of them, no Group headings — the pill colours
+  already say which Group each came from, which is why there is nothing to head.
+  Clicking anywhere in the box puts the whole selection back.
+
+  The pills are `.tag`s, the same element the Category badges on the cards are,
+  rather than the sidebar's own `.filter-item-label`: identical to look at, but
+  it neither borrows the remove-button notch the sidebar pills are masked for
+  (there is no x here — the bundle goes back or gets dropped whole) nor adds a
+  seventh `.filter-section` to a sidebar whose sections are counted, both in the
+  tests and by anything reading the Groups off the DOM."
+  []
+  (when-let [pills (seq (state/parked-filter-pills))]
+    (into [:div.parked-filters
+           {:title (t :filter/restore-parked)
+            :on-click #(state/restore-parked-filters)}]
+          (for [{:keys [id type] :as pill} pills]
+            ^{:key (str type "-" id)}
+            [:span.tag {:class type} (:name pill)]))))

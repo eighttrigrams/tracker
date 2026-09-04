@@ -238,3 +238,21 @@
 .exclusion-filters .filter-section { margin-bottom: 8px; }
 .exclusion-filters .filter-section:last-child { margin-bottom: 0; }
 .exclusion-filters .filter-item-label .remove-item { text-decoration: none; }
+
+/* The parked Category selection, under the six Group sections: what Option+Esc
+   took out of them, as one clickable box of pills that puts it all back. No
+   headings — the pills carry the Group colours, so they are `.tag`s (the same
+   element the card badges are) rather than the sidebar's own labels, which are
+   masked to leave a notch for a remove button this box has no use for. */
+.parked-filters {
+  margin-top: 20px;
+  padding: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  cursor: pointer;
+}
+.parked-filters:hover { border-color: var(--accent); }

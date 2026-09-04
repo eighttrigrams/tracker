@@ -2,6 +2,7 @@
   (:require [et.tr.ui.constants :as constants]
             [clojure.set]
             [et.tr.ui.state.category-filters :as category-filters]
+            [et.tr.ui.state.parked-filters :as parked-filters]
             [et.tr.ui.date :as date]))
 
 (def ^:private today-str date/today-str)
@@ -45,8 +46,8 @@
   (let [collapsed (:today-page/collapsed-filters @app-state)
         any-visible? (seq (clojure.set/difference all-filter-keys collapsed))]
     (when-not any-visible?
+      (parked-filters/park! app-state)
       (swap! app-state merge
-             constants/cleared-shared-filters
              {:today-page/category-search constants/empty-category-searches})
       (.scrollTo js/window 0 0)
       (fetch-fn (current-fetch-opts app-state)))))

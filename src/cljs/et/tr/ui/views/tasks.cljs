@@ -142,16 +142,18 @@
       [:div.sidebar
        [filter-section/category-badge-toggle]
        [filter-section/negative-filter-section]]
-      (into [:div.sidebar [filter-section/category-badge-toggle]]
-            (for [{:keys [filter-key title-key items-key filter-state-key category-type]} sidebar-filter-configs]
-              [filter-section {:title (t title-key)
-                               :filter-key filter-key
-                               :items (get app-state items-key)
-                               :selected-ids (get app-state filter-state-key)
-                               :toggle-fn #(state/toggle-shared-filter category-type %)
-                               :clear-fn #(state/clear-shared-filter category-type)
-                               :collapsed? (contains? collapsed-filters filter-key)
-                               :number (tasks-category-shortcut-numbers filter-key)}])))))
+      (conj (into [:div.sidebar [filter-section/category-badge-toggle]]
+                  (for [{:keys [filter-key title-key items-key filter-state-key category-type]} sidebar-filter-configs]
+                    [filter-section {:title (t title-key)
+                                     :filter-key filter-key
+                                     :items (get app-state items-key)
+                                     :selected-ids (get app-state filter-state-key)
+                                     :toggle-fn #(state/toggle-shared-filter category-type %)
+                                     :clear-fn #(state/clear-shared-filter category-type)
+                                     :collapsed? (contains? collapsed-filters filter-key)
+                                     :number (tasks-category-shortcut-numbers filter-key)}]))
+            ;; Below the six sections, and only while something is parked.
+            [filter-section/parked-bundle]))))
 
 
 (defn- send-to-day-option [task-id offset target-date]
