@@ -98,6 +98,21 @@
                               (cond
                                 (= (.-key e) "Escape")
                                 (do
+                                  ;; Escape is wholly this handler's here, so it
+                                  ;; must not also be the browser's. Missing,
+                                  ;; the `stopPropagation` below made it worse
+                                  ;; than an ordinary omission: it is there to
+                                  ;; keep core's Option+Escape from clearing
+                                  ;; every Group, and in stopping the event it
+                                  ;; also stopped the only `preventDefault` on
+                                  ;; that path. So Option(+Shift)+Escape came
+                                  ;; through here fully handled and *still* live,
+                                  ;; and the OS was free to compose a character
+                                  ;; from it — into the page search box this
+                                  ;; handler focuses two lines down, where a
+                                  ;; stray `^` silently filtered the list to
+                                  ;; nothing.
+                                  (.preventDefault e)
                                   (reset! preselect-idx nil)
                                   (when (.-altKey e)
                                     (.stopPropagation e)
