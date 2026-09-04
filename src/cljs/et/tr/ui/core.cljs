@@ -305,6 +305,13 @@
             ;; With or without shift: while a negative filter is up it is the
             ;; only thing the sidebar shows, so it is what Escape clears.
             (state/negative-filter-active?) (state/clear-negative-filters)
+
+            ;; The same key back out again: with a selection parked in the box
+            ;; and nothing selected, Option+Escape restores it. One gesture,
+            ;; two directions, decided by the state rather than by a second
+            ;; chord — and pressing it once more parks it again.
+            (state/unpark-filters?) (state/restore-parked-filters)
+
             (= :tasks active-tab) (state/clear-uncollapsed-task-filters)
             (= :today active-tab) (state/clear-uncollapsed-today-filters)
             (= :mail active-tab) (state/clear-all-mail-filters)

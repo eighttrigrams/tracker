@@ -204,6 +204,9 @@
        [:span.shortcut-key "Option+Esc"]
        [:span.shortcut-desc (t :settings/shortcut-clear-uncollapsed)]]
       [:div.shortcut-item
+       [:span.shortcut-key "Option+Esc"]
+       [:span.shortcut-desc (t :settings/shortcut-unpark-filters)]]
+      [:div.shortcut-item
        [:span.shortcut-key "Enter"]
        [:span.shortcut-desc (t :settings/shortcut-enter-filter)]]
       [:div.shortcut-item

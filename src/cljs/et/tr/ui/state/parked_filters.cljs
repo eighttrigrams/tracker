@@ -47,6 +47,18 @@
   [app-state]
   (swap! app-state dissoc state-key))
 
+(defn unpark?
+  "Whether the park gesture should put the bundle back rather than park a new
+  one: there is a bundle, and no Group has anything selected.
+
+  This is what makes Option+Escape a toggle. The two readings cannot both be
+  wanted at once — with nothing selected there is nothing to park, and with
+  something selected the bundle is about to be dropped anyway — so the state
+  decides, and the key never has to be told which one is meant."
+  [app-state]
+  (and (seq (get @app-state state-key))
+       (empty? (selection app-state))))
+
 (defn restore!
   "Put the bundle back into the Groups and forget it. Returns true when there
   was one, so the caller knows whether it has to refetch.

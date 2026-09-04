@@ -1430,6 +1430,18 @@
   (when (parked-filters/restore! *app-state)
     (refetch-current-tab)))
 
+(defn unpark-filters?
+  "Whether Option+Escape means \"bring the parked selection back\" rather than
+  \"park what is selected\".
+
+  The tab has to be one that shows the sidebar. On the Inbox and the Categories
+  pages the box is not on screen at all, and a key that silently restored an
+  invisible selection — while the Inbox's own meaning for it, clearing the
+  sender filters, went unheard — would be a trap rather than a shortcut."
+  []
+  (and (contains? constants/sidebar-tabs (:active-tab @*app-state))
+       (parked-filters/unpark? *app-state)))
+
 (defn negative-filter-active? []
   (exclusions/active? *app-state))
 

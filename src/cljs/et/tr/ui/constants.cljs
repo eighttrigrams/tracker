@@ -103,6 +103,18 @@
            :category-type type})
         category-groups))
 
+(def sidebar-tabs
+  "The tabs whose page renders the Category filter sidebar — the six that show
+  `sidebar-filter-configs`. Mail is the one list page without it, and the
+  Categories tabs have a layout of their own, so a gesture that answers
+  something *in* the sidebar has to ask first whether the sidebar is there.
+
+  Written out rather than derived: there is no registry of which pages have a
+  sidebar to derive it from, and inventing one to hold six keywords would be
+  the more elaborate of the two mistakes available here. Kept next to the
+  configs those pages render so the two are read together."
+  #{:today :tasks :issues :meets :resources :reports})
+
 (def category-shortcut-keys
   "Digit1..Digit6 -> Group, for the sidebar's keyboard shortcuts. Six groups
   still fit on the number row; a seventh would not, and would need a different
