@@ -135,13 +135,27 @@ Then(
   },
 );
 
-// Both halves of an open card: the header, where a collapsed card would have
-// taken the click over, and the expanded body, where the native menu is what the
-// description and its links need.
+// An open card's menu hangs off the title, so that is where this dispatches.
+// It has to be the title element itself and not the header around it: a
+// synthesised event goes straight to the element it is dispatched on and then
+// upwards, so aiming at the header would miss a handler sitting on a child of
+// it — where a real right-click at those coordinates would hit the title and
+// bubble up through the header just fine.
 Then(
-  "a right-click on the card {string} is left to the browser",
+  "a right-click on the title of {string} is taken over by the app",
   async ({ page }, title: string) => {
-    expect(await rightClickPrevented(page, ".items li", title)).toBe(false);
+    expect(await rightClickPrevented(page, ".items li", title, ".item-title")).toBe(true);
+    await expect(page.locator(entries).first()).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(menu)).toHaveCount(0);
+  },
+);
+
+// The open card below its header: the description, the links in it and the
+// category selectors, where the native menu is what is worth having.
+Then(
+  "a right-click on the body of {string} is left to the browser",
+  async ({ page }, title: string) => {
     expect(await rightClickPrevented(page, ".items li", title, ".item-details")).toBe(false);
     await expect(page.locator(menu)).toHaveCount(0);
   },
@@ -161,4 +175,23 @@ Then("the clipboard holds {string}", async ({ page, context }, expected: string)
   await expect(async () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(expected);
   }).toPass({ timeout: 5000 });
+});
+
+// The open card's handle. A real right-click anywhere on the title lands here;
+// `.item-title` is the element the handler sits on.
+When("I right-click the title of {string}", async ({ page }, title: string) => {
+  await page
+    .locator(".items li")
+    .filter({ hasText: title })
+    .first()
+    .locator(".item-title")
+    .click({ button: "right" });
+});
+
+Then("the card {string} is still open", async ({ page }, title: string) => {
+  await expect(page.locator(".items li").filter({ hasText: title }).first()).toHaveClass(/expanded/);
+});
+
+Then("the card {string} is collapsed", async ({ page }, title: string) => {
+  await expect(page.locator(".items li").filter({ hasText: title }).first()).not.toHaveClass(/expanded/);
 });

@@ -1,4 +1,4 @@
-Feature: Right-clicking a collapsed item card opens its footer menu
+Feature: Right-clicking an item card opens its footer menu
 
   Scenario: A collapsed card offers the footer menu, and an entry from it fires
     Given I am on the app
@@ -9,18 +9,36 @@ Feature: Right-clicking a collapsed item card opens its footer menu
     When I click the card menu entry "Delete"
     Then I see the delete confirmation
 
-  # The menu stands in for the footer, and an expanded card shows that footer
-  # already — so over its description and the links in it the browser's own menu
-  # is worth more than a second route to buttons a few pixels below, and the
-  # card hands the right-click back for as long as it is open.
-  Scenario: An expanded card leaves the right-click to the browser
+  # An open card offers the menu too, but off its title only. Over the
+  # description, the links in it and the category selectors the browser's own
+  # menu — select, copy, copy link address, open in a new tab — is worth more
+  # than a second route to a footer that is already on screen.
+  Scenario: An open card offers the menu on its title and leaves its body alone
     Given I am on the app
     And I click the "Tasks" tab
     And I add a task called "Context menu task"
     And I expand the task card "Context menu task"
-    Then a right-click on the card "Context menu task" is left to the browser
+    Then a right-click on the title of "Context menu task" is taken over by the app
+    And the card "Context menu task" is still open
+    And a right-click on the body of "Context menu task" is left to the browser
     When I collapse the task card "Context menu task"
     Then a right-click on the card "Context menu task" is taken over by the app
+
+  # Plain Escape also collapses an open card, and the menu is dismissed by
+  # Escape as well — so with the menu now reachable *on* an open card, one press
+  # would have done both. It takes one thing at a time, nearest first.
+  Scenario: Escape closes the menu without collapsing the card under it
+    Given I am on the app
+    And I click the "Tasks" tab
+    And I add a task called "Layered escape task"
+    And I expand the task card "Layered escape task"
+    When I right-click the title of "Layered escape task"
+    Then the card menu offers "Mark task done, Set Reminder, Delete"
+    When I press Escape
+    Then no card menu is open
+    And the card "Layered escape task" is still open
+    When I press Escape
+    Then the card "Layered escape task" is collapsed
 
   Scenario: Escape and a click elsewhere close the menu
     Given I am on the app
@@ -55,9 +73,9 @@ Feature: Right-clicking a collapsed item card opens its footer menu
     Then I should see "Context menu task" in the task list
     And no card menu is open
 
-  # Two cards, because the picker sits in a footer and only an expanded card has
-  # one, while only a collapsed card takes the right-click: the popup to be
-  # closed is therefore always on some *other* card than the menu being opened.
+  # Two cards: the picker sits in a footer, so it is on the open one, and the
+  # menu is opened on the other — the cross-card case, where the popup being
+  # closed belongs to a card that is not re-rendering for the menu at all.
   Scenario: Opening the menu closes another card's send-to-day picker
     Given I am on the app
     And I click the "Tasks" tab
@@ -69,6 +87,20 @@ Feature: Right-clicking a collapsed item card opens its footer menu
     When I right-click the card "Menu opening task"
     Then the card menu offers "Mark task done, Set Reminder, Delete"
     And the send-to-day picker on task "Two popups task" is closed
+
+  # And the same-card case, which the title handle made reachable: the picker and
+  # the menu now belong to one card, so `close-card-popups!` is closing a popup
+  # on the very card that is opening one.
+  Scenario: Opening the menu on an open card closes its own send-to-day picker
+    Given I am on the app
+    And I click the "Tasks" tab
+    And I add a task called "Own popup task"
+    And I expand the task card "Own popup task"
+    And I open the send-to-day picker on task "Own popup task"
+    Then the send-to-day picker on task "Own popup task" is open
+    When I right-click the title of "Own popup task"
+    Then the card menu offers "Mark task done, Set Reminder, Delete"
+    And the send-to-day picker on task "Own popup task" is closed
 
   Scenario: Outside a card the browser keeps its own menu
     Given I am on the app
@@ -93,18 +125,16 @@ Feature: Right-clicking a collapsed item card opens its footer menu
     When I right-click the card "New clip"
     Then the card menu offers "Convert to resource, Delete"
 
-  # Again two cards: the toggle groups can only be read off an expanded footer,
-  # and the menu can only be opened on a collapsed card. Task footers are all
-  # built from the same spec, so the options on the open one are the ones the
-  # collapsed one's menu must not carry either.
+  # One card now, where this used to need two: the toggle groups can only be read
+  # off an open footer, and an open card's title takes the right-click, so the
+  # footer being compared is the very one the menu was built from.
   Scenario: The footer's toggle groups stay out of the menu
     Given I am on the app
     And I click the "Tasks" tab
     And I add a task called "Toggle groups task"
-    And I add a task called "Menu opening task"
     And I expand the task card "Toggle groups task"
     Then the footer of "Toggle groups task" shows the scope, importance and urgency toggle groups
-    When I right-click the card "Menu opening task"
+    When I right-click the title of "Toggle groups task"
     Then the card menu offers "Mark task done, Set Reminder, Delete"
     And no card menu entry is one of those toggle options
 

@@ -22,6 +22,7 @@
             [et.tr.ui.state.journals :as journals-state]
             [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.components.controls :as controls]
+            [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.constants :as constants]
             [et.tr.i18n :as i18n :refer [t]]))
 
@@ -255,9 +256,15 @@
     ;;
     ;; Only when something was actually collapsed is the key consumed, so a
     ;; page with nothing open leaves Escape to whatever else wants it.
+    ;; A card's right-click menu is dismissed by Escape too (its own document
+    ;; listener), and since that menu became reachable on an open card's title
+    ;; both would answer one press: the menu would go and the card under it
+    ;; would close with it. One thing at a time — the menu now, the card on the
+    ;; next press.
     (when (and (= "Escape" (.-code e))
                (not (.-altKey e)) (not (.-metaKey e))
                (not (.-ctrlKey e)) (not (.-shiftKey e))
+               (not (item-card/context-menu-open?))
                (not (typing?))
                (state/collapse-expanded-card!))
       (.preventDefault e))

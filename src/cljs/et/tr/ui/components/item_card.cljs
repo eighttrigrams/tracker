@@ -170,6 +170,18 @@
   (let [menu @*context-menu]
     (when (= token (:token menu)) menu)))
 
+(defn context-menu-open?
+  "Whether any card's right-click menu is up. Asked by core's plain-Escape
+  handler, which otherwise collapses the open card: since the menu became
+  reachable on an open card's title, one Escape would have dismissed the menu
+  and closed the card under it. Escape takes one thing at a time — the menu
+  first, the card on the next press.
+
+  Not an r/track read: this is asked from an event handler, not from a render,
+  so there is nothing to subscribe."
+  []
+  (some? @*context-menu))
+
 (defn- copy-link! [link]
   (let [clipboard (.-clipboard js/navigator)
         fail (fn [] (state/set-error (t :card-menu/copy-link-failed)))]
@@ -228,9 +240,9 @@
 (defn- open-context-menu
   "Per-card contextmenu handler — never a document-level one: outside a card the
   browser's own menu has to stay reachable, and a card with nothing to offer
-  leaves it alone too, as does an expanded one, which `item-card` does not wire
-  this onto at all. Editable fields inside a card keep their native menu, so
-  copy/paste there is not lost. Opening first closes every other card popup
+  leaves it alone too. Where a card wires this on is `item-card`'s decision: the
+  whole of a collapsed card, and an open one's title only. Editable fields keep
+  their native menu wherever they are, so copy/paste there is not lost. Opening first closes every other card popup
   through `close-card-popups!` — footer dropdowns wherever they are, the Tasks
   page's send-to-day picker, and any menu already up. An open category selector
   is the one card popup that survives it; see `close-card-popups!`. Clearing the
@@ -347,18 +359,24 @@
                                title-path (:title item))))})
        [task-item/inline-markdown (:title item)]])))
 
-(defn- card-title-area [{:keys [item expanded? title-class relation-link inline-edit badges title-extra title-content title-text-class title-icon]}]
+(defn- card-title-area [{:keys [item expanded? title-class relation-link inline-edit badges title-extra title-content title-text-class title-icon
+                                context-menu]}]
   (let [title-el [card-title-el {:item item
                                  :expanded? expanded?
                                  :inline-edit inline-edit
                                  :title-text-class title-text-class}]
-        title-icon-el (when title-icon [:span.item-title-icon title-icon])]
+        title-icon-el (when title-icon [:span.item-title-icon title-icon])
+        ;; The title is the card menu's handle. On a collapsed card the whole
+        ;; card takes the right-click and this is simply part of it; on an open
+        ;; one it is the only part that does, so the description, its links and
+        ;; the category selectors keep the browser's own menu.
+        attrs {:on-context-menu context-menu}]
     (if title-content
-      [(keyword (str "div." title-class))
+      [(keyword (str "div." title-class)) attrs
        (when relation-link
          [relation-link/relation-link-button (first relation-link) (second relation-link)])
        (title-content {:item item :expanded? expanded? :editing? (inline-editing? inline-edit item) :title-el title-el :title-icon-el title-icon-el})]
-      [(keyword (str "div." title-class))
+      [(keyword (str "div." title-class)) attrs
        (when relation-link
          [relation-link/relation-link-button (first relation-link) (second relation-link)])
        (when (:importance? badges)
@@ -393,7 +411,7 @@
 
 (defn- card-header [{:keys [item expanded? on-toggle inline-edit header-class title-class
                             relation-link badges title-extra title-content title-text-class title-icon
-                            toolbar date date-class header-extra]}]
+                            toolbar date date-class header-extra context-menu]}]
   (let [editing? (inline-editing? inline-edit item)]
     [(keyword (str "div." header-class))
      {:on-mouse-down capture-press-xy
@@ -416,7 +434,8 @@
                        :title-extra title-extra
                        :title-content title-content
                        :title-text-class title-text-class
-                       :title-icon title-icon}]
+                       :title-icon title-icon
+                       :context-menu context-menu}]
      (when (and expanded? toolbar)
        [:div.item-toolbar
         (when-let [cal (:calendar toolbar)]
@@ -533,6 +552,7 @@
           container-class (str/join " " (filter seq [(when expanded? "expanded") class]))
           menu-entries (context-menu-entries item footer)
           menu @*own-menu
+          menu-handler (open-context-menu menu-token menu-entries)
           header [card-header {:item item
                                :expanded? expanded?
                                :on-toggle on-toggle
@@ -548,16 +568,17 @@
                                :toolbar toolbar
                                :date date
                                :date-class date-class
-                               :header-extra header-extra}]]
+                               :header-extra header-extra
+                               :context-menu menu-handler}]]
       [tag (merge {:class container-class}
-                  ;; Collapsed cards only. The menu is a stand-in for the footer,
-                  ;; and an expanded card has that footer on screen already — so
-                  ;; over its description, links and category badges the browser's
-                  ;; own menu (select, copy, copy link address, open in a new tab)
-                  ;; is worth more than a second route to buttons a few pixels
-                  ;; below.
+                  ;; The whole card, but only while it is collapsed. Open, the
+                  ;; menu hangs off the title alone (see `card-title-area`):
+                  ;; over the description, the links in it and the category
+                  ;; selectors the browser's own menu — select, copy, copy link
+                  ;; address, open in a new tab — is worth more than a second
+                  ;; route to a footer that is already on screen.
                   (when-not expanded?
-                    {:on-context-menu (open-context-menu menu-token menu-entries)})
+                    {:on-context-menu menu-handler})
                   attrs)
        (if header-wrapper (header-wrapper header) header)
        (if expanded?
