@@ -254,5 +254,10 @@
   border-radius: 10px;
   background: var(--surface-subtle);
   cursor: pointer;
+  /* Overriding the app's global 2s colour transition, which is for the theme
+     switch: inherited here the hover would arrive a second and a half after the
+     pointer did and read as no feedback at all. Same trap as the focus ring on
+     the unsaved-changes prompt. */
+  transition: border-color 0.12s ease, background-color 0.12s ease;
 }
 .parked-filters:hover { border-color: var(--accent); }
