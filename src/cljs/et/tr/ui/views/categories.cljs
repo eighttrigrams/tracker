@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.keys :as keys]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.item-card :as item-card]
@@ -43,7 +44,11 @@
                      ((add-fn-for ct) v clear-search))))
         input-value (or (current-search-value) "")]
     [:div.combined-search-add-form
-     [:input {:type "text"
+     [:input {;; Named after the Group, not the tab — see
+              ;; state.ui/category-tab->prefix, which is what resolves this id
+              ;; when Escape hands the cursor back here.
+              :id (str (name (or (current-category-type) :people)) "-filter-search")
+              :type "text"
               :auto-complete "off"
               :placeholder placeholder
               :value input-value
@@ -51,7 +56,10 @@
                             (state/set-categories-filter-search ct (-> % .-target .-value)))
               :on-key-down (fn [e]
                              (cond
-                               (= (.-key e) "Enter")
+                               ;; The save combo enacts Add, as in the other
+                               ;; search-add bars — see et.tr.ui.keys. do-add
+                               ;; still ignores an empty box.
+                               (or (= (.-key e) "Enter") (keys/save-combo? e))
                                (do (.preventDefault e) (do-add))
 
                                (= (.-key e) "Escape")

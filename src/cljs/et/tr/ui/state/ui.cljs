@@ -44,6 +44,15 @@
   \"tasks\", exactly as that component's `(or page-prefix \"tasks\")` does."
   #{:today :issues :meets :resources :reports})
 
+(def ^:private category-tab->prefix
+  "The Categories tabs are the one place where the tab and the prefix differ:
+  the tab is `:cat-people` while the box on that page is `people-filter-search`,
+  named after the Group rather than after the tab. The pairing already exists as
+  `constants/tab->category-key`, so it is read off there instead of being
+  written out a second time — a hand-kept copy of that set has gone stale in
+  this codebase before (see the docstring on constants/category-tabs)."
+  (into {} (map (fn [[tab k]] [tab (name k)])) constants/tab->category-key))
+
 (defn focus-page-search
   "Put the cursor in the search box of the page on screen.
 
@@ -56,7 +65,8 @@
   no-op, since focus-input! only acts on an element that exists."
   [app-state]
   (let [tab (:active-tab @app-state)]
-    (focus-input! (str (if (contains? page-search-prefixes tab) (name tab) "tasks")
+    (focus-input! (str (or (category-tab->prefix tab)
+                           (if (contains? page-search-prefixes tab) (name tab) "tasks"))
                        "-filter-search"))))
 
 (defn- tasks-fetch-opts [app-state]

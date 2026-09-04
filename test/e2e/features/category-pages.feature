@@ -84,3 +84,41 @@ Feature: Category pages
     Then I should not see "Alice" in the category cards
     When I switch scope to "work"
     Then I should see "Alice" in the category cards
+
+  Scenario: The save combo in the add box creates the category entry
+    Given I am on the app
+    When I click the "Categories" button
+    And I type "Combo Person" in the category add box
+    And I press the save combo in the category add box
+    Then the category add box should be empty
+    And I should see "Combo Person" in the category cards
+
+  Scenario: The save combo adds nothing from an empty add box
+    Given I am on the app
+    And a person "Alice" exists
+    When I click the "Categories" button
+    And I press the save combo in the category add box
+    Then the category add box should be empty
+    And I should see "Alice" in the category cards
+
+  Scenario: Escape closes the open card and puts the cursor in the add box
+    Given I am on the app
+    And a person "Alice" exists
+    When I click the "Categories" button
+    And I expand the card "Alice"
+    Then the card "Alice" should be expanded
+    When I move focus out of the category fields
+    And I press Escape
+    Then the card "Alice" should be collapsed
+    And the category add box should have focus
+
+  Scenario: Escape on a Group other than the first focuses that Group's own box
+    Given I am on the app
+    And a place "Lisbon" exists
+    When I click the "Categories" button
+    And I click the "Places" category tab
+    And I expand the card "Lisbon"
+    When I move focus out of the category fields
+    And I press Escape
+    Then the card "Lisbon" should be collapsed
+    And the focused element should be "places-filter-search"
