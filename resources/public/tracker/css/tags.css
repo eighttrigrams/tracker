@@ -78,6 +78,12 @@
   color: var(--text-primary);
 }
 .category-selector-item:hover { background: var(--surface-subtle); }
+/* The keyboard cursor, the same ring the sidebar's picker uses for it. Its
+   transition is set alongside that one, in sidebar.css, with the note on why it
+   needs its own. */
+.category-selector-item.preselected {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
 .category-selector-item.person:hover { background: rgba(var(--cat-person-rgb), 0.15); color: var(--cat-person-color); }
 .category-selector-item.place:hover { background: rgba(var(--cat-place-rgb), 0.15); color: var(--cat-place-color); }
 .category-selector-item.project:hover { background: rgba(var(--cat-project-rgb), 0.15); color: var(--cat-project-color); }

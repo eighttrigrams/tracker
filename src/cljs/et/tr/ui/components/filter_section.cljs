@@ -1,6 +1,7 @@
 (ns et.tr.ui.components.filter-section
   (:require [reagent.core :as r]
             [et.tr.ui.state :as state]
+            [et.tr.ui.keys :as keys]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.tasks-page :as tasks-page]
@@ -96,6 +97,14 @@
                                                      (.setSelectionRange el len len))) 0))
             handle-key-down (fn [e]
                               (cond
+                                ;; The arrows and the Cmd cluster, from the one
+                                ;; definition both pickers read (et.tr.ui.keys).
+                                (keys/cursor-key e)
+                                (do
+                                  (.preventDefault e)
+                                  (swap! preselect-idx
+                                         keys/move-cursor (keys/cursor-key e) (count visible-items)))
+
                                 (= (.-key e) "Escape")
                                 (do
                                   ;; Escape is wholly this handler's here, so it
@@ -128,20 +137,6 @@
                                   (js/setTimeout
                                    #(when-let [el (.getElementById js/document (str (or page-prefix "tasks") "-filter-search"))]
                                       (.focus el)) 0))
-
-                                (= (.-key e) "ArrowDown")
-                                (do
-                                  (.preventDefault e)
-                                  (let [n (count visible-items)]
-                                    (when (pos? n)
-                                      (swap! preselect-idx #(if (nil? %) 0 (min (inc %) (dec n)))))))
-
-                                (= (.-key e) "ArrowUp")
-                                (do
-                                  (.preventDefault e)
-                                  (let [n (count visible-items)]
-                                    (when (pos? n)
-                                      (swap! preselect-idx #(if (nil? %) 0 (max (dec %) 0))))))
 
                                 (= (.-key e) "Enter")
                                 (let [idx @preselect-idx
