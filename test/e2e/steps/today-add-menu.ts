@@ -64,23 +64,38 @@ const menu = (page: any) => page.locator(".today-add-menu");
 // first, then assert the menu survived, then click.
 const POINTER_DWELL_MS = 250;
 
-async function hoverOption(page: any, kind: "task" | "meet") {
+async function hoverMeetOption(page: any) {
   await addButton(page).hover();
-  const option = page.locator(`.today-add-option.add-${kind}`);
+  const option = page.locator(".today-add-option.add-meet");
   await option.hover();
   await page.waitForTimeout(POINTER_DWELL_MS);
   return option;
 }
 
-// Hover is the only way in — there is no click to open it — so this is how both
-// kinds get added.
-async function addViaMenu(page: any, kind: "task" | "meet", title: string) {
-  const option = await hoverOption(page, kind);
-  await expect(menu(page), "the menu closed as the pointer moved onto it").toBeVisible();
-  await option.click();
+// The two kinds are reached differently, which is the whole of the change: the
+// plus *is* the task, so pressing it opens the task box, while the meet is
+// still the one option in the menu that hovering opens.
+async function openAddBox(page: any, kind: "task" | "meet") {
+  if (kind === "task") {
+    await addButton(page).click();
+  } else {
+    const option = await hoverMeetOption(page);
+    await expect(menu(page), "the menu closed as the pointer moved onto it").toBeVisible();
+    await option.click();
+  }
   const input = page.locator(".today-add-input");
   await expect(input).toBeVisible();
+  return input;
+}
+
+async function typeIntoAddBox(page: any, kind: "task" | "meet", title: string) {
+  const input = await openAddBox(page, kind);
   await setFieldValue(input, title);
+  return input;
+}
+
+async function addViaMenu(page: any, kind: "task" | "meet", title: string) {
+  const input = await typeIntoAddBox(page, kind, title);
   await input.press("Enter");
   await page.waitForLoadState("networkidle");
 }
@@ -109,7 +124,7 @@ When("I move the pointer off the today add button", async ({ page }) => {
 });
 
 When("I move the pointer onto the Meet option", async ({ page }) => {
-  await hoverOption(page, "meet");
+  await hoverMeetOption(page);
 });
 
 When("I select the day at offset {int}", async ({ page }, offset: number) => {
@@ -126,14 +141,53 @@ When("I add a meet {string} via the today add menu", async ({ page }, title: str
   await addViaMenu(page, "meet", title);
 });
 
-When("I add a task {string} via the today add menu", async ({ page }, title: string) => {
-  await addViaMenu(page, "task", title);
+// A task no longer goes through the menu at all — the scenarios that add one
+// use "via the today add button" (in today-view.ts), which presses the plus.
+When("I click the today add button", async ({ page }) => {
+  await addButton(page).click();
 });
 
-Then("the today add menu offers a Task and a Meet", async ({ page }) => {
+When(
+  "I type {string} into the today add box for a task",
+  async ({ page }, title: string) => {
+    await typeIntoAddBox(page, "task", title);
+  },
+);
+
+// Both halves of the combo are sent, as everywhere else: this user has no
+// custom keymap, so Cmd+S is the one that acts and Cmd+9 falls through — and
+// the pair keeps the scenario honest if the e2e user ever gains one. See
+// et.tr.ui.keys/save-combo?.
+When("I press the save combo in the today add box", async ({ page }) => {
+  const input = page.locator(".today-add-input");
+  await input.focus();
+  await page.keyboard.press("Meta+KeyS");
+  await page.keyboard.press("Meta+Digit9");
+  await page.waitForLoadState("networkidle");
+});
+
+// The form carries the kind as a class, so this is the assertion that the press
+// opened the *task* box and not the meet one — the input alone looks the same
+// either way.
+Then("the today add box is open for a task", async ({ page }) => {
+  await expect(page.locator(".today-add-form.task")).toBeVisible();
+  await expect(page.locator(".today-add-input")).toBeVisible();
+});
+
+// The box is what closes on a successful add — the form is replaced by the plus
+// again — so its absence is the visible half of the outcome the API assertions
+// below cannot see.
+Then("the today add box is closed", async ({ page }) => {
+  await expect(page.locator(".today-add-input")).toHaveCount(0);
+});
+
+// Both halves matter. The Meet is there — and the Task is not, because it moved
+// onto the plus itself; a menu still listing it would mean two ways into the
+// same box, and the press-the-plus path would go unproven.
+Then("the today add menu offers a Meet and no Task", async ({ page }) => {
   await expect(menu(page)).toBeVisible();
-  await expect(page.locator(".today-add-option.add-task")).toBeVisible();
   await expect(page.locator(".today-add-option.add-meet")).toBeVisible();
+  await expect(page.locator(".today-add-option.add-task")).toHaveCount(0);
 });
 
 Then("the today add menu is not shown", async ({ page }) => {

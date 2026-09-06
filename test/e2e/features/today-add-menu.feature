@@ -1,17 +1,28 @@
-Feature: The Today page's plus offers a Task or a Meet
+Feature: The Today page's plus adds a Task, and offers a Meet on hover
 
   # There is one plus button, not five. The five day buttons select an offset of
   # 0 to 4 into one section, so every scenario below drives the same button and
   # differs only in which day it is showing.
   #
   # The menu opens on hover, the way the Tasks page's sort selector does. There
-  # is no click to open it, so there is nothing here that clicks it open.
+  # is no click to open it — a click on the plus is the Task.
 
-  Scenario: Hovering the plus opens the Task/Meet menu
+  # The plus is the Task, and pressing it goes straight to the task box with no
+  # menu in between — a task is what nearly every press is for. What the press
+  # produces is asserted further down, with the other task scenarios; what is
+  # asserted here is that nothing stands between the press and the box.
+  Scenario: Pressing the plus opens the task box, not the menu
+    Given I am on the app
+    When I navigate to the "Today" tab
+    And I click the today add button
+    Then the today add box is open for a task
+    And the today add menu is not shown
+
+  Scenario: Hovering the plus offers the Meet
     Given I am on the app
     When I navigate to the "Today" tab
     And I hover the today add button
-    Then the today add menu offers a Task and a Meet
+    Then the today add menu offers a Meet and no Task
 
   # The property the whole thing rests on, and the one that is easy to lose by
   # rewriting rather than copying: the mouse-enter/leave handlers belong on the
@@ -24,7 +35,7 @@ Feature: The Today page's plus offers a Task or a Meet
     When I navigate to the "Today" tab
     And I hover the today add button
     And I move the pointer onto the Meet option
-    Then the today add menu offers a Task and a Meet
+    Then the today add menu offers a Meet and no Task
 
   Scenario: The menu closes again when the pointer leaves
     Given I am on the app
@@ -92,7 +103,7 @@ Feature: The Today page's plus offers a Task or a Meet
   Scenario: A task created from today is flagged for today and dated to nothing
     Given I am on the app
     When I navigate to the "Today" tab
-    And I add a task "Task from day zero" via the today add menu
+    And I add a task "Task from day zero" via the today add button
     Then the task "Task from day zero" is flagged for today
     And the task "Task from day zero" is lined up for no day
 
@@ -100,6 +111,19 @@ Feature: The Today page's plus offers a Task or a Meet
     Given I am on the app
     When I navigate to the "Today" tab
     And I select the day at offset 2
-    And I add a task "Task from day two" via the today add menu
+    And I add a task "Task from day two" via the today add button
     Then the task "Task from day two" is lined up for the day at offset 2
     And the task "Task from day two" is not flagged for today
+
+  # Enter has always confirmed this box; the save combo did not, and a hand that
+  # saves everything with Cmd+S (or Cmd+9 on the custom keymap) found the typed
+  # title just sitting there. A box holding an unsaved title is a form — see the
+  # note in et.tr.ui.keys — so the combo enacts Add here as it does in the
+  # search-add bars and the Inbox.
+  Scenario: The save combo confirms the add box
+    Given I am on the app
+    When I navigate to the "Today" tab
+    And I type "Task by the save combo" into the today add box for a task
+    And I press the save combo in the today add box
+    Then the today add box is closed
+    And the task "Task by the save combo" is flagged for today

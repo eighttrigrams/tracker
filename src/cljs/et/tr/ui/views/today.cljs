@@ -4,6 +4,7 @@
             [et.tr.ui.state :as state]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.date :as date]
+            [et.tr.ui.keys :as keys]
             [et.tr.ui.modals :as modals]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
@@ -426,7 +427,12 @@
                 :value (or input-value "")
                 :on-change #(swap! ui-state assoc :input-value (.. % -target -value))
                 :on-key-down (fn [e]
-                               (when (= "Enter" (.-key e))
+                               ;; The save combo enacts Add, as in the
+                               ;; search-add bars — see et.tr.ui.keys. This box
+                               ;; only ever holds an unsaved title, so there is
+                               ;; no second meaning to keep the combo away from.
+                               (when (or (= "Enter" (.-key e)) (keys/save-combo? e))
+                                 (.preventDefault e)
                                  (submit! (.-value (.-target e))))
                                (when (= "Escape" (.-key e))
                                  (close!)))}]
@@ -435,13 +441,16 @@
                             (.stopPropagation e)
                             (submit! (:input-value @ui-state)))}
                (t :tasks/add-button)]]
+             ;; The plus is the Task, not a chooser: pressing it opens the task
+             ;; box straight away, because a task is what nearly every press was
+             ;; for and the menu made the common case the slower of the two. The
+             ;; Meet is still there, one hover away — the menu it lives in is
+             ;; unchanged, it just holds the one option now.
              [:<>
-              [:button.today-add-btn {:class (when menu-open? "open")} "+"]
+              [:button.today-add-btn {:class (when menu-open? "open")
+                                      :on-click #(choose! :task)} "+"]
               (when menu-open?
                 [:div.today-add-menu
-                 [:button.today-add-option.add-task
-                  {:on-click #(choose! :task)}
-                  (t :today/create-task)]
                  [:button.today-add-option.add-meet
                   {:on-click #(choose! :meet)}
                   (t :today/create-meet)]])])])))))

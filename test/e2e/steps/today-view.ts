@@ -99,12 +99,11 @@ When("I click the second day button", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 });
 
-// The + no longer opens the task input. Hovering it opens the Task/Meet menu
-// and the choice is what opens the input — so this hovers where it used to
-// click, and adding a task is still the one click it always was.
+// The + opens the task input again: pressing it is the task, and the hover menu
+// behind it now holds only the Meet. So this clicks, as it did before the menu
+// existed — a task is still the one click it always was.
 When("I add a task {string} via the today add button", async ({ page }, title: string) => {
-  await page.locator(".today-add-btn").hover();
-  await page.locator(".today-add-option.add-task").click();
+  await page.locator(".today-add-btn").click();
   await setFieldValue(page.locator(".today-add-input"), title);
   await page.locator(".today-add-input").press("Enter");
   await page.waitForLoadState("networkidle");
