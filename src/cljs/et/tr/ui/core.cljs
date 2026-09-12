@@ -1,6 +1,7 @@
 (ns et.tr.ui.core
   (:require [reagent.dom.client :as rdomc]
             [reagent.core :as r]
+            [et.tr.ui.key-store :as key-store]
             [et.tr.ui.state :as state]
             [et.tr.ui.modals :as modals]
             [et.tr.ui.recording-mode :as recording-mode]
@@ -356,7 +357,13 @@
 (defn init []
   (i18n/load-translations!
    (fn []
-     (state/fetch-auth-required)
+     ;; The key is read out of IndexedDB **before** the first request goes out.
+     ;; A fetch that raced this would hand its handler ciphertext and put it in
+     ;; the app-state, where the next render shows `enc:v1:…` on a page that does
+     ;; hold the key — the confusing failure rather than the honest one. Any
+     ;; failure resolves to "no key", which is a legitimate state and not an
+     ;; error to put in front of anybody.
+     (.then (key-store/load!) (fn [_] (state/fetch-auth-required)))
      (.addEventListener js/document "click"
                         (fn [_]
                           (when (:category-selector/open @state/*app-state)

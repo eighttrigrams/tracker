@@ -90,6 +90,11 @@
 
 (defn logout [app-state initial-collection-state]
   (clear-auth-from-storage)
+  ;; The next person at this browser is not this one, and their writes must not
+  ;; echo bytes remembered from somebody else's rows. The key itself is left
+  ;; alone: forgetting it is a separate, deliberate act in the ⚙ panel, because
+  ;; signing out is not the same as handing the machine over.
+  (api/forget-stored!)
   (swap! app-state merge
          initial-collection-state
          {:logged-in? false

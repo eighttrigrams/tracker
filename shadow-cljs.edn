@@ -1,4 +1,10 @@
-{:source-paths ["src/cljs" "src/cljc"]
+;; `test/cljs` is on the source paths for the `:test` build below, which is
+;; tracker's first ClojureScript suite. It exists for one reason: the seal.
+;; Everything else in this UI is covered by the Playwright specs, but an
+;; envelope is not a thing you can check by clicking — what has to be held
+;; still is that the browser's ciphertext is byte-for-byte what plurama-cli's
+;; is, and that is an assertion against a fixture, not a scenario.
+{:source-paths ["src/cljs" "src/cljc" "test/cljs"]
  :dependencies [[reagent "2.0.1"]
                 [cljs-ajax "0.8.4"]]
  :http {:port #shadow/env ["SHADOW_PORT" :as :int :default 9801]}
@@ -6,4 +12,10 @@
                 :output-dir "resources/public/tracker/js"
                 :asset-path "/js"
                 :modules {:main {:init-fn et.tr.ui.core/init}}
-                :devtools {:repl-pprint true}}}}
+                :devtools {:repl-pprint true}}
+          ;; Node has WebCrypto natively, so the envelope needs no browser. The
+          ;; IndexedDB key store is the part that does, and it is checked in the
+          ;; browser instead — see `key_store.cljs`.
+          :test {:target :node-test
+                 :output-to "target/node-tests.js"
+                 :ns-regexp "-test$"}}}

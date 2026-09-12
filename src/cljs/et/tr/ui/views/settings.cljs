@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [cljs.pprint]
             [clojure.string :as str]
+            [et.tr.ui.key-store :as key-store]
             [et.tr.ui.state :as state]
             [et.tr.i18n :refer [t]]))
 
@@ -159,6 +160,57 @@
               (for [u users]
                 ^{:key (:id u)} [machine-user-row u]))])]))}))
 
+(defn- encryption-key-block
+  "Where the key gets into this browser, and the only place it can.
+
+  There is deliberately no import path through a URL fragment, a query parameter
+  or a message from an agent. The decrypt surfaces are this page and
+  `plurama-cli`; an agent that could hand a key to a browser is one more way to
+  lose one.
+
+  The fingerprint is the point of the status line. Eight characters, shown here,
+  by the proxy on startup, and in the header of the migration walker — sealing a
+  database with a key this browser cannot open is the one mistake in this design
+  with no recovery, and comparing eight characters is the whole of how not to
+  make it.
+
+  Not shown to anyone whose rows are not sealed. Tracker has other people in it,
+  and a key box on their settings page is an invitation to a mistake they have no
+  reason to be able to make."
+  []
+  (let [pasted (r/atom "")
+        error (r/atom nil)]
+    (fn []
+      (let [{:keys [status fingerprint]} @key-store/state]
+        [:div.manage-section.settings-section
+         [:h3 "Encryption"]
+         [:div.settings-item
+          [:span.settings-label "Key"]
+          [:span.settings-value
+           (case status
+             :present (str "Held by this browser — " fingerprint)
+             "Not in this browser. Sealed bodies will read as enc:v1:… until you paste the key in.")]]
+         [:div.settings-item
+          [:input {:type "password"
+                   :placeholder "base64, 32 bytes"
+                   :value @pasted
+                   :auto-complete "off"
+                   :on-change #(do (reset! error nil)
+                                   (reset! pasted (-> % .-target .-value)))}]
+          [:button {:disabled (str/blank? @pasted)
+                    :on-click #(-> (key-store/import-key! @pasted)
+                                   (.then (fn [_] (reset! pasted "") (reset! error nil)))
+                                   (.catch (fn [e] (reset! error (.-message e)))))}
+           (if (= :present status) "Replace key" "Import key")]
+          (when (= :present status)
+            [:button.secondary {:on-click #(key-store/forget!)} "Forget"])]
+         (when @error [:div.settings-error @error])
+         [:p.settings-note
+          "The key never goes to the server. Lose every copy and the sealed "
+          "bodies are gone: there is no reset. Forgetting is this device "
+          "forgetting, not a delete — useful on a borrowed machine, and useful "
+          "for seeing tracker as somebody without the key sees it."]]))))
+
 (defn profile-tab []
   (let [current-user (:current-user @state/*app-state)
         is-admin (:is_admin current-user)]
@@ -181,6 +233,8 @@
        [:div.settings-item
         [:button.export-btn {:on-click #(state/export-data)}
          (t :settings/export-data)]]]
+      (when-not is-admin
+        [encryption-key-block])
       (when-not is-admin
         [machine-users-section])]]))
 

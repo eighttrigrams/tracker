@@ -1,4 +1,4 @@
-.PHONY: start stop build test e2e e2e-docker lint clean backup backup-replay
+.PHONY: start stop build test test-cljs test-all e2e e2e-docker lint clean backup backup-replay
 
 start:
 	@if [ -f .env ]; then set -a && . ./.env && set +a; fi && ./scripts/start.sh
@@ -17,6 +17,20 @@ ifdef NS
 else
 	DEV=true clj -X:test
 endif
+
+# The ClojureScript suite, which is the seal's half of the drift control.
+#
+# `make test` alone says nothing about the envelope: somebody could edit
+# src/cljs/et/tr/ui/seal.cljs, run it, and ship a browser that no longer agrees
+# with plurama-cli's tracker_seal.clj — two implementations of one envelope, and
+# the divergence found six months later in a body nobody can open. Both suites
+# read tracker/test/fixtures/seal-vectors.edn, and `test-all` is the one to run
+# before believing a seal change.
+test-cljs:
+	npx shadow-cljs compile test
+	node target/node-tests.js
+
+test-all: test test-cljs
 
 # Usage:
 #   make e2e                          full run
