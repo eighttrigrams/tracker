@@ -66,10 +66,22 @@
 ;; ---------------------------------------------------------------------------
 ;; The guard, as one middleware.
 
-(defn- seals?
+(defn seals?
   "Whether this user's prose is sealed. One small query, and only asked when a
   write actually carries a sealed column — so the overwhelming majority of
-  requests never pay for it."
+  requests never pay for it.
+
+  **Public because one other caller must give the same answer.** `/api/auth/me`
+  reports this to the browser, which gates the ⚙ key panel on it: a key box on
+  the settings page of somebody whose rows are not sealed is an invitation to a
+  mistake they have no reason to be able to make. If that answer and this guard's
+  answer could drift, the panel would appear for people it must not and, worse,
+  fail to appear for the one person it is for.
+
+  Pass the **effective** user id — the one `claims->identity` has already
+  collapsed a machine user onto. A machine user's own row is never armed, so
+  reading it directly would tell `daniel`'s CLI that it does not seal while every
+  write it makes is refused here for being unsealed."
   [ds user-id]
   (= 1 (:seal_prose (jdbc/execute-one! (db/get-conn ds)
                                        (sql/format {:select [:seal_prose]

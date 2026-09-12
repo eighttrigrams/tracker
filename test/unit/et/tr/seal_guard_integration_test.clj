@@ -264,3 +264,73 @@
       (is (= 400 (:status (POST-json (str "/api/messages/" message "/convert-to-task")
                                      {:description (an-envelope)})))))))
 
+;; ---------------------------------------------------------------------------
+;; Who seals, told to the client that has to know.
+;;
+;; The ⚙ key panel is not for everybody. Its own docstring says so — *"Tracker
+;; has other people in it, and a key box on their settings page is an invitation
+;; to a mistake they have no reason to be able to make"* — and it was gated on
+;; `is_admin`, which is a different question with a different answer. `admin` is
+;; a synthetic superuser row with `:id nil`; `antonio` and `saiyuri` are both
+;; non-admins, so both were shown the box, which is exactly the population the
+;; docstring excludes.
+;;
+;; The gate it wants is `seal_prose`, and until now no response carried it, so
+;; the gate was not implementable at all. `/api/auth/me` is the door: its whole
+;; reason for existing is to refresh DB-sourced settings rather than trust the
+;; client's cached copy, and `seal_prose` is the setting that changes furthest
+;; out-of-band of them all — the walker's `--arm` flips it in the database while
+;; the browser is open.
+;;
+;; It is resolved through `envelope/seals?`, the same function the guard asks, so
+;; that the answer the client is given and the answer the server enforces cannot
+;; drift apart. That is not tidiness: a machine user's own row is never armed, and
+;; a naive read of it would tell `daniel`'s CLI that it does not seal while every
+;; write it makes is refused for being unsealed.
+
+(defn- me-as
+  "`GET /api/auth/me` as a real bearer token, which is what a browser always
+  holds. The `X-User-Id` shortcut the other helpers use cannot reach this
+  endpoint at all: `get-user-from-request`'s skip-logins path carries no
+  `:username`, and this handler looks the row up by name."
+  [claims]
+  (-> (*app* (-> (mock/request :get "/api/auth/me")
+                 (mock/header "Authorization" (str "Bearer " (auth/create-token claims)))))
+      (update :body #(when (seq %) (json/read-str % :key-fn keyword)))))
+
+(defn- human-claims [id username]
+  {:user-id id :username username :is-admin false :has-mail true})
+
+(deftest the-current-user-is-told-whether-its-prose-is-sealed
+  (let [me (human-claims *user-id* "test-user")]
+    (testing "false while the flag is 0, which is how 074-add-seal-prose ships"
+      (seal-user! false)
+      (is (= 200 (:status (me-as me))))
+      (is (false? (:seal_prose (:body (me-as me))))))
+    (testing "and true once the cutover arms it — read fresh from the database
+      every time, because `--arm` flips it while the browser is open and the
+      client's cached copy is the thing this endpoint exists not to trust"
+      (seal-user! true)
+      (is (true? (:seal_prose (:body (me-as me))))))
+    (testing "a second human in the same database is not told he seals, and this
+      is the whole of S-2: `is_admin` answered a different question and answered
+      it wrongly for every non-admin human in the file"
+      (seal-user! true)
+      (let [other (db.user/create-user *ds* "antonio" "pw")]
+        (is (false? (:seal_prose (:body (me-as (human-claims (:id other) "antonio")))))
+            "his rows are not sealed, and a key box on his settings page is an
+             invitation to a mistake he has no reason to be able to make")))
+    (testing "a machine user reports its **parent's** flag, because that is the
+      one the guard enforces against it — `claims->identity` collapses a machine
+      user onto the user it acts for before anything asks"
+      (seal-user! true)
+      (let [machine (db.user/create-user *ds* "daniel-cli" "pw"
+                                         {:is-machine-user true :for-user-id *user-id*})]
+        (is (true? (:seal_prose (:body (me-as {:user-id (:id machine) :username "daniel-cli"
+                                               :is-admin false :has-mail false
+                                               :is-machine-user true
+                                               :for-user-id *user-id*
+                                               :mail-only false}))))
+            "its own row is never armed, and reading that row would tell the CLI
+             it does not seal while every write it makes is refused for being
+             unsealed")))))

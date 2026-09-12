@@ -2,6 +2,7 @@
   (:require [et.tr.server.common :as common]
             [et.tr.server.events :as events]
             [et.tr.db.user :as db.user]
+            [et.tr.envelope :as envelope]
             [et.tr.auth :as auth]
             [clojure.string :as str]))
 
@@ -63,7 +64,8 @@
       {:status 401 :body {:error "Not authenticated"}}
 
       (:is-admin user-info)
-      {:status 200 :body {:id nil :username "admin" :is_admin true :has_mail false :language "en" :vim_keys 0}}
+      {:status 200 :body {:id nil :username "admin" :is_admin true :has_mail false :language "en" :vim_keys 0
+                          :seal_prose false}}
 
       :else
       (if-let [user (db.user/get-user-by-username (common/ensure-ds) (:username user-info))]
@@ -71,7 +73,15 @@
                                (dissoc :password_hash)
                                (assoc :has_mail (:has-mail user-info))
                                (update :is_machine_user #(= 1 %))
-                               (update :mail_only #(= 1 %)))}
+                               (update :mail_only #(= 1 %))
+                               ;; Resolved through the guard's own predicate, and
+                               ;; from the **effective** user id, which
+                               ;; claims->identity has already collapsed a machine
+                               ;; user onto. The client gating a key panel on this
+                               ;; and the server refusing writes on it must not be
+                               ;; able to disagree.
+                               (assoc :seal_prose (envelope/seals? (common/ensure-ds)
+                                                                   (:user-id user-info))))}
         {:status 404 :body {:error "User not found"}}))))
 
 (defn password-required-handler
