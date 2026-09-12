@@ -104,16 +104,22 @@
         category-groups))
 
 (def sidebar-tabs
-  "The tabs whose page renders the Category filter sidebar — the six that show
-  `sidebar-filter-configs`. Mail is the one list page without it, and the
-  Categories tabs have a layout of their own, so a gesture that answers
-  something *in* the sidebar has to ask first whether the sidebar is there.
+  "The tabs whose page renders the Category filter sidebar — the seven that show
+  `sidebar-filter-configs`. The Categories tabs have a layout of their own, so a
+  gesture that answers something *in* the sidebar has to ask first whether the
+  sidebar is there.
+
+  Mail was the one list page without it and is in the set since the Inbox grew
+  one. Its selection does not narrow the message list — `messages` is the one
+  entity with no categories — but the box is the shared selection, and
+  Option+Escape parking it from the Inbox is the same gesture it is everywhere
+  else.
 
   Written out rather than derived: there is no registry of which pages have a
-  sidebar to derive it from, and inventing one to hold six keywords would be
+  sidebar to derive it from, and inventing one to hold seven keywords would be
   the more elaborate of the two mistakes available here. Kept next to the
   configs those pages render so the two are read together."
-  #{:today :tasks :issues :meets :resources :reports})
+  #{:today :tasks :issues :meets :resources :reports :mail})
 
 (def category-shortcut-keys
   "Digit1..Digit6 -> Group, for the sidebar's keyboard shortcuts. Six groups

@@ -4,7 +4,7 @@ import { setFieldValue } from "./helpers";
 
 const { When, Then } = createBdd();
 
-const addBox = "#mail-add-input";
+const addBox = "#mail-filter-search";
 const addButton = ".mail-add-form button";
 
 // The Inbox add box has no clear-x to wait on, unlike the combined search-add

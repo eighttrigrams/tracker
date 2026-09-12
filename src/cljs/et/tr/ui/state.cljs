@@ -137,6 +137,11 @@
                             :issues-page/collapsed-filters all-category-filters
                             :issues-page/category-search empty-category-searches
 
+                            ;; Inbox page state — the sidebar's two keys, in the
+                            ;; shape every other list page keeps them.
+                            :mail-page/collapsed-filters all-category-filters
+                            :mail-page/category-search empty-category-searches
+
                             ;; Tasks page recurring mode
                             :tasks-page/recurring-mode false
                             :tasks-page/filter-recurring nil
@@ -1364,6 +1369,30 @@
 (defn set-resources-category-search [category-key search-term]
   (swap! *app-state assoc-in [:resources-page/category-search category-key] search-term))
 
+(defn toggle-mail-filter-collapsed [filter-key]
+  (let [was-collapsed (contains? (:mail-page/collapsed-filters @*app-state) filter-key)
+        all-filters all-category-filters]
+    (swap! *app-state update :mail-page/collapsed-filters
+           (fn [collapsed]
+             (if (contains? collapsed filter-key)
+               (disj all-filters filter-key)
+               (conj collapsed filter-key))))
+    (when was-collapsed
+      (swap! *app-state update :mail-page/category-search
+             (fn [searches]
+               (reduce #(assoc %1 %2 "") searches all-filters))))
+    (js/setTimeout
+     (fn []
+       (when-let [el (.getElementById js/document
+                                      (if was-collapsed
+                                        (str "mail-filter-" (name filter-key))
+                                        "mail-filter-search"))]
+         (.focus el)))
+     0)))
+
+(defn set-mail-category-search [category-key search-term]
+  (swap! *app-state assoc-in [:mail-page/category-search category-key] search-term))
+
 (def ^:private shared-filter-key
   (into {} (map (fn [k] [(constants/category-key->type k) (filter-state-key k)])) category-keys))
 
@@ -1373,9 +1402,9 @@
 ;; of there being one of these, and a second copy of it is what let the scope
 ;; switcher miss the recurring list.
 ;;
-;; `:mail` is here because the switcher reaches the Inbox too. It is the one tab
-;; with no category sidebar, so the filter callers never arrive on it and it was
-;; never needed until the switcher started coming through here.
+;; `:mail` was added here when the scope switcher started coming through: back
+;; then the Inbox had no category sidebar, so the filter callers never arrived
+;; on it. It has one now, and they do.
 (defn- refetch-current-tab []
   (case (:active-tab @*app-state)
     :tasks (if (:tasks-page/recurring-mode @*app-state)
@@ -1440,10 +1469,11 @@
   "Whether Option+Escape means \"bring the parked selection back\" rather than
   \"park what is selected\".
 
-  The tab has to be one that shows the sidebar. On the Inbox and the Categories
-  pages the box is not on screen at all, and a key that silently restored an
-  invisible selection — while the Inbox's own meaning for it, clearing the
-  sender filters, went unheard — would be a trap rather than a shortcut."
+  The tab has to be one that shows the sidebar. On the Categories pages the box
+  is not on screen at all, and a key that silently restored an invisible
+  selection would be a trap rather than a shortcut. The Inbox used to be the
+  other such page and is no longer: it has the sidebar, so the parked bundle is
+  visible there and the key means what it means everywhere else."
   []
   (and (contains? constants/sidebar-tabs (:active-tab @*app-state))
        (parked-filters/unpark? *app-state)))
@@ -1476,6 +1506,21 @@
              :resources-page/category-search empty-category-searches)
       (.scrollTo js/window 0 0)
       (resources-state/clear-all-resource-filters fetch-resources))))
+
+(defn clear-uncollapsed-mail-filters []
+  ;; The Inbox joins the other sidebar pages here: Option+Escape only means
+  ;; "park and clear" once every Group is closed, so the first presses are still
+  ;; closing pickers. What it clears on top of the parked selection is the
+  ;; Inbox's own pair of filters, the sender and the excluded senders.
+  (let [collapsed (:mail-page/collapsed-filters @*app-state)
+        all-filters all-category-filters
+        any-visible? (seq (clojure.set/difference all-filters collapsed))]
+    (when-not any-visible?
+      (parked-filters/park! *app-state)
+      (swap! *app-state assoc
+             :mail-page/category-search empty-category-searches)
+      (.scrollTo js/window 0 0)
+      (clear-all-mail-filters))))
 
 (defn fetch-users []
   (users/fetch-users *app-state auth-headers))

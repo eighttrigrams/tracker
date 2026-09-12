@@ -278,6 +278,7 @@
           tasks-shortcut-keys (tasks/get-tasks-category-shortcut-keys)
           today-shortcut-keys (today/get-today-category-shortcut-keys)
           resources-shortcut-keys (resources/get-resources-category-shortcut-keys)
+          mail-shortcut-keys (mail/get-mail-category-shortcut-keys)
           issues-shortcut-keys (issues/get-issues-category-shortcut-keys)
           meets-shortcut-keys (meets/get-meets-category-shortcut-keys)
           reports-shortcut-keys (reports/get-reports-category-shortcut-keys)]
@@ -326,7 +327,7 @@
 
             (= :tasks active-tab) (state/clear-uncollapsed-task-filters)
             (= :today active-tab) (state/clear-uncollapsed-today-filters)
-            (= :mail active-tab) (state/clear-all-mail-filters)
+            (= :mail active-tab) (state/clear-uncollapsed-mail-filters)
             (= :resources active-tab) (state/clear-uncollapsed-resource-filters)
             (= :issues active-tab) (state/clear-uncollapsed-issue-filters)
             (= :meets active-tab) (state/clear-uncollapsed-meet-filters)
@@ -343,6 +344,10 @@
         (= :resources active-tab)
         (when-let [filter-key (resources-shortcut-keys code)]
           (handle-category-shortcut e filter-key state/toggle-resources-filter-collapsed))
+
+        (= :mail active-tab)
+        (when-let [filter-key (mail-shortcut-keys code)]
+          (handle-category-shortcut e filter-key state/toggle-mail-filter-collapsed))
 
         (= :issues active-tab)
         (when-let [filter-key (issues-shortcut-keys code)]

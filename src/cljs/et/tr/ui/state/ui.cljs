@@ -8,11 +8,11 @@
             [et.tr.ui.state.reports :as reports-state]
             [et.tr.ui.state.relations :as relations-state]))
 
-;; **Three of these ids sit on two elements each, and that is checked, not an
-;; oversight.** `tasks-filter-search`, `meets-filter-search` and
-;; `resources-filter-search` are each written by two different search-add-forms
-;; — a page's own and its sub-mode's — but the two are arms of the *same* `cond`,
-;; so only one of a pair is ever mounted:
+;; **Four of these ids sit on two elements each, and that is checked, not an
+;; oversight.** `tasks-filter-search`, `meets-filter-search`,
+;; `resources-filter-search` and `mail-filter-search` are each written by two
+;; different boxes — a page's own and its sub-mode's — but the two are arms of
+;; the *same* `cond`, so only one of a pair is ever mounted:
 ;;
 ;;   tasks-filter-search      core.cljs         recurring-mode → recurring-search-add-form
 ;;                                              :else          → combined-search-add-form
@@ -20,11 +20,14 @@
 ;;                                              :else          → search-add-form
 ;;   resources-filter-search  views/resources   journals-mode  → journal-search-add-form
 ;;                                              :else          → search-add-form
+;;   mail-filter-search       mail              :saved view    → mail-search-bar
+;;                                              :inbox view    → mail-add-form
 ;;
-;; Each of those conds has a middle arm too — recurring-filter, series-filter,
+;; The first three conds have a middle arm too — recurring-filter, series-filter,
 ;; journal-filter — and all three render a filter-bar, which carries no search
-;; box at all. So `getElementById` cannot return the wrong element: there is
-;; never a second one for it to choose between.
+;; box at all; the Inbox's pair has no third arm, `:view` being the two. So
+;; `getElementById` cannot return the wrong element: there is never a second one
+;; for it to choose between.
 ;;
 ;; Written down because the obvious reading of a grep is that the ids need
 ;; renaming. They do not, and it would cost twice: every lookup here would have
@@ -42,7 +45,7 @@
   `<page-prefix>-filter-search`, and the prefix is the same `:page-prefix` the
   views hand components/filter-section; a tab that is not here falls back to
   \"tasks\", exactly as that component's `(or page-prefix \"tasks\")` does."
-  #{:today :issues :meets :resources :reports})
+  #{:today :issues :meets :resources :reports :mail})
 
 (def ^:private category-tab->prefix
   "The Categories tabs are the one place where the tab and the prefix differ:
@@ -115,6 +118,7 @@
              (fetch-today-issues)
              (fetch-working-on))
     :mail (fn []
+            (swap! app-state assoc :mail-page/collapsed-filters constants/all-category-filters)
             (when (has-mail)
               (fetch-messages)))
     :resources (fn []
@@ -158,6 +162,7 @@
          :tasks-page/category-search constants/empty-category-searches
          :today-page/category-search constants/empty-category-searches
          :meets-page/category-search constants/empty-category-searches
+         :mail-page/category-search constants/empty-category-searches
          :tasks-page/expanded-task nil
          :today-page/expanded-task nil
          :today-page/expanded-meet nil

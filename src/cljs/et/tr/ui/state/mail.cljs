@@ -85,7 +85,7 @@
 (defn set-expanded-message [id]
   (swap! *mail-page-state assoc :expanded-message id)
   (when (nil? id)
-    (js/setTimeout #(when-let [el (.getElementById js/document "mail-add-input")]
+    (js/setTimeout #(when-let [el (.getElementById js/document "mail-filter-search")]
                       (.focus el #js {:preventScroll true})) 0)))
 
 (defn set-message-done [app-state auth-headers message-id done?]

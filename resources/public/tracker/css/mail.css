@@ -1,5 +1,7 @@
+/* No vertical padding since the Inbox joined .main-layout: the sidebar starts
+   at the top of the row, and 24px here would drop the header below it while
+   every other page's header lines up. */
 .mail-page {
-  padding: 24px 0;
   user-select: none;
   -webkit-user-select: none;
 }

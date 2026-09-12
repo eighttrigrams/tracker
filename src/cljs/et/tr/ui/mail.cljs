@@ -1,11 +1,13 @@
 (ns et.tr.ui.mail
   (:require [et.tr.ui.state :as state]
             [et.tr.ui.keys :as keys]
+            [et.tr.ui.constants :as constants]
             [et.tr.ui.state.mail :as mail-state]
             [et.tr.ui.views.sources :as sources-view]
             [et.tr.i18n :refer [t]]
             [reagent.core :as r]
             [clojure.string :as str]
+            [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.task-item :refer [clampable-description]]
             [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.date :as date]))
@@ -247,7 +249,14 @@
 (defn- mail-search-bar []
   (let [term (:search-term @mail-state/*mail-page-state)]
     [:div.mail-search-bar
-     [:input {:type "text"
+     ;; Same id as the Inbox view's add box, and safe for the reason the note
+     ;; over `state.ui/focus-input!` sets out: the two are arms of one `cond` on
+     ;; :view, so only ever one of them is mounted. It is the convention every
+     ;; other page follows — `<page-prefix>-filter-search` names the box the
+     ;; page's gestures put the cursor back into — and the Inbox now has the
+     ;; sidebar whose Escape does exactly that.
+     [:input {:id "mail-filter-search"
+              :type "text"
               :auto-complete "off"
               :value term
               :placeholder (t :mail/search-placeholder)
@@ -262,7 +271,7 @@
     (fn []
       (let [disabled? (or (str/blank? @input-val) (any-filter-active?))]
         [:div.mail-add-form
-         [:input {:id "mail-add-input"
+         [:input {:id "mail-filter-search"
                   :type "text"
                   :auto-complete "off"
                   :value @input-val
@@ -281,13 +290,66 @@
                                 (state/add-message @input-val (fn [] (reset! input-val ""))))}
           (t :tasks/add-button)]]))))
 
-(defn mail-page []
+(def ^:private mail-category-shortcut-keys
+  constants/category-shortcut-keys)
+
+(def mail-category-shortcut-numbers
+  (into {} (map (fn [[k v]] [v (subs k 5)]) mail-category-shortcut-keys)))
+
+(defn get-mail-category-shortcut-keys []
+  mail-category-shortcut-keys)
+
+(defn- mail-filter-section [{:keys [title filter-key items selected-ids toggle-fn clear-fn collapsed?]}]
+  [filter-section/category-filter-section {:title title
+                                           :shortcut-number (mail-category-shortcut-numbers filter-key)
+                                           :filter-key filter-key
+                                           :items items
+                                           :marked-ids selected-ids
+                                           :toggle-fn toggle-fn
+                                           :clear-fn clear-fn
+                                           :collapsed? collapsed?
+                                           :toggle-collapsed-fn state/toggle-mail-filter-collapsed
+                                           :set-search-fn state/set-mail-category-search
+                                           :search-state-path [:mail-page/category-search filter-key]
+                                           :section-class (name filter-key)
+                                           :item-active-class "active"
+                                           :label-class nil
+                                           :page-prefix "mail"}])
+
+(defn- sidebar-filters
+  "The Inbox's copy of the sidebar every other list page shows — same Groups,
+  same shared selection, same Option+1..6 collapse, same parked bundle.
+
+  What it does *not* do is narrow the message list: `messages` is the one entity
+  with no categories to filter on. The box is here because the selection it
+  holds is the app's, not the page's — set it on Tasks and it is still set when
+  you come to read the Inbox, and until now that was a selection you could
+  neither see nor let go of from here."
+  []
+  (let [app-state @state/*app-state
+        collapsed-filters (:mail-page/collapsed-filters app-state)]
+    (if (state/negative-filter-active?)
+      [:div.sidebar
+       [filter-section/category-badge-toggle]
+       [filter-section/negative-filter-section]]
+      (conj (into [:div.sidebar [filter-section/category-badge-toggle]]
+                  (for [{:keys [filter-key title-key items-key filter-state-key category-type]} constants/sidebar-filter-configs]
+                    [mail-filter-section {:title (t title-key)
+                                          :filter-key filter-key
+                                          :items (get app-state items-key)
+                                          :selected-ids (get app-state filter-state-key)
+                                          :toggle-fn #(state/toggle-shared-filter category-type %)
+                                          :clear-fn #(state/clear-shared-filter category-type)
+                                          :collapsed? (contains? collapsed-filters filter-key)}]))
+            [filter-section/parked-bundle]))))
+
+(defn- mail-content []
   (let [{:keys [messages]} @state/*app-state
         page-state @mail-state/*mail-page-state
         {:keys [expanded-message view]} page-state
         sort-mode (mail-state/current-sort-mode page-state)
         sources? (state/sources-mode?)]
-    [:div.mail-page
+    [:div.main-content.mail-page
      [:div.tasks-header
       [sources-toggle]
       (when (and (not sources?) (= view :saved))
@@ -313,3 +375,8 @@
            (for [message messages]
              ^{:key (:id message)}
              [mail-message-item message expanded-message view])])])]))
+
+(defn mail-page []
+  [:div.main-layout
+   [sidebar-filters]
+   [mail-content]])
