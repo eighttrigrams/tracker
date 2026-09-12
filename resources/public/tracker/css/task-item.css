@@ -282,6 +282,13 @@
 }
 .clear-search:hover { color: var(--text-primary); background: none; transform: translateY(-50%); }
 .tasks-header { display: flex; align-items: center; margin-bottom: 20px; gap: 12px; }
+/* The sort control ends the header row, so it takes over the margin-left:auto
+   the importance filter used to hold before it moved to the top bar. Mail is
+   the exception: there the sources toggle already pushes with margin-right,
+   and two auto margins would split the gap instead of closing it. */
+.tasks-header > .sort-toggle,
+.tasks-header > .sort-toggle-dropdown { margin-left: auto; }
+.mail-page .tasks-header > .sort-toggle { margin-left: 0; }
 .tasks-header h2 { margin: 0; }
 .series-mode-toggle { }
 .series-filter-btn, .issue-filter-btn { background: none; border: none; cursor: pointer; font-size: 1.1em; padding: 2px 6px; color: var(--primary-blue, #007bff); opacity: 0.7; margin-left: auto; }
@@ -605,10 +612,10 @@
 .reminder-filter-toggle {
   margin-left: 8px;
 }
-.importance-filter-toggle {
-  margin-left: auto;
-  margin-right: 8px;
-}
+/* The importance lens lives in the top bar now, where .top-bar-right's gap
+   spaces it — so it carries no margins of its own. It used to sit in each
+   page's .tasks-header and push itself and the sort control to the right with
+   margin-left:auto; that job moved to the sort control below. */
 .importance-filter-toggle button {
   font-weight: 600;
 }

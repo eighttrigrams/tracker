@@ -199,21 +199,6 @@
        (when (>= (count excluded-senders) 2)
          [:button.remove-all-filters {:on-click #(state/clear-all-mail-filters)} "x"])])))
 
-(defn- importance-filter-toggle []
-  (let [importance-filter (:importance-filter @mail-state/*mail-page-state)]
-    [:div.importance-filter-toggle.toggle-group
-     [:button {:class (when (nil? importance-filter) "active")
-               :on-click #(state/set-message-importance-filter nil)
-               :title (t :importance/filter-off)}
-      "○"]
-     [:button {:class (str "important" (when (= importance-filter :important) " active"))
-               :on-click #(state/set-message-importance-filter :important)
-               :title (t :importance/filter-important)}
-      "★"]
-     [:button {:class (str "critical" (when (= importance-filter :critical) " active"))
-               :on-click #(state/set-message-importance-filter :critical)
-               :title (t :importance/filter-critical)}
-      "★★"]]))
 
 (defn- urgency-filter-toggle []
   (let [urgency-filter (:urgency-filter @mail-state/*mail-page-state)]
@@ -306,9 +291,7 @@
      [:div.tasks-header
       [sources-toggle]
       (when (and (not sources?) (= view :saved))
-        [:<>
-         [importance-filter-toggle]
-         [urgency-filter-toggle]])
+        [urgency-filter-toggle])
       (when-not sources?
         [mail-sort-toggle])
       (when-not sources?

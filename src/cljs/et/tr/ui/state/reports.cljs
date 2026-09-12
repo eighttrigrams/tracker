@@ -20,13 +20,14 @@
 
 (defn fetch-reports [app-state auth-headers opts]
   (let [request-id (:fetch-request-id (swap! *reports-page-state update :fetch-request-id inc))
-        {:keys [context strict items-filter 
+        {:keys [context strict importance items-filter
                 week-offset week-limit]} opts
         category-params (category-filters/query-string app-state opts)
         excluded-params (exclusions/query-params app-state)
         url (cond-> "/api/reports?"
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
+              importance (str "importance=" (name importance) "&")
               (and items-filter (not= items-filter :all)) (str "items=" (name items-filter) "&")
               (seq category-params) (str category-params)
               (seq excluded-params) (str (str/join "&" excluded-params) "&")

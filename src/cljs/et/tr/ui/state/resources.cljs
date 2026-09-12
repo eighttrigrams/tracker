@@ -11,7 +11,6 @@
                                         :editing-resource nil
                                         :confirm-delete-resource nil
                                         :filter-search ""
-                                        :importance-filter nil
                                         :domain-filter nil
                                         :excluded-domains #{}
                                         :sort-mode :recent
@@ -240,9 +239,6 @@
   (swap! *resources-page-state assoc :sort-mode mode)
   (fetch-resources-fn))
 
-(defn set-importance-filter [fetch-resources-fn level]
-  (swap! *resources-page-state assoc :importance-filter level)
-  (fetch-resources-fn))
 
 (defn set-domain-filter [fetch-resources-fn domain]
   (swap! *resources-page-state assoc :domain-filter domain :excluded-domains #{})
@@ -265,7 +261,7 @@
   (fetch-resources-fn))
 
 (defn clear-all-resource-filters [fetch-resources-fn]
-  (swap! *resources-page-state assoc :filter-search "" :importance-filter nil :domain-filter nil :excluded-domains #{})
+  (swap! *resources-page-state assoc :filter-search "" :domain-filter nil :excluded-domains #{})
   (fetch-resources-fn))
 
 (defn reset-resources-page-view-state! []

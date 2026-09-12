@@ -143,21 +143,6 @@
                :on-click #(when (not= sort-mode :added) (state/set-resource-sort-mode :added))}
       (t :resources/sort-added)]]))
 
-(defn- importance-filter-toggle []
-  (let [importance-filter (:importance-filter @resources-state/*resources-page-state)]
-    [:div.importance-filter-toggle.toggle-group
-     [:button {:class (when (nil? importance-filter) "active")
-               :on-click #(state/set-resource-importance-filter nil)
-               :title (t :importance/filter-off)}
-      "○"]
-     [:button {:class (str "important" (when (= importance-filter :important) " active"))
-               :on-click #(state/set-resource-importance-filter :important)
-               :title (t :importance/filter-important)}
-      "★"]
-     [:button {:class (str "critical" (when (= importance-filter :critical) " active"))
-               :on-click #(state/set-resource-importance-filter :critical)
-               :title (t :importance/filter-critical)}
-      "★★"]]))
 
 (defn- resource-domain-filter-badge []
   (let [domain-filter (:domain-filter @resources-state/*resources-page-state)
@@ -461,8 +446,6 @@
      [:div.main-content.resources-page
       [:div.tasks-header
        [journals-toggle]
-       (when-not (or journals-mode journal-filter)
-         [importance-filter-toggle])
        (when-not (or journals-mode journal-filter)
          [sort-mode-toggle])]
       (cond

@@ -11,7 +11,6 @@
                                      :editing-meet nil
                                      :confirm-delete-meet nil
                                      :filter-search ""
-                                     :importance-filter nil
                                      :sort-mode :upcoming
                                      :week-offset 0
                                      :has-more? false
@@ -264,16 +263,13 @@
   (swap! *meets-page-state assoc :filter-search search-term)
   (fetch-meets-fn))
 
-(defn set-importance-filter [fetch-meets-fn level]
-  (swap! *meets-page-state assoc :importance-filter level)
-  (fetch-meets-fn))
 
 (defn set-sort-mode [fetch-meets-fn mode]
   (swap! *meets-page-state assoc :sort-mode mode)
   (fetch-meets-fn))
 
 (defn clear-all-meet-filters [fetch-meets-fn]
-  (swap! *meets-page-state assoc :filter-search "" :importance-filter nil)
+  (swap! *meets-page-state assoc :filter-search "")
   (fetch-meets-fn))
 
 (defn archive-meet [app-state auth-headers fetch-today-meets-fn meet-id]
@@ -290,12 +286,13 @@
 
 (defn fetch-today-meets [app-state auth-headers calculate-best-horizon-fn opts]
   (let [request-id (swap! *today-meets-request-id inc)
-        {:keys [context strict ]} opts
+        {:keys [context strict importance]} opts
         category-params (category-filters/query-string app-state opts)
         excluded-params (exclusions/query-params app-state)
         url (cond-> "/api/meets?"
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
+              importance (str "importance=" (name importance) "&")
               (seq category-params) (str category-params)
               (seq excluded-params) (str (str/join "&" excluded-params) "&"))]
     (GET url

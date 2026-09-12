@@ -23,7 +23,7 @@
 (defn- current-fetch-opts [app-state]
   (cond-> (merge (category-filters/fetch-opts app-state)
                  {:search-term (:tasks-page/filter-search @app-state)
-                  :importance (:tasks-page/importance-filter @app-state)
+                  :importance (:importance-filter @app-state)
                   :context (:work-private-mode @app-state)
                   :strict (:strict-mode @app-state)})
     (:tasks-page/filter-recurring @app-state)
@@ -41,13 +41,6 @@
   (swap! app-state assoc (filter-type->key filter-type) #{})
   (fetch-tasks-fn (current-fetch-opts app-state)))
 
-(defn set-importance-filter [app-state fetch-tasks-fn level]
-  (swap! app-state assoc :tasks-page/importance-filter level)
-  (fetch-tasks-fn (assoc (current-fetch-opts app-state) :importance level)))
-
-(defn clear-importance-filter [app-state fetch-tasks-fn]
-  (swap! app-state assoc :tasks-page/importance-filter nil)
-  (fetch-tasks-fn (assoc (current-fetch-opts app-state) :importance nil)))
 
 (defn clear-uncollapsed-task-filters [app-state fetch-tasks-fn]
   (let [collapsed (:tasks-page/collapsed-filters @app-state)
@@ -55,10 +48,13 @@
         any-visible? (seq (clojure.set/difference all-filters collapsed))]
     (when-not any-visible?
       (parked-filters/park! app-state)
+      ;; The importance lens is not cleared here, and neither is the scope
+      ;; switcher: both sit in the top bar now and belong to the window rather
+      ;; than to this page's filter box. Option+Escape clears what the sidebar
+      ;; and the search bar hold.
       (swap! app-state merge
              {:tasks-page/category-search constants/empty-category-searches
               :tasks-page/filter-search ""
-              :tasks-page/importance-filter nil
               :tasks-page/expanded-task nil})
       (.scrollTo js/window 0 0)
       (fetch-tasks-fn (current-fetch-opts app-state)))))

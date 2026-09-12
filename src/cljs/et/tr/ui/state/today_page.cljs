@@ -37,7 +37,8 @@
 
 (defn current-fetch-opts [app-state]
   (merge (category-filters/fetch-opts app-state)
-         {:context (:work-private-mode @app-state)
+         {:importance (:importance-filter @app-state)
+          :context (:work-private-mode @app-state)
           :strict (:strict-mode @app-state)}))
 
 (def ^:private all-filter-keys constants/all-category-filters)

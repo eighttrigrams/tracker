@@ -56,15 +56,17 @@
 
 (defn list-today-journal-entries
   [ds user-id opts]
-  (let [{:keys [context strict]} opts
+  (let [{:keys [context strict importance]} opts
         conn (db/get-conn ds)
         user-where (db/user-id-where-clause user-id)
         scope-clause (db/build-scope-clause context strict)
+        importance-clause (db/build-importance-clause importance)
         today-expr (clock/sql-today)
         monday-expr (clock/sql-today "-6 days" "weekday 1")
         where-clause (into [:and user-where]
                            (filter some?
                                    [scope-clause
+                                    importance-clause
                                     [:or
                                      [:= :entry_date today-expr]
                                      [:and

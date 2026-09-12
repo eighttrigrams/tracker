@@ -14,7 +14,6 @@
                                      :confirm-convert-issue nil
                                      :issue-dropdown-open nil
                                      :filter-search ""
-                                     :importance-filter nil
                                      :sort-mode :recent
                                      :has-more? false
                                      :fetch-request-id 0}))
@@ -323,12 +322,8 @@
   (swap! *issues-page-state assoc :sort-mode mode)
   (fetch-issues-fn))
 
-(defn set-importance-filter [fetch-issues-fn level]
-  (swap! *issues-page-state assoc :importance-filter level)
-  (fetch-issues-fn))
-
 (defn clear-all-issue-filters [fetch-issues-fn]
-  (swap! *issues-page-state assoc :filter-search "" :importance-filter nil)
+  (swap! *issues-page-state assoc :filter-search "")
   (fetch-issues-fn))
 
 (defn reset-issues-page-view-state! []

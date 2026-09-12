@@ -27,8 +27,9 @@
 (defn reports-handler
   "GET /api/reports — list resolved issues, completed/past tasks, meets, and
   journal entries for reporting. Query params: context (filter by context
-  title), strict (\"true\" for strict context match), items (\"all\" |
-  \"issues-tasks-meets\" | \"issues-tasks\" | \"journals\"),
+  title), strict (\"true\" for strict context match), importance (\"important\"
+  | \"critical\" — the app-wide importance lens, which all four lists take),
+  items (\"all\" | \"issues-tasks-meets\" | \"issues-tasks\" | \"journals\"),
   people/places/workstreams/projects/goals/assets (comma-separated category
   names to filter by), and excluded-people/excluded-places/
   excluded-workstreams/excluded-projects/excluded-goals/excluded-assets
@@ -42,6 +43,7 @@
         ds (common/ensure-ds)
         context (get-in req [:params "context"])
         strict (= "true" (get-in req [:params "strict"]))
+        importance (get-in req [:params "importance"])
         items (or (get-in req [:params "items"]) "all")
         include-issues? (contains? #{"all" "issues-tasks-meets" "issues-tasks"} items)
         include-tasks? (contains? #{"all" "issues-tasks-meets" "issues-tasks"} items)
@@ -54,7 +56,8 @@
         window (week-window/week-window (week-window/parse-week-param week-offset-param 0)
                                         (week-window/parse-week-param week-limit-param 1)
                                         :backward)
-        shared-opts {:context context :strict strict :categories categories :excluded-categories excluded-categories}
+        shared-opts {:context context :strict strict :importance importance
+                     :categories categories :excluded-categories excluded-categories}
         window-opts (merge shared-opts (when window {:date-from (:date-from window)
                                                      :date-to (:date-to window)}))
         issues (if include-issues?

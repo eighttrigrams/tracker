@@ -149,21 +149,6 @@
                :on-click #(when (not= sort-mode :resolved) (state/set-issue-sort-mode :resolved))}
       (t :issues/sort-resolved)]]))
 
-(defn- importance-filter-toggle []
-  (let [importance-filter (:importance-filter @issues-state/*issues-page-state)]
-    [:div.importance-filter-toggle.toggle-group
-     [:button {:class (when (nil? importance-filter) "active")
-               :on-click #(state/set-issue-importance-filter nil)
-               :title (t :importance/filter-off)}
-      "○"]
-     [:button {:class (str "important" (when (= importance-filter :important) " active"))
-               :on-click #(state/set-issue-importance-filter :important)
-               :title (t :importance/filter-important)}
-      "★"]
-     [:button {:class (str "critical" (when (= importance-filter :critical) " active"))
-               :on-click #(state/set-issue-importance-filter :critical)
-               :title (t :importance/filter-critical)}
-      "★★"]]))
 
 (defn- search-add-form []
   (let [input-value (:filter-search @issues-state/*issues-page-state)]
@@ -281,7 +266,6 @@
      [sidebar-filters]
      [:div.main-content.issues-page
       [:div.tasks-header
-       (when-not issue-filter [importance-filter-toggle])
        (when-not issue-filter [sort-mode-toggle])]
       (cond
         issue-filter

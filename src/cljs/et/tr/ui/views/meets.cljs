@@ -85,21 +85,6 @@
                   [meet-item meet expanded-meet])
                 week-meets))]))
 
-(defn- importance-filter-toggle []
-  (let [importance-filter (:importance-filter @meets-state/*meets-page-state)]
-    [:div.importance-filter-toggle.toggle-group
-     [:button {:class (when (nil? importance-filter) "active")
-               :on-click #(state/set-meet-importance-filter nil)
-               :title (t :importance/filter-off)}
-      "○"]
-     [:button {:class (str "important" (when (= importance-filter :important) " active"))
-               :on-click #(state/set-meet-importance-filter :important)
-               :title (t :importance/filter-important)}
-      "★"]
-     [:button {:class (str "critical" (when (= importance-filter :critical) " active"))
-               :on-click #(state/set-meet-importance-filter :critical)
-               :title (t :importance/filter-critical)}
-      "★★"]]))
 
 (defn- sort-mode-toggle []
   (let [sort-mode (:sort-mode @meets-state/*meets-page-state)]
@@ -308,8 +293,6 @@
      [:div.main-content.meets-page
       [:div.tasks-header
        [series-toggle]
-       (when-not series-mode
-         [importance-filter-toggle])
        (when-not (or series-mode (and series-filter summary-mode?))
          [sort-mode-toggle])]
       (cond

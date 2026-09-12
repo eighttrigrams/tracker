@@ -108,7 +108,6 @@
                             ;; Tasks page state
                             :tasks-page/filter-search ""
                             :tasks-page/category-search empty-category-searches
-                            :tasks-page/importance-filter nil
                             :tasks-page/collapsed-filters all-category-filters
                             :tasks-page/expanded-task nil
                             :editing-task nil
@@ -190,6 +189,16 @@
                             :show-collapsed-categories? true
                             :work-private-mode :both
                             :strict-mode false
+
+                            ;; The importance lens, one for the whole app.
+                            ;; It used to be five: every list page kept its own
+                            ;; :importance-filter and its own copy of the three
+                            ;; buttons, so narrowing to ★ on Tasks and walking
+                            ;; over to Issues showed everything again. It sits
+                            ;; next to the scope switcher here because that is
+                            ;; what it has become — a lens on the whole app,
+                            ;; not a filter belonging to one list.
+                            :importance-filter nil
                             :dark-mode false
                             :error nil
 
@@ -237,8 +246,13 @@
 (defn- current-scope []
   (name (:work-private-mode @*app-state)))
 
-(defn- current-task-importance []
-  (case (:tasks-page/importance-filter @*app-state)
+(defn importance-filter
+  "The one importance lens, read by every page's fetch-opts and by the top bar."
+  []
+  (:importance-filter @*app-state))
+
+(defn- current-importance []
+  (case (importance-filter)
     :important "important"
     :critical "critical"
     "normal"))
@@ -363,8 +377,6 @@
 (defn set-message-importance [message-id importance]
   (mail/set-message-importance *app-state auth-headers message-id importance))
 
-(defn set-message-importance-filter [level]
-  (mail/set-importance-filter fetch-messages level))
 
 (defn set-message-urgency [message-id urgency]
   (mail/set-message-urgency *app-state auth-headers message-id urgency))
@@ -383,7 +395,7 @@
                         (edit-conflict-handler :message "Failed to update message"))))
 
 (defn add-message [title on-success]
-  (mail/add-message *app-state auth-headers current-scope title on-success))
+  (mail/add-message *app-state auth-headers current-scope current-importance title on-success))
 
 (defn set-message-dropdown-open [message-id]
   (mail/set-message-dropdown-open message-id))
@@ -490,7 +502,7 @@
 (defn- resources-fetch-opts []
   (merge (category-filters/fetch-opts *app-state)
          {:search-term (:filter-search @resources-state/*resources-page-state)
-          :importance (:importance-filter @resources-state/*resources-page-state)
+          :importance (importance-filter)
           :domain (:domain-filter @resources-state/*resources-page-state)
           :excluded-domains (:excluded-domains @resources-state/*resources-page-state)
           :sort-mode (:sort-mode @resources-state/*resources-page-state)
@@ -572,8 +584,6 @@
 (defn reorder-resource [resource-id target-resource-id position]
   (resources-state/reorder-resource *app-state auth-headers fetch-resources resource-id target-resource-id position))
 
-(defn set-resource-importance-filter [level]
-  (resources-state/set-importance-filter fetch-resources level))
 
 (defn set-resource-domain-filter [domain]
   (resources-state/set-domain-filter fetch-resources domain))
@@ -603,7 +613,7 @@
 (defn- issues-fetch-opts []
   (merge (category-filters/fetch-opts *app-state)
          {:search-term (:filter-search @issues-state/*issues-page-state)
-          :importance (:importance-filter @issues-state/*issues-page-state)
+          :importance (importance-filter)
           :sort-mode (:sort-mode @issues-state/*issues-page-state)
           :context (:work-private-mode @*app-state)
           :strict (:strict-mode @*app-state)}))
@@ -616,6 +626,7 @@
 (defn- today-issues-fetch-opts []
   (merge (category-filters/fetch-opts *app-state)
          {:urgency "urgent"
+          :importance (importance-filter)
           :context (:work-private-mode @*app-state)
           :strict (:strict-mode @*app-state)}))
 
@@ -706,8 +717,6 @@
 (defn set-issue-sort-mode [mode]
   (issues-state/set-sort-mode fetch-issues mode))
 
-(defn set-issue-importance-filter [level]
-  (issues-state/set-importance-filter fetch-issues level))
 
 (defn set-drag-issue [issue-id]
   (issues-state/set-drag-issue *app-state issue-id))
@@ -772,7 +781,7 @@
         summary-mode? (:meets-page/meet-summary-mode @*app-state)]
     (cond-> (merge (category-filters/fetch-opts *app-state)
                    {:search-term (:filter-search @meets-state/*meets-page-state)
-                    :importance (:importance-filter @meets-state/*meets-page-state)
+                    :importance (importance-filter)
                     :sort-mode (if (and series-filter summary-mode?)
                                  :summary
                                  (:sort-mode @meets-state/*meets-page-state))
@@ -874,8 +883,6 @@
 (defn set-meet-filter-search [search-term]
   (meets-state/set-filter-search fetch-meets search-term))
 
-(defn set-meet-importance-filter [level]
-  (meets-state/set-importance-filter fetch-meets level))
 
 (defn clear-all-meet-filters []
   (meets-state/clear-all-meet-filters fetch-meets))
@@ -1108,7 +1115,8 @@
    (journal-entries-state/fetch-journal-entries *app-state auth-headers opts)))
 
 (defn fetch-today-journal-entries
-  ([] (fetch-today-journal-entries {:context (:work-private-mode @*app-state)
+  ([] (fetch-today-journal-entries {:importance (importance-filter)
+                                    :context (:work-private-mode @*app-state)
                                     :strict (:strict-mode @*app-state)}))
   ([opts]
    (journal-entries-state/fetch-today-journal-entries *app-state auth-headers opts)))
@@ -1144,8 +1152,6 @@
 (defn set-journal-entry-filter-search [search-term]
   (journal-entries-state/set-filter-search fetch-journal-entries search-term))
 
-(defn set-journal-entry-importance-filter [level]
-  (journal-entries-state/set-importance-filter fetch-journal-entries level))
 
 (defn- fetch-journal-entries-and-maybe-reports []
   (fetch-journal-entries)
@@ -1693,7 +1699,7 @@
   (case (:active-tab @*app-state)
     :tasks (cond-> (merge (category-filters/fetch-opts *app-state)
                           {:search-term (:tasks-page/filter-search @*app-state)
-                           :importance (:tasks-page/importance-filter @*app-state)
+                           :importance (importance-filter)
                            :context (:work-private-mode @*app-state)
                            :strict (:strict-mode @*app-state)})
              (:tasks-page/filter-recurring @*app-state)
@@ -1703,8 +1709,13 @@
               (:issues-page/filter-issue @*app-state)
               (assoc :issue-id (:id (:issues-page/filter-issue @*app-state))))
     :today (merge (category-filters/fetch-opts *app-state)
-                  {:context (:work-private-mode @*app-state)
+                  {:importance (importance-filter)
+                   :context (:work-private-mode @*app-state)
                    :strict (:strict-mode @*app-state)})
+    ;; The :issues arm above and this fallback carry no :importance on purpose.
+    ;; Both fetch tasks for a listing that is *not* the Tasks page — the focused
+    ;; Issue's tasks, and whatever a non-list tab asks for — and the picker is
+    ;; not on screen there to have narrowed them.
     {:context (:work-private-mode @*app-state)
      :strict (:strict-mode @*app-state)}))
 
@@ -1764,7 +1775,7 @@
 (declare has-active-filters?)
 
 (defn add-task-with-categories [title categories on-success]
-  (tasks/add-task-with-categories *app-state auth-headers fetch-tasks current-scope current-task-importance title categories on-success))
+  (tasks/add-task-with-categories *app-state auth-headers fetch-tasks current-scope current-importance title categories on-success))
 
 (defn add-resource-with-categories [title link categories on-success]
   (resources-state/add-resource-with-categories *app-state auth-headers fetch-resources current-scope title link categories on-success))
@@ -1773,7 +1784,7 @@
   (meets-state/add-meet-with-categories *app-state auth-headers fetch-meets current-scope title categories on-success))
 
 (defn add-task [title on-success]
-  (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
+  (tasks/add-task *app-state auth-headers current-scope current-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title on-success))
 
 (defn update-task
@@ -1904,7 +1915,7 @@
 ;; joining a day list is what places it there — the add button needs no position
 ;; of its own.
 (defn add-task-to-today [title on-success]
-  (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
+  (tasks/add-task *app-state auth-headers current-scope current-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title
                   (fn []
                     (when-let [task (first (:tasks @*app-state))]
@@ -1912,7 +1923,7 @@
                     (when on-success (on-success)))))
 
 (defn add-task-lined-up-for [title date on-success]
-  (tasks/add-task *app-state auth-headers current-scope current-task-importance has-active-filters?
+  (tasks/add-task *app-state auth-headers current-scope current-importance has-active-filters?
                   #(add-task-with-categories %1 (active-filter-categories) %2) title
                   (fn []
                     (when-let [task (first (:tasks @*app-state))]
@@ -1958,11 +1969,6 @@
 (defn clear-filter [filter-type]
   (tasks-page/clear-filter *app-state fetch-tasks filter-type))
 
-(defn set-importance-filter [level]
-  (tasks-page/set-importance-filter *app-state fetch-tasks level))
-
-(defn clear-importance-filter []
-  (tasks-page/clear-importance-filter *app-state fetch-tasks))
 
 (defn clear-uncollapsed-task-filters []
   (tasks-page/clear-uncollapsed-task-filters *app-state
@@ -2054,7 +2060,8 @@
 
 (defn- reports-fetch-opts []
   (merge (category-filters/fetch-opts *app-state)
-         {:context (:work-private-mode @*app-state)
+         {:importance (importance-filter)
+          :context (:work-private-mode @*app-state)
           :strict (:strict-mode @*app-state)
           :items-filter (:reports-page/items-filter @*app-state)
           :week-offset (:week-offset @reports-state/*reports-page-state)
@@ -2412,6 +2419,41 @@
                                          (contains? in-scope-ids id)
                                          true))
                                      (keys %)))))))
+
+(defn set-importance-filter
+  "Set the one importance lens and refetch whatever is on screen.
+
+  `refetch-current-tab` rather than a per-page fetch for the same reason
+  `set-work-private-mode` uses it: it is the single dispatch that knows the
+  sub-modes, so switching the lens on the Tasks page in recurring mode does not
+  refetch plain tasks behind the recurring list. Pages whose list has no
+  importance column simply do not put the value in their query string — see
+  `importance-filter-applicable?`, which also decides whether the top bar shows
+  the picker at all."
+  [level]
+  (swap! *app-state assoc :importance-filter level)
+  (refetch-current-tab))
+
+(defn importance-filter-applicable?
+  "Whether the list on screen can be narrowed by importance.
+
+  Three of the Groups' entities never grew an `importance` column — journals,
+  recurring tasks and meeting series — and neither did the Categories
+  themselves or the Inbox's source feeds. On those the picker is not rendered
+  and the fetch omits the parameter, rather than showing a control whose only
+  outcome is no outcome. The sub-modes are read here and not in the view
+  because the picker now lives in the top bar, which knows the tab and nothing
+  else about the page below it."
+  []
+  (case (:active-tab @*app-state)
+    :tasks (not (recurring-mode?))
+    :today true
+    :issues (not (issue-filter))
+    :meets (not (series-mode?))
+    :resources (not (or (journals-mode?) (journal-filter)))
+    :mail (not (sources-mode?))
+    :reports true
+    false))
 
 (defn set-work-private-mode [mode]
   (prune-shared-category-filters! mode (:strict-mode @*app-state))

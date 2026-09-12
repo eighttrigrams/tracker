@@ -109,6 +109,31 @@
                           (on-change level)))}
            label])))
 
+(defn importance-filter-toggle
+  "The importance lens, in the top bar to the left of the scope switcher.
+
+  There were five of these, one per list page, each with its own state — so a
+  ★ set on Tasks meant nothing on Issues, and the same three buttons were
+  written out five times. One widget against one key now; `state/set-importance-filter`
+  refetches whatever page is on screen, and `state/importance-filter-applicable?`
+  decides whether this is rendered at all (see its docstring for the lists that
+  have no importance to filter by)."
+  []
+  (let [level (state/importance-filter)]
+    [:div.importance-filter-toggle.toggle-group
+     [:button {:class (when (nil? level) "active")
+               :on-click #(state/set-importance-filter nil)
+               :title (t :importance/filter-off)}
+      "○"]
+     [:button {:class (str "important" (when (= level :important) " active"))
+               :on-click #(state/set-importance-filter :important)
+               :title (t :importance/filter-important)}
+      "★"]
+     [:button {:class (str "critical" (when (= level :critical) " active"))
+               :on-click #(state/set-importance-filter :critical)
+               :title (t :importance/filter-critical)}
+      "★★"]]))
+
 (defn work-private-toggle []
   (let [mode (name (:work-private-mode @state/*app-state))]
     [scope-toggle "work-private-toggle toggle-group" mode #(state/set-work-private-mode (keyword %))]))

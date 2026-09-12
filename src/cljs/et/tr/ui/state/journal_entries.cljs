@@ -10,7 +10,6 @@
 (defonce *journal-entries-page-state (r/atom {:expanded-entry nil
                                               :confirm-delete-entry nil
                                               :filter-search ""
-                                              :importance-filter nil
                                               :sort-mode :manual
                                               :fetch-request-id 0}))
 
@@ -45,10 +44,11 @@
                           (swap! app-state assoc :journal-entries [])))})))
 
 (defn fetch-today-journal-entries [app-state auth-headers opts]
-  (let [{:keys [context strict]} opts
+  (let [{:keys [context strict importance]} opts
         url (cond-> "/api/journal-entries/today?"
               context (str "context=" (name context) "&")
-              strict (str "strict=true&"))]
+              strict (str "strict=true&")
+              importance (str "importance=" (name importance) "&"))]
     (GET url
       {:response-format :json
        :keywords? true
@@ -176,9 +176,6 @@
   (swap! *journal-entries-page-state assoc :sort-mode mode)
   (fetch-fn))
 
-(defn set-importance-filter [fetch-fn level]
-  (swap! *journal-entries-page-state assoc :importance-filter level)
-  (fetch-fn))
 
 (defn reset-journal-entries-page-view-state! []
   (swap! *journal-entries-page-state assoc

@@ -13,7 +13,7 @@
                                    :fetch-request-id 0
                                    :sender-filter nil
                                    :excluded-senders #{}
-                                   :importance-filter nil
+
                                    :urgency-filter nil
                                    :search-term ""
                                    :inline-edit-message nil
@@ -31,7 +31,7 @@
         sort-mode (name (current-sort-mode state))
         sender-filter (:sender-filter state)
         excluded-senders (:excluded-senders state)
-        importance (:importance-filter state)
+        importance (:importance-filter @app-state)
         urgency (:urgency-filter state)
         search-term (:search-term state)
         context (name (:work-private-mode @app-state))
@@ -63,7 +63,7 @@
   (swap! *mail-page-state
          (fn [s]
            (cond-> (assoc s :view view)
-             (= view :inbox) (assoc :importance-filter nil :urgency-filter nil :search-term ""))))
+             (= view :inbox) (assoc :urgency-filter nil :search-term ""))))
   (fetch-messages app-state auth-headers))
 
 (defonce ^:private search-debounce-timer (atom nil))
@@ -76,11 +76,11 @@
           (js/setTimeout #(fetch-messages app-state auth-headers) 300)))
 
 (defn- has-positive-filter? []
-  (let [{:keys [sender-filter importance-filter urgency-filter]} @*mail-page-state]
-    (or sender-filter importance-filter urgency-filter)))
+  (let [{:keys [sender-filter urgency-filter]} @*mail-page-state]
+    (or sender-filter urgency-filter)))
 
 (defn- clear-positive-filters! []
-  (swap! *mail-page-state assoc :sender-filter nil :importance-filter nil :urgency-filter nil))
+  (swap! *mail-page-state assoc :sender-filter nil :urgency-filter nil))
 
 (defn set-expanded-message [id]
   (swap! *mail-page-state assoc :expanded-message id)
@@ -164,9 +164,6 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update importance")))))
 
-(defn set-importance-filter [fetch-messages-fn level]
-  (swap! *mail-page-state assoc :importance-filter level)
-  (fetch-messages-fn))
 
 (defn set-message-urgency [app-state auth-headers message-id urgency]
   (api/put-json (str "/api/messages/" message-id "/urgency")
@@ -212,12 +209,18 @@
         (fn [resp]
           (swap! app-state assoc :error (get-in resp [:response :error] "Failed to update message"))))))
 
-(defn add-message [app-state auth-headers current-scope-fn title on-success]
+(defn add-message
+  "Add a note to the Inbox, carrying the importance lens the Inbox is being
+  read through — the same thing `add-task` does with it, and for the same
+  reason: with the lens at ★, a note created `normal` is filtered out of the
+  list the moment it is written, and reads as an add that did nothing."
+  [app-state auth-headers current-scope-fn current-importance-fn title on-success]
   (let [scope (current-scope-fn)]
     (api/post-json "/api/messages"
       (cond-> {:sender DEFAULT-SENDER
                :title title
-               :description ""}
+               :description ""
+               :importance (current-importance-fn)}
         (#{"private" "work"} scope) (assoc :scope scope))
       (auth-headers)
     (fn [_]

@@ -179,6 +179,12 @@
          [:div.top-bar-right
           (when (contains? #{:today :tasks :resources :issues :meets :reports} active-tab)
             [controls/relation-mode-toggle])
+          ;; To the left of the scope switcher, and asked the same way: both are
+          ;; lenses on the whole app now rather than filters belonging to one
+          ;; list. The tabs differ, though — the scope switcher reaches the
+          ;; Category pages, which have no importance to filter by.
+          (when (state/importance-filter-applicable?)
+            [controls/importance-filter-toggle])
           (when (contains? (into #{:today :tasks :resources :issues :meets :mail :reports}
                                  (map :tab) constants/category-groups)
                            active-tab)
@@ -206,8 +212,6 @@
              [:div.main-content
               [:div.tasks-header
                [tasks/recurring-toggle]
-               (when-not recurring-mode
-                 [tasks/importance-filter-toggle])
                (when-not recurring-mode
                  [tasks/sort-mode-toggle])]
               (cond

@@ -72,7 +72,7 @@
 (defn- tasks-fetch-opts [app-state]
   (cond-> (merge (category-filters/fetch-opts app-state)
                  {:search-term (:tasks-page/filter-search @app-state)
-                  :importance (:tasks-page/importance-filter @app-state)
+                  :importance (:importance-filter @app-state)
                   :context (:work-private-mode @app-state)
                   :strict (:strict-mode @app-state)})
     (:tasks-page/filter-recurring @app-state)
@@ -80,7 +80,8 @@
 
 (defn- today-fetch-opts [app-state]
   (merge (category-filters/fetch-opts app-state)
-         {:context (:work-private-mode @app-state)
+         {:importance (:importance-filter @app-state)
+          :context (:work-private-mode @app-state)
           :strict (:strict-mode @app-state)}))
 
 (defn- initialize-tasks-page [app-state fetch-tasks-fn]

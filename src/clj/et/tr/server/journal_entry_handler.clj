@@ -45,13 +45,15 @@
 
 (defn list-today-journal-entries-handler
   "GET /api/journal-entries/today — list today's journal entries for the
-  current user. Query params: context and strict (\"true\"/\"false\"). Always
+  current user. Query params: context, strict (\"true\"/\"false\") and
+  importance (the app-wide importance lens, as on the plain listing). Always
   returns 200 with the result vector."
   [req]
   (let [user-id (common/get-user-id req)
         context (get-in req [:params "context"])
-        strict (= "true" (get-in req [:params "strict"]))]
-    {:status 200 :body (db.journal-entry/list-today-journal-entries (common/ensure-ds) user-id {:context context :strict strict})}))
+        strict (= "true" (get-in req [:params "strict"]))
+        importance (get-in req [:params "importance"])]
+    {:status 200 :body (db.journal-entry/list-today-journal-entries (common/ensure-ds) user-id {:context context :strict strict :importance importance})}))
 
 (defn add-journal-entry-handler
   "POST /api/journal-entries/ — create a journal entry. Body fields: :title
