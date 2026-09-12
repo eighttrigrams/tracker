@@ -98,37 +98,68 @@
   is queried at all. The extra read happens only on the path that is **about to
   refuse**, to find out whether the plaintext is an echo of what is already
   there — which is the case a half-migrated database produces on every no-op
-  save, and the reason mixed state stays usable."
+  save, and the reason mixed state stays usable.
+
+  **The two message conversions are the one place an *absent* column is a
+  refusal**, and they earn the exception by deleting their own original. Every
+  other write here can be wrong and then corrected: the row survives, the client
+  reads it back, the next save seals it. A convert cannot. It writes prose into a
+  sealed column and `DELETE`s the message it came from in the same transaction,
+  so the moment it returns 200 there is no clear original to fall back on, no
+  stored value to diff against, and nothing to tell anyone it happened. The one
+  moment this can be got right is before it runs. A sealing user who sends no
+  `description` is therefore told to send one rather than quietly handed a task
+  whose body is readable on fly.
+
+  A convert is also the one write here whose table is not its endpoint's, which
+  is why `table` is resolved through `convert-target` first."
   [req ds]
-  (let [table (rules/endpoint-table (:uri req))
+  (let [uri (:uri req)
+        ;; A message conversion writes into `tasks` or `resources` while sitting
+        ;; at a `messages` URL, and it is the one write that deletes its own
+        ;; original — see `rules/convert-endpoint->table`. Everywhere else the
+        ;; endpoint's own table is the one being written.
+        convert (rules/convert-target uri)
+        table (or convert (rules/endpoint-table uri))
         body (:body req)
         columns (when (and table (map? body))
                   (filter #(contains? body %) (get sealed-columns table)))
         interesting (seq (remove #(blank-value? (get body %)) columns))]
-    (when interesting
+    (when (or interesting convert)
       (when-let [user-id (:user-id (common/get-user-from-request req))]
         (let [sealing? (seals? ds user-id)
-              id (rules/endpoint-id (:uri req))]
-          (some (fn [column]
-                  (let [v (get body column)]
-                    (cond
-                      (and sealing? (not (sealed? v)))
-                      (when-not (= v (stored-value ds table column id user-id))
-                        {:success false
-                         :error (str "This user's " (name column) " is sealed. A write "
-                                     "may not put readable text into it.")
-                         :reason "unsealed"
-                         :column (name column)})
+              ;; A convert **creates** its row, so there is nothing stored to
+              ;; echo — and the id in its path is the *message's*, which would
+              ;; answer for an unrelated task if it were used here.
+              id (when-not convert (rules/endpoint-id uri))]
+          (or
+           (when (and convert sealing? (not (contains? body :description)))
+             {:success false
+              :error (str "This user's prose is sealed, and a conversion must carry the "
+                          "sealed body. Send description with this request: the message "
+                          "is deleted by it, so its text cannot be recovered afterwards.")
+              :reason "unsealed"
+              :column "description"})
+           (some (fn [column]
+                   (let [v (get body column)]
+                     (cond
+                       (and sealing? (not (sealed? v)))
+                       (when-not (= v (stored-value ds table column id user-id))
+                         {:success false
+                          :error (str "This user's " (name column) " is sealed. A write "
+                                      "may not put readable text into it.")
+                          :reason "unsealed"
+                          :column (name column)})
 
-                      (and (not sealing?) (sealed? v))
-                      {:success false
-                       :error (str "This user does not seal prose, and this write carries "
-                                   "an envelope in " (name column) ".")
-                       :reason "sealed"
-                       :column (name column)}
+                       (and (not sealing?) (sealed? v))
+                       {:success false
+                        :error (str "This user does not seal prose, and this write carries "
+                                    "an envelope in " (name column) ".")
+                        :reason "sealed"
+                        :column (name column)}
 
-                      :else nil)))
-                interesting))))))
+                       :else nil)))
+                 interesting)))))))
 
 (defn wrap-seal-guard
   "Refuse, with a 400 and nothing written, any write that would put readable text

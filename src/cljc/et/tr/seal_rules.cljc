@@ -384,6 +384,66 @@
           segs (if (= "api" (first segs)) (rest segs) segs)]
       (get api-segment->table (first segs)))))
 
+(def convert-endpoint->table
+  "The two message conversions, and the table each one lands a body in.
+
+  `POST /api/messages/:id/convert-to-task` and `…/convert-to-resource` are the
+  one write in tracker that **deletes its own original**. The message is
+  plaintext by design and permanently — three producers that hold no key write
+  them — and the row it creates is in a sealed column, and the `DELETE FROM
+  messages` is in the same transaction.
+
+  That is what makes them different from the `\"t \"` title-prefix auto-convert,
+  which is accepted as leaving plaintext behind on the argument that *the message
+  it was copied from is in the clear in the same database, so sealing the copy
+  protects nothing while the original sits beside it*. For these two the original
+  does not sit beside it. After the convert the only copy of that prose is
+  readable, in a column the whole feature exists to make unreadable on fly.
+
+  So the client sends the body it already holds, sealed, and the server writes
+  that instead of copying; and a client that seals and sends nothing is refused,
+  because the message is gone either way and there is no second chance at it.
+
+  **`messages` is still not in `api-segment->table`, and must not be.** A message
+  body is never sealed and a `PUT /api/messages/:id` must stay in the clear. What
+  is sealed here is not the message — it is the row the convert creates, which is
+  a different table, and this map is the only place that distinction is drawn.
+
+  Keyed by the last segment, and matched only under `messages`:
+  `/api/issues/:id/convert-to-task` is a *different* endpoint and is genuinely
+  fine, because it copies ciphertext to ciphertext under the single binding."
+  {"convert-to-task" :tasks
+   "convert-to-resource" :resources})
+
+(defn- api-segments
+  "The path segments of an endpoint after `/api`, query string dropped."
+  [endpoint]
+  (when (string? endpoint)
+    (let [path (first (str/split endpoint #"\?"))
+          segs (remove str/blank? (str/split path #"/"))]
+      (vec (if (= "api" (first segs)) (rest segs) segs)))))
+
+(defn convert-target
+  "The table a message conversion writes its body into, or `nil`.
+
+  `/api/messages/7/convert-to-task` → `:tasks`. Everything else, including every
+  ordinary message write and `/api/issues/7/convert-to-task`, → `nil`.
+
+  It is deliberately **not** `endpoint-table`, and the difference is not
+  cosmetic. `endpoint-table` answers *whose rows does this endpoint serve*, and
+  the answer for a message endpoint is `messages`, which is clear. Worse, the id
+  in this path is the **message's**, so a client that resolved this to `:tasks`
+  and then looked `[:tasks 7 :description]` up in its stored index would find
+  some unrelated task's ciphertext and echo it into the new row — a valid
+  envelope, opening to the wrong prose, with no error anywhere. That is exactly
+  the failure `stored-entries` refuses to risk, and the reason this is a separate
+  question with a separate answer: a convert is a **create**, and a create has
+  nothing to echo."
+  [endpoint]
+  (let [segs (api-segments endpoint)]
+    (when (and (= "messages" (first segs)) (= 3 (count segs)))
+      (get convert-endpoint->table (nth segs 2)))))
+
 (defn stored-entries
   "`[[table id column ciphertext] …]` — what a client should remember about the
   sealed values in one response, so that a later write of an unchanged body can

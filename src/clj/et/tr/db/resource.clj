@@ -132,7 +132,21 @@
                     :returning return-cols})
        db/jdbc-opts))))
 
-(defn convert-message-to-resource [ds user-id message-id link & {:keys [title]}]
+(defn convert-message-to-resource
+  "Turn a message into a resource pointing at `link`, and delete the message, in
+  one transaction.
+
+  `:description` is the body to write. When it is absent the message's own body
+  is copied across, which is what this always did and what every user who does
+  not seal still gets. A client that seals sends the body it already holds,
+  **already sealed** — the copy would otherwise be readable prose in a sealed
+  column, and the message it came from is deleted a few lines below, so there is
+  no second copy to correct it from. `et.tr.envelope` refuses the absent case for
+  a sealing user before this function is reached.
+
+  An empty string is a value and not an absence: a link-only message has no body
+  to protect, and blank is never sealed."
+  [ds user-id message-id link & {:keys [title description]}]
   (let [conn (db/get-conn ds)]
     (jdbc/with-transaction [tx conn]
       (when-let [message (jdbc/execute-one! tx
@@ -140,7 +154,7 @@
                                         :from [:messages]
                                         :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
                            db/jdbc-opts)]
-        (let [description (or (:description message) "")
+        (let [description (or description (:description message) "")
               resource (jdbc/execute-one! tx
                          (sql/format {:insert-into :resources
                                       :values [{:title (or title (:title message))

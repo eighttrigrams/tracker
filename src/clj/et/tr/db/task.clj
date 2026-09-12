@@ -528,37 +528,52 @@
                          (db/user-id-where-clause user-id)]})
     db/jdbc-opts))
 
-(defn convert-message-to-task [ds user-id message-id]
-  (let [conn (db/get-conn ds)]
-    (jdbc/with-transaction [tx conn]
-      (when-let [message (jdbc/execute-one! tx
-                           (sql/format {:select [:id :title :description :scope :importance :urgency]
-                                        :from [:messages]
-                                        :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
-                           db/jdbc-opts)]
-        (let [description (or (:description message) "")
-              task (jdbc/execute-one! tx
-                     (sql/format {:insert-into :tasks
-                                  :values [{:title (:title message)
-                                            :sort_order (db/top-of-order tx :tasks-page user-id)
-                                            :user_id user-id
-                                            :modified_at (clock/sql-now)
-                                            :scope (or (:scope message) "both")
-                                            :importance (or (:importance message) "normal")
-                                            :urgency (or (:urgency message) "default")}]
-                                  :returning (conj db/task-select-columns :user_id)})
-                     db/jdbc-opts)]
-          (when (seq description)
-            (jdbc/execute-one! tx
-              (sql/format {:update :tasks
-                           :set {:description description :modified_at (clock/sql-now)}
-                           :where [:and [:= :id (:id task)] (db/user-id-where-clause user-id)]})
-              db/jdbc-opts))
-          (jdbc/execute-one! tx
-            (sql/format {:delete-from :messages
-                         :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]}))
-          ;; A message can carry an urgency, so the new task can be born into
-          ;; Urgent Matters and needs the position that goes with it.
-          (place-in-urgent-list! tx user-id (:id task) (:urgency task))
-          (tel/log! {:level :info :data {:message-id message-id :task-id (:id task) :user-id user-id}} "Message converted to task")
-          (merge task db/empty-category-groups {:description description}))))))
+(defn convert-message-to-task
+  "Turn a message into a task and delete the message, in one transaction.
+
+  `description` is the body to write. When it is `nil` the message's own body is
+  copied across, which is what this always did and what every user who does not
+  seal still gets. A client that seals sends the body it already holds, **already
+  sealed**, because the copy would otherwise be readable prose in a sealed column
+  and the message it came from is deleted four lines below — there is no second
+  copy and no second chance. `et.tr.envelope` refuses the nil case for a sealing
+  user before this function is reached.
+
+  An empty string is a value and not an absence: a link-only message from the
+  feed worker has no body to protect, blank is never sealed, and `(or \"\" …)`
+  answers `\"\"`."
+  ([ds user-id message-id] (convert-message-to-task ds user-id message-id nil))
+  ([ds user-id message-id description]
+   (let [conn (db/get-conn ds)]
+     (jdbc/with-transaction [tx conn]
+       (when-let [message (jdbc/execute-one! tx
+                            (sql/format {:select [:id :title :description :scope :importance :urgency]
+                                         :from [:messages]
+                                         :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]})
+                            db/jdbc-opts)]
+         (let [description (or description (:description message) "")
+               task (jdbc/execute-one! tx
+                      (sql/format {:insert-into :tasks
+                                   :values [{:title (:title message)
+                                             :sort_order (db/top-of-order tx :tasks-page user-id)
+                                             :user_id user-id
+                                             :modified_at (clock/sql-now)
+                                             :scope (or (:scope message) "both")
+                                             :importance (or (:importance message) "normal")
+                                             :urgency (or (:urgency message) "default")}]
+                                   :returning (conj db/task-select-columns :user_id)})
+                      db/jdbc-opts)]
+           (when (seq description)
+             (jdbc/execute-one! tx
+               (sql/format {:update :tasks
+                            :set {:description description :modified_at (clock/sql-now)}
+                            :where [:and [:= :id (:id task)] (db/user-id-where-clause user-id)]})
+               db/jdbc-opts))
+           (jdbc/execute-one! tx
+             (sql/format {:delete-from :messages
+                          :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]}))
+           ;; A message can carry an urgency, so the new task can be born into
+           ;; Urgent Matters and needs the position that goes with it.
+           (place-in-urgent-list! tx user-id (:id task) (:urgency task))
+           (tel/log! {:level :info :data {:message-id message-id :task-id (:id task) :user-id user-id}} "Message converted to task")
+           (merge task db/empty-category-groups {:description description})))))))

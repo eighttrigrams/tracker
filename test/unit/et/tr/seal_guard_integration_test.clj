@@ -13,14 +13,18 @@
   > plaintext prose into a sealed column. An **echo** of the value already stored
   > is not an introduction."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [clojure.data.json :as json]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [et.tr.auth :as auth]
             [et.tr.db :as db]
+            [et.tr.db.user :as db.user]
             [et.tr.envelope :as envelope]
-            [et.tr.integration-helpers :refer [*ds* *user-id* GET-json POST-json PUT-json
-                                               with-integration-db]]
+            [et.tr.integration-helpers :refer [*app* *ds* *user-id* GET-json
+                                               POST-json PUT-json with-integration-db]]
             [honey.sql :as sql]
-            [next.jdbc :as jdbc]))
+            [next.jdbc :as jdbc]
+            [ring.mock.request :as mock]))
 
 (use-fixtures :each with-integration-db)
 
@@ -154,3 +158,109 @@
   (let [id (new-task!)]
     (is (= 200 (:status (PUT-json (str "/api/tasks/" id) {:title "retitled" :tags "x"})))
         "an absent column is not a write to that column")))
+
+;; ---------------------------------------------------------------------------
+;; The two message conversions, which are the one write that deletes its own
+;; original.
+;;
+;; A message body is plaintext by design and permanently — three producers that
+;; hold no key write them. `convert-message-to-task` and
+;; `convert-message-to-resource` copied that body into a **sealed** column and
+;; then `DELETE`d the message in the same transaction.
+;;
+;; The acceptance argument that covers the `"t "` auto-convert does not reach
+;; these two. That argument is *the message it was copied from is in the clear in
+;; the same database, so sealing the copy protects nothing while the original
+;; sits beside it* — and for these the original does not sit beside it. After the
+;; convert the only copy of that prose in the database is readable, in a column
+;; the whole feature exists to make unreadable on fly.
+;;
+;; So the client, which holds both the message body and the key, seals it and
+;; sends it; and a convert that does not is refused rather than quietly allowed,
+;; because there is no second chance at it.
+
+(defn- a-message! [body]
+  (:id (:body (POST-json "/api/messages" {:sender "the poller" :title "an article"
+                                          :description body}))))
+
+(defn- stored-description-of [table id]
+  (:description (jdbc/execute-one! (db/get-conn *ds*)
+                                   (sql/format {:select [:description] :from [table]
+                                                :where [:= :id id]})
+                                   db/jdbc-opts)))
+
+(deftest a-convert-writes-the-sealed-body-the-client-sends
+  (seal-user! true)
+  (testing "to a task"
+    (let [message (a-message! "a paragraph of his own notes")
+          resp (POST-json (str "/api/messages/" message "/convert-to-task")
+                          {:description (an-envelope)})]
+      (is (= 200 (:status resp)))
+      (is (= (an-envelope) (stored-description-of :tasks (:id (:body resp))))
+          "the client's envelope, and not the message body copied")))
+  (testing "to a resource"
+    (let [message (a-message! "a paragraph of his own notes")
+          resp (POST-json (str "/api/messages/" message "/convert-to-resource")
+                          {:link "https://example.com/x" :description (an-envelope)})]
+      (is (= 200 (:status resp)))
+      (is (= (an-envelope) (stored-description-of :resources (:id (:body resp))))))))
+
+(deftest a-sealing-user-s-convert-that-carries-no-body-is-refused
+  ;; Not *allowed and sealed later* — there is no later. The message row is gone
+  ;; in the same transaction, so there is no clear original to fall back on and
+  ;; nothing to diff against. The one moment this can be got right is this one.
+  (seal-user! true)
+  (testing "to a task"
+    (let [message (a-message! "a paragraph of his own notes")
+          resp (POST-json (str "/api/messages/" message "/convert-to-task") {})]
+      (is (= 400 (:status resp)))
+      (is (= "unsealed" (:reason (:body resp))))
+      (is (some? (:id (:body (GET-json (str "/api/messages/" message)))))
+          "and nothing was written: the message is still in the inbox")))
+  (testing "to a resource"
+    (let [message (a-message! "a paragraph of his own notes")
+          resp (POST-json (str "/api/messages/" message "/convert-to-resource")
+                          {:link "https://example.com/x"})]
+      (is (= 400 (:status resp)))
+      (is (some? (:id (:body (GET-json (str "/api/messages/" message)))))))))
+
+(deftest a-sealing-user-s-convert-may-not-carry-readable-prose-either
+  (seal-user! true)
+  (let [message (a-message! "a paragraph of his own notes")
+        resp (POST-json (str "/api/messages/" message "/convert-to-task")
+                        {:description "a paragraph of his own notes"})]
+    (is (= 400 (:status resp))
+        "a create has nothing to echo, so plaintext here is an introduction")))
+
+(deftest a-convert-of-an-empty-message-needs-no-body
+  ;; A link-only message from the feed worker is the common case, and blank is
+  ;; never sealed. Requiring an envelope for a body that does not exist would
+  ;; make the commonest convert in the app impossible.
+  (seal-user! true)
+  (let [message (a-message! "")
+        resp (POST-json (str "/api/messages/" message "/convert-to-task")
+                        {:description ""})]
+    (is (= 200 (:status resp)))
+    (is (= "" (stored-description-of :tasks (:id (:body resp)))))))
+
+(deftest a-user-who-does-not-seal-converts-exactly-as-before
+  ;; The behaviour every other user in this database has, and the behaviour the
+  ;; whole app had before the seal: the server copies the message body across.
+  ;; Nothing about this change may reach `antonio`.
+  (seal-user! false)
+  (testing "to a task"
+    (let [message (a-message! "the mail body")
+          resp (POST-json (str "/api/messages/" message "/convert-to-task") {})]
+      (is (= 200 (:status resp)))
+      (is (= "the mail body" (stored-description-of :tasks (:id (:body resp)))))))
+  (testing "to a resource"
+    (let [message (a-message! "the mail body")
+          resp (POST-json (str "/api/messages/" message "/convert-to-resource")
+                          {:link "https://example.com/y"})]
+      (is (= 200 (:status resp)))
+      (is (= "the mail body" (stored-description-of :resources (:id (:body resp)))))))
+  (testing "and an envelope from a keyed client is refused, as everywhere else"
+    (let [message (a-message! "the mail body")]
+      (is (= 400 (:status (POST-json (str "/api/messages/" message "/convert-to-task")
+                                     {:description (an-envelope)})))))))
+

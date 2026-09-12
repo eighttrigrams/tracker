@@ -300,7 +300,14 @@
   resource pointing at a URL. Body field: link (required, must match
   https?://...; 400 otherwise). For YouTube and Substack URLs, the title is
   fetched via common helpers and passed through. Requires Mail access (403);
-  404 when the message is not found."
+  404 when the message is not found.
+
+  Optional body field: description — the body to write, which a client that
+  seals sends **already sealed**. Absent, the message's own body is copied, as
+  it always was. `et.tr.envelope` refuses the absent case for a sealing user:
+  this write deletes the message it copies from, so a plaintext body landing in
+  `resources.description` has no clear original left beside it and no second
+  chance to be sealed."
   [req]
   (with-mail-message-context req user-id message-id
     (let [link (get-in req [:body :link])]
@@ -315,7 +322,9 @@
                       (common/substack-url? link) (common/fetch-substack-title link)
                       (and existing (common/atom-message-not-yet-titled? existing))
                       (common/extract-atom-entry-title (:description existing)))]
-          (if-let [result (db.resource/convert-message-to-resource (common/ensure-ds) user-id message-id link :title title)]
+          (if-let [result (db.resource/convert-message-to-resource (common/ensure-ds) user-id message-id link
+                                                                  :title title
+                                                                  :description (get-in req [:body :description]))]
             {:status 200 :body result}
             {:status 404 :body {:error "Message not found"}}))))))
 
@@ -323,10 +332,19 @@
   "POST /api/messages/:id/convert-to-task — convert a message into a task
   belonging to the same user. No body fields are required. Requires Mail
   access (403); 404 when the message is not found, 200 with the new task
-  on success."
+  on success.
+
+  Optional body field: description — the body to write, which a client that
+  seals sends **already sealed**. Absent, the message's own body is copied, as
+  it always was. `et.tr.envelope` refuses the absent case for a sealing user:
+  this write deletes the message it copies from, so a plaintext body landing in
+  `tasks.description` has no clear original left beside it and no second chance
+  to be sealed. That is what makes these two conversions different from the
+  `\"t \"` title prefix above, whose original does stay in the inbox."
   [req]
   (with-mail-message-context req user-id message-id
-    (if-let [result (db.task/convert-message-to-task (common/ensure-ds) user-id message-id)]
+    (if-let [result (db.task/convert-message-to-task (common/ensure-ds) user-id message-id
+                                                     (get-in req [:body :description]))]
       {:status 200 :body result}
       {:status 404 :body {:error "Message not found"}})))
 
