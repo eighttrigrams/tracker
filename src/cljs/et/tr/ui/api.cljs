@@ -70,8 +70,11 @@
             [et.tr.ui.seal :as seal]))
 
 (defonce ^:private stored
-  ;; `{[table id column] ciphertext}`. Not a cache of anything readable — it holds
-  ;; only values this browser received already sealed, and it is emptied on sign-out.
+  ;; `{[table id column] value}` — what each row's body held when this browser
+  ;; last read it, in whichever encoding it arrived in. A ciphertext from a
+  ;; migrated row; a plaintext from one the walker has not reached, because rule
+  ;; 2 echoes either. Nothing here that the app-state does not already hold in
+  ;; the clear, and it is emptied on sign-out.
   (atom {}))
 
 (defn forget-stored!
@@ -82,7 +85,8 @@
   (reset! stored {}))
 
 (defn- remember!
-  "Index what arrived sealed, **before** anything is opened."
+  "Index what arrived, **before** anything is opened — which is the ordering the
+  ciphertext half depends on, since unsealing is what throws the bytes away."
   [endpoint body]
   (swap! stored seal/remember endpoint body))
 

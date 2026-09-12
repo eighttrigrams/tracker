@@ -494,20 +494,95 @@
      done)))
 
 (deftest an-unmigrated-row-echoes-its-plaintext-rather-than-sealing-it
+  ;; The test name is the contract, and it used to assert the opposite of
+  ;; itself — the review's NIT-4, and the reason this is worth more than a
+  ;; comment: a name is what somebody greps for.
+  ;;
+  ;; Rule 2 is *never re-seal an unchanged value — echo the stored value,
+  ;; **whichever encoding it has***. The browser had only the first half: the
+  ;; index collected ciphertext, so an unmigrated row contributed nothing and
+  ;; `stored-for` could never answer with a plaintext.
+  ;;
+  ;; The leak that closes is narrow and nasty. During the mixed window a no-op
+  ;; save on a row the walker has *already been past* sealed afresh, and
+  ;; `record-update!` diffs before against after — so it wrote an `:update`
+  ;; event whose `old-value` is the body in the clear, into the audit log, at
+  ;; exactly the moment the walker was never coming back for it.
   (async done
     (finally!
      (.then (test-key)
             (fn [k]
-              ;; Nothing arrived sealed, so nothing was indexed — but the row is
-              ;; in the response, and the mixed window is exactly when this
-              ;; matters: a no-op save must stay a no-op.
               (let [index (seal/remember {} "/api/tasks/7" {:id 7 :description "still plaintext"})]
-                (is (= {} index) "a plaintext row contributes nothing to index")
+                (is (= {[:tasks 7 :description] "still plaintext"} index)
+                    "an unmigrated row is remembered too, as what it is")
                 (.then (seal/seal-params k index "/api/tasks/7" {:description "still plaintext"})
                        (fn [params]
-                         (is (seal/sealed? (:description params))
-                             "and so this save does seal it — which is the row sealing on its first write"))))))
+                         (is (= "still plaintext" (:description params))
+                             "a no-op stays a no-op, so there is no :update event and
+                              no plaintext old-value written into the log")
+                         (is (not (seal/sealed? (:description params))))))))) 
      done)))
+
+(deftest a-real-edit-of-an-unmigrated-row-still-seals-it
+  ;; The other half, and the one that makes the row migrate itself. Only a save
+  ;; that changes nothing is a no-op; a save that changes the body is a write,
+  ;; and a write by a client holding a key is sealed.
+  (async done
+    (finally!
+     (.then (test-key)
+            (fn [k]
+              (let [index (seal/remember {} "/api/tasks/7" {:id 7 :description "still plaintext"})]
+                (.then (seal/seal-params k index "/api/tasks/7" {:description "edited"})
+                       (fn [params]
+                         (is (seal/sealed? (:description params)))
+                         (.then (seal/unseal k :tasks :description (:description params))
+                                (fn [out] (is (= "edited" out))))))))) 
+     done)))
+
+(deftest a-remembered-plaintext-cannot-be-mistaken-for-remembered-bytes
+  ;; Both kinds live at one key — `[table id column]` — and the value says which
+  ;; it is, because the `enc:v1:` prefix is self-describing. That is the same
+  ;; argument `body-prose-paths` makes for the read path, and it is what keeps
+  ;; one key per row honest: the **latest** read is the truth, whichever
+  ;; encoding it came back in, so a row that seals under the walker and is read
+  ;; again cannot go on being echoed as the plaintext it used to be.
+  (async done
+    (finally!
+     (.then (test-key)
+            (fn [k]
+              (.then (seal/seal k :tasks :description "the body" nil)
+                     (fn [ct]
+                       (let [before (seal/remember {} "/api/tasks/7" {:id 7 :description "the body"})
+                             after (seal/remember before "/api/tasks/7" {:id 7 :description ct})]
+                         (is (= "the body" (get before [:tasks 7 :description])))
+                         (is (= ct (get after [:tasks 7 :description]))
+                             "the walker sealed it and the next read says so")
+                         (is (= 1 (count after)) "one key, not two")
+                         (.then (seal/seal-params k after "/api/tasks/7" {:description "the body"})
+                                (fn [params]
+                                  (is (= ct (:description params))
+                                      "and the echo is now the bytes, not the stale plaintext"))))))))
+     done)))
+
+(deftest a-blank-body-is-not-remembered
+  ;; Nothing to echo and nothing to protect: blank is never sealed, so
+  ;; `seal-at` answers before the index is consulted at all. Indexing it would
+  ;; be a row's worth of noise per empty journal entry.
+  (is (= {} (seal/remember {} "/api/tasks/7" {:id 7 :description ""})))
+  (is (= {} (seal/remember {} "/api/tasks/7" {:id 7 :description "   "})))
+  (is (= {} (seal/remember {} "/api/tasks/7" {:id 7}))))
+
+(deftest a-message-body-is-not-remembered-either
+  ;; Message bodies are plaintext permanently, so the "only sealed values are
+  ;; collected" rule used to keep them out of the index for free. It no longer
+  ;; does, and what keeps them out now is the thing that always really did: an
+  ;; endpoint whose table cannot be named contributes nothing, and `messages`
+  ;; is deliberately absent from both `api-segment->table` and
+  ;; `container-key->table`.
+  (is (= {} (seal/remember {} "/api/messages/3" {:id 3 :description "an inbox body"})))
+  (is (= {} (seal/remember {} "/api/messages" [{:id 3 :description "from the poller"}])))
+  (is (= {} (seal/remember {} "/api/mottos/2" {:id 2 :description "Seize the day"}))))
+
 
 (deftest a-write-with-no-key-goes-out-untouched
   (async done

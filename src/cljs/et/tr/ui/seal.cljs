@@ -316,20 +316,28 @@
 ;; fixture and the wiring was not. So: index → lookup → write is a test.
 
 (defn remember
-  "Fold what arrived sealed in one response into the stored index. Called
+  "Fold what one response says its rows hold into the stored index. Called
   **before** anything is opened, because unsealing is what throws the ciphertext
   away.
 
-  Keyed `[table id column]`, and a row whose table cannot be named with certainty
-  is not indexed at all — see `et.tr.seal-rules/stored-entries`."
+  Both encodings are remembered — a ciphertext from a migrated row, a plaintext
+  from one the walker has not reached — because rule 2 echoes *whichever encoding
+  the column has*. The value says which it is; the prefix is self-describing.
+  Blanks are not remembered: there is nothing to echo, and `seal-at` answers on
+  the blank rule before this index is consulted.
+
+  Keyed `[table id column]`, one key per row and column, and a row whose table
+  cannot be named with certainty is not indexed at all — see
+  `et.tr.seal-rules/stored-entries`, which argues both."
   [index endpoint body]
   (into index
         (for [[table id column ciphertext] (stored-entries endpoint body)]
           [[table id column] ciphertext])))
 
 (defn stored-for
-  "What `index` says this endpoint's row holds in that column right now, or `nil`
-  — which is what a create is, and what a row this browser has never read is, and
+  "What `index` says this endpoint's row holds in that column right now —
+  ciphertext or plaintext, whichever the last read of it carried — or `nil`,
+  which is what a create is, and what a row this browser has never read is, and
   in both cases the right answer is to seal afresh."
   [index endpoint column]
   (get index [(endpoint-table endpoint) (endpoint-id endpoint) column]))

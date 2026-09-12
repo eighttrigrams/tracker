@@ -259,6 +259,39 @@
 ;; ---------------------------------------------------------------------------
 ;; Where prose hides in a response body.
 
+(defn- prose-paths-where
+  "The shared traversal. `collect?` decides which values are worth a path."
+  [collect? body]
+  (letfn [(walk [node path acc]
+            (cond
+              (map? node)
+              (let [acc (if (collect? (get node :description))
+                          (conj acc [(conj path :description) item-description-aad])
+                          acc)
+                    ;; An audit payload is the one place with a shape, because it
+                    ;; is JSON the server assembled rather than a row. Handled
+                    ;; here and then *not* descended into, or the generic
+                    ;; :description rule below would collect [:payload :row
+                    ;; :description] a second time and the walk would seal or
+                    ;; open it twice.
+                    payload (get node :payload)
+                    acc (if (map? payload)
+                          (into acc (for [[p a] (prose-paths payload)
+                                          :when (collect? (get-in payload p))]
+                                      [(into (conj path :payload) p) a]))
+                          acc)]
+                (reduce-kv (fn [a k v]
+                             (if (= k :payload) a (walk v (conj path k) a)))
+                           acc node))
+
+              (sequential? node)
+              (reduce (fn [a [i v]] (walk v (conj path i) a))
+                      acc
+                      (map-indexed vector node))
+
+              :else acc))]
+    (walk body [] [])))
+
 (defn body-prose-paths
   "Every place in one already-parsed response body that is **actually sealed**, as
   `[[path aad] …]`.
@@ -292,37 +325,31 @@
 
   A category nested inside a task's response is collected too, and correctly: it
   is a `categories` row, its body is sealed, and the walk finds it without anyone
-  having had to remember that tasks carry categories."
+  having had to remember that tasks carry categories.
+
+  ## The walk is shared, the predicate is not
+
+  `indexable-prose-paths` below runs the same traversal with a wider question,
+  because the *index* needs the plaintexts the read path has no use for. One walk
+  with a predicate rather than two walks: the shapes of a response body are
+  exactly the kind of knowledge that drifts when it is written down twice."
   [body]
-  (letfn [(walk [node path acc]
-            (cond
-              (map? node)
-              (let [acc (if (sealed? (get node :description))
-                          (conj acc [(conj path :description) item-description-aad])
-                          acc)
-                    ;; An audit payload is the one place with a shape, because it
-                    ;; is JSON the server assembled rather than a row. Handled
-                    ;; here and then *not* descended into, or the generic
-                    ;; :description rule below would collect [:payload :row
-                    ;; :description] a second time and the walk would seal or
-                    ;; open it twice.
-                    payload (get node :payload)
-                    acc (if (map? payload)
-                          (into acc (for [[p a] (prose-paths payload)
-                                          :when (sealed? (get-in payload p))]
-                                      [(into (conj path :payload) p) a]))
-                          acc)]
-                (reduce-kv (fn [a k v]
-                             (if (= k :payload) a (walk v (conj path k) a)))
-                           acc node))
+  (prose-paths-where sealed? body))
 
-              (sequential? node)
-              (reduce (fn [a [i v]] (walk v (conj path i) a))
-                      acc
-                      (map-indexed vector node))
+(defn indexable-prose-paths
+  "Every prose value in a response body worth remembering, sealed **or not**.
 
-              :else acc))]
-    (walk body [] [])))
+  `body-prose-paths` answers *what must be opened*, and only a ciphertext can be.
+  This answers *what the row holds right now*, and during the mixed window the
+  honest answer for most rows is a plaintext. See `stored-entries` for what that
+  is for, and rule 2 for why it matters.
+
+  Blanks are excluded. There is nothing to echo and nothing to protect — `seal-at`
+  answers on the blank rule before the index is ever consulted — and every empty
+  journal entry would otherwise cost an entry."
+  [body]
+  (prose-paths-where #(and (string? %) (not (blank-value? %))) body))
+
 
 ;; ---------------------------------------------------------------------------
 ;; Knowing which table a value belongs to — for writing, and only for writing.
@@ -445,9 +472,41 @@
       (get convert-endpoint->table (nth segs 2)))))
 
 (defn stored-entries
-  "`[[table id column ciphertext] …]` — what a client should remember about the
-  sealed values in one response, so that a later write of an unchanged body can
-  echo the very bytes already stored rather than spending a fresh nonce on them.
+  "`[[table id column value] …]` — what a client should remember about the prose
+  in one response, so that a later write of an unchanged body can echo what the
+  column already holds rather than spending a fresh nonce on it.
+
+  ## Both encodings, because rule 2 has two halves
+
+  Rule 2 is *never re-seal an unchanged value — echo the stored value, **whichever
+  encoding it has***, and this used to collect only the sealed half. An unmigrated
+  row contributed nothing, `stored-for` could never answer with a plaintext, and a
+  no-op save on such a row sealed it.
+
+  That reads like the better behaviour — the row migrates itself — and it has a
+  cost the rule exists to avoid. `record-update!` diffs before against after, so
+  the save writes an `:update` event whose **`old-value` is the body in the
+  clear**, into the audit log, on a row the walker has already been past and is
+  never coming back for. A seal that leaks the prose into the log while sealing
+  the column is not a seal.
+
+  A row still migrates on its first *real* edit, which is what rule 2 has always
+  said and what the mixed window is for.
+
+  **One key per row and column, and the value says which kind it is** — the
+  `enc:v1:` prefix is self-describing, which is the same argument the read path
+  makes in `body-prose-paths`. Two keys, one per encoding, was the alternative and
+  is worse: a row sealed by the walker between two reads would leave a stale
+  plaintext sitting beside the fresh ciphertext, and something would have to
+  decide which of two truths to believe. With one key the latest read wins, which
+  is the only answer that stays correct in both directions of a migration.
+
+  Echoing a remembered plaintext is a weaker claim than echoing remembered bytes,
+  and it is worth knowing how it fails: if the walker sealed the row since this
+  client read it, the server sees plaintext from a sealing user that does not
+  match what is stored and refuses with a 400. A refused save, visible and
+  diagnosable — as against the old behaviour, which succeeded and wrote the prose
+  into the log.
 
   ## Keyed by row, never by text
 
@@ -466,13 +525,21 @@
   quietly asserting that two rows are equal. There is no error message for that
   and no way to find it afterwards.
 
+  It is also what keeps `messages` out, now that sealedness no longer does it for
+  free. A message body is plaintext permanently and is now exactly the shape this
+  collects — but `messages` is absent from `api-segment->table` *and* from
+  `container-key->table`, so no message row can be given a table, and a row with
+  no table is skipped. The same absence that keeps message bodies in the clear on
+  the write path keeps them out of the index, which is one decision doing both
+  jobs rather than two that could disagree.
+
   So: the table comes from the last container key on the path
   (`[:tasks 0 :categories 0 :description]` is a category, not a task), or failing
   that from the endpoint, when the body is the row the endpoint names. If neither
   answers, or the row carries no `:id`, the value is skipped."
   [endpoint body]
   (let [root (endpoint-table endpoint)]
-    (->> (body-prose-paths body)
+    (->> (indexable-prose-paths body)
          (keep (fn [[path _]]
                  (let [column (last path)
                        row-path (vec (butlast path))
