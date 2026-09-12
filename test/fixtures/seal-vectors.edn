@@ -1,0 +1,324 @@
+;; The tracker envelope, pinned.
+;;
+;; Tracker seals one thing: the `description` body of a Recipe-less item — a
+;; task, an issue, a meeting, a journal entry, a resource, a category — and only
+;; for the one user whose `users.seal_prose` is 1. Titles, names and tags stay
+;; clear, because they are what the search runs on and what he chose to find
+;; things by. Prose was never that.
+;;
+;; **This file exists because three implementations must not disagree.**
+;;
+;;   tracker/src/cljs/et/tr/ui/seal.cljs   the browser, WebCrypto
+;;   tracker/src/clj/et/tr/envelope.clj    the server, which holds no key and
+;;                                         knows only the prefix and the columns
+;;   plurama-cli/tracker_seal.clj          the CLI, the agents and the proxy
+;;
+;; A docstring claiming they agree is not a contract. An assertion against this
+;; file is. Every suite reads it and refuses to pass without it — a drift control
+;; you can silently not run is not one.
+;;
+;; ## Regenerating
+;;
+;; Don't, casually. Regenerating changes every ciphertext in here, which is a
+;; deliberate act — a new envelope version — and never a way to make a red test
+;; go green. A red test here means an implementation moved, and the implementation
+;; is what should move back.
+;;
+;; ## The key in this file is a test key
+;;
+;; `:key-base64` is a throwaway, generated for this file and used nowhere. The
+;; vectors are meant to be readable by anyone with the repo; that is the point of
+;; them. **Never put the real key here**, and note that the real one is a
+;; *different* secret from cookbook's — one envelope, two apps, two keys, because
+;; a leaked key cannot be rotated out of the data it already sealed.
+;;
+;; ## What each key means
+;;
+;;   :envelope          the shape, stated so a reader need not infer it
+;;   :key-fingerprint   the eight characters every surface shows — the ⚙ panel,
+;;                      the proxy's startup line, the walker's header. Pinned
+;;                      here because a comparison two sides compute differently
+;;                      is a lie that reads as a check.
+;;   :key-base64        the key every :vectors entry was sealed under
+;;   :other-key-base64  a second key, used only by the wrong-key tamper case
+;;   :binding           which name a table's values are bound under — the AAD's
+;;                      first half. **Nine tables, one binding**, and that is the
+;;                      schema being told the truth rather than sloppiness: the
+;;                      server copies a body from `issues` into `tasks` when an
+;;                      issue is converted, and a category keeps its id when its
+;;                      Group changes. Bind per table and the first conversion
+;;                      seals a value shut in the column it lands in.
+;;   :sealed-columns    the inventory. Nine tables, one column each.
+;;   :clear-tables      named so that a reader knows the omission is a decision.
+;;                      `messages` above all: its bodies are written by three
+;;                      producers that hold no key and cannot be given one — the
+;;                      IMAP poller, blog's forwarding, and tracker's own feed
+;;                      worker — and its list search reads the body. `mottos` is
+;;                      the other judgement: a motto's description is a second
+;;                      name for the same thing (Carpe Diem / Seize the day), not
+;;                      prose, and the model's line is names clear, prose sealed.
+;;   :event-prose       where prose hides inside `events.payload`, which is JSON
+;;                      and not a column. Going forward the server seals none of
+;;                      this and needs to seal none of it: it copies values that
+;;                      arrived sealed. The historical rows are the walker's job,
+;;                      and the browser's audit view unseals what it renders.
+;;   :vectors           nonce + plaintext + the exact ciphertext it must produce.
+;;                      Seal with that nonce and you must get that string, byte
+;;                      for byte; unseal that string and you must get the
+;;                      plaintext back.
+;;   :blank             values the seal must hand back untouched — nil is the
+;;                      sixth of them and cannot be written in a vector beside
+;;                      strings without reading as one, so the suites add it
+;;                      themselves. Never-seal-blank is what leaves
+;;                      `prune-empty-entries` able to see an empty journal entry.
+;;   :round-trip        seal then unseal, under a fresh nonce each time
+;;   :passthrough       values unsealing must hand back untouched, because they
+;;                      do not carry the prefix. The near-misses are the point.
+;;   :unopenable        values that carry the prefix and will not open. This is
+;;                      the one class where two hosts genuinely diverge — `AAA`
+;;                      throws in Java and decodes in JavaScript — which is why
+;;                      it is pinned as an *answer* rather than a route: all
+;;                      three implementations must hand the value back as it is,
+;;                      visibly, and none may throw.
+;;   :tamper            envelopes that must fail to open. The last of them is the
+;;                      cross-app case: a body sealed under cookbook's
+;;                      `recipe/description` binding, offered to tracker as an
+;;                      `item/description`. It must not open. Two apps sharing one
+;;                      envelope and one laptop is exactly when that matters.
+{:envelope
+ {:prefix "enc:v1:",
+  :cipher "AES-256-GCM",
+  :nonce-bytes 12,
+  :tag-bits 128,
+  :key-bytes 32,
+  :layout "enc:v1: ++ base64(nonce || ciphertext || tag)",
+  :aad "utf-8 bytes of \"<binding>/<column>\", see :binding"},
+ :sealed-columns
+ {:journal_entries ["description"],
+  :issues ["description"],
+  :tasks ["description"],
+  :recurring_tasks ["description"],
+  :meeting_series ["description"],
+  :categories ["description"],
+  :meets ["description"],
+  :resources ["description"],
+  :journals ["description"]},
+ :unopenable
+ ["enc:v1:"
+  "enc:v1:a task about the envelope!"
+  "enc:v1:====="
+  "enc:v1:AAAA"
+  "enc:v1:AAA"
+  "enc:v1:AAAAAAAAAAAAAAAA"
+  "enc:v1:!!!"
+  "enc:v1:%"],
+ :key-base64 "leiM55V3+zE3aIfJkmi2b1zqmJfd4hfczoah+hZzqvs=",
+ :vectors
+ [{:name "a plain one-line body",
+   :table :tasks,
+   :column :description,
+   :aad "item/description",
+   :nonce "/3Ljqy9304nOb0/t",
+   :plaintext "Ask Andrew whether the coaching slot still stands.",
+   :sealed
+   "enc:v1:/3Ljqy9304nOb0/t+mqFhqh3xrEnZcPPB1tGOqGvpBCGrfDUw/8oOzC9W0AD1x6Y4rUzqJCpOuvn0320XO5HN0FeQ1tpgIkO+yRmectt"}
+  {:name "markdown with newlines",
+   :table :tasks,
+   :column :description,
+   :aad "item/description",
+   :nonce "jz3FNjDR3WabWgSD",
+   :plaintext "## Agenda\n\n- one\n- two\n\nSee `today-board`.\n",
+   :sealed
+   "enc:v1:jz3FNjDR3WabWgSDTb4Qf0Xi7ANOa0w6q1KQZokSKBDa5EgNzMHWzmXFYdp5ycylKIB3l7N0mjr97C0kieRvzrr38aY9M+E="}
+  {:name "non-ascii, because UTF-8 is the only encoding here",
+   :table :tasks,
+   :column :description,
+   :aad "item/description",
+   :nonce "+MNkJH8IDlAoV0FW",
+   :plaintext "Über den Wolken — 八卦 · 🦫 · naïve café",
+   :sealed
+   "enc:v1:+MNkJH8IDlAoV0FWHWabdiw9Aqy0fO5ow/FCjPBVyngMtEgqatm1Mmq3bM/aLeZEZya3SNgW//xr5cPLLTfyFivBLUVxVAf+96TFSrjT6Q=="}
+  {:name "an issue body, which may become a task verbatim",
+   :table :issues,
+   :column :description,
+   :aad "item/description",
+   :nonce "nuktUddyG/CfQ/L+",
+   :plaintext "The forex rail drops every third settlement.",
+   :sealed
+   "enc:v1:nuktUddyG/CfQ/L+hJ8cOmD/en16iLC9cOrmhtzwtHDXH359XqM8wMmjcq0Krw5khJT0gDG3dS9R1JxwgcCe+yKnqY+eWSdB"}
+  {:name "a meeting note, the densest kind here",
+   :table :meets,
+   :column :description,
+   :aad "item/description",
+   :nonce "oL1BYaZHoyfI1zBT",
+   :plaintext
+   "- Coaching\n- Paintbrush metaphor\n- Follow up Thursday",
+   :sealed
+   "enc:v1:oL1BYaZHoyfI1zBTBYZEupz9QHhvEdm7KrTHIUCfaDVaZgu4msXBVyeHB1stb3Sx/VQEQCL1tuSn/wFspjb7m6hKSOe0iV/aHybYdeUBDwvG"}
+  {:name "a journal entry",
+   :table :journal_entries,
+   :column :description,
+   :aad "item/description",
+   :nonce "sWx+hKV/mH2nutR5",
+   :plaintext "Slept badly. Shipped the proxy anyway.",
+   :sealed
+   "enc:v1:sWx+hKV/mH2nutR5oxhjbKHyZI1BWOwxJpPS1rQ0CQT8vXzjsnNndnr5Dz7/y1Xj0IUo6iHClrrC8y/2ElDjfshM"}
+  {:name "a resource body beside its link",
+   :table :resources,
+   :column :description,
+   :aad "item/description",
+   :nonce "r+GGf0JCKiQi49Yl",
+   :plaintext "Worth re-reading chapter 4 before the review.",
+   :sealed
+   "enc:v1:r+GGf0JCKiQi49YlQ3FwA+Dyv33oT1qP/BJSH9EEzQ40GBmR5JCQ/4YKwVIecoFIGuZQSvsDOS0ElzyWcU7F+XZHD8NJuL0dzw=="}
+  {:name "a category body, whose Group may change",
+   :table :categories,
+   :column :description,
+   :aad "item/description",
+   :nonce "O44bZ3cvhmxUag9B",
+   :plaintext "Everything under the day job.",
+   :sealed
+   "enc:v1:O44bZ3cvhmxUag9BZK1JvpiyzHFuL0IDd45EUhgwEfPm4b7a5nRLaHqoMgVEY5BJfFTDothtLrSD"}
+  {:name "a series body",
+   :table :meeting_series,
+   :column :description,
+   :aad "item/description",
+   :nonce "+sioTdYgOxeDbjs7",
+   :plaintext "Weekly, unless the Thursday is a public holiday.",
+   :sealed
+   "enc:v1:+sioTdYgOxeDbjs7qEeCVE4P8pQf61O0CwUXcBRGa8+St+HBz1QUaImrOEp3+Plejw64+iUKL5GcaULlIvWe4ePaIrKHrmybft+JYQ=="}
+  {:name "a recurring task body",
+   :table :recurring_tasks,
+   :column :description,
+   :aad "item/description",
+   :nonce "w8yV9qneBztCZzyS",
+   :plaintext "Water the plants. Yes, all of them.",
+   :sealed
+   "enc:v1:w8yV9qneBztCZzySdYtSEvm7mbayq/U9a1IABzo7f0V2jWkPNZz9F1dqQBPeDyVzls2PfkceI89ZAkzJaW/W"}
+  {:name "a journal body",
+   :table :journals,
+   :column :description,
+   :aad "item/description",
+   :nonce "IjLkTxDFTdPfxlvO",
+   :plaintext "Morning pages.",
+   :sealed
+   "enc:v1:IjLkTxDFTdPfxlvOEjUKg7K94fwzwINzxSmhsOXYdCuDcxDEeIgYereM"}
+  {:name "one character",
+   :table :tasks,
+   :column :description,
+   :aad "item/description",
+   :nonce "uJLLvvZiS93T9c6r",
+   :plaintext "x",
+   :sealed "enc:v1:uJLLvvZiS93T9c6rYiDViJ2brVVdafau4jrOMmk="}
+  {:name "a lone newline, which is not blank",
+   :table :tasks,
+   :column :description,
+   :aad "item/description",
+   :nonce "uN9USA11rHhnegte",
+   :plaintext "\n.",
+   :sealed "enc:v1:uN9USA11rHhnegteRZTLQ/ZjttCbtkwLvpoOIxSI"}
+  {:name "long enough to span many blocks",
+   :table :tasks,
+   :column :description,
+   :aad "item/description",
+   :nonce "fq7kEka8lYPCXcUE",
+   :plaintext
+   "- line 0 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 1 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 2 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 3 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 4 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 5 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 6 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 7 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 8 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 9 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 10 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 11 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 12 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 13 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 14 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 15 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 16 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 17 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 18 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 19 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 20 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 21 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 22 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 23 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 24 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 25 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 26 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 27 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 28 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 29 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 30 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 31 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 32 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 33 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 34 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 35 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 36 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 37 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 38 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note\n- line 39 of a body long enough to span several AES blocks, because a description in tracker is often a meeting note",
+   :sealed
+   "enc:v1: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"}],
+ :clear-tables
+ ["atom_feeds"
+  "category_rules"
+  "items"
+  "messages"
+  "mottos"
+  "podcast_feeds"
+  "relations"
+  "users"
+  "working_on"
+  "youtube_channels"],
+ :other-key-base64 "JuSV9YRYed5Xy4nMSWxqELj5e7aCR7CUfBJRuD4meps=",
+ :binding
+ {:journal_entries "item",
+  :issues "item",
+  :events "event",
+  :tasks "item",
+  :recurring_tasks "item",
+  :meeting_series "item",
+  :categories "item",
+  :meets "item",
+  :resources "item",
+  :journals "item"},
+ :passthrough
+ ["a description nobody has sealed yet"
+  "enc:v0:d2hhdGV2ZXI="
+  "enc:v2:d2hhdGV2ZXI="
+  "encv1:d2hhdGV2ZXI="
+  "enc:v1"
+  " enc:v1:d2hhdGV2ZXI="
+  "ENC:V1:d2hhdGV2ZXI="],
+ :blank ["" " " "   " "\n" "\t\n "],
+ :round-trip
+ ["" "x" "a sentence" "two\nlines" "🦫" "  leading and trailing  "],
+ :event-prose
+ {:doc
+  "Where prose hides inside events.payload, which is JSON and not a column. Five shapes, because record-create!, record-update! (two of them), record-delete! and the recording-mode drop each build their own.",
+  :shapes
+  [{:shape "create",
+    :match "row",
+    :path ["row" "description"],
+    :binding "item/description"}
+   {:shape "delete",
+    :match "snapshot",
+    :path ["snapshot" "description"],
+    :binding "item/description"}
+   {:shape "update-one",
+    :match "field",
+    :when-field "description",
+    :path ["old-value"],
+    :also ["new-value"],
+    :binding "item/description"}
+   {:shape "update-many",
+    :match "changes",
+    :when-field "description",
+    :path ["changes" "description" "old"],
+    :also ["changes" "description" "new"],
+    :binding "item/description"}
+   {:shape "dropped-write",
+    :match "body",
+    :path ["body"],
+    :binding "event/body",
+    :note
+    "The raw request body a dropped machine write carried, as one string. Sealed whole and under its own binding: it is not a description, it is a JSON document that may contain one, and binding it as a description would let it be moved into a column."}]},
+ :tamper
+ [{:name "a flipped bit in the nonce",
+   :aad "item/description",
+   :key-base64 "leiM55V3+zE3aIfJkmi2b1zqmJfd4hfczoah+hZzqvs=",
+   :sealed
+   "enc:v1:/nLjqy9304nOb0/t+mqFhqh3xrEnZcPPB1tGOqGvpBCGrfDUw/8oOzC9W0AD1x6Y4rUzqJCpOuvn0320XO5HN0FeQ1tpgIkO+yRmectt"}
+  {:name "a flipped bit in the ciphertext",
+   :aad "item/description",
+   :key-base64 "leiM55V3+zE3aIfJkmi2b1zqmJfd4hfczoah+hZzqvs=",
+   :sealed
+   "enc:v1:/3Ljqy9304nOb0/t+mqEhqh3xrEnZcPPB1tGOqGvpBCGrfDUw/8oOzC9W0AD1x6Y4rUzqJCpOuvn0320XO5HN0FeQ1tpgIkO+yRmectt"}
+  {:name "a flipped bit in the tag",
+   :aad "item/description",
+   :key-base64 "leiM55V3+zE3aIfJkmi2b1zqmJfd4hfczoah+hZzqvs=",
+   :sealed
+   "enc:v1:/3Ljqy9304nOb0/t+mqFhqh3xrEnZcPPB1tGOqGvpBCGrfDUw/8oOzC9W0AD1x6Y4rUzqJCpOuvn0320XO5HN0FeQ1tpgIkO+yRmects"}
+  {:name "a truncated envelope",
+   :aad "item/description",
+   :key-base64 "leiM55V3+zE3aIfJkmi2b1zqmJfd4hfczoah+hZzqvs=",
+   :sealed
+   "enc:v1:/3Ljqy9304nOb0/t+mqFhqh3xrEnZcPPB1tGOqGvpBCGrfDUw/8oOzC9W0AD1x6Y4rUzqJCpOuvn0320XO5HN0FeQ1tpgIkO+yRmeQ=="}
+  {:name "the right ciphertext under the wrong key",
+   :aad "item/description",
+   :key-base64 "JuSV9YRYed5Xy4nMSWxqELj5e7aCR7CUfBJRuD4meps=",
+   :sealed
+   "enc:v1:/3Ljqy9304nOb0/t+mqFhqh3xrEnZcPPB1tGOqGvpBCGrfDUw/8oOzC9W0AD1x6Y4rUzqJCpOuvn0320XO5HN0FeQ1tpgIkO+yRmectt"}
+  {:name "a cookbook Recipe body read as a tracker item",
+   :aad "item/description",
+   :key-base64 "leiM55V3+zE3aIfJkmi2b1zqmJfd4hfczoah+hZzqvs=",
+   :sealed
+   "enc:v1:rNMEHD5mGhMkdBYAxCNJCygcXvLxEjdNKDQG2ksfK9FPbJtgft35AQhU92v44+bfVXCuQK7upImo0ZrroWLyBUyC0TJbAgLwmk0="}],
+ :key-fingerprint "ce63872e"}
