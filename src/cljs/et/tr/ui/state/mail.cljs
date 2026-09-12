@@ -1,8 +1,7 @@
 (ns et.tr.ui.state.mail
-  (:require [ajax.core :refer [GET]]
+  (:require [et.tr.ui.api :as api]
             [clojure.string :as str]
-            [reagent.core :as r]
-            [et.tr.ui.api :as api]))
+            [reagent.core :as r]))
 
 (def ^:const DEFAULT-SENDER "Note")
 
@@ -44,16 +43,13 @@
               (and (= view "saved") (seq search-term)) (str "&q=" (js/encodeURIComponent search-term))
               context (str "&context=" (js/encodeURIComponent context))
               strict (str "&strict=true"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [messages]
-                  (when (= request-id (:fetch-request-id @*mail-page-state))
-                    (swap! app-state assoc :messages messages)))
-       :error-handler (fn [_]
-                        (when (= request-id (:fetch-request-id @*mail-page-state))
-                          (swap! app-state assoc :messages [])))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [messages]
+        (when (= request-id (:fetch-request-id @*mail-page-state))
+          (swap! app-state assoc :messages messages)))
+      (fn [_]
+        (when (= request-id (:fetch-request-id @*mail-page-state))
+          (swap! app-state assoc :messages []))))))
 
 (defn set-mail-sort-mode [app-state auth-headers mode]
   (swap! *mail-page-state assoc-in [:sort-modes (:view @*mail-page-state)] mode)

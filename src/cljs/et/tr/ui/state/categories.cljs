@@ -3,9 +3,8 @@
   table on the server, one shape here — so the per-group entry points are
   generated from et.tr.ui.constants/category-groups rather than written out six
   times."
-  (:require [ajax.core :refer [GET]]
+  (:require [et.tr.ui.api :as api]
             [et.tr.filters :as filters]
-            [et.tr.ui.api :as api]
             [et.tr.ui.constants :as constants]))
 
 (defn- endpoint [group-key]
@@ -20,11 +19,8 @@
 (defn fetch-categories
   "Reload one group's collection into app-state under its plural key."
   [app-state auth-headers group-key]
-  (GET (str (endpoint group-key) (scope-query-string app-state))
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler #(swap! app-state assoc group-key %)}))
+  (api/fetch-json (str (endpoint group-key) (scope-query-string app-state)) (auth-headers)
+    #(swap! app-state assoc group-key %)))
 
 (defn fetch-all-categories [app-state auth-headers]
   (doseq [group-key constants/category-key-order]

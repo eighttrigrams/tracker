@@ -1,7 +1,6 @@
 (ns et.tr.ui.state.mottos
-  (:require [ajax.core :refer [GET]]
+  (:require [et.tr.ui.api :as api]
             [reagent.core :as r]
-            [et.tr.ui.api :as api]
             [et.tr.ui.state.auth :as auth]))
 
 (defonce *mottos-page-state (r/atom {:filter-search ""
@@ -16,16 +15,13 @@
               (seq search-term) (str "q=" (js/encodeURIComponent search-term) "&")
               context (str "context=" (name context) "&")
               strict (str "strict=true&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [mottos]
-                  (when (= request-id (:fetch-request-id @*mottos-page-state))
-                    (swap! app-state assoc :mottos mottos)))
-       :error-handler (fn [_]
-                        (when (= request-id (:fetch-request-id @*mottos-page-state))
-                          (swap! app-state assoc :mottos [])))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [mottos]
+        (when (= request-id (:fetch-request-id @*mottos-page-state))
+          (swap! app-state assoc :mottos mottos)))
+      (fn [_]
+        (when (= request-id (:fetch-request-id @*mottos-page-state))
+          (swap! app-state assoc :mottos []))))))
 
 (defn add-motto [app-state auth-headers current-scope-fn title description on-success fetch-mottos-fn]
   (api/post-json "/api/mottos"

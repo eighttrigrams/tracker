@@ -1,9 +1,8 @@
 (ns et.tr.ui.state.meeting-series
-  (:require [ajax.core :refer [GET POST]]
+  (:require [et.tr.ui.api :as api]
             [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.filters :as filters]
-            [et.tr.ui.api :as api]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -29,16 +28,13 @@
               strict (str "strict=true&")
               (seq category-params) (str category-params)
               (seq excluded-params) (str (str/join "&" excluded-params) "&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [series]
-                  (when (= request-id (:fetch-request-id @*meeting-series-page-state))
-                    (swap! app-state assoc :meeting-series series)))
-       :error-handler (fn [_]
-                        (when (= request-id (:fetch-request-id @*meeting-series-page-state))
-                          (swap! app-state assoc :meeting-series [])))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [series]
+        (when (= request-id (:fetch-request-id @*meeting-series-page-state))
+          (swap! app-state assoc :meeting-series series)))
+      (fn [_]
+        (when (= request-id (:fetch-request-id @*meeting-series-page-state))
+          (swap! app-state assoc :meeting-series []))))))
 
 (defn add-meeting-series [app-state auth-headers current-scope-fn title on-success fetch-fn]
   (api/post-json "/api/meeting-series"
@@ -126,19 +122,16 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize meeting series")))))
 
 (defn add-meeting-series-with-categories [app-state auth-headers fetch-fn current-scope-fn title categories on-success]
-  (POST "/api/meeting-series"
-    {:params {:title title :scope (current-scope-fn)}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [series]
-                (category-filters/apply-filter-categories! auth-headers "meeting-series" (:id series) categories)
-                (js/setTimeout fetch-fn 500)
-                (swap! app-state update :meeting-series #(cons series %))
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meeting series")))}))
+  (api/post-json "/api/meeting-series"
+    {:title title :scope (current-scope-fn)}
+    (auth-headers)
+    (fn [series]
+      (category-filters/apply-filter-categories! auth-headers "meeting-series" (:id series) categories)
+      (js/setTimeout fetch-fn 500)
+      (swap! app-state update :meeting-series #(cons series %))
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meeting series")))))
 
 (defn set-expanded-series [id]
   (swap! *meeting-series-page-state assoc :expanded-series id :editing-series nil)

@@ -1,9 +1,8 @@
 (ns et.tr.ui.state.meets
-  (:require [ajax.core :refer [GET POST]]
+  (:require [et.tr.ui.api :as api]
             [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.filters :as filters]
-            [et.tr.ui.api :as api]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -42,25 +41,22 @@
               paged? (str "paged=true&")
               paged? (str "weekOffset=" (or week-offset 0) "&")
               paged? (str "weekLimit=" (or week-limit 4) "&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [data]
-                  (when (= request-id (:fetch-request-id @*meets-page-state))
-                    (let [meets (if (map? data) (:items data) data)]
-                      (swap! *meets-page-state assoc :has-more? (boolean (and (map? data) (:has_more data))))
-                      (if append?
-                        (do
-                          (swap! app-state update :meets #(into (vec %) meets))
-                          (swap! *meets-page-state assoc :week-offset week-offset))
-                        (swap! app-state assoc :meets meets)))))
-       :error-handler (fn [_]
-                        (when (= request-id (:fetch-request-id @*meets-page-state))
-                          (if append?
-                            (swap! *meets-page-state assoc :has-more? true)
-                            (do (swap! app-state assoc :meets [])
-                                (swap! *meets-page-state assoc :has-more? false)))))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [data]
+        (when (= request-id (:fetch-request-id @*meets-page-state))
+          (let [meets (if (map? data) (:items data) data)]
+            (swap! *meets-page-state assoc :has-more? (boolean (and (map? data) (:has_more data))))
+            (if append?
+              (do
+                (swap! app-state update :meets #(into (vec %) meets))
+                (swap! *meets-page-state assoc :week-offset week-offset))
+              (swap! app-state assoc :meets meets)))))
+      (fn [_]
+        (when (= request-id (:fetch-request-id @*meets-page-state))
+          (if append?
+            (swap! *meets-page-state assoc :has-more? true)
+            (do (swap! app-state assoc :meets [])
+                (swap! *meets-page-state assoc :has-more? false))))))))
 
 ;; `on-success` is handed the created meet, which the 201 already carries. A
 ;; caller that has something to do to the new row — dating it to the day it was
@@ -224,22 +220,19 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize meet")))))
 
 (defn add-meet-with-categories [app-state auth-headers fetch-meets-fn current-scope-fn title categories on-success]
-  (POST "/api/meets"
-    {:params {:title title :scope (current-scope-fn)}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [meet]
-                (category-filters/apply-filter-categories! auth-headers "meets" (:id meet) categories)
-                (js/setTimeout fetch-meets-fn 500)
-                (swap! app-state update :meets #(cons meet %))
-                ;; Same contract as add-meet's: both branches of state/add-meet
-                ;; hand the caller the created meet, so a caller need not know
-                ;; which of the two ran.
-                (when on-success (on-success meet)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meet")))}))
+  (api/post-json "/api/meets"
+    {:title title :scope (current-scope-fn)}
+    (auth-headers)
+    (fn [meet]
+      (category-filters/apply-filter-categories! auth-headers "meets" (:id meet) categories)
+      (js/setTimeout fetch-meets-fn 500)
+      (swap! app-state update :meets #(cons meet %))
+      ;; Same contract as add-meet's: both branches of state/add-meet
+      ;; hand the caller the created meet, so a caller need not know
+      ;; which of the two ran.
+      (when on-success (on-success meet)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add meet")))))
 
 (defn set-expanded-meet [id]
   (swap! *meets-page-state assoc :expanded-meet id :editing-meet nil)
@@ -295,15 +288,12 @@
               importance (str "importance=" (name importance) "&")
               (seq category-params) (str category-params)
               (seq excluded-params) (str (str/join "&" excluded-params) "&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [meets]
-                  (when (= request-id @*today-meets-request-id)
-                    (swap! app-state assoc :today-meets meets)
-                    (when (nil? (:upcoming-horizon @app-state))
-                      (swap! app-state assoc :upcoming-horizon (calculate-best-horizon-fn app-state)))))
-       :error-handler (fn [_]
-                        (when (= request-id @*today-meets-request-id)
-                          (swap! app-state assoc :today-meets [])))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [meets]
+        (when (= request-id @*today-meets-request-id)
+          (swap! app-state assoc :today-meets meets)
+          (when (nil? (:upcoming-horizon @app-state))
+            (swap! app-state assoc :upcoming-horizon (calculate-best-horizon-fn app-state)))))
+      (fn [_]
+        (when (= request-id @*today-meets-request-id)
+          (swap! app-state assoc :today-meets []))))))

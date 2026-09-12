@@ -1,6 +1,38 @@
 (ns et.tr.ui.api
   "Every HTTP call the tracker UI makes, and the one place the seal meets them.
 
+  ## That first sentence is now checked
+
+  It was not true when it was written. Eighteen ClojureScript namespaces referred
+  `ajax.core` directly, thirteen of them read a response carrying a `description`
+  for a sealed table, and so the read path below never ran on any list page in the
+  app. The consequence was not only `enc:v1:…` rendered as a body: because the
+  index is fed from in here, those rows were **indexed nowhere**, and an inline
+  title edit then sent the ciphertext back through the sealing write path with
+  nothing to compare it against. What got written was `enc(enc(…))`, and nothing
+  anywhere reported it.
+
+  A docstring is not a control, so there is one beside it:
+  `et.tr.api-is-the-only-door-test` fails if any namespace under `src/cljs`
+  except this one so much as mentions `ajax.core`. It is a grep rather than a
+  behaviour test on purpose — the defect is an *absence*, and no assertion about
+  how tracker fetches tasks can fail because somebody added a nineteenth
+  namespace that fetches meets its own way.
+
+  There is **no allowlist**, and the endpoints that carry no prose go through
+  here too: translations, auth, sources. *This endpoint carries no prose* is a
+  judgement that goes stale, and the thirteen call sites above are what it looks
+  like when it has — each was written by somebody who had no reason to think
+  about a seal, because there was not one yet. A response with nothing sealed in
+  it costs one walk and no crypto.
+
+  The one call that is not here is `state/ui.cljs`'s `/api/export`, which is a
+  `js/fetch` for a **Blob** — a ZIP, not JSON, so there is nothing for these
+  functions to parse and nothing for the seal to open. It is outside for a reason
+  that cannot go stale, rather than by a judgement about its contents. The export
+  is assembled server-side and is full of `enc:v1:…` under the seal; that is a
+  known, accepted gap for this pass, and it is the docs step's to say so.
+
   ## The asymmetry, which is the design and not an accident
 
   **Unsealing hangs here, at the transport layer.** A read has nothing to decide:

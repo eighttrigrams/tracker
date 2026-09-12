@@ -1,9 +1,8 @@
 (ns et.tr.ui.state.journals
-  (:require [ajax.core :refer [GET POST]]
+  (:require [et.tr.ui.api :as api]
             [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.filters :as filters]
-            [et.tr.ui.api :as api]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -28,16 +27,13 @@
               strict (str "strict=true&")
               (seq category-params) (str category-params)
               (seq excluded-params) (str (str/join "&" excluded-params) "&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [journals]
-                  (when (= request-id (:fetch-request-id @*journals-page-state))
-                    (swap! app-state assoc :journals journals)))
-       :error-handler (fn [_]
-                        (when (= request-id (:fetch-request-id @*journals-page-state))
-                          (swap! app-state assoc :journals [])))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [journals]
+        (when (= request-id (:fetch-request-id @*journals-page-state))
+          (swap! app-state assoc :journals journals)))
+      (fn [_]
+        (when (= request-id (:fetch-request-id @*journals-page-state))
+          (swap! app-state assoc :journals []))))))
 
 (defn add-journal [app-state auth-headers current-scope-fn title schedule-type on-success fetch-fn]
   (api/post-json "/api/journals"

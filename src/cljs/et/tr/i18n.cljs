@@ -1,5 +1,5 @@
 (ns et.tr.i18n
-  (:require [ajax.core :refer [GET]]
+  (:require [et.tr.ui.api :as api]
             [reagent.core :as r]
             [clojure.string :as str]))
 
@@ -7,14 +7,14 @@
 (defonce current-language (r/atom "en"))
 
 (defn load-translations! [on-success]
-  (GET "/api/translations"
-    {:response-format :json
-     :keywords? true
-     :handler (fn [data]
-                (reset! translations data)
-                (when on-success (on-success)))
-     :error-handler (fn [_]
-                      (js/console.error "Failed to load translations"))}))
+  ;; No auth headers: translations are public, and this runs before there is a
+  ;; user to have any.
+  (api/fetch-json-with-error "/api/translations" nil
+    (fn [data]
+      (reset! translations data)
+      (when on-success (on-success)))
+    (fn [_]
+      (js/console.error "Failed to load translations"))))
 
 (defn set-language! [lang]
   (reset! current-language (name lang)))

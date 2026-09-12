@@ -1,8 +1,7 @@
 (ns et.tr.ui.state.recurring-tasks
-  (:require [ajax.core :refer [GET POST]]
+  (:require [et.tr.ui.api :as api]
             [clojure.string :as str]
             [reagent.core :as r]
-            [et.tr.ui.api :as api]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -28,16 +27,13 @@
               strict (str "strict=true&")
               (seq category-params) (str category-params)
               (seq excluded-params) (str (str/join "&" excluded-params) "&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [rtasks]
-                  (when (= request-id (:fetch-request-id @*recurring-tasks-page-state))
-                    (swap! app-state assoc :recurring-tasks rtasks)))
-       :error-handler (fn [_]
-                        (when (= request-id (:fetch-request-id @*recurring-tasks-page-state))
-                          (swap! app-state assoc :recurring-tasks [])))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [rtasks]
+        (when (= request-id (:fetch-request-id @*recurring-tasks-page-state))
+          (swap! app-state assoc :recurring-tasks rtasks)))
+      (fn [_]
+        (when (= request-id (:fetch-request-id @*recurring-tasks-page-state))
+          (swap! app-state assoc :recurring-tasks []))))))
 
 (defn add-recurring-task [app-state auth-headers current-scope-fn title on-success fetch-fn]
   (api/post-json "/api/recurring-tasks"
@@ -122,19 +118,16 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize recurring task")))))
 
 (defn add-recurring-task-with-categories [app-state auth-headers fetch-fn current-scope-fn title categories on-success]
-  (POST "/api/recurring-tasks"
-    {:params {:title title :scope (current-scope-fn)}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [rtask]
-                (category-filters/apply-filter-categories! auth-headers "recurring-tasks" (:id rtask) categories)
-                (js/setTimeout fetch-fn 500)
-                (swap! app-state update :recurring-tasks #(cons rtask %))
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add recurring task")))}))
+  (api/post-json "/api/recurring-tasks"
+    {:title title :scope (current-scope-fn)}
+    (auth-headers)
+    (fn [rtask]
+      (category-filters/apply-filter-categories! auth-headers "recurring-tasks" (:id rtask) categories)
+      (js/setTimeout fetch-fn 500)
+      (swap! app-state update :recurring-tasks #(cons rtask %))
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add recurring task")))))
 
 (defn set-expanded-rtask [id]
   (swap! *recurring-tasks-page-state assoc :expanded-rtask id :editing-rtask nil)

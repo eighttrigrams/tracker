@@ -1,8 +1,7 @@
 (ns et.tr.ui.state.tasks
-  (:require [ajax.core :refer [GET POST]]
+  (:require [et.tr.ui.api :as api]
             [clojure.string :as str]
             [et.tr.filters :as filters]
-            [et.tr.ui.api :as api]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -38,46 +37,37 @@
                (seq excluded-params) (str "&" (str/join "&" excluded-params))
                recurring-task-id (str "&recurring-task-id=" recurring-task-id)
                issue-id (str "&issue=" issue-id))]
-     (GET url
-       {:response-format :json
-        :keywords? true
-        :headers (auth-headers)
-        :handler (fn [tasks]
-                   (swap! app-state assoc :tasks tasks)
-                   (when (nil? (:upcoming-horizon @app-state))
-                     (swap! app-state assoc :upcoming-horizon (calculate-best-horizon-fn app-state))))}))))
+     (api/fetch-json url (auth-headers)
+       (fn [tasks]
+         (swap! app-state assoc :tasks tasks)
+         (when (nil? (:upcoming-horizon @app-state))
+           (swap! app-state assoc :upcoming-horizon (calculate-best-horizon-fn app-state))))))))
 
 (defn add-task-with-categories [app-state auth-headers fetch-tasks-fn current-scope-fn current-importance-fn title categories on-success]
-  (POST "/api/tasks"
-    {:params {:title title :scope (current-scope-fn) :importance (current-importance-fn)}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [task]
-                (category-filters/apply-filter-categories! auth-headers "tasks" (:id task) categories)
-                (js/setTimeout fetch-tasks-fn 500)
-                (swap! app-state update :tasks #(cons task %))
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))
+  (api/post-json "/api/tasks"
+    {:title title :scope (current-scope-fn) :importance (current-importance-fn)}
+    (auth-headers)
+    (fn [task]
+      (category-filters/apply-filter-categories! auth-headers "tasks" (:id task) categories)
+      (js/setTimeout fetch-tasks-fn 500)
+      (swap! app-state update :tasks #(cons task %))
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))))
 
 (defn add-task [app-state auth-headers current-scope-fn current-importance-fn has-active-filters-fn add-with-categories-fn title on-success]
   (if (str/blank? title)
     (swap! app-state assoc :error "Title is required")
     (if (has-active-filters-fn)
       (add-with-categories-fn title on-success)
-      (POST "/api/tasks"
-        {:params {:title title :scope (current-scope-fn) :importance (current-importance-fn)}
-         :format :json
-         :response-format :json
-         :keywords? true
-         :headers (auth-headers)
-         :handler (fn [task]
-                    (swap! app-state update :tasks #(cons task %))
-                    (when on-success (on-success)))
-         :error-handler (fn [resp]
-                          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))}))))
+      (api/post-json "/api/tasks"
+        {:title title :scope (current-scope-fn) :importance (current-importance-fn)}
+        (auth-headers)
+        (fn [task]
+          (swap! app-state update :tasks #(cons task %))
+          (when on-success (on-success)))
+        (fn [resp]
+          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))))))
 
 (defn update-task [app-state auth-headers task-id title description tags expected-modified-at on-success on-error]
   (api/put-json (str "/api/tasks/" task-id)

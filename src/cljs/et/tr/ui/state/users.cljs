@@ -1,6 +1,5 @@
 (ns et.tr.ui.state.users
-  (:require [ajax.core :refer [GET]]
-            [et.tr.ui.api :as api]
+  (:require [et.tr.ui.api :as api]
             [et.tr.ui.state.auth :as auth]))
 
 (defn- replace-machine-user
@@ -11,23 +10,18 @@
   (mapv (fn [u] (if (= (:id u) (:id user)) user u)) users))
 
 (defn fetch-users [app-state auth-headers]
-  (GET "/api/users"
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [users]
-                (swap! app-state assoc :users users))
-     :error-handler (fn [_]
-                      (swap! app-state assoc :users []))}))
+  (api/fetch-json-with-error "/api/users" (auth-headers)
+    (fn [users]
+      (swap! app-state assoc :users users))
+    (fn [_]
+      (swap! app-state assoc :users []))))
 
 (defn fetch-available-users [app-state]
-  (GET "/api/auth/available-users"
-    {:response-format :json
-     :keywords? true
-     :handler (fn [users]
-                (swap! app-state assoc :available-users users))
-     :error-handler (fn [_]
-                      (swap! app-state assoc :available-users []))}))
+  (api/fetch-json-with-error "/api/auth/available-users" nil
+    (fn [users]
+      (swap! app-state assoc :available-users users))
+    (fn [_]
+      (swap! app-state assoc :available-users []))))
 
 (defn add-user [app-state auth-headers username password machine-target-id mail-only? on-success]
   (let [body (cond-> {:username username :password password}
@@ -74,12 +68,9 @@
   (fetch-all-fn user))
 
 (defn fetch-my-machine-users [app-state auth-headers]
-  (GET "/api/me/machine-users"
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler #(swap! app-state assoc :my-machine-users %)
-     :error-handler #(swap! app-state assoc :my-machine-users [])}))
+  (api/fetch-json-with-error "/api/me/machine-users" (auth-headers)
+    #(swap! app-state assoc :my-machine-users %)
+    #(swap! app-state assoc :my-machine-users [])))
 
 (defn add-my-machine-user [app-state auth-headers username password mail-only? on-success]
   (api/post-json "/api/me/machine-users"

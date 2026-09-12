@@ -1,7 +1,6 @@
 (ns et.tr.ui.state.sources
-  (:require [ajax.core :refer [GET]]
-            [reagent.core :as r]
-            [et.tr.ui.api :as api]))
+  (:require [et.tr.ui.api :as api]
+            [reagent.core :as r]))
 
 (defonce *sources-page-state
   (r/atom {:mode false
@@ -29,32 +28,29 @@
 
 (defn sources-mode? [] (:mode @*sources-page-state))
 
-(defn- fetch-json [path auth-headers k]
-  (GET path
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler #(swap! *sources-page-state assoc k %)
-     :error-handler #(swap! *sources-page-state assoc :error
-                            (str "Failed to load " (name k)))}))
+(defn- into-page-state
+  "One page-state slot filled from one endpoint. Named for what it does rather
+  than for how it gets there — the how is `et.tr.ui.api`, like everything else."
+  [path auth-headers k]
+  (api/fetch-json-with-error path (auth-headers)
+    #(swap! *sources-page-state assoc k %)
+    #(swap! *sources-page-state assoc :error
+            (str "Failed to load " (name k)))))
 
 (defn fetch-all [auth-headers]
-  (fetch-json "/api/sources/youtube/settings" auth-headers :settings)
-  (fetch-json "/api/sources/podcast/settings" auth-headers :podcast-settings)
-  (fetch-json "/api/sources/atom/settings"    auth-headers :atom-settings)
-  (GET "/api/sources/youtube/channels"
-    {:response-format :json :keywords? true :headers (auth-headers)
-     :handler #(swap! *sources-page-state assoc :channels (vec %))
-     :error-handler #(swap! *sources-page-state assoc :error "Failed to load channels")})
-  (GET "/api/sources/podcast/feeds"
-    {:response-format :json :keywords? true :headers (auth-headers)
-     :handler #(swap! *sources-page-state assoc :podcast-feeds (vec %))
-     :error-handler #(swap! *sources-page-state assoc :error "Failed to load podcast feeds")})
-  (GET "/api/sources/atom/feeds"
-    {:response-format :json :keywords? true :headers (auth-headers)
-     :handler #(swap! *sources-page-state assoc :atom-feeds (vec %) :loaded? true)
-     :error-handler #(swap! *sources-page-state assoc :error "Failed to load atom feeds"
-                                                       :loaded? true)}))
+  (into-page-state "/api/sources/youtube/settings" auth-headers :settings)
+  (into-page-state "/api/sources/podcast/settings" auth-headers :podcast-settings)
+  (into-page-state "/api/sources/atom/settings"    auth-headers :atom-settings)
+  (api/fetch-json-with-error "/api/sources/youtube/channels" (auth-headers)
+    #(swap! *sources-page-state assoc :channels (vec %))
+    #(swap! *sources-page-state assoc :error "Failed to load channels"))
+  (api/fetch-json-with-error "/api/sources/podcast/feeds" (auth-headers)
+    #(swap! *sources-page-state assoc :podcast-feeds (vec %))
+    #(swap! *sources-page-state assoc :error "Failed to load podcast feeds"))
+  (api/fetch-json-with-error "/api/sources/atom/feeds" (auth-headers)
+    #(swap! *sources-page-state assoc :atom-feeds (vec %) :loaded? true)
+    #(swap! *sources-page-state assoc :error "Failed to load atom feeds"
+            :loaded? true)))
 
 (defn toggle-mode [auth-headers]
   (let [new-mode (not (:mode @*sources-page-state))]

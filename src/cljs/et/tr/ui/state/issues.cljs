@@ -1,9 +1,8 @@
 (ns et.tr.ui.state.issues
-  (:require [ajax.core :refer [GET POST]]
+  (:require [et.tr.ui.api :as api]
             [clojure.string]
             [reagent.core :as r]
             [et.tr.filters :as filters]
-            [et.tr.ui.api :as api]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -45,24 +44,21 @@
               (seq category-params) (str category-params)
               (seq excluded-params) (str (clojure.string/join "&" excluded-params) "&")
               sort-mode (str "sortMode=" (name sort-mode) "&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [resp]
-                  (when (= request-id (:fetch-request-id @*issues-page-state))
-                    (let [items (:items resp)]
-                      (swap! *issues-page-state assoc :has-more? (and paginate? (boolean (:has_more resp))))
-                      (if append?
-                        (swap! app-state update :issues #(into (vec %) items))
-                        (swap! app-state assoc :issues items)))))
-       :error-handler (fn [resp]
-                        (when (= request-id (:fetch-request-id @*issues-page-state))
-                          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to load issues"))
-                          (if append?
-                            (swap! *issues-page-state assoc :has-more? true)
-                            (do (swap! app-state assoc :issues [])
-                                (swap! *issues-page-state assoc :has-more? false)))))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [resp]
+        (when (= request-id (:fetch-request-id @*issues-page-state))
+          (let [items (:items resp)]
+            (swap! *issues-page-state assoc :has-more? (and paginate? (boolean (:has_more resp))))
+            (if append?
+              (swap! app-state update :issues #(into (vec %) items))
+              (swap! app-state assoc :issues items)))))
+      (fn [resp]
+        (when (= request-id (:fetch-request-id @*issues-page-state))
+          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to load issues"))
+          (if append?
+            (swap! *issues-page-state assoc :has-more? true)
+            (do (swap! app-state assoc :issues [])
+                (swap! *issues-page-state assoc :has-more? false))))))))
 
 (defn add-issue [app-state auth-headers current-scope-fn title on-success fetch-issues-fn]
   (api/post-json "/api/issues"
@@ -209,54 +205,45 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize issue")))))
 
 (defn add-issue-with-categories [app-state auth-headers fetch-issues-fn current-scope-fn title categories on-success]
-  (POST "/api/issues"
-    {:params {:title title :scope (current-scope-fn)}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [issue]
-                (category-filters/apply-filter-categories! auth-headers "issues" (:id issue) categories)
-                (js/setTimeout fetch-issues-fn 500)
-                (swap! app-state update :issues #(cons issue %))
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add issue")))}))
+  (api/post-json "/api/issues"
+    {:title title :scope (current-scope-fn)}
+    (auth-headers)
+    (fn [issue]
+      (category-filters/apply-filter-categories! auth-headers "issues" (:id issue) categories)
+      (js/setTimeout fetch-issues-fn 500)
+      (swap! app-state update :issues #(cons issue %))
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add issue")))))
 
 (defn fetch-focused-issue
   "Load a single issue (with its :tasks) into the focused-view state slots so the
   Issues page can show that issue's task listing when the ◈ icon is clicked."
   [app-state auth-headers issue-id]
-  (GET (str "/api/issues/" issue-id)
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [issue]
-                (swap! app-state assoc
-                       :issues-page/filter-issue {:id (:id issue) :title (:title issue)}
-                       :issues-page/focused-issue issue))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to load issue")))}))
+  (api/fetch-json-with-error (str "/api/issues/" issue-id) (auth-headers)
+    (fn [issue]
+      (swap! app-state assoc
+             :issues-page/filter-issue {:id (:id issue) :title (:title issue)}
+             :issues-page/focused-issue issue))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to load issue")))))
 
 (defn create-task-for-issue
   "Create a task (with the given title) belonging to the issue, then associate
   the currently-selected sidebar categories with it — mirroring how the Tasks
   page add form categorises a freshly-created task."
   [app-state auth-headers fetch-issues-fn categories issue-id title on-success]
-  (POST (str "/api/issues/" issue-id "/create-task")
-    {:params {:title title}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [task]
-                ;; "tasks", not "issues": the Issue page is creating a Task, and
-                ;; it is the Task that gets the sidebar's categories.
-                (category-filters/apply-filter-categories! auth-headers "tasks" (:id task) categories)
-                (js/setTimeout fetch-issues-fn 500)
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to create task")))}))
+  (api/post-json (str "/api/issues/" issue-id "/create-task")
+    {:title title}
+    (auth-headers)
+    (fn [task]
+      ;; "tasks", not "issues": the Issue page is creating a Task, and
+      ;; it is the Task that gets the sidebar's categories.
+      (category-filters/apply-filter-categories! auth-headers "tasks" (:id task) categories)
+      (js/setTimeout fetch-issues-fn 500)
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to create task")))))
 
 (defn set-drag-issue [app-state issue-id]
   (swap! app-state assoc :drag-issue issue-id))

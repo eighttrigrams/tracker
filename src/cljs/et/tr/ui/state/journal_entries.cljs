@@ -1,9 +1,8 @@
 (ns et.tr.ui.state.journal-entries
-  (:require [ajax.core :refer [GET POST]]
+  (:require [et.tr.ui.api :as api]
             [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.filters :as filters]
-            [et.tr.ui.api :as api]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -32,16 +31,13 @@
               (seq category-params) (str category-params)
               (seq excluded-params) (str (str/join "&" excluded-params) "&")
               sort-mode (str "sortMode=" (name sort-mode) "&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [entries]
-                  (when (= request-id (:fetch-request-id @*journal-entries-page-state))
-                    (swap! app-state assoc :journal-entries entries)))
-       :error-handler (fn [_]
-                        (when (= request-id (:fetch-request-id @*journal-entries-page-state))
-                          (swap! app-state assoc :journal-entries [])))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [entries]
+        (when (= request-id (:fetch-request-id @*journal-entries-page-state))
+          (swap! app-state assoc :journal-entries entries)))
+      (fn [_]
+        (when (= request-id (:fetch-request-id @*journal-entries-page-state))
+          (swap! app-state assoc :journal-entries []))))))
 
 (defn fetch-today-journal-entries [app-state auth-headers opts]
   (let [{:keys [context strict importance]} opts
@@ -49,14 +45,11 @@
               context (str "context=" (name context) "&")
               strict (str "strict=true&")
               importance (str "importance=" (name importance) "&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [entries]
-                  (swap! app-state assoc :today-journal-entries entries))
-       :error-handler (fn [_]
-                        (swap! app-state assoc :today-journal-entries []))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [entries]
+        (swap! app-state assoc :today-journal-entries entries))
+      (fn [_]
+        (swap! app-state assoc :today-journal-entries [])))))
 
 (defn add-journal-entry [app-state auth-headers current-scope-fn title on-success fetch-fn]
   (api/post-json "/api/journal-entries"

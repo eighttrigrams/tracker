@@ -1,9 +1,8 @@
 (ns et.tr.ui.state.resources
-  (:require [ajax.core :refer [GET POST]]
+  (:require [et.tr.ui.api :as api]
             [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.filters :as filters]
-            [et.tr.ui.api :as api]
             [et.tr.ui.state.exclusions :as exclusions]
             [et.tr.ui.state.category-filters :as category-filters]))
 
@@ -53,24 +52,21 @@
               (seq category-params) (str category-params)
               (seq excluded-params) (str (str/join "&" excluded-params) "&")
               sort-mode (str "sortMode=" (name sort-mode) "&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [resp]
-                  (when (= request-id (:fetch-request-id @*resources-page-state))
-                    (let [items (:items resp)]
-                      (swap! *resources-page-state assoc :has-more? (and paginate? (boolean (:has_more resp))))
-                      (if append?
-                        (swap! app-state update :resources #(into (vec %) items))
-                        (swap! app-state assoc :resources items)))))
-       :error-handler (fn [resp]
-                        (when (= request-id (:fetch-request-id @*resources-page-state))
-                          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to load resources"))
-                          (if append?
-                            (swap! *resources-page-state assoc :has-more? true)
-                            (do (swap! app-state assoc :resources [])
-                                (swap! *resources-page-state assoc :has-more? false)))))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [resp]
+        (when (= request-id (:fetch-request-id @*resources-page-state))
+          (let [items (:items resp)]
+            (swap! *resources-page-state assoc :has-more? (and paginate? (boolean (:has_more resp))))
+            (if append?
+              (swap! app-state update :resources #(into (vec %) items))
+              (swap! app-state assoc :resources items)))))
+      (fn [resp]
+        (when (= request-id (:fetch-request-id @*resources-page-state))
+          (swap! app-state assoc :error (get-in resp [:response :error] "Failed to load resources"))
+          (if append?
+            (swap! *resources-page-state assoc :has-more? true)
+            (do (swap! app-state assoc :resources [])
+                (swap! *resources-page-state assoc :has-more? false))))))))
 
 (defn fetch-resource-description
   ([app-state auth-headers resource-id]
@@ -179,19 +175,16 @@
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize resource")))))
 
 (defn add-resource-with-categories [app-state auth-headers fetch-resources-fn current-scope-fn title link categories on-success]
-  (POST "/api/resources"
-    {:params {:title title :link link :scope (current-scope-fn)}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [resource]
-                (category-filters/apply-filter-categories! auth-headers "resources" (:id resource) categories)
-                (js/setTimeout fetch-resources-fn 500)
-                (swap! app-state update :resources #(cons resource %))
-                (when on-success (on-success)))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add resource")))}))
+  (api/post-json "/api/resources"
+    {:title title :link link :scope (current-scope-fn)}
+    (auth-headers)
+    (fn [resource]
+      (category-filters/apply-filter-categories! auth-headers "resources" (:id resource) categories)
+      (js/setTimeout fetch-resources-fn 500)
+      (swap! app-state update :resources #(cons resource %))
+      (when on-success (on-success)))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add resource")))))
 
 (defn set-drag-resource [app-state resource-id]
   (swap! app-state assoc :drag-resource resource-id))

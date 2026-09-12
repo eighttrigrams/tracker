@@ -1,5 +1,5 @@
 (ns et.tr.ui.state.reports
-  (:require [ajax.core :refer [GET]]
+  (:require [et.tr.ui.api :as api]
             [clojure.string :as str]
             [reagent.core :as r]
             [et.tr.ui.state.exclusions :as exclusions]
@@ -33,16 +33,13 @@
               (seq excluded-params) (str (str/join "&" excluded-params) "&")
               true (str "weekOffset=" (or week-offset 0) "&")
               true (str "weekLimit=" (or week-limit 1) "&"))]
-    (GET url
-      {:response-format :json
-       :keywords? true
-       :headers (auth-headers)
-       :handler (fn [data]
-                  (when (= request-id (:fetch-request-id @*reports-page-state))
-                    (swap! app-state assoc :reports-data data)))
-       :error-handler (fn [_]
-                        (when (= request-id (:fetch-request-id @*reports-page-state))
-                          (swap! app-state assoc :reports-data {:issues [] :tasks [] :meets [] :journal_entries []})))})))
+    (api/fetch-json-with-error url (auth-headers)
+      (fn [data]
+        (when (= request-id (:fetch-request-id @*reports-page-state))
+          (swap! app-state assoc :reports-data data)))
+      (fn [_]
+        (when (= request-id (:fetch-request-id @*reports-page-state))
+          (swap! app-state assoc :reports-data {:issues [] :tasks [] :meets [] :journal_entries []}))))))
 
 (defn reset-reports-page-view-state! []
   (swap! *reports-page-state assoc

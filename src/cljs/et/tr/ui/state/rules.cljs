@@ -1,21 +1,14 @@
 (ns et.tr.ui.state.rules
-  (:require [ajax.core :refer [GET]]
-            [et.tr.ui.constants :as constants]
-            [et.tr.ui.api :as api]))
+  (:require [et.tr.ui.api :as api]
+            [et.tr.ui.constants :as constants]))
 
 (defn fetch-rules [app-state auth-headers]
-  (GET "/api/category-rules"
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler #(swap! app-state assoc :rules %)}))
+  (api/fetch-json "/api/category-rules" (auth-headers)
+    #(swap! app-state assoc :rules %)))
 
 (defn- fetch-all-of [app-state auth-headers endpoint state-key]
-  (GET endpoint
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler #(swap! app-state assoc state-key %)}))
+  (api/fetch-json endpoint (auth-headers)
+    #(swap! app-state assoc state-key %)))
 
 (defn fetch-rules-page [app-state auth-headers]
   (fetch-rules app-state auth-headers)

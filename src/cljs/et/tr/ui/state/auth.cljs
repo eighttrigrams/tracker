@@ -1,7 +1,6 @@
 (ns et.tr.ui.state.auth
-  (:require [ajax.core :refer [GET POST]]
-            [et.tr.i18n :as i18n]
-            [et.tr.ui.api :as api]))
+  (:require [et.tr.ui.api :as api]
+            [et.tr.i18n :as i18n]))
 
 (defn save-auth-to-storage [token user]
   (when token
@@ -28,65 +27,58 @@
   DB-sourced settings (language, vim-keys, screensaver) win over whatever
   was frozen in localStorage. Updates the storage blob to match."
   [app-state auth-headers]
-  (GET "/api/auth/me"
-    {:response-format :json
-     :keywords? true
-     :headers (auth-headers)
-     :handler (fn [user]
-                (when user
-                  (swap! app-state update :current-user merge user)
-                  (apply-user-language (:current-user @app-state))
-                  (save-auth-to-storage (:token @app-state) (:current-user @app-state))))}))
+  (api/fetch-json "/api/auth/me" (auth-headers)
+    (fn [user]
+      (when user
+        (swap! app-state update :current-user merge user)
+        (apply-user-language (:current-user @app-state))
+        (save-auth-to-storage (:token @app-state) (:current-user @app-state))))))
 
 (defn fetch-auth-required [app-state auth-headers _initial-collection-state fetch-all-fn
                            & {:keys [on-skip-logins]}]
-  (GET "/api/auth/required"
-    {:response-format :json
-     :keywords? true
-     :handler (fn [resp]
-                (swap! app-state assoc :auth-required? (:required resp))
-                (if-not (:required resp)
-                  (GET "/api/auth/available-users"
-                    {:response-format :json
-                     :keywords? true
-                     :handler (fn [users]
-                                (let [regular-user (first (remove :is_admin users))
-                                      selected-user (or regular-user {:id nil :username "admin" :is_admin true :has_mail false :language "en"})]
-                                  (swap! app-state assoc
-                                         :logged-in? true
-                                         :current-user selected-user
-                                         :available-users users)
-                                  (apply-user-language selected-user)
-                                  (fetch-all-fn selected-user)))})
-                  (let [{:keys [token user]} (load-auth-from-storage)]
-                    (when (and token user)
-                      (swap! app-state assoc
-                             :logged-in? true
-                             :token token
-                             :current-user user)
-                      (apply-user-language user)
-                      (fetch-all-fn user)
-                      (refresh-current-user app-state auth-headers)))))}))
+  ;; Both of these are unauthenticated by definition — they run before there is
+  ;; a token to send — so `nil` headers, and they still go through the one door.
+  (api/fetch-json "/api/auth/required" nil
+    (fn [resp]
+      (swap! app-state assoc :auth-required? (:required resp))
+      (if-not (:required resp)
+        (api/fetch-json "/api/auth/available-users" nil
+          (fn [users]
+            (let [regular-user (first (remove :is_admin users))
+                  selected-user (or regular-user {:id nil :username "admin" :is_admin true :has_mail false :language "en"})]
+              (swap! app-state assoc
+                     :logged-in? true
+                     :current-user selected-user
+                     :available-users users)
+              (apply-user-language selected-user)
+              (fetch-all-fn selected-user))))
+        (let [{:keys [token user]} (load-auth-from-storage)]
+          (when (and token user)
+            (swap! app-state assoc
+                   :logged-in? true
+                   :token token
+                   :current-user user)
+            (apply-user-language user)
+            (fetch-all-fn user)
+            (refresh-current-user app-state auth-headers)))))))
 
 (defn login [app-state username password on-success]
-  (POST "/api/auth/login"
-    {:params {:username username :password password}
-     :format :json
-     :response-format :json
-     :keywords? true
-     :handler (fn [resp]
-                (let [user (:user resp)
-                      token (:token resp)]
-                  (swap! app-state assoc
-                         :logged-in? true
-                         :token token
-                         :current-user user
-                         :error nil)
-                  (save-auth-to-storage token user)
-                  (apply-user-language user)
-                  (when on-success (on-success))))
-     :error-handler (fn [resp]
-                      (swap! app-state assoc :error (get-in resp [:response :error] "Invalid credentials")))}))
+  (api/post-json "/api/auth/login"
+    {:username username :password password}
+    nil
+    (fn [resp]
+      (let [user (:user resp)
+            token (:token resp)]
+        (swap! app-state assoc
+               :logged-in? true
+               :token token
+               :current-user user
+               :error nil)
+        (save-auth-to-storage token user)
+        (apply-user-language user)
+        (when on-success (on-success))))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Invalid credentials")))))
 
 (defn logout [app-state initial-collection-state]
   (clear-auth-from-storage)
