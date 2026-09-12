@@ -1,0 +1,17 @@
+;; Which users' prose is sealed.
+;;
+;; **This migration turns it on for nobody.** The column defaults to 0 and no
+;; UPDATE sets it, deliberately: every line of the seal ships inert, and the flag
+;; is armed as the last act of the cutover, once the migration walker's --verify
+;; has exited 0 against the sealed database. See handoffs/tracker-seal-playbook.md.
+;;
+;; Arming it before the data is sealed would turn every remaining plaintext body
+;; into a row that cannot be saved, because the write guard refuses to let new
+;; plaintext prose into a sealed user's columns.
+;;
+;; It is on the *user* and not on a row because that is the one question the
+;; server can answer and a client cannot: a CLI guessing from a username is a
+;; guess that seals somebody else's rows, and that is not recoverable.
+{:id "074-add-seal-prose"
+ :up ["ALTER TABLE users ADD COLUMN seal_prose INTEGER NOT NULL DEFAULT 0"]
+ :down ["ALTER TABLE users DROP COLUMN seal_prose"]}

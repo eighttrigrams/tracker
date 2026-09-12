@@ -3,6 +3,7 @@
             [ring.mock.request :as mock]
             [et.tr.db :as db]
             [et.tr.db.user :as db.user]
+            [et.tr.envelope :as envelope]
             [et.tr.server :as server]
             [et.tr.server.common :as common]
             [et.tr.server.recording-mode :as recording-mode]
@@ -21,7 +22,11 @@
 (def ^:dynamic *user-id* nil)
 
 (defn make-app []
+  ;; This stack is a hand-kept copy of the one in `et.tr.server/build-app`, and
+  ;; the copy is why `wrap-seal-guard` has to be named here as well: a guard that
+  ;; is in production and not in the suite is a guard no test can fail on.
   (-> server/app-routes
+      (envelope/wrap-seal-guard)
       (machine-user/wrap-machine-default-limit)
       (wrap-params)
       (wrap-json-body {:keywords? true})

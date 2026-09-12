@@ -1,5 +1,6 @@
 (ns et.tr.server
   (:require [ring.adapter.jetty9 :as jetty]
+            [et.tr.envelope :as envelope]
             [et.tr.db :as db]
             [et.tr.server.common :as common]
             [et.tr.server.task-handler :as task-handler]
@@ -512,6 +513,11 @@
 
 (defn- app [prod?]
   (-> app-routes
+      ;; Innermost, closest to the routes: it needs the parsed body, and it
+      ;; resolves the caller itself rather than depending on where wrap-auth
+      ;; sits. It is the server half of "the client seals, the server enforces"
+      ;; — see et.tr.envelope for the rule and why only the server can hold it.
+      (envelope/wrap-seal-guard)
       (machine-user/wrap-machine-default-limit)
       (wrap-params)
       (wrap-json-body {:keywords? true})
