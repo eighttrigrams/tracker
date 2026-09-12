@@ -190,12 +190,22 @@
   `stored` is what that column holds right now. When the value has not changed,
   `stored` comes back byte for byte, whichever encoding it is in — see
   `seal-envelope/seal-at`, where the two halves of that comparison are argued.
-  The order matters: **the bytes first, before anything is opened.**"
+  The order matters: **the bytes first, before anything is opened.**
+
+  **An envelope is handed straight back, whatever is stored.** Both halves of the
+  echo rule need something to compare against, and when `stored` is `nil` — a
+  create, a row this browser has not read, an index emptied at sign-out — neither
+  can answer. A value that already carries the prefix then fell through to
+  `seal-text` and was sealed a second time. A page only ever holds an envelope
+  because it read one, so handing it back is what *unchanged* means here; sealing
+  it writes `enc(enc(…))`, which opens once into an envelope and reads as one,
+  with nothing reporting an error."
   ([k aad-str v] (seal-at k aad-str v nil))
   ([k aad-str v stored]
    (cond
      (nil? k) (resolved v)
      (blank-value? v) (resolved v)
+     (sealed? v) (resolved v)
      (= v stored) (resolved stored)
      :else (.then (unseal-at k aad-str stored)
                   (fn [was] (if (= was v) stored (seal-text k aad-str v)))))))

@@ -436,6 +436,36 @@
                            "no stored bytes to echo, so a fresh nonce — never a guess")))))
      done)))
 
+(deftest an-envelope-with-nothing-to-compare-it-against-is-still-not-sealed-again
+  ;; The shape B-1 produced by the thousand: a list read that never went through
+  ;; `et.tr.ui.api` filled the app-state with ciphertext and indexed nothing, and
+  ;; an inline title edit then sent that ciphertext back as `:description`. With
+  ;; no stored bytes to compare against, the echo rule cannot answer — so this
+  ;; one does, and it answers the only way there is.
+  (async done
+    (finally!
+     (.then (test-key)
+            (fn [k]
+              (.then (seal/seal k :tasks :description "a body" nil)
+                     (fn [ct]
+                       (js/Promise.all
+                        #js [(.then (seal/seal-params k {} "/api/tasks/7" {:description ct})
+                                    (fn [params]
+                                      (is (= ct (:description params))
+                                          "a client only ever holds an envelope because it read one")
+                                      (.then (seal/unseal k :tasks :description (:description params))
+                                             (fn [out]
+                                               (is (= "a body" out)
+                                                   "one open and the body — not a second envelope")))))
+                             (.then (seal/seal k :tasks :description "something else" nil)
+                                    (fn [other]
+                                      (let [index (seal/remember {} "/api/tasks/7" {:id 7 :description other})]
+                                        (.then (seal/seal-params k index "/api/tasks/7" {:description ct})
+                                               (fn [params]
+                                                 (is (= ct (:description params))
+                                                     "and a stale index does not change that either"))))))])))))
+     done)))
+
 (deftest a-create-has-no-row-to-echo-and-seals-afresh
   (async done
     (finally!
