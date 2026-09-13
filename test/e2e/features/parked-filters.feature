@@ -67,7 +67,13 @@ Feature: Parking the category filter selection
     Then the parked filter box should show "Renovations"
     And I should see "Paint walls" in the task list
 
-  Scenario: The Inbox has no box, so Option+Escape there leaves the parked selection alone
+  # This one used to read "The Inbox has no box, so Option+Escape there leaves
+  # the parked selection alone", and it was right until the Inbox grew the same
+  # Category sidebar every other list page has. The reason for the old answer
+  # was that restoring a selection you cannot see is a trap, not that the Inbox
+  # was special; with the box on screen there the reason is gone and the key
+  # means there what it means everywhere else.
+  Scenario: The Inbox has the box too, so Option+Escape there brings the selection back
     Given I am on the app
     And test data with categorized tasks exists
     And I reload the page
@@ -76,9 +82,12 @@ Feature: Parking the category filter selection
     And I collapse the "projects" filter group
     And I press Option+Escape
     And I click the "Inbox" tab
-    And I press Option+Escape
-    And I click the "Tasks" tab
     Then the parked filter box should show "Renovations"
+    When I press Option+Escape
+    And I click the "Tasks" tab
+    Then there should be no parked filter box
+    And the "projects" filter should show "Renovations" as selected
+    And I should not see "Paint walls" in the task list
 
   Scenario: The parked selection is the same one on every page
     Given I am on the app
