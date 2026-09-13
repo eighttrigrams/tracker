@@ -78,6 +78,24 @@ If the human mentions a "view", "filter", "sort" or "tab" you don't recognise
 - **Ask for detail only when needed.** `?detail=full` on a list adds the body
   text — use it when the human wants contents, not for counting or listing
   titles. For one item, read it by id. `/today-board` is never stripped.
+- **A body that reads `enc:v1:…` is encrypted, and that is working as intended.**
+  Some users' prose is sealed: the description is encrypted by the client that
+  wrote it, the server holds no key and never will, and what is stored — and
+  therefore what you are handed — is ciphertext. Titles, names, tags, dates,
+  scopes, statuses and every association stay in the clear and are unaffected.
+
+  **Do not try to decode it, do not guess at what it says, and do not describe
+  base64 back to the human as if it were their note.** Say plainly that the body
+  is encrypted and that you cannot read it, then answer from what you *can* see —
+  which is everything except the prose. If the human needs the body itself, the
+  place to read it is tracker in a browser, which holds the key; a deep link like
+  `/item/tsk123` takes them straight there.
+
+  Whether you ever see this depends on how you reach tracker. Through
+  `plurama-cli` on the owner's laptop, or through the credential proxy from a
+  sandbox, bodies are opened for you and you will see prose. Reaching the API
+  directly — as the Telegram agent does — you will see the envelopes, because
+  that path deliberately has no key.
 - **Today and the next few days.** `/today-board` is the bounded,
   full-detail view of today; `?days=N` widens the meeting window to
   today..today+N. Reach for it on "what's on today / coming up" instead of
