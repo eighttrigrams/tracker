@@ -105,6 +105,15 @@ is `users.seal_prose`, the server reads it, and the rule is:
 The echo half is what keeps a half-migrated database usable, and what stops a
 no-op save being refused.
 
+The guard is middleware, so it sees HTTP writes and **not** the writes tracker
+makes to its own tables in process — the schedulers in `et.tr.worker` and the feed
+crawler in `et.tr.source-worker`. That gap is real and, today, empty: the
+schedulers create rows without touching `description` at all, and the crawler
+writes into `messages`, which stays clear. It is a measurement of the code, not a
+property of the design, so it is written down where somebody adding the next
+in-process writer would meet it — in `et.tr.envelope/wrap-seal-guard`, with the
+rule such a writer has to keep.
+
 ### The three rules, which live in the seal and not at its call sites
 
 1. **Never seal a blank.** `nil` stays `nil`, `""` stays `""` —

@@ -210,7 +210,36 @@
 
   It is the server half of *client seals, server enforces*. The client half
   cannot be trusted on its own for the reason the namespace docstring gives:
-  which rows are the sealing user's is the one question a client cannot answer."
+  which rows are the sealing user's is the one question a client cannot answer.
+
+  ### What it does not cover, by construction
+
+  It is middleware, so it sees HTTP writes and nothing else. Tracker also writes
+  to its own tables **in process**, and those calls never pass this function:
+
+  | writer | what it writes | prose? |
+  | --- | --- | --- |
+  | `et.tr.worker` schedulers — meeting series, recurring tasks, journals | new rows, from a template row | **no**: `auto-create-meetings`, `auto-create-tasks` and `auto-create-journal-entries` do not mention `description` at all, so the new row's body is blank, and rule 1 says a blank is never sealed |
+  | `et.tr.worker` prunes, lined-up promotion, reminders | deletes, and `SET` lists over order/marker/date columns | **no** |
+  | `et.tr.source-worker/forward!` | a row in `messages` | **yes, and that table stays clear permanently** — it is written by three producers that hold no key |
+
+  So the gap is real and empty: there is no in-process path that puts readable
+  prose into a sealed column. That is a **measurement of today's code, not a
+  property of the design**, and it is written down here because the next person to
+  add an in-process writer will not think to look — the guard's absence is
+  invisible from inside a scheduler.
+
+  The rule for that person: *a write that happens inside this process must either
+  leave the prose columns alone, or carry a value it did not compose* — a
+  ciphertext copied from another row is fine (the AAD binds meaning, not table,
+  precisely so that copy is legal), a sentence the server built is not. The server
+  holds no key, so there is nothing it could do about the second case at the
+  moment it happens.
+
+  One path used to break that rule and no longer does: the `t `/`tt ` message
+  shortcut copied the message's body into `tasks.description`, and two of its
+  three callers pass somebody else's text through verbatim. See
+  `et.tr.server.message-handler/title-only-gesture`."
   [handler]
   (fn [req]
     (if (#{:put :post :patch} (:request-method req))
