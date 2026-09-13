@@ -530,6 +530,14 @@
   ;; a real envelope, belonging to a row nobody mentioned, echoed into the new
   ;; task and opening to somebody else's sentence with nothing reporting an
   ;; error. A convert is a create, and a create has nothing to echo.
+  ;;
+  ;; **This passes with `seal-params`'s `when-not convert` guard removed**, and
+  ;; that is worth saying here rather than leaving for somebody to discover.
+  ;; `stored-for` keys on `endpoint-table`, which answers `nil` for anything under
+  ;; `messages`, so the index cannot reach this endpoint by either road. The guard
+  ;; is defence in depth against a `stored-for` that later learns about converts —
+  ;; and a defensive branch nobody drives is a branch that rots, so the next test
+  ;; drives it.
   (async done
     (finally!
      (.then (test-key)
@@ -537,14 +545,57 @@
               (.then (seal/seal k :tasks :description "an unrelated task's body" nil)
                      (fn [other]
                        (let [index (seal/remember {} "/api/tasks/3" {:id 3 :description other})]
-                         (.then (seal/seal-params k index "/api/messages/3/convert-to-task"
-                                                  {:description "the mail body"})
+                         (js/Promise.all
+                          #js [(.then (seal/seal-params k index "/api/messages/3/convert-to-task"
+                                                        {:description "the mail body"})
+                                      (fn [params]
+                                        (is (not= other (:description params))
+                                            "task 3's ciphertext is not this message's body")
+                                        (.then (seal/unseal k :tasks :description (:description params))
+                                               (fn [out] (is (= "the mail body" out))))))
+                               ;; the reason it passes, asserted, so the redundancy
+                               ;; above is a checked claim and not a hope
+                               (js/Promise.resolve
+                                (is (nil? (seal/stored-for index "/api/messages/3/convert-to-task"
+                                                           :description))
+                                    "the index cannot answer for a messages path at all"))])))))) 
+     done)))
+
+(deftest the-convert-guard-holds-even-if-the-index-ever-learns-to-answer
+  ;; The `when-not convert` branch, driven by **injecting** the thing that cannot
+  ;; happen today rather than by arranging a call that provokes it — because
+  ;; provoking it would mean relying on `stored-for`'s current shape, which is the
+  ;; very thing that might change and the reason the guard exists.
+  ;;
+  ;; **The scenario has to be the one where the echo rule cannot save us**, and my
+  ;; first attempt at this test was not: with an unrelated `stored` whose plaintext
+  ;; differs, `seal-at` reaches `(= was v)`, finds it false and seals afresh
+  ;; anyway, so the test passed with the guard removed. The distinguishing case is
+  ;; a message that happens to **say the same sentence** as some other task — then
+  ;; `(= was v)` is true, the unrelated row's ciphertext is echoed into the new
+  ;; one, and two rows share bytes. That is the exact equality a fresh nonce
+  ;; exists to hide, and `api.cljs` says so: *keyed by row and never by text*.
+  ;;
+  ;; Found by a mutation probe, twice over: removing the guard left all 56 tests
+  ;; green, and then left my first replacement green too.
+  (async done
+    (finally!
+     (.then (test-key)
+            (fn [k]
+              (.then (seal/seal k :tasks :description "a sentence two rows share" nil)
+                     (fn [other]
+                       (with-redefs [seal/stored-for (fn [& _] other)]
+                         (.then (seal/seal-params k {} "/api/messages/3/convert-to-task"
+                                                  {:description "a sentence two rows share"})
                                 (fn [params]
                                   (is (not= other (:description params))
-                                      "task 3's ciphertext is not this message's body")
+                                      "an unrelated row's bytes must not become this row's")
                                   (.then (seal/unseal k :tasks :description (:description params))
-                                         (fn [out] (is (= "the mail body" out)))))))))))
+                                         (fn [out]
+                                           (is (= "a sentence two rows share" out)
+                                               "sealed afresh, under its own nonce"))))))))))
      done)))
+
 
 (deftest a-conversion-of-a-blank-message-sends-a-blank-and-not-an-envelope
   ;; A link-only message from the feed worker is the commonest convert in the

@@ -383,15 +383,30 @@
       user onto the user it acts for before anything asks"
       (seal-user! true)
       (let [machine (db.user/create-user *ds* "daniel-cli" "pw"
-                                         {:is-machine-user true :for-user-id *user-id*})]
-        (is (true? (:seal_prose (:body (me-as {:user-id (:id machine) :username "daniel-cli"
-                                               :is-admin false :has-mail false
-                                               :is-machine-user true
-                                               :for-user-id *user-id*
-                                               :mail-only false}))))
+                                         {:is-machine-user true :for-user-id *user-id*})
+            body (:body (me-as {:user-id (:id machine) :username "daniel-cli"
+                                :is-admin false :has-mail false
+                                :is-machine-user true
+                                :for-user-id *user-id*
+                                :mail-only false}))]
+        (is (true? (:seal_prose body))
             "its own row is never armed, and reading that row would tell the CLI
              it does not seal while every write it makes is refused for being
-             unsealed")))))
+             unsealed")
+        ;; **The other half, and it had no test until a mutation probe asked.**
+        ;; `seal_prose` comes from the *effective* id; everything else must keep
+        ;; coming from the caller's own row. `me-handler` resolves the row by name
+        ;; when there is one and falls back to the id only when there is not, and
+        ;; the fallback is what makes a dev session work at all — so the
+        ;; preference is the part a reader would delete as redundant. It is not:
+        ;; delete it and a machine user is handed its parent's identity, which is
+        ;; a different username and a different row, and 600 tests stayed green
+        ;; while I checked.
+        (is (= "daniel-cli" (:username body))
+            "its own name, not the human's it acts for")
+        (is (= (:id machine) (:id body))
+            "and its own row — the id is the one thing that says which")
+        (is (true? (:is_machine_user body)))))))
 
 (deftest the-flag-reaches-a-dev-session-too-which-is-the-only-kind-in-this-box
   ;; `/api/auth/me` is the only place `seal_prose` is answered, so a client that
