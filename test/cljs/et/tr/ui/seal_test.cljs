@@ -493,6 +493,106 @@
                                  "a motto body is a second name, not prose")))])))
      done)))
 
+(deftest a-message-conversion-seals-the-body-it-is-given
+  ;; The test above is about `/api/messages/3`, whose rows are never sealed.
+  ;; `/api/messages/3/convert-to-task` is a different endpoint with the opposite
+  ;; answer: it writes into `tasks`, which is sealed, and it `DELETE`s the
+  ;; message it copied in the same transaction. `endpoint-table` cannot tell the
+  ;; two apart — it answers `nil` for everything under `messages`, deliberately
+  ;; and correctly — so the write path has to ask `convert-target` as well, or
+  ;; the browser sends prose the server must refuse and the Inbox convert is
+  ;; lost for the one user the seal is for.
+  (async done
+    (finally!
+     (.then (test-key)
+            (fn [k]
+              (js/Promise.all
+               #js [(.then (seal/seal-params k {} "/api/messages/3/convert-to-task"
+                                             {:description "a paragraph of his own notes"})
+                           (fn [params]
+                             (is (seal/sealed? (:description params))
+                                 "into tasks, which is sealed — not into messages, which is not")
+                             (.then (seal/unseal k :tasks :description (:description params))
+                                    (fn [out] (is (= "a paragraph of his own notes" out))))))
+                    (.then (seal/seal-params k {} "/api/messages/3/convert-to-resource"
+                                             {:link "https://example.com/x"
+                                              :description "a resource note body"})
+                           (fn [params]
+                             (is (seal/sealed? (:description params)))
+                             (is (= "https://example.com/x" (:link params))
+                                 "and nothing else about the request is touched")))])))
+     done)))
+
+(deftest a-conversion-never-echoes-the-index-because-that-id-is-the-message-s
+  ;; The trap `convert-target`'s docstring names, driven rather than described.
+  ;; The `3` in `/api/messages/3/convert-to-task` is the **message's** id. Resolve
+  ;; that endpoint to `:tasks` with one lookup and the index answers for task 3 —
+  ;; a real envelope, belonging to a row nobody mentioned, echoed into the new
+  ;; task and opening to somebody else's sentence with nothing reporting an
+  ;; error. A convert is a create, and a create has nothing to echo.
+  (async done
+    (finally!
+     (.then (test-key)
+            (fn [k]
+              (.then (seal/seal k :tasks :description "an unrelated task's body" nil)
+                     (fn [other]
+                       (let [index (seal/remember {} "/api/tasks/3" {:id 3 :description other})]
+                         (.then (seal/seal-params k index "/api/messages/3/convert-to-task"
+                                                  {:description "the mail body"})
+                                (fn [params]
+                                  (is (not= other (:description params))
+                                      "task 3's ciphertext is not this message's body")
+                                  (.then (seal/unseal k :tasks :description (:description params))
+                                         (fn [out] (is (= "the mail body" out)))))))))))
+     done)))
+
+(deftest a-conversion-of-a-blank-message-sends-a-blank-and-not-an-envelope
+  ;; A link-only message from the feed worker is the commonest convert in the
+  ;; app, and blank is never sealed. The server tells `""` from a missing body on
+  ;; purpose, so what matters is that the key survives the walk.
+  (async done
+    (finally!
+     (.then (test-key)
+            (fn [k]
+              (.then (seal/seal-params k {} "/api/messages/3/convert-to-task" {:description ""})
+                     (fn [params]
+                       (is (= "" (:description params)))
+                       (is (contains? params :description)
+                           "and the key is still there: absent and blank are different answers")))))
+     done)))
+
+;; The other half of the same finding: *which* text the browser sends. The Inbox
+;; holds the message body already — it renders it — and a convert is the one
+;; write where the client has to hand it over, because the server is about to
+;; delete the only other copy.
+
+(deftest a-conversion-carries-the-body-the-inbox-already-holds
+  (let [messages [{:id 3 :title "an article" :description "a paragraph of his own notes"}
+                  {:id 4 :title "another" :description "not this one"}]]
+    (is (= {:description "a paragraph of his own notes"}
+           (seal/convert-params messages 3 {})))
+    (is (= {:link "https://example.com/x" :description "a paragraph of his own notes"}
+           (seal/convert-params messages 3 {:link "https://example.com/x"}))
+        "and whatever else the request already carried")))
+
+(deftest a-conversion-of-a-message-with-no-body-carries-a-blank
+  (let [messages [{:id 3 :title "a link somebody posted" :description nil}
+                  {:id 4 :title "and one with an empty body" :description ""}]]
+    (is (= {:description ""} (seal/convert-params messages 3 {}))
+        "blank is a value here, and `nil` would read to the server as no body at all")
+    (is (= {:description ""} (seal/convert-params messages 4 {})))))
+
+(deftest a-conversion-of-a-message-this-page-does-not-hold-sends-no-body-at-all
+  ;; Not a blank. A blank converts cleanly and loses the body permanently, with
+  ;; nothing anywhere to say it happened; no key at all earns the server's
+  ;; refusal, which says exactly what went wrong and leaves the message in the
+  ;; inbox. The dropdown this is reached from is rendered out of the list, so
+  ;; this should not be reachable — and *should not be reachable* is precisely
+  ;; the kind of claim that decides which way a fallback points.
+  (is (= {} (seal/convert-params [{:id 4 :description "somebody else's"}] 3 {})))
+  (is (= {:link "https://example.com/x"}
+         (seal/convert-params [] 3 {:link "https://example.com/x"}))))
+
 (deftest an-unmigrated-row-echoes-its-plaintext-rather-than-sealing-it
   ;; The test name is the contract, and it used to assert the opposite of
   ;; itself — the review's NIT-4, and the reason this is worth more than a

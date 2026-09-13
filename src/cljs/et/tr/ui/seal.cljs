@@ -52,6 +52,7 @@
 (def stored-entries rules/stored-entries)
 (def endpoint-table rules/endpoint-table)
 (def endpoint-id rules/endpoint-id)
+(def convert-target rules/convert-target)
 
 ;; ---------------------------------------------------------------------------
 ;; The envelope.
@@ -342,16 +343,63 @@
   [index endpoint column]
   (get index [(endpoint-table endpoint) (endpoint-id endpoint) column]))
 
+(defn convert-params
+  "The params a message conversion has to send, given the messages the Inbox is
+  holding — `{:description <the body of message-id>}` merged into whatever the
+  request already carried.
+
+  A convert used to send nothing at all: the server read the message and copied
+  its body into the new task or resource. For a sealing user that copy is
+  readable prose in a sealed column, and the message it came from is `DELETE`d in
+  the same transaction — so the body has to come from the client, which is the
+  only side that holds a key. This says *which* text; `seal-params` seals it on
+  the way out, which is why nothing here touches crypto and why this is the half
+  a test can drive.
+
+  **A message this page does not hold contributes no key at all**, rather than a
+  blank. The two are different answers and the difference is the whole point: a
+  blank converts cleanly and loses the body permanently, with nothing anywhere to
+  say it happened, while a missing key earns the server's refusal, which says
+  exactly that and leaves the message in the inbox. The dropdown this is reached
+  from is rendered out of the list, so the message is always in hand — and
+  *always* is the kind of claim that decides which way a fallback should point,
+  not one that makes the fallback unnecessary.
+
+  `\"\"` for a message whose body is genuinely absent, because blank is a value
+  here: the link-only message from the feed worker is the commonest convert in
+  the app, `nil` would serialise to a JSON `null`, and the server reads a `null`
+  as *no body was sent*."
+  [messages message-id params]
+  (if-let [message (first (filter #(= message-id (:id %)) messages))]
+    (assoc params :description (or (:description message) ""))
+    params))
+
 (defn seal-params
   "A Promise of `params` with its prose sealed, if this endpoint carries any.
 
   A `nil` table means an endpoint with no sealed body — `/api/messages` above all
   — and a `nil` key means sealing is off. Either way the params go out as they
-  came in, which is the behaviour tracker had before any of this existed."
+  came in, which is the behaviour tracker had before any of this existed.
+
+  **A message conversion is the one write whose table is not its endpoint's**, so
+  it is the one place two questions have to be asked instead of one.
+  `/api/messages/3/convert-to-task` writes into `tasks`, which is sealed;
+  `endpoint-table` answers `nil` for it, correctly, because the rows that
+  endpoint *serves* are messages and a message body is never sealed. Ask only
+  that one and the browser sends prose, the server refuses it, and the Inbox
+  convert is lost for the one user this whole feature is for.
+
+  The same distinction decides `stored`, which is why the two cannot be collapsed
+  into a single lookup. The id in that path is the **message's**. Looking
+  `[:tasks 3 :description]` up in the index would find some unrelated task's
+  ciphertext and echo it into the new row — a valid envelope opening to the wrong
+  prose, with nothing reporting an error. A convert is a create, and a create has
+  nothing to echo."
   [k index endpoint params]
-  (let [table (endpoint-table endpoint)]
+  (let [convert (convert-target endpoint)
+        table (or convert (endpoint-table endpoint))]
     (if (and k table (map? params) (contains? params :description))
       (.then (seal k table :description (:description params)
-                   (stored-for index endpoint :description))
+                   (when-not convert (stored-for index endpoint :description)))
              (fn [v] (assoc params :description v)))
       (resolved params))))

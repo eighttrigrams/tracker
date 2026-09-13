@@ -1,5 +1,19 @@
 (ns et.tr.ui.state.mail
+  "The Inbox.
+
+  It is the one state namespace that has to know about the seal, and the reason
+  is worth having here rather than only at the call site. Everywhere else in this
+  UI a write's prose is already in the params and `et.tr.ui.api` seals it on the
+  way past, knowing nothing but the endpoint. The two message conversions are the
+  exception: they used to send **no body at all** and let the server copy the
+  message across, and a server holds no key. So the body has to be handed over by
+  the side that can seal it, and this is the only side that is holding it.
+
+  `seal/convert-params` is that hand-over, and it is in `et.tr.ui.seal` so that a
+  test can drive it — this namespace reaches `ajax.core` through `api` and cannot
+  be loaded by the node suite at all."
   (:require [et.tr.ui.api :as api]
+            [et.tr.ui.seal :as seal]
             [clojure.string :as str]
             [reagent.core :as r]))
 
@@ -232,7 +246,7 @@
   (let [clear-filters? (and (has-positive-filter?)
                             (<= (count (:messages @app-state)) 1))]
     (api/post-json (str "/api/messages/" message-id "/convert-to-resource")
-      {:link link}
+      (seal/convert-params (:messages @app-state) message-id {:link link})
       (auth-headers)
       (fn [_]
         (swap! *mail-page-state assoc :message-dropdown-open nil)
@@ -245,7 +259,7 @@
   (let [clear-filters? (and (has-positive-filter?)
                             (<= (count (:messages @app-state)) 1))]
     (api/post-json (str "/api/messages/" message-id "/convert-to-task")
-      {}
+      (seal/convert-params (:messages @app-state) message-id {})
       (auth-headers)
       (fn [_]
         (swap! *mail-page-state assoc :message-dropdown-open nil)
@@ -253,4 +267,3 @@
         (fetch-messages app-state auth-headers))
       (fn [resp]
         (swap! app-state assoc :error (get-in resp [:response :error] "Failed to convert message to task"))))))
-

@@ -584,13 +584,44 @@
 
   The segment is carried rather than derived back from the table because six of
   them map to `:categories` and there is no way back: a write to `/api/people/7`
-  must be read back from `/api/people/7`, not from a guess."
+  must be read back from `/api/people/7`, not from a guess.
+
+  ## The two message conversions, which `endpoint-table` cannot see
+
+  `/api/messages/7/convert-to-task` writes into `tasks`, which is sealed, while
+  sitting at a path under `messages`, which is not — so an `endpoint-table` alone
+  answers `nil` here. That is right for `PUT /api/messages/7`, whose body must
+  keep going out in the clear, and wrong for this, which is the one write in
+  tracker that **deletes its own original**. Left at `nil`, a one-shot process
+  sends no sealed body, the server refuses it, and an armed user's convert is
+  impossible from the box for good. `convert-target` is the question that sees
+  it, and this is what makes it reachable from a client.
+
+  Such a target says two things the ordinary shape cannot:
+
+  - **`:id` is `nil`, deliberately.** A convert is a *create*: the row does not
+    exist yet, so there is nothing stored to echo, and `state-path` answers `nil`
+    for it and reads nothing. The `7` in that path is the **message's** id, so a
+    read of `/api/tasks/7` would fetch a row nobody mentioned and hand back its
+    ciphertext as this write's *stored* value — a valid envelope, echoed into the
+    new task, opening to somebody else's prose with nothing reporting an error.
+  - **`:body-from`** — where the prose it has to carry actually is. Everywhere
+    else a write already contains its own body; a convert historically contained
+    nothing and let the server copy the message across. A server holds no key, so
+    the copy has to be made by a client, and the only place that client can get
+    the text is the row that is about to be destroyed. `nil` on every other
+    target, and every other caller can ignore it."
   [path]
-  (when-let [table (endpoint-table path)]
-    (let [clean (first (str/split path #"\?"))
-          segs (remove str/blank? (str/split clean #"/"))
-          segs (if (= "api" (first segs)) (rest segs) segs)]
-      {:table table :segment (first segs) :id (endpoint-id path)})))
+  (if-let [table (convert-target path)]
+    {:table table
+     :segment nil
+     :id nil
+     :body-from (str "/api/messages/" (endpoint-id path))}
+    (when-let [table (endpoint-table path)]
+      (let [clean (first (str/split path #"\?"))
+            segs (remove str/blank? (str/split clean #"/"))
+            segs (if (= "api" (first segs)) (rest segs) segs)]
+        {:table table :segment (first segs) :id (endpoint-id path)}))))
 
 (defn prose-in
   "Whether this parsed body actually carries any of the table's sealed columns.
