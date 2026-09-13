@@ -307,6 +307,43 @@
         (resolved body)
         (walk-paths body paths (fn [_ aad-str v] (unseal-at k aad-str v)))))))
 
+(defn opening
+  "Hand `handler` the body with its prose opened — and **exactly once**,
+  whichever way it goes.
+
+  The order of the two callbacks is the whole of this function. It was written
+  the other way round, inside `et.tr.ui.api`:
+
+      (-> (unseal-body k body)
+          (.then  (fn [opened] (handler opened)))
+          (.catch (fn [_]      (handler body))))
+
+  and the `.catch` there is installed on the promise `.then` *returns*, so it
+  catches a rejection from `unseal-body` **and any throw from `handler`
+  itself**. A handler that throws part-way — a bad `swap!`, a shape some
+  calculation did not expect — was therefore called a second time with the
+  *unopened* body, writing `enc:v1:…` into the app-state on top of a half-applied
+  first run, silently. `.catch` first catches only what it is for.
+
+  What it is for is invariant 4: a value that will not open comes back visibly,
+  once, beside everything that reads, rather than a whole response dropped with
+  nothing to say why.
+
+  **A throw from the handler now comes out** in the returned Promise instead of
+  being absorbed by a second call. That is the point — a rejection a console
+  shows is strictly better than a silent corruption of the app-state — and it is
+  the behaviour change worth knowing about.
+
+  This lives here rather than in `et.tr.ui.api` for the reason the section below
+  gives: `api.cljs` cannot be loaded by the node suite at all, because
+  `ajax.core` wants `xmlhttprequest`, and *exactly once* is not a claim worth
+  making without a test that counts. B-1 widened this wrapper from five call
+  sites to about forty-five, which is what made the ordering worth moving."
+  [k body handler]
+  (-> (unseal-body k body)
+      (.catch (fn [_] body))
+      (.then (fn [b] (when handler (handler b))))))
+
 ;; ---------------------------------------------------------------------------
 ;; The write path's two halves, kept out of `et.tr.ui.api` so they can be driven
 ;; by a test rather than by IndexedDB and a network.

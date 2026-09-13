@@ -177,8 +177,14 @@
         "and it is still the one that talks to the network — asked with the same
          predicate, so a predicate that stopped seeing a require would fail here
          rather than quietly pass everywhere")
+    ;; Both halves of the seal are still met here. These are greps and are
+    ;; allowed to be: they stand for *the seal is still wired into this file*,
+    ;; and if one is renamed the right answer is to come here and say what it was
+    ;; renamed to, not to have the control quietly stop checking.
     (let [src (slurp f)]
       (is (str/includes? src "seal/seal-params")
           "and still the place the write path meets the seal")
-      (is (str/includes? src "seal/unseal-body")
-          "and the read path"))))
+      (is (str/includes? src "seal/opening")
+          "and the read path — `opening` rather than `unseal-body` since R-5,
+           because *exactly once* is a claim that needed a seam the node suite
+           can load, and `et.tr.ui.seal` is that seam"))))

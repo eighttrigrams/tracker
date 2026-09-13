@@ -14,10 +14,14 @@
 
   A docstring is not a control, so there is one beside it:
   `et.tr.api-is-the-only-door-test` fails if any namespace under `src/cljs`
-  except this one so much as mentions `ajax.core`. It is a grep rather than a
-  behaviour test on purpose — the defect is an *absence*, and no assertion about
-  how tracker fetches tasks can fail because somebody added a nineteenth
-  namespace that fetches meets its own way.
+  except this one *requires* `ajax.core`. It is a rule over the source tree
+  rather than a behaviour test on purpose — the defect is an *absence*, and no
+  assertion about how tracker fetches tasks can fail because somebody added a
+  nineteenth namespace that fetches meets its own way.
+
+  It asks the `ns` form for the symbol rather than the file for the string, and
+  that distinction was bought: the first namespace to *document* that it reaches
+  `ajax.core` through here was flagged by the old grep for saying so.
 
   There is **no allowlist**, and the endpoints that carry no prose go through
   here too: translations, auth, sources. *This endpoint carries no prose* is a
@@ -91,7 +95,12 @@
   (swap! stored seal/remember endpoint body))
 
 (defn- unsealing
-  "Wrap a success handler so it is given an opened body.
+  "Wrap a success handler so it is given an opened body, **once**.
+
+  The index first, the opening second — that ordering is load-bearing, because
+  unsealing is what throws the ciphertext away. *Exactly once* is
+  `seal/opening`'s, where a test can count the calls; this is only the key and
+  the index.
 
   Error bodies are deliberately not unsealed: an error carries a message and a
   reason, not prose, and a rejected promise inside an error path is a way to lose
@@ -99,9 +108,7 @@
   [endpoint handler]
   (fn [body]
     (remember! endpoint body)
-    (-> (seal/unseal-body (key-store/current-key) body)
-        (.then (fn [opened] (when handler (handler opened))))
-        (.catch (fn [_] (when handler (handler body)))))))
+    (seal/opening (key-store/current-key) body handler)))
 
 (defn- sealing
   "`et.tr.ui.seal/seal-params`, with this namespace's key and index supplied. The

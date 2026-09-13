@@ -745,3 +745,78 @@
         "absent is not sealed: which rows are the sealing user's is the one
          question a client cannot answer, so an unanswered one is a no")
     (is (not (seal/offers-the-key-box? nil)))))
+
+;; ---------------------------------------------------------------------------
+;; Handing an opened body to a handler, exactly once.
+;;
+;; The read path's last step, and until B-1 it guarded five call sites; it now
+;; guards about forty-five, which is what made a latent ordering bug worth
+;; finding. The decision lives here rather than in `et.tr.ui.api` for the reason
+;; the whole section above exists: `api.cljs` cannot be loaded by this suite —
+;; `ajax.core` wants `xmlhttprequest` — and *exactly once* is not a claim worth
+;; making without a test that counts.
+
+(deftest a-handler-that-throws-is-not-run-a-second-time-with-the-ciphertext
+  ;; The bug, driven. With `.catch` installed *after* `.then`, it sits on the
+  ;; promise `.then` returned and so catches a rejection from `unseal-body`
+  ;; **and any throw from the handler itself** — and then calls the handler again
+  ;; with the *unopened* body. A bad `swap!` part-way through a real handler
+  ;; therefore half-applies its effects and then writes `enc:v1:…` into the
+  ;; app-state on top of them, with nothing anywhere reporting it.
+  (async done
+    (let [seen (atom [])
+          thrower (fn [b]
+                    (swap! seen conj (:description b))
+                    (throw (js/Error. "a bad swap!, part-way")))]
+      (-> (test-key)
+          (.then (fn [k]
+                   (.then (seal/seal k :tasks :description "a body" nil)
+                          (fn [ct] [k ct]))))
+          (.then (fn [[k ct]] (seal/opening k {:id 7 :description ct} thrower)))
+          (.then (fn [_] (is false "the handler's throw must not be swallowed")))
+          (.catch (fn [e]
+                    (is (= "a bad swap!, part-way" (.-message e))
+                        "the throw comes out, where a console can show it")
+                    (is (= 1 (count @seen)) "called once, not twice")
+                    (is (= "a body" (first @seen))
+                        "and with the opened body — never with the envelope")))
+          (.then (fn [_] (done)))))))
+
+(deftest a-body-that-will-not-open-is-still-handed-over-as-it-arrived
+  ;; Invariant 4, which is what the `.catch` is actually for, and which the
+  ;; reorder must not cost. One unreadable body beside everything that reads,
+  ;; visibly, rather than a whole response dropped with nothing to say why.
+  (async done
+    (finally!
+     (.then (other-key)
+            (fn [wrong]
+              (.then (test-key)
+                     (fn [k]
+                       (.then (seal/seal k :tasks :description "a body" nil)
+                              (fn [ct]
+                                (let [seen (atom [])]
+                                  (.then (seal/opening wrong {:id 7 :description ct}
+                                                       #(swap! seen conj (:description %)))
+                                         (fn [_]
+                                           (is (= 1 (count @seen)) "once, here too")
+                                           (is (= ct (first @seen))
+                                               "handed back, visibly, and not swallowed"))))))))))
+     done)))
+
+(deftest an-opened-body-reaches-the-handler-once-on-the-ordinary-path
+  (async done
+    (finally!
+     (.then (test-key)
+            (fn [k]
+              (.then (seal/seal k :tasks :description "a body" nil)
+                     (fn [ct]
+                       (let [seen (atom [])]
+                         (.then (seal/opening k {:id 7 :description ct}
+                                              #(swap! seen conj (:description %)))
+                                (fn [_]
+                                  (is (= ["a body"] @seen)))))))))
+     done)))
+
+(deftest opening-a-body-with-no-handler-is-not-an-error
+  (async done
+    (finally! (seal/opening nil {:id 7 :description "a body"} nil) done)))
