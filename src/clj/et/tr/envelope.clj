@@ -102,6 +102,26 @@
                             db/jdbc-opts)
          column)))
 
+(defn supplied?
+  "Whether a request **supplied** a value for `column` — which is the one
+  question the guard and the two convert writers have to answer the same way.
+
+  The writers ask `(or description (:description message) \"\")`, so for them a
+  value is supplied when it is not `nil`: `\"\"` is a value and falls through to
+  the row, `nil` falls past the `or` and the message body is copied across in
+  the clear. A guard that asked `contains?` would be asking about the *key*
+  instead, and `{\"description\": null}` sits in the gap between the two
+  questions — key present, value absent, guard satisfied, mail body copied,
+  message deleted. So this asks about the value, as they do.
+
+  `(get body column)` rather than a destructure because a request whose content
+  type kept `wrap-json-body` from parsing it still arrives here, with an
+  InputStream where the map should be. `get` answers `nil` for that and the
+  convert is refused for want of a body, which is the same answer and the right
+  one; `contains?` would have thrown."
+  [body column]
+  (some? (get body column)))
+
 (defn- refusal-for
   "The refusal this request earns, or `nil`.
 
@@ -112,7 +132,7 @@
   there — which is the case a half-migrated database produces on every no-op
   save, and the reason mixed state stays usable.
 
-  **The two message conversions are the one place an *absent* column is a
+  **The two message conversions are the one place an *absent body* is a
   refusal**, and they earn the exception by deleting their own original. Every
   other write here can be wrong and then corrected: the row survives, the client
   reads it back, the next save seals it. A convert cannot. It writes prose into a
@@ -121,7 +141,10 @@
   stored value to diff against, and nothing to tell anyone it happened. The one
   moment this can be got right is before it runs. A sealing user who sends no
   `description` is therefore told to send one rather than quietly handed a task
-  whose body is readable on fly.
+  whose body is readable on fly. *Sends no* is `supplied?`'s question and not
+  `contains?`'s, because it is the writers' question: a JSON `null` is a key
+  with no body behind it, and the writers copy the mail across for it exactly as
+  they do for an absent key.
 
   A convert is also the one write here whose table is not its endpoint's, which
   is why `table` is resolved through `convert-target` first."
@@ -145,7 +168,7 @@
               ;; answer for an unrelated task if it were used here.
               id (when-not convert (rules/endpoint-id uri))]
           (or
-           (when (and convert sealing? (not (contains? body :description)))
+           (when (and convert sealing? (not (supplied? body :description)))
              {:success false
               :error (str "This user's prose is sealed, and a conversion must carry the "
                           "sealed body. Send description with this request: the message "

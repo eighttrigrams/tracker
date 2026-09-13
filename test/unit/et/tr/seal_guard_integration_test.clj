@@ -224,6 +224,45 @@
       (is (= 400 (:status resp)))
       (is (some? (:id (:body (GET-json (str "/api/messages/" message)))))))))
 
+(deftest a-sealing-user-s-convert-whose-body-is-null-is-refused-like-an-absent-one
+  ;; The guard and the writer must agree about what counts as *a body was
+  ;; supplied*. The writer asks `(or description (:description message) "")`,
+  ;; which steps straight over `nil` and copies the mail body across in the
+  ;; clear; a guard that asks `contains?` says yes to `{"description": null}` and
+  ;; waves that copy through — into a sealed column, with the message deleted in
+  ;; the same transaction and nothing to recover it from.
+  ;;
+  ;; `nil` is not a near-miss shape, either. A client that builds the field from
+  ;; the message it holds — `{:description (seal k … (:description msg))}` — gets
+  ;; `nil` back for a message whose body is `nil`, because blank is handed
+  ;; straight back unsealed. This is on the happy path of the browser half.
+  (seal-user! true)
+  (testing "to a task"
+    (let [message (a-message! "a paragraph of his own notes")
+          resp (POST-json (str "/api/messages/" message "/convert-to-task")
+                          {:description nil})]
+      (is (= 400 (:status resp)))
+      (is (= "unsealed" (:reason (:body resp))))
+      (is (some? (:id (:body (GET-json (str "/api/messages/" message)))))
+          "and the message is still in the inbox, not deleted behind a null")))
+  (testing "to a resource"
+    (let [message (a-message! "a paragraph of his own notes")
+          resp (POST-json (str "/api/messages/" message "/convert-to-resource")
+                          {:link "https://example.com/x" :description nil})]
+      (is (= 400 (:status resp)))
+      (is (some? (:id (:body (GET-json (str "/api/messages/" message)))))))))
+
+(deftest a-user-who-does-not-seal-may-still-convert-with-a-null-body
+  ;; The other side of the same predicate: for everybody who does not seal, a
+  ;; `nil` body still means *copy the message across*, which is what this always
+  ;; did. The refusal is about sealing, not about the shape of the JSON.
+  (seal-user! false)
+  (let [message (a-message! "the mail body")
+        resp (POST-json (str "/api/messages/" message "/convert-to-task")
+                        {:description nil})]
+    (is (= 200 (:status resp)))
+    (is (= "the mail body" (stored-description-of :tasks (:id (:body resp)))))))
+
 (deftest a-sealing-user-s-convert-may-not-carry-readable-prose-either
   (seal-user! true)
   (let [message (a-message! "a paragraph of his own notes")
@@ -334,3 +373,20 @@
             "its own row is never armed, and reading that row would tell the CLI
              it does not seal while every write it makes is refused for being
              unsealed")))))
+
+(deftest a-convert-whose-body-never-parsed-is-refused-rather-than-thrown-at
+  ;; A request whose content type kept `wrap-json-body` from parsing it arrives
+  ;; here with an InputStream where the map should be. Every other branch of the
+  ;; guard is behind `(map? body)`; the convert branch is not, because a convert
+  ;; must be judged even when it carries nothing at all. So the question it asks
+  ;; has to be one an InputStream can be asked — `get` answers `nil`, which is
+  ;; the right answer, where `contains?` throws and the caller sees a 500.
+  (seal-user! true)
+  (let [message (a-message! "a paragraph of his own notes")
+        resp (*app* (-> (mock/request :post (str "/api/messages/" message "/convert-to-task"))
+                        (mock/header "X-User-Id" (str *user-id*))
+                        (mock/header "Content-Type" "text/plain")
+                        (mock/body "description=nope")))]
+    (is (= 400 (:status resp)))
+    (is (some? (:id (:body (GET-json (str "/api/messages/" message)))))
+        "and the message is still in the inbox")))
