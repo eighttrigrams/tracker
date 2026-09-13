@@ -783,9 +783,15 @@
           (.then (fn [_] (done)))))))
 
 (deftest a-body-that-will-not-open-is-still-handed-over-as-it-arrived
-  ;; Invariant 4, which is what the `.catch` is actually for, and which the
-  ;; reorder must not cost. One unreadable body beside everything that reads,
-  ;; visibly, rather than a whole response dropped with nothing to say why.
+  ;; Invariant 4, and the behaviour the reorder must not cost: one unreadable
+  ;; body beside everything that reads, visibly, rather than a whole response
+  ;; dropped with nothing to say why.
+  ;;
+  ;; **It travels the `.then`, not the `.catch`**, and saying so is the point of
+  ;; this comment. `unseal-at` catches per value and hands the value back, so
+  ;; `unseal-body` *resolves* with the envelope intact even under the wrong key —
+  ;; verified, not assumed. Reading this test as coverage of the `.catch` would
+  ;; be reading the name and not the path; that branch is driven by the next one.
   (async done
     (finally!
      (.then (other-key)
@@ -802,6 +808,35 @@
                                            (is (= ct (first @seen))
                                                "handed back, visibly, and not swallowed"))))))))))
      done)))
+
+(deftest a-rejection-from-the-unseal-itself-reaches-the-handler-once-with-the-body
+  ;; The `.catch` branch — **the exact line R-5 reordered** — and nothing else in
+  ;; this file reaches it. `unseal-body` resolves for every input tried: a wrong
+  ;; key (the test above), a non-string body, a nested row, a `nil`. That is good
+  ;; news about `unseal-body` and bad news about coverage, because it means the
+  ;; branch the whole finding was about had no test at all and a sibling that
+  ;; looked like one.
+  ;;
+  ;; So the rejection is manufactured. `with-redefs` is the honest way to say
+  ;; *this cannot happen today and must still be right if it ever does* — a
+  ;; defensive branch nobody drives is a branch that rots.
+  ;;
+  ;; **This one passes under either ordering, and is not meant to distinguish
+  ;; them** — checked, by putting the old ordering back and watching only
+  ;; `a-handler-that-throws-…` go red. That test pins the order; this one pins
+  ;; what the `.catch` is *for*. Between them: it catches what it should, and
+  ;; only what it should.
+  (async done
+    (let [seen (atom [])]
+      (with-redefs [seal/unseal-body (fn [_ _] (js/Promise.reject (js/Error. "the walk blew up")))]
+        (-> (seal/opening :a-key {:id 7 :description "enc:v1:whatever"}
+                          #(swap! seen conj (:description %)))
+            (.then (fn [_]
+                     (is (= 1 (count @seen)) "once — the rejection is not a second run")
+                     (is (= "enc:v1:whatever" (first @seen))
+                         "and with the body exactly as it arrived, which is invariant 4")))
+            (.catch (fn [e] (is false (str "must not reject: " e))))
+            (.then (fn [_] (done))))))))
 
 (deftest an-opened-body-reaches-the-handler-once-on-the-ordinary-path
   (async done
