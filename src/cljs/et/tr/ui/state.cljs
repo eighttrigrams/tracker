@@ -1620,7 +1620,7 @@
   (users/close-user-switcher *app-state))
 
 (defn switch-user [user]
-  (users/switch-user *app-state initial-collection-state fetch-all user))
+  (users/switch-user *app-state auth-headers initial-collection-state fetch-all user))
 
 ;; Group-agnostic: every caller passes the Group key. There used to be a
 ;; per-Group facade per function here (fetch-people, fetch-places, ...) on the

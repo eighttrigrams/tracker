@@ -717,3 +717,31 @@
                                   (is (not= ct (:description params))
                                       "keyed by row, never by text")))))))) 
      done)))
+
+;; ---------------------------------------------------------------------------
+;; Who is offered the key box.
+;;
+;; The ⚙ panel is the only way a key gets into this browser, and it was gated on
+;; `is_admin` — *is this person not the admin* — which is a question about roles
+;; and not about sealing. Tracker has three humans in one database and one of
+;; them seals. So everybody else was offered a box that would do them no good and
+;; some harm, and the review found it the way it is always found: the reviewer
+;; pasted the fixture key into the wrong person's panel to get its work done,
+;; which is exactly the mistake the panel's own docstring says the gate exists to
+;; prevent.
+
+(deftest the-key-box-is-offered-on-whether-this-user-seals
+  (is (seal/offers-the-key-box? {:username "antonio" :seal_prose true}))
+  (is (not (seal/offers-the-key-box? {:username "daniel" :seal_prose false}))))
+
+(deftest the-key-box-is-not-offered-on-a-role-or-on-a-guess
+  (testing "not admin-ness, which is the question it used to ask"
+    (is (not (seal/offers-the-key-box? {:username "daniel" :is_admin false}))
+        "a non-admin who does not seal — the case the old gate got backwards")
+    (is (not (seal/offers-the-key-box? {:username "admin" :is_admin true :seal_prose false}))
+        "and the admin has :id nil and no rows, so there is nothing to seal"))
+  (testing "and not a client-side guess at who the owner is"
+    (is (not (seal/offers-the-key-box? {:username "antonio"}))
+        "absent is not sealed: which rows are the sealing user's is the one
+         question a client cannot answer, so an unanswered one is a no")
+    (is (not (seal/offers-the-key-box? nil)))))

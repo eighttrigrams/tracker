@@ -25,11 +25,25 @@
 (defn refresh-current-user
   "Re-fetch the current user from the DB and overwrite the cached copy, so
   DB-sourced settings (language, vim-keys, screensaver) win over whatever
-  was frozen in localStorage. Updates the storage blob to match."
+  was frozen in localStorage. Updates the storage blob to match.
+
+  **`seal_prose` arrives only here**, and that is why this now runs on every path
+  that sets a current user rather than only on the one that restores a token.
+  Neither the dev login picker nor the user switcher carries the flag — they
+  build a user out of `/api/auth/available-users`, which deliberately answers a
+  list of names and roles — so a client that gated the key panel on it and never
+  asked `/api/auth/me` would offer the panel to nobody at all. The flag has one
+  source because the server resolving it through `envelope/seals?` is what stops
+  the client's gate and the server's refusal drifting apart.
+
+  The answer is dropped if the user changed while it was in flight. A dev switch
+  is two clicks apart and this is one HTTP call, so merging a late answer would
+  write one person's sealing flag onto another person's session — which is the
+  single mistake this whole arrangement is arranged to make impossible."
   [app-state auth-headers]
   (api/fetch-json "/api/auth/me" (auth-headers)
     (fn [user]
-      (when user
+      (when (and user (= (:username user) (:username (:current-user @app-state))))
         (swap! app-state update :current-user merge user)
         (apply-user-language (:current-user @app-state))
         (save-auth-to-storage (:token @app-state) (:current-user @app-state))))))
@@ -51,6 +65,10 @@
                      :current-user selected-user
                      :available-users users)
               (apply-user-language selected-user)
+              ;; `available-users` answers names and roles and no `seal_prose`;
+              ;; only `/api/auth/me` knows who seals. Without this the key panel
+              ;; is offered to nobody in dev, which is every browser in the box.
+              (refresh-current-user app-state auth-headers)
               (fetch-all-fn selected-user))))
         (let [{:keys [token user]} (load-auth-from-storage)]
           (when (and token user)

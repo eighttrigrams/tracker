@@ -3,6 +3,7 @@
             [cljs.pprint]
             [clojure.string :as str]
             [et.tr.ui.key-store :as key-store]
+            [et.tr.ui.seal :as seal]
             [et.tr.ui.state :as state]
             [et.tr.i18n :refer [t]]))
 
@@ -233,7 +234,12 @@
        [:div.settings-item
         [:button.export-btn {:on-click #(state/export-data)}
          (t :settings/export-data)]]]
-      (when-not is-admin
+      ;; Not `is-admin`. The panel's own docstring says *"not shown to anyone
+      ;; whose rows are not sealed"*, and admin-ness is a different question that
+      ;; happened to exclude one of the three people here. `seal/offers-the-key-box?`
+      ;; asks the only one that matters, off `seal_prose` from `/api/auth/me`,
+      ;; which the server resolves through the guard's own predicate.
+      (when (seal/offers-the-key-box? current-user)
         [encryption-key-block])
       (when-not is-admin
         [machine-users-section])]]))

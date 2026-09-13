@@ -68,7 +68,23 @@
                           :seal_prose false}}
 
       :else
-      (if-let [user (db.user/get-user-by-username (common/ensure-ds) (:username user-info))]
+      ;; By name when the caller has one, by **id** when it does not. A bearer
+      ;; token carries `:username`; `:dangerously-skip-logins?` carries only an
+      ;; `X-User-Id`, and this used to 404 on every dev session as a result — so
+      ;; the one endpoint that answers `seal_prose` did not answer it in the mode
+      ;; the app is run in during development, which is the mode a key panel
+      ;; gated on that flag has to work in.
+      ;;
+      ;; The name is still preferred rather than dropped, because for a machine
+      ;; user the two differ: `claims->identity` has already collapsed `:user-id`
+      ;; onto the human it acts for, so an id lookup would answer with the
+      ;; *parent's* row — a different username, language and role from the one
+      ;; that called. `seal_prose` is the one field that must come from the
+      ;; effective id, and it does, a few lines below.
+      (if-let [user (some->> (or (:username user-info)
+                                 (:username (db.user/get-user-by-id (common/ensure-ds)
+                                                                    (:user-id user-info))))
+                             (db.user/get-user-by-username (common/ensure-ds)))]
         {:status 200 :body (-> user
                                (dissoc :password_hash)
                                (assoc :has_mail (:has-mail user-info))

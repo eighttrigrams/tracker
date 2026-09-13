@@ -343,6 +343,30 @@
   [index endpoint column]
   (get index [(endpoint-table endpoint) (endpoint-id endpoint) column]))
 
+(defn offers-the-key-box?
+  "Whether the ⚙ key panel is for this user.
+
+  **The question is whether they seal, and nothing else.** It was `is_admin` —
+  *offer it to everybody who is not the admin* — which is a question about roles,
+  asked where a question about sealing belongs. Tracker has three humans in one
+  database and one of them seals, so the other two were offered a box that could
+  do them no good and some harm: a key in a browser whose rows are all plaintext
+  seals nothing, and the first write that carries an envelope into an unsealed
+  user's column is refused by the server with a message about a feature they have
+  never heard of.
+
+  The answer comes from `GET /api/auth/me`, which resolves it through
+  `envelope/seals?` — the guard's own predicate, from the effective user id. The
+  client gating this panel and the server refusing writes must not be able to
+  disagree, and they cannot when only one of them decides.
+
+  **Absent is a no.** A `:current-user` that has not been refreshed yet, or a
+  user record from some other endpoint that does not carry the flag, has not said
+  *yes* — and which rows are the sealing user's is precisely the question this
+  namespace's docstring says a client may not guess at."
+  [current-user]
+  (boolean (:seal_prose current-user)))
+
 (defn convert-params
   "The params a message conversion has to send, given the messages the Inbox is
   holding — `{:description <the body of message-id>}` merged into whatever the

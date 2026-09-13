@@ -58,13 +58,20 @@
 (defn close-user-switcher [app-state]
   (swap! app-state assoc :show-user-switcher false))
 
-(defn switch-user [app-state initial-collection-state fetch-all-fn user]
+(defn switch-user
+  "The dev switcher. `user` comes out of `/api/auth/available-users`, which
+  answers names and roles and carries no `seal_prose`, so the flag is re-asked of
+  `/api/auth/me` for whoever this now is — otherwise a switch away from the one
+  person who seals would leave his key panel offered to the next one, and a
+  switch towards him would never offer it at all."
+  [app-state auth-headers initial-collection-state fetch-all-fn user]
   (swap! app-state merge
          initial-collection-state
          {:current-user user
           :show-user-switcher false
           :active-tab :today})
   (auth/apply-user-language user)
+  (auth/refresh-current-user app-state auth-headers)
   (fetch-all-fn user))
 
 (defn fetch-my-machine-users [app-state auth-headers]

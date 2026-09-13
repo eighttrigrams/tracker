@@ -328,10 +328,16 @@
 ;; write it makes is refused for being unsealed.
 
 (defn- me-as
-  "`GET /api/auth/me` as a real bearer token, which is what a browser always
-  holds. The `X-User-Id` shortcut the other helpers use cannot reach this
-  endpoint at all: `get-user-from-request`'s skip-logins path carries no
-  `:username`, and this handler looks the row up by name."
+  "`GET /api/auth/me` as a real bearer token, which is what a browser holds once
+  there is a login to hold one from.
+
+  It used to say that the `X-User-Id` shortcut *could not reach this endpoint at
+  all*, because the skip-logins path carries no `:username` and the handler
+  looked the row up by name. That was true, and the sentence was where the cost
+  of it stopped being followed: a dev session got a 404 from the one endpoint
+  that answers `seal_prose`, so the panel the flag exists to gate could not have
+  worked in the mode this app is developed in. Both doors are open now, and
+  `the-flag-reaches-a-dev-session-too-…` holds the other one open."
   [claims]
   (-> (*app* (-> (mock/request :get "/api/auth/me")
                  (mock/header "Authorization" (str "Bearer " (auth/create-token claims)))))
@@ -373,6 +379,28 @@
             "its own row is never armed, and reading that row would tell the CLI
              it does not seal while every write it makes is refused for being
              unsealed")))))
+
+(deftest the-flag-reaches-a-dev-session-too-which-is-the-only-kind-in-this-box
+  ;; `/api/auth/me` is the only place `seal_prose` is answered, so a client that
+  ;; gates the ⚙ panel on it has to be able to ask **in the mode the app is
+  ;; actually run in here**. Under `:dangerously-skip-logins?` there is no token
+  ;; and no username: `get-user-from-request` answers a user *id*, and this
+  ;; handler looked the row up by name and 404'd on every dev session.
+  ;;
+  ;; So the door existed and did not open. The flag was reachable only from a
+  ;; production login — the one place nobody in this box was ever going to try —
+  ;; and S-2's client half could not have been built against it even in
+  ;; principle. The helper below says as much in its own docstring; what was
+  ;; missing was following that sentence out to what it costs.
+  (seal-user! true)
+  (let [resp (GET-json "/api/auth/me")]
+    (is (= 200 (:status resp)))
+    (is (= "test-user" (:username (:body resp)))
+        "resolved from the effective user id, since that is all a dev session has")
+    (is (true? (:seal_prose (:body resp)))))
+  (testing "and it is still read fresh, not cached anywhere"
+    (seal-user! false)
+    (is (false? (:seal_prose (:body (GET-json "/api/auth/me")))))))
 
 (deftest a-convert-whose-body-never-parsed-is-refused-rather-than-thrown-at
   ;; A request whose content type kept `wrap-json-body` from parsing it arrives
