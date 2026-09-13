@@ -7,6 +7,7 @@
             [et.tr.ui.date :as date]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.task-item :as task-item]
+            [et.tr.ui.components.cm-input :refer [cm-input]]
             [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
@@ -373,25 +374,27 @@
                               :on-click #(state/set-confirm-delete-rtask rtask)}]]])
 
 (defn- rtask-inline-title-edit [rtask]
-  (let [value (or (:rtasks-page/inline-edit-title @state/*app-state) "")]
-    [:input.inline-title-edit
-     {:type "text"
+  ;; The recurring list's own copy of the inline title editor — same gesture,
+  ;; so the same field: `cm-input` for the keyboard scheme, and the save combo
+  ;; alongside Enter. See the docstring on task-item/inline-title-edit; this one
+  ;; is separate only because a recurring task is not an item-card.
+  (let [value (or (:rtasks-page/inline-edit-title @state/*app-state) "")
+        close! #(swap! state/*app-state dissoc :rtasks-page/inline-edit-rtask :rtasks-page/inline-edit-title)
+        commit! #(state/update-recurring-task (:id rtask) value (:description rtask) (:tags rtask) close!)]
+    [cm-input
+     {:class "inline-title-edit"
+      :type "text"
       :auto-complete "off"
       :auto-focus true
       :value value
       :on-click #(.stopPropagation %)
       :on-change #(swap! state/*app-state assoc :rtasks-page/inline-edit-title (.. % -target -value))
       :on-key-down (fn [e]
-                     (case (.-key e)
-                       "Enter" (do (.stopPropagation e)
-                                   (state/update-recurring-task (:id rtask) value (:description rtask) (:tags rtask)
-                                     #(swap! state/*app-state dissoc :rtasks-page/inline-edit-rtask :rtasks-page/inline-edit-title)))
-                       "Escape" (do (.stopPropagation e)
-                                    (swap! state/*app-state dissoc :rtasks-page/inline-edit-rtask :rtasks-page/inline-edit-title))
-                       nil))
-      :on-blur (fn [_]
-                 (state/update-recurring-task (:id rtask) value (:description rtask) (:tags rtask)
-                   #(swap! state/*app-state dissoc :rtasks-page/inline-edit-rtask :rtasks-page/inline-edit-title)))}]))
+                     (cond
+                       (keys/save-combo? e) (do (.preventDefault e) (.stopPropagation e) (commit!))
+                       (= "Enter" (.-key e)) (do (.stopPropagation e) (commit!))
+                       (= "Escape" (.-key e)) (do (.stopPropagation e) (close!))))
+      :on-blur (fn [_] (commit!))}]))
 
 (defn- rtask-header [rtask is-expanded]
   (let [inline-editing? (= (:rtasks-page/inline-edit-rtask @state/*app-state) (:id rtask))]

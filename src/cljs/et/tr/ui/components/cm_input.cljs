@@ -20,9 +20,21 @@
   real <input> behind the editor and its .value is written before the handler is
   called. So `.-target` is the actual element, not a fake: `.-value` is right,
   and so is `.-id`, and so is `.blur`. Nothing is being impersonated."
-  (:require [reagent.core :as r]
+  (:require [clojure.string :as str]
+            [reagent.core :as r]
             [et.tr.ui.state :as state]
             [et.tr.ui.codemirror :as cm]))
+
+(defn- handler-prop?
+  "Whether a prop is a DOM event handler that has to follow the keyboard.
+
+  `:on-change` is excluded because it is not one of these: it is this
+  component's own contract, answered from the editor's update listener and
+  never by the element."
+  [k]
+  (and (keyword? k)
+       (not= k :on-change)
+       (str/starts-with? (name k) "on-")))
 
 (defn- editor-props
   "The props the mirrored <input> keeps when an editor is in front of it.
@@ -34,11 +46,37 @@
   `:id`, `:class`, `:placeholder`, `:type`, `:auto-complete` -- stays, and stays
   on the <input> rather than moving to the wrapper, so that `input {}` in
   base.css and `.item-edit-form input` in modal.css still resolve against it.
-  That resolved answer is what the editor is themed from."
+  That resolved answer is what the editor is themed from.
+
+  The event handlers come off too, and go to the wrapper instead -- see
+  `wrapper-props`."
   [props value]
-  (-> props
+  (-> (into {} (remove (comp handler-prop? key)) props)
       (dissoc :value :on-change :auto-focus)
       (assoc :default-value value)))
+
+(defn- wrapper-props
+  "The wrapper's props: its positioning, plus every event handler the call site
+  put on the field.
+
+  They cannot stay on the <input>. Keystrokes and clicks land on the editor,
+  which is a *sibling* of the mirrored element and not a descendant of it, so a
+  handler there is never on the event's path and simply never fires -- silently,
+  since the same call site keeps working for a user with the scheme turned off.
+  The wrapper *is* on the path, being the parent of both, and React dispatches
+  to it from the event's real target however deep in CodeMirror's own DOM that
+  target lives.
+
+  `:on-blur` in particular relies on React spelling blur as `focusout`, which
+  bubbles where the raw `blur` would not -- which is what lets an inline title
+  editor keep committing when the cursor leaves it.
+
+  This is why the component can be a drop-in at all: without it, converting a
+  field with an `:on-key-down` would quietly drop its Enter and its Escape."
+  [props]
+  (into {:style {:position "relative"}}
+        (filter (comp handler-prop? key))
+        props))
 
 (defn cm-input
   [_]
@@ -63,7 +101,7 @@
                                    (when on-change
                                      (on-change #js {:target @field})))})]
               (reset! view v)
-              (when auto-focus (.focus v))))))
+              (when auto-focus (cm/focus-at-end! v))))))
 
       ;; The parent may reset the field from outside -- Escape clears a filter, a
       ;; modal reopens on another item, a save round-trips. cm-textarea never
@@ -97,7 +135,7 @@
           ;; The wrapper is positioned only so the <input> can be laid over it;
           ;; it carries no look of its own. The editor draws the box, from what
           ;; the <input> inside computes to.
-          [:div.cm-input-host {:style {:position "relative"}
-                               :ref #(when % (reset! host %))}
+          [:div.cm-input-host (assoc (wrapper-props props)
+                                     :ref #(when % (reset! host %)))
            [:input (assoc (editor-props props (or (:value props) ""))
                           :ref #(when % (reset! field %)))]]))})))

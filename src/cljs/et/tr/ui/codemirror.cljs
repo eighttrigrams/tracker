@@ -62,6 +62,21 @@
 (defn get-editor-value [view]
   (when view (.. view -state -doc toString)))
 
+(defn focus-at-end!
+  "Focus the editor with the caret after the text, the way an autofocused
+  <input> carrying a value arrives.
+
+  A fresh EditorState selects position 0, which for an empty field is the same
+  thing and for a field opened *on* something is not: the inline title editor is
+  opened by Option+clicking a title that already reads something, and a caret
+  parked in front of it turns every append into a prepend. The element this
+  stands in front of has always put the caret at the end, so this does too."
+  [view]
+  (when view
+    (let [len (.. view -state -doc -length)]
+      (.dispatch view #js {:selection #js {:anchor len :head len}})
+      (.focus view))))
+
 (defn set-editor-value [view value]
   (when view
     (let [transaction

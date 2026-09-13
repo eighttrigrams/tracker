@@ -2,9 +2,11 @@
   (:require [reagent.core :as r]
             [clojure.string :as str]
             [et.tr.ui.state :as state]
+            [et.tr.ui.keys :as keys]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.date :as date]
             [et.tr.ui.components.category-selector :as category-selector]
+            [et.tr.ui.components.cm-input :refer [cm-input]]
             [et.tr.ui.components.relation-badges :as relation-badges]
             [et.tr.filters :as filters]
             [et.tr.i18n :refer [t]]
@@ -80,19 +82,38 @@
                          (reset! expanded? true))}
             "See more"])]))))
 
-(defn inline-title-edit [{:keys [title on-change on-commit on-cancel]}]
-  [:input.inline-title-edit
-   {:type "text"
+(defn inline-title-edit
+  "The editor an Option+click on a title opens in place.
+
+  `cm-input`, not a bare `[:input]`, so the field carries the keyboard scheme
+  for the users who have it turned on — cmd+j/l and option+j/l and ctrl+j/l,
+  the one-line layout. It was the only text surface in the app that did not:
+  the edit modal's fields were converted and this one was left behind, so
+  Option+click landed you in a box where the cursor keys did nothing. Everyone
+  else still gets exactly the `[:input]` that was here before, which is what
+  the component's own gate is for.
+
+  Confirming is Enter *or* the save combo (cmd+9 with the custom keymap, cmd+S
+  without): the box holds something unsaved just as a form does, which is the
+  same reading under which the combined search-add bars enact their Add on it.
+  The combo is preventDefaulted because cmd+9 is the browser's own \"last tab\"
+  — unclaimed, it saves and then walks out of the app."
+  [{:keys [title on-change on-commit on-cancel]}]
+  [cm-input
+   {:class "inline-title-edit"
+    :type "text"
     :auto-complete "off"
     :auto-focus true
     :value title
     :on-click #(.stopPropagation %)
     :on-change #(on-change (.. % -target -value))
     :on-key-down (fn [e]
-                   (case (.-key e)
-                     "Enter" (do (.stopPropagation e) (on-commit))
-                     "Escape" (do (.stopPropagation e) (on-cancel))
-                     nil))
+                   (cond
+                     (keys/save-combo? e) (do (.preventDefault e)
+                                              (.stopPropagation e)
+                                              (on-commit))
+                     (= "Enter" (.-key e)) (do (.stopPropagation e) (on-commit))
+                     (= "Escape" (.-key e)) (do (.stopPropagation e) (on-cancel))))
     :on-blur (fn [_] (on-commit))}])
 
 (defn badge-click
