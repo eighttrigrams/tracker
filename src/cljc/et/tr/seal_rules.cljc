@@ -323,9 +323,15 @@
   are sealed at all; the prefix already said. Only the *write* path needs that
   opinion, and there the caller knows which endpoint it is calling.
 
-  A category nested inside a task's response is collected too, and correctly: it
-  is a `categories` row, its body is sealed, and the walk finds it without anyone
-  having had to remember that tasks carry categories.
+  This paragraph used to end by arguing from a category nested inside a task's
+  response — found without anyone having had to remember that tasks carry
+  categories. It is a good story and it is not true: `db.clj extract-category`
+  projects a nested category to `{:id :name :badge_title}`, so there is no body
+  there to collect. Every nesting tracker actually serves is the same — relations,
+  an issue's tasks, the today board's items all project to titles and ids. The
+  walk is still the right call, for the reasons above it, and the argument for it
+  should be one that holds: what it buys is the endpoint **nobody has written
+  yet**, not one that exists.
 
   ## The walk is shared, the predicate is not
 
