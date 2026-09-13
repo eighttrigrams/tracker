@@ -151,15 +151,33 @@
   ;; below a `(comment …)`, below a `def` — would take a namespace out of the
   ;; rule's reach entirely, answering *no* while requiring ajax.core on the line
   ;; below. The failure has to be loud and has to name the file.
-  (let [tmp (java.io.File/createTempFile "door" ".cljs")]
+  ;;
+  ;; **What is asserted is that it throws and names the file**, not which of
+  ;; `ns-form-of`'s two guards did it. Both are correct outcomes and which one
+  ;; fires is not this test's business: the empty case reaches the *leading form*
+  ;; guard only because `clojure.edn/read-string` answers `nil` for empty input
+  ;; rather than throwing, and pinning that would make a red here mean *the
+  ;; reader changed* rather than *a file escaped the rule*. Neighbouring advice,
+  ;; from an agent whose suite was green in this box and red on the host over a
+  ;; `babashka.cli` message: never assert a dependency's wording, and assert its
+  ;; behaviour only where a contract of ours rests on it. Nothing of ours rests
+  ;; on which guard speaks first.
+  (let [tmp (java.io.File/createTempFile "door" ".cljs")
+        named-the-file? (fn [f]
+                          (try (ns-form-of f) false
+                               (catch clojure.lang.ExceptionInfo e
+                                 (str/includes? (ex-message e) (repo-path f)))))]
     (try
       (spit tmp "(comment \"moved out of the way\")\n(ns x.y (:require [ajax.core :refer [GET]]))")
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"does not lead with its ns form"
-                            (ns-form-of tmp)))
+      (is (named-the-file? tmp)
+          "a namespace hidden behind a leading form is refused, by name")
       (spit tmp "")
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"does not lead with its ns form"
-                            (ns-form-of tmp))
-          "and an empty file is named too, rather than an EOF from nowhere")
+      (is (named-the-file? tmp)
+          "and so is an empty one — rather than an EOF from nowhere")
+      (spit tmp "(ns x.y (:require [et.tr.ui.api :as api]))")
+      (is (not (named-the-file? tmp))
+          "and an ordinary namespace is read without complaint, so the two above
+           are the guard firing and not the helper refusing everything")
       (finally (.delete tmp)))))
 
 (deftest every-cljs-file-in-the-tree-leads-with-a-readable-ns-form
