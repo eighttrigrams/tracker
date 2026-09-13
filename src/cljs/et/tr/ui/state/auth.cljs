@@ -1,5 +1,6 @@
 (ns et.tr.ui.state.auth
   (:require [et.tr.ui.api :as api]
+            [et.tr.ui.session :as session]
             [et.tr.i18n :as i18n]))
 
 (defn save-auth-to-storage [token user]
@@ -36,14 +37,15 @@
   source because the server resolving it through `envelope/seals?` is what stops
   the client's gate and the server's refusal drifting apart.
 
-  The answer is dropped if the user changed while it was in flight. A dev switch
-  is two clicks apart and this is one HTTP call, so merging a late answer would
-  write one person's sealing flag onto another person's session — which is the
-  single mistake this whole arrangement is arranged to make impossible."
+  The answer is dropped if the user changed while it was in flight — see
+  `et.tr.ui.session/answer-still-applies?`, which is where that decision lives
+  and is tested. It is not here because this namespace reaches `ajax.core`
+  through `et.tr.ui.api` and so cannot be loaded by the node suite at all, which
+  made the branch untestable by its neighbours rather than by its nature."
   [app-state auth-headers]
   (api/fetch-json "/api/auth/me" (auth-headers)
     (fn [user]
-      (when (and user (= (:username user) (:username (:current-user @app-state))))
+      (when (session/answer-still-applies? user (:current-user @app-state))
         (swap! app-state update :current-user merge user)
         (apply-user-language (:current-user @app-state))
         (save-auth-to-storage (:token @app-state) (:current-user @app-state))))))
