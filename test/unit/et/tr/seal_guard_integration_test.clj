@@ -301,7 +301,20 @@
   (testing "and an envelope from a keyed client is refused, as everywhere else"
     (let [message (a-message! "the mail body")]
       (is (= 400 (:status (POST-json (str "/api/messages/" message "/convert-to-task")
-                                     {:description (an-envelope)})))))))
+                                     {:description (an-envelope)}))))))
+  (testing "and the plaintext body the browser now sends is written as it stands,
+    which is the path **every user who does not seal** takes since R-3's client
+    half. `convert-params` hands the body over on every convert, keyed or not, so
+    what used to be a server-side copy of `messages.description` is now the same
+    text arriving in the request. The row must come out identical either way, and
+    for everybody except the one armed user this is the only convert there is."
+    (let [message (a-message! "the mail body")
+          resp (POST-json (str "/api/messages/" message "/convert-to-task")
+                          {:description "the mail body"})]
+      (is (= 200 (:status resp)))
+      (is (= "the mail body" (stored-description-of :tasks (:id (:body resp)))))
+      (is (nil? (:id (:body (GET-json (str "/api/messages/" message)))))
+          "and the original is consumed, as it always was"))))
 
 ;; ---------------------------------------------------------------------------
 ;; Who seals, told to the client that has to know.
