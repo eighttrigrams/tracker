@@ -77,6 +77,50 @@
         (when-let [[_ body] (re-matches #"(?si)t\s+(.+)" title)]
           {:today? false :stripped (str/trim body)}))))
 
+(defn- title-only-gesture
+  "The `t`/`tt` shortcut, and **only when the message carries no body** — which is
+  the whole of what the gesture is: *here is a task title*. A message with prose
+  in it is a message.
+
+  The body is the discriminator because it is the only thing that tells the
+  gesture from an accident, and three callers reach `task-prefix-match` while
+  only one of them means to:
+
+  | caller | title it sends | body |
+  | --- | --- | --- |
+  | Telegram (`agent/telegram.clj`) | the raw `t …` text | **none — sender and title only** |
+  | the mail poller (`app/mail/poller.clj`) | the mail's *subject* | `From: …` and the mail body |
+  | `source-worker/forward!` | the feed item's title | the feed's body |
+
+  So the gesture never carries a body, and the two paths that do never made the
+  gesture. A YouTube video called *\"T Rex documentary\"* was silently becoming a
+  task instead of arriving in the Inbox, with the feed's body as its description —
+  a real bug on its own terms, and the seal's last plaintext hole as well, since a
+  body arriving this way lands in `tasks.description` with no clear original
+  beside it and no key anywhere near it.
+
+  **No sender check, no credential check, no allowlist**, and that is the point
+  rather than an economy. Every discriminator of that kind is a judgement that
+  goes stale, and this codebase has been caught by that twice already — by the
+  thirteen call sites that reached the network around `api.cljs`, and by the
+  accepted argument that a copied message body is safe *because the original sits
+  beside it in the clear*, which held until the path where it did not. A rule over
+  the message itself cannot go stale, because the next caller is judged by what it
+  sends rather than by who somebody thought it was.
+
+  **A non-string description is a body.** `validate-message-fields` checks sender,
+  title, type, scope, importance and urgency, and not description's *type*, so a
+  numeric or boolean one reaches here — and asking `str/blank?` about it throws.
+  Such a request used to flow harmlessly into the messages table, because the
+  branch that took it never looked at the value; turning that into a 500 would be
+  a regression smuggled in behind a fix. It is not blank, it is not a title-only
+  gesture, and it goes where it always went."
+  [{:keys [title description]}]
+  (letfn [(carries-a-body? [v]
+            (if (string? v) (not (str/blank? v)) (some? v)))]
+    (when-not (carries-a-body? description)
+      (task-prefix-match title))))
+
 (defn- create-task-from-prefix!
   [ds user-id {:keys [today? stripped]} {:keys [description scope]}]
   (let [task (db.task/add-task ds user-id stripped (or scope "both"))]
@@ -113,10 +157,16 @@
   message map on success. Called by both the HTTP handler and the
   in-process source worker.
 
-  When `title` carries the shortcut prefix `t` or `tt` (see
-  `task-prefix-match`), creates a task directly instead of a message and
-  records a :task :create event. The task is returned in place of a
-  message map; callers should treat the response as opaque.
+  When `title` carries the shortcut prefix `t` or `tt` **and the message
+  carries no body** (see `title-only-gesture`, which is what decides it — not
+  `task-prefix-match`, which only reads the title), creates a task directly
+  instead of a message and records a :task :create event. The task is returned
+  in place of a message map; callers should treat the response as opaque.
+
+  A message that carries a body is a message, whoever sent it and whatever its
+  title begins with. `title-only-gesture` has the argument; the short version is
+  that two of this function's three callers pass somebody else's text through
+  verbatim and never made the gesture at all.
 
   When the message body contains a YouTube URL, the fields are rewritten
   into the canonical worker-fed shape so the user's inbox has a single
@@ -124,7 +174,7 @@
   [ds actor user-id fields]
   (if-let [error (validate-message-fields fields)]
     {:error error}
-    (if-let [match (task-prefix-match (:title fields))]
+    (if-let [match (title-only-gesture fields)]
       (let [task (create-task-from-prefix! ds user-id match fields)]
         (events/record-create-with-actor! ds actor user-id :task (:id task) task)
         task)
