@@ -404,6 +404,99 @@
    :recurring-tasks :recurring_tasks
    :recurring_tasks :recurring_tasks})
 
+(def entity-type->table
+  "`events.entity_type` → the table the event is **about**, or `nil` when it is
+  about no table at all.
+
+  ## Yes, a third vocabulary, and that is the honest answer
+
+  `api-segment->table` is URL segments — plural, hyphenated, `\"journal-entries\"`.
+  `container-key->table` is the keys an aggregate response nests rows under.
+  This is neither: `entity_type` is what the *server* writes into the audit log,
+  singular, and it is its own set of literals because `server/events.clj` is
+  called with them by hand at every site. Deriving one of the three from another
+  would mean a pluralisation rule in code, and a pluralisation rule is a guess
+  about a name somebody chose. Three maps that each say what they mean beat one
+  that is right by accident.
+
+  ## Why it exists at all
+
+  **`prose-paths` dispatches on a payload's shape and never on what the event was
+  about**, which is right for sealing and wrong for verifying. The migration pass
+  seals the historical log wholesale, including payloads about `messages` and
+  `mottos`, and that is deliberate: the audit log is the one place where a deleted
+  thing's prose outlives the thing. A converted message is `DELETE`d in the same
+  transaction that creates the task, so the `:snapshot` in `events.payload` is the
+  only copy of that body left. Leaving it clear would undo the conversion rule one
+  step further down.
+
+  Going forward is the other half. The server writes `messages` and `mottos`
+  payloads **in the clear**, because it holds no key and never will, so a
+  `--verify` that called those violations would be permanently red within hours of
+  the cutover — useless as the gate the cutover turns on. This map is what lets it
+  tell *prose a keyless writer legitimately left clear* from *prose the pass
+  failed to seal*.
+
+  ## The six Groups, and the four that are not entities
+
+  Person, Place, Workstream, Project, Goal and Asset were merged into one table by
+  `073-unify-category-tables` and kept six names everywhere — six URL segments in
+  `api-segment->table`, six entity types here, one table.
+
+  Four literals are **not** rows with bodies, and each is mapped deliberately
+  rather than left out, because an entry that is missing and an entry that means
+  *no table* must not look alike to a reader:
+
+  - `\"dropped\"` and `\"recording-mode\"` → `nil`. A dropped machine write is a
+    captured raw request, which can carry prose (bound as `event/body`) and can be
+    *about* a sealed entity, so it must stay in scope — `nil` here means *not a
+    clear table*, which is the conservative answer and the one that keeps it
+    sealed. A recording-mode toggle carries no prose at all.
+  - `\"relation\"` → `:relations` and `\"user\"` → `:users`, both of which are in
+    `clear-tables`. That is not an exception to the rule, it is the rule: nothing
+    seals those rows, so nothing seals the log's copy of them either.
+
+  **An entity type this map does not know is a refusal, not a default.** The
+  migration walker checks the vocabulary against the inventory at load and against
+  the database's own `SELECT DISTINCT entity_type` before it walks, because a new
+  entity type silently treated as *clear* would be prose left readable by the one
+  tool that exists to say it is not."
+  {"task" :tasks
+   "issue" :issues
+   "meet" :meets
+   "meeting-series" :meeting_series
+   "recurring-task" :recurring_tasks
+   "journal" :journals
+   "journal-entry" :journal_entries
+   "resource" :resources
+   ;; The six Groups, one table.
+   "person" :categories
+   "place" :categories
+   "workstream" :categories
+   "project" :categories
+   "goal" :categories
+   "asset" :categories
+   ;; Clear tables: their rows are never sealed, so neither is the log's copy.
+   "message" :messages
+   "motto" :mottos
+   "relation" :relations
+   "user" :users
+   ;; Known, and about no table. See the docstring: `nil` is *not a clear table*.
+   "dropped" nil
+   "recording-mode" nil})
+
+(defn clear-entity-type?
+  "Whether prose in an event of this type is **legitimately** in the clear —
+  because the row it was copied from is in a table nothing seals.
+
+  `contains?` and not `get`, because `nil` is a value in this map and means
+  something different from absent: *known, and about no table*. An unknown type
+  answers `false`, which keeps it in scope; the walker refuses such a database
+  outright rather than relying on that, but the safe answer belongs here too."
+  [entity-type]
+  (boolean (and (contains? entity-type->table entity-type)
+                (contains? clear-tables (get entity-type->table entity-type)))))
+
 (defn endpoint-table
   "The table an endpoint's own rows belong to, or `nil`.
 
