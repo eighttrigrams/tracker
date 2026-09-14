@@ -5,8 +5,31 @@ const { Given, When, Then } = createBdd();
 
 const headers = { "Content-Type": "application/json", "X-User-Id": "null" };
 
+// The shape the YouTube worker actually produces — see `forward!` in
+// src/clj/et/tr/source_worker.clj: a plain sentence for the title, and the link
+// in the *body*, as `# <video title>\n\n<url>`. Podcasts and Atom do the same.
+//
+// This fixture used to put the bare url in the **title**, which no source in the
+// product does, and it is why this scenario failed for weeks. A title is
+// rendered as markdown, so a bare url is autolinked; `.item-header`'s centre
+// point then lands inside that `<a>`, and the click that means "expand this
+// card" navigates the browser to youtube.com instead. On a locked-egress box
+// that is ERR_TUNNEL_CONNECTION_FAILED, the app is gone, and every locator after
+// it fails against Chrome's error page — which reads as "the footer button is
+// missing" and is nothing of the kind.
+//
+// Keeping the url in the body is therefore both the realistic fixture and the
+// stable one: `left-action-spec` reads `(first-url title description)`, so the
+// convert button is offered exactly as it is for a real video.
 Given("a YouTube inbox message {string} exists", async ({ request }, title: string) => {
-  await request.post("/api/messages", { headers, data: { sender: "YouTube", title } });
+  await request.post("/api/messages", {
+    headers,
+    data: {
+      sender: "YouTube",
+      title,
+      description: `# ${title}\n\nhttps://www.youtube.com/watch?v=abc123`,
+    },
+  });
 });
 
 When("I expand the message {string}", async ({ page }, text: string) => {

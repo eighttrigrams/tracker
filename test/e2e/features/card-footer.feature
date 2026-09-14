@@ -9,7 +9,7 @@ Feature: Unified card footer buttons
 
   Scenario: A footer button without a dropdown has a full border
     Given I am on the app
-    And a YouTube inbox message "New clip https://www.youtube.com/watch?v=abc123" exists
+    And a YouTube inbox message "New clip" exists
     And I click the "Inbox" tab
     When I expand the message "New clip"
     Then the footer convert button has a solid right border

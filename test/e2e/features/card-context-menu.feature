@@ -120,7 +120,7 @@ Feature: Right-clicking an item card opens its footer menu
 
   Scenario: A YouTube inbox item offers the convert its footer offers instead
     Given I am on the app
-    And a YouTube inbox message "New clip https://www.youtube.com/watch?v=abc123" exists
+    And a YouTube inbox message "New clip" exists
     And I click the "Inbox" tab
     When I right-click the card "New clip"
     Then the card menu offers "Convert to resource, Delete"
