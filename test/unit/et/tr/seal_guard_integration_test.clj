@@ -16,10 +16,15 @@
             [clojure.data.json :as json]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [et.tr.auth :as auth]
             [et.tr.db :as db]
             [et.tr.db.user :as db.user]
             [et.tr.envelope :as envelope]
+            [et.tr.middleware.rate-limit :as rate-limit]
+            [et.tr.seal-rules :as rules]
+            [et.tr.server]
+            [et.tr.server.recording-mode :as recording-mode]
             [et.tr.integration-helpers :refer [*app* *ds* *user-id* GET-json
                                                POST-json PUT-json with-integration-db]]
             [honey.sql :as sql]
@@ -446,3 +451,289 @@
     (is (= 400 (:status resp)))
     (is (some? (:id (:body (GET-json (str "/api/messages/" message)))))
         "and the message is still in the inbox")))
+
+;; ---------------------------------------------------------------------------
+;; The write that never reaches the guard.
+;;
+;; `wrap-machine-write-guard` sits **outside** `wrap-seal-guard` — outside
+;; `wrap-json-body`, even — so when it drops a machine write it short-circuits
+;; before the guard is ever consulted. The dropped write is not written to its
+;; table, and that is the whole of what "dropped" was taken to mean; but its
+;; **body is kept**, verbatim, in `events.payload`, under the *parent* user's
+;; id. So the one user this feature exists for gets his own prose parked in his
+;; own event log, in the clear, behind a `200 {"dropped":true}`, with nothing
+;; refusing it and nothing saying it happened.
+;;
+;; This is not a hypothetical route. `resources/tracker/api-usage.md` tells
+;; machine clients that creating a task takes two writes and that both hit this
+;; gate, so a drop is the documented normal case; the dev database holds twenty
+;; of them, two aimed at sealed tables under the one sealing human.
+;;
+;; The fix is in `recording-mode/record-dropped-event!` and not in the guard,
+;; because moving the guard outward would mean judging an unparsed body.
+
+(defn- ensure-recording-off! []
+  (when (recording-mode/enabled?) (recording-mode/toggle!)))
+
+(defn- ensure-recording-on! []
+  (when-not (recording-mode/enabled?) (recording-mode/toggle!)))
+
+(defn- machine-token!
+  "A real bearer token for a machine user of `*user-id*`, which is the only way
+  to reach `wrap-machine-write-guard` at all — it asks `auth/verify-token`
+  directly and the `X-User-Id` dev shortcut never carries machine claims."
+  ([] (machine-token! false))
+  ([mail-only?]
+   (let [m (db.user/create-user *ds* (str "daniel-cli-" (System/nanoTime)) "pw"
+                                {:is-machine-user true :for-user-id *user-id*})]
+     (auth/create-token {:user-id (:id m) :username "daniel-cli" :is-admin false
+                         :has-mail mail-only? :is-machine-user true
+                         :for-user-id *user-id* :mail-only mail-only?}))))
+
+(defn- machine-write
+  "One mutating /api/* call as that machine user. `body` is sent as JSON unless
+  it is already a string, in which case it goes out as-is under whatever
+  content type is given — the guard reads the body before `wrap-json-body`, so
+  an unparseable one reaches it exactly as it left the client."
+  ([token method path body] (machine-write token method path body "application/json"))
+  ([token method path body content-type]
+   (-> (*app* (-> (mock/request method path)
+                  (mock/header "Authorization" (str "Bearer " token))
+                  (mock/header "Content-Type" content-type)
+                  (mock/body (if (string? body) body (json/write-str body)))))
+       (update :body #(when (seq %) (json/read-str % :key-fn keyword))))))
+
+(defn- dropped-rows []
+  (jdbc/execute! (db/get-conn *ds*)
+                 (sql/format {:select [:effective_user_id :payload]
+                              :from [:events]
+                              :where [:= :dropped 1]
+                              :order-by [[:id :asc]]})
+                 db/jdbc-opts))
+
+(defn- the-dropped-row []
+  (let [rows (dropped-rows)]
+    (is (= 1 (count rows)) "exactly one drop was recorded")
+    (first rows)))
+
+(def ^:private his-prose
+  "The sentence under test. It is deliberately long and unmistakable so that the
+  assertion can be *is this readable anywhere in the stored payload*, in the raw
+  JSON text, rather than at a path some future payload shape might move."
+  "a paragraph of his own notes, which is exactly what fly must not be able to read")
+
+(deftest a-dropped-machine-write-leaves-no-readable-prose-in-the-event-log
+  (seal-user! true)
+  (ensure-recording-off!)
+  (let [resp (machine-write (machine-token!) :post "/api/tasks"
+                            {:title "a task" :description his-prose})]
+    (is (= 200 (:status resp)))
+    (is (true? (:dropped (:body resp)))
+        "the guard is never consulted — the write is dropped above it")
+    (let [row (the-dropped-row)]
+      (is (= *user-id* (:effective_user_id row))
+          "and it lands in the sealing human's log, as `claims->identity` intends")
+      (is (not (str/includes? (:payload row) his-prose))
+          "his prose is readable on fly, in the log of the one user the seal is for"))))
+
+(deftest a-dropped-write-keeps-everything-that-is-not-prose
+  ;; Withholding the whole body would have been the cheaper fix and it costs the
+  ;; log the part worth keeping. Both drops that the live database actually holds
+  ;; against a sealed table carry exactly these fields and no description at all
+  ;; — `{"title":"New rhizome issue","scope":"both"}` and `{"url":"…"}` — so a
+  ;; fix that threw them away would have emptied the audit trail to fix a leak
+  ;; that had not happened yet in it.
+  (seal-user! true)
+  (ensure-recording-off!)
+  (machine-write (machine-token!) :post "/api/issues"
+                 {:title "New rhizome issue" :scope "both" :description his-prose})
+  (let [payload (json/read-str (:payload (the-dropped-row)) :key-fn keyword)
+        body (json/read-str (:body payload) :key-fn keyword)]
+    (is (= "New rhizome issue" (:title body)))
+    (is (= "both" (:scope body)) "the non-prose fields are the audit value")
+    (is (not= his-prose (:description body)))
+    (is (str/includes? (:description body) "sealed")
+        "and what replaced it says why, rather than being blanked — a blank
+         would read as a write that carried no body")
+    (is (true? (:body-redacted payload))
+        "the payload says of itself that the string is not what arrived")
+    (is (= "recording-off" (:reason payload)))
+    (is (= "/api/issues" (:uri payload)))))
+
+(deftest every-segment-the-vocabulary-names-is-redacted-and-not-only-tasks
+  ;; Driven off `api-segment->table` itself rather than a hand-written list, so
+  ;; that a segment added there is covered here the day it is added — a list
+  ;; copied out of a vocabulary is the failure this whole file keeps meeting.
+  ;;
+  ;; The assertion is deliberately *redacted*, not merely *not leaked*:
+  ;; withholding would also pass a no-prose check, and the difference between
+  ;; the two is exactly what a segment silently falling out of the map would
+  ;; look like.
+  (seal-user! true)
+  (ensure-recording-off!)
+  (let [token (machine-token!)]
+    (doseq [segment (keys rules/api-segment->table)]
+      (machine-write token :post (str "/api/" segment)
+                     {:title "a thing" :description his-prose}))
+    (let [rows (dropped-rows)]
+      (is (= (count rules/api-segment->table) (count rows)))
+      (doseq [row rows]
+        (let [payload (json/read-str (:payload row) :key-fn keyword)]
+          (is (not (str/includes? (:payload row) his-prose))
+              (str "readable prose survived a dropped write to " (:uri payload)))
+          (is (true? (:body-redacted payload))
+              (str (:uri payload) " was withheld rather than redacted, which "
+                   "means `endpoint-table` could not resolve it"))
+          (is (= "a thing" (:title (json/read-str (:body payload) :key-fn keyword)))))))))
+
+(deftest a-dropped-update-is-the-same-write-and-the-same-answer
+  (seal-user! true)
+  (ensure-recording-off!)
+  (machine-write (machine-token!) :put "/api/tasks/1"
+                 {:title "a task" :description his-prose})
+  (is (not (str/includes? (:payload (the-dropped-row)) his-prose))))
+
+(deftest a-mail-only-machine-user-is-dropped-with-recording-on-and-redacted-too
+  ;; The other door into the same room, and the one that does not depend on the
+  ;; toggle at all: a mail-only machine user is dropped on every non-mail
+  ;; endpoint whether or not the human has recording on, so this route is live
+  ;; in the state tracker normally runs in.
+  (seal-user! true)
+  (ensure-recording-on!)
+  (try
+    (machine-write (machine-token! true) :post "/api/tasks"
+                   {:title "a task" :description his-prose})
+    (let [row (the-dropped-row)]
+      (is (= "mail-only" (:reason (json/read-str (:payload row) :key-fn keyword))))
+      (is (not (str/includes? (:payload row) his-prose))))
+    (finally (ensure-recording-off!))))
+
+(deftest a-user-who-does-not-seal-has-the-payload-he-always-had
+  ;; The whole of the non-sealing path, asserted on the bytes. Tracker for
+  ;; antonio and saiyuri is what it was, and this fix may not be visible to them
+  ;; in any form — not a redaction, not a flag, not a reordered key.
+  (seal-user! false)
+  (ensure-recording-off!)
+  (let [sent {:title "a task" :description his-prose}]
+    (machine-write (machine-token!) :post "/api/tasks" sent)
+    (let [raw (:payload (the-dropped-row))
+          payload (json/read-str raw :key-fn keyword)]
+      (is (= (json/write-str sent) (:body payload))
+          "his body, verbatim, exactly as it arrived")
+      (is (not (contains? payload :body-redacted)))
+      (is (not (contains? payload :body-withheld)))
+      (is (= ["method" "uri" "body" "reason"] (vec (keys (json/read-str raw))))
+          "and in the order this payload has always had, so a reader of old rows
+           and new ones is reading one shape"))))
+
+(deftest an-already-sealed-body-is-kept-as-it-arrived
+  ;; The decision this fix had to make. A key-holding client sends ciphertext;
+  ;; fly cannot open it in `events.payload` any more than in `tasks.description`,
+  ;; so redacting it would spend audit value on nothing. `sealed?` is the whole
+  ;; of the question, and it is the same prefix test the guard uses.
+  (seal-user! true)
+  (ensure-recording-off!)
+  (let [sent {:title "a task" :description (an-envelope)}]
+    (machine-write (machine-token!) :post "/api/tasks" sent)
+    (let [payload (json/read-str (:payload (the-dropped-row)) :key-fn keyword)]
+      (is (= (json/write-str sent) (:body payload))
+          "the envelope, verbatim — it is already unreadable")
+      (is (not (contains? payload :body-redacted))))))
+
+(deftest a-blank-body-is-not-claimed-to-have-been-removed
+  ;; Rule 1 one level up: a blank is never prose, so redacting one would have the
+  ;; payload assert that something was taken out of a write that carried nothing.
+  (seal-user! true)
+  (ensure-recording-off!)
+  (let [sent {:title "a task" :description "   "}]
+    (machine-write (machine-token!) :post "/api/tasks" sent)
+    (let [payload (json/read-str (:payload (the-dropped-row)) :key-fn keyword)]
+      (is (= (json/write-str sent) (:body payload)))
+      (is (not (contains? payload :body-redacted))))))
+
+(deftest a-body-that-will-not-parse-is-withheld-whole-rather-than-guessed-at
+  (seal-user! true)
+  (ensure-recording-off!)
+  (machine-write (machine-token!) :post "/api/tasks"
+                 (str "{\"title\":\"a task\",\"description\":\"" his-prose)
+                 "application/json")
+  (let [raw (:payload (the-dropped-row))
+        payload (json/read-str raw :key-fn keyword)]
+    (is (not (str/includes? raw his-prose)))
+    (is (not (contains? payload :body)) "no body key at all, not a blank one")
+    (is (string? (:body-withheld payload)) "and it says why")))
+
+(deftest an-endpoint-that-resolves-to-no-table-is-withheld-too
+  ;; `messages` is deliberately absent from `api-segment->table` — a message body
+  ;; is never sealed and must stay in the clear — so `endpoint-table` cannot tell
+  ;; *known and clear* from *nobody mapped this*. The two are the same answer
+  ;; here, `nil`, and the safe reading of `nil` is the fail-safe one. It costs a
+  ;; sealing user the bodies of his mail drops in the log; buying those back
+  ;; needs a vocabulary that can say "known, and known to be clear".
+  (seal-user! true)
+  (ensure-recording-off!)
+  (machine-write (machine-token!) :put "/api/messages/999"
+                 {:sender "the poller" :description his-prose})
+  (let [payload (json/read-str (:payload (the-dropped-row)) :key-fn keyword)]
+    (is (not (contains? payload :body)))
+    (is (string? (:body-withheld payload)))))
+
+(deftest a-dropped-conversion-is-resolved-the-way-the-guard-resolves-it
+  ;; A convert writes into `tasks` while sitting at a `messages` URL, so
+  ;; `endpoint-table` alone would withhold it. `convert-target` is the question
+  ;; the guard asks about the same request, and asking it here keeps the two in
+  ;; step and keeps the conversion's non-prose fields.
+  (seal-user! true)
+  (ensure-recording-off!)
+  (machine-write (machine-token!) :post "/api/messages/1/convert-to-task"
+                 {:title "from the inbox" :description his-prose})
+  (let [payload (json/read-str (:payload (the-dropped-row)) :key-fn keyword)]
+    (is (not (str/includes? (:payload (the-dropped-row)) his-prose)))
+    (is (= "from the inbox" (:title (json/read-str (:body payload) :key-fn keyword)))
+        "and the rest of it survives, because the table was resolvable")))
+
+(deftest the-walker-and-verify-still-read-both-shapes-correctly
+  ;; `prose-paths` is what the walker seals by and what `--verify` reads by, and
+  ;; `clear-entity-type?` says a dropped event is in scope for both. A redacted
+  ;; body is still a string, so it still takes the `event/body` path and is
+  ;; sealed on the next pass exactly as an unredacted one was. A withheld one has
+  ;; no `:body` key, so it yields no path at all — which is the only reason
+  ;; withholding is safe to do without touching the walker.
+  (is (false? (rules/clear-entity-type? "dropped"))
+      "a plaintext body here is a violation `--verify` must still see")
+  (is (= [[[:body] rules/event-body-aad]]
+         (rules/prose-paths {:method "POST" :uri "/api/tasks"
+                             :body "{\"title\":\"a task\"}" :reason "recording-off"})))
+  (is (= [] (rules/prose-paths {:method "POST" :uri "/api/tasks"
+                                :body-withheld "…" :reason "recording-off"}))
+      "nothing to seal, and nothing for --verify to call a violation"))
+
+(deftest the-production-middleware-stack-answers-the-same-way
+  ;; Everything above this runs through `integration-helpers/make-app`, which
+  ;; says of itself that it is *a hand-kept copy* of `et.tr.server`'s stack — and
+  ;; the copy stops after `wrap-machine-write-guard`, leaving out
+  ;; `audit/wrap-write-audit`, `wrap-auth` and `machine-lean/wrap-machine-lean`.
+  ;;
+  ;; For this finding the omission is harmless, and reading is how one knows it:
+  ;; all three sit **outside** the write guard in `server/app`, `wrap-write-audit`
+  ;; only logs, `wrap-auth` only ever refuses (and not in dev), and
+  ;; `machine-lean` rewrites responses and leaves requests alone. But *harmless
+  ;; by reading* is what the copy costs every finding that lands near it, so this
+  ;; one builds the real stack and asks it the same question. A middleware added
+  ;; outside the guard that consumed the body, or moved the guard, would fail
+  ;; here and pass everywhere above.
+  (rate-limit/reset-rate-limit!)
+  (seal-user! true)
+  (ensure-recording-off!)
+  (let [production (#'et.tr.server/app false)
+        resp (production (-> (mock/request :post "/api/tasks")
+                             (mock/header "Authorization" (str "Bearer " (machine-token!)))
+                             (mock/header "Content-Type" "application/json")
+                             (mock/body (json/write-str {:title "a task"
+                                                         :description his-prose}))))]
+    (is (= 200 (:status resp)))
+    (is (= {:dropped true} (json/read-str (:body resp) :key-fn keyword))
+        "the guard is still never reached in production order either")
+    (let [row (the-dropped-row)]
+      (is (= *user-id* (:effective_user_id row)))
+      (is (not (str/includes? (:payload row) his-prose))))))
