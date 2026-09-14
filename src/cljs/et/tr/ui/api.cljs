@@ -40,8 +40,8 @@
   ## The asymmetry, which is the design and not an accident
 
   **Unsealing hangs here, at the transport layer.** A read has nothing to decide:
-  the `enc:v1:` prefix says what is sealed, tracker binds all ten tables under one
-  name so nothing has to be classified first, and a value that will not open comes
+  the `enc:v1:` prefix says what is sealed, tracker binds all nine body-carrying
+  tables under one name so nothing has to be classified first, and a value that will not open comes
   back visibly. Putting it here means a new endpoint cannot silently go unsealed,
   because nothing had to be taught about it.
 
