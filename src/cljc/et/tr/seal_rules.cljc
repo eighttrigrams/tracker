@@ -75,7 +75,7 @@
 (def bound-as
   "Which name a table's values are bound under — the AAD's first half.
 
-  **Ten tables share one binding, and that is the schema being told the truth.**
+  **Nine tables share one binding, and that is the schema being told the truth.**
   The server moves bodies between these tables verbatim, without a key, in three
   places, and a fourth thing has the same effect:
 
@@ -125,7 +125,7 @@
 (def item-description-aad
   "The binding every sealed body in tracker carries, spelled once.
 
-  All ten tables resolve to it — which is exactly the point of one binding — so a
+  All nine of them resolve to it — which is exactly the point of one binding — so a
   caller that has a value but not a table (the audit log's payloads are the case)
   can name it directly rather than picking a table at random and implying a
   distinction that does not exist."
@@ -139,7 +139,7 @@
 ;; The inventory.
 
 (def sealed-columns
-  "Table → the columns of it that are sealed. Ten tables, one column each, and the
+  "Table → the columns of it that are sealed. Nine tables, one column each, and the
   column has the same name in the database, in the JSON payload and in the
   ClojureScript app-state — one name everywhere, which is unusual and worth not
   spoiling.
@@ -170,10 +170,11 @@
 
   Sealing one would also have cost the only search in tracker that reads a body
   and is worth reading it — `db/motto.clj` searches `[:title :description]`, which
-  is how *death* finds *Memento Mori*. Nine of the ten sealed entities search
-  `[:title :tags]` and read a body never, which is why sealing costs them nothing;
-  bending that one query to fit the seal would have been the model deforming the
-  app rather than fitting it.
+  is how *death* finds *Memento Mori*. **Not one of the nine sealed entities
+  searches its description** — seven search `[:title :tags]`, `resources` adds
+  `:link` to those, `categories` asks `[:name :badge_title :tags]` — so sealing
+  costs the search nothing anywhere. Bending the one query that would have paid
+  for it would have been the model deforming the app rather than fitting it.
 
   `messages` is the one that matters. Its bodies are written by three producers
   that hold no key and cannot be given one — the IMAP poller and blog's
@@ -303,10 +304,10 @@
   different names, so it cannot open a value without first working out what kind
   of thing it is looking at.
 
-  Tracker has **one binding across all ten tables**, for the reasons `bound-as`
-  gives. That makes the question *what table is this row from?* unnecessary on the
-  way in: a `:description` is a `:description`, wherever it sits. So this walks
-  the body instead of classifying it, and the practical consequence is the one
+  Tracker has **one binding across all nine body-carrying tables**, for the
+  reasons `bound-as` gives. That makes the question *what table is this row from?*
+  unnecessary on the way in: a `:description` is a `:description`, wherever it
+  sits. So this walks the body instead of classifying it, and the practical consequence is the one
   cookbook's own review worried about — **a new endpoint cannot silently go
   unsealed**, because nothing had to be taught about it.
 
