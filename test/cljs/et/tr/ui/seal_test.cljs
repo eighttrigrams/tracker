@@ -112,6 +112,43 @@
                          (fn [out] (is (= plaintext out) name))))))))
      done)))
 
+(deftest a-parsed-listing-opens-here-because-the-browser-never-gets-a-lazy-seq
+  ;; The counterpart to `tracker-seal-test/a-listing-arrives-parsed-and-not-written-by-hand`
+  ;; in the plurama-cli checkout, and the reason this file did not have to change
+  ;; when that one went red.
+  ;;
+  ;; On the JVM, cheshire answers a top-level JSON array with a `LazySeq`, which
+  ;; is not associative — so `update-in` through an index threw, and every
+  ;; tracker listing the CLI and the proxy served came back as `enc:v1:…` with a
+  ;; 200. Here the body arrives through cljs-ajax's `:response-format :json`,
+  ;; which is `(js->clj (js/JSON.parse text) :keywordize-keys true)`, and
+  ;; `js->clj` has no lazy answer to give: a JS array becomes a
+  ;; `PersistentVector`. So `walk-paths` could always `assoc-in` by index, and
+  ;; the browser kept reading prose right through the outage.
+  ;;
+  ;; That asymmetry is exactly the kind of thing that is true until someone
+  ;; changes a parser, and it was worth a whole cutover on the other side of it.
+  ;; So it is asserted rather than remembered — the first `is` pins the premise,
+  ;; not the behaviour.
+  (async done
+    (finally!
+     (.then (test-key)
+            (fn [k]
+              (let [[a b] (filter #(= :tasks (:table %)) (:vectors @fixture))
+                    wire (js/JSON.stringify
+                          (clj->js [{:id 1229 :title "t" :description (:sealed a)}
+                                    {:id 1230 :title "u" :description (:sealed b)}]))
+                    body (js->clj (js/JSON.parse wire) :keywordize-keys true)]
+                (is (vector? body)
+                    "js->clj yields a vector where cheshire yields a LazySeq")
+                (is (associative? body)
+                    "...which is what lets walk-paths assoc-in by index")
+                (.then (seal/unseal-body k body)
+                       (fn [out]
+                         (is (= [(:plaintext a) (:plaintext b)] (mapv :description out))
+                             "a listing opens in the browser"))))))
+     done)))
+
 (deftest a-tampered-envelope-fails-to-open
   (async done
     (finally!
