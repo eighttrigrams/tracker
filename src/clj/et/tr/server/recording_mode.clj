@@ -81,8 +81,10 @@
   "<removed: this user's prose is sealed, and this write was dropped>")
 
 (def ^:private body-withheld-reason
-  "Why the whole body is gone, when the safe answer is to keep none of it."
-  "this user's prose is sealed, and this body could not be read well enough to remove it")
+  "Why the whole body is gone, when the safe answer is to keep none of it. Both
+  causes are in it, because a reader finding this in the log wants to know which:
+  an endpoint the seal's vocabulary does not classify, or a body it cannot parse."
+  "this user's prose is sealed, and neither this endpoint nor this body could be read well enough to remove it")
 
 (defn- readable-prose-in
   "Which of `table`'s sealed columns this parsed body carries **readable** prose
@@ -126,32 +128,41 @@
   all. So they are kept, and only the columns `rules/sealed-columns` names for
   this table are taken out.
 
-  **Withhold when the shape cannot be established.** A body that will not parse,
-  one that parses to something other than a map, and a URI that resolves to no
-  table are all the same situation: nothing here knows where the prose is, and a
-  guess is the one thing that must not happen. `::withhold` keeps none of it.
-  That fallback has a cost and it is worth naming: `PUT /api/messages/:id` is
-  permanently clear prose (see `rules/clear-tables`) and resolves to no table,
-  so a sealing user's mail-only machine drops lose their bodies from the log.
-  Buying that back means a vocabulary that can say *this endpoint is known, and
-  known to be clear*, which is F-2's completeness control and not a special case
-  belonging here.
+  **Keep a clear table's body whole.** `rules/endpoint-disposition` answers three
+  ways, and the middle answer is the one this function needs most: `messages` and
+  `mottos` are *known, and known to carry no sealed prose*. The same text sits in
+  `messages.description` in the clear in the same database, written there by
+  three producers that hold no key, so removing the log's copy protects nothing
+  at all while the original sits beside it — the argument `rules/clear-tables`
+  already makes about the column itself.
 
-  The table is resolved the way the guard resolves it — `convert-target` first,
-  then `endpoint-table` — because a message conversion writes its body into
-  `tasks` or `resources` while sitting at a `messages` URL, and it is the one
-  write whose endpoint's table is not the table it lands in."
+  That answer is new, and its absence was expensive. While `endpoint-table` was
+  the only question available, `nil` meant both *clear* and *unclassified*, this
+  function had to read it as the second, and every `PUT /api/messages/:id` a
+  sealing user's mail machine dropped lost its body — eighteen of the twenty
+  dropped events the live database holds, eight of them carrying prose that was
+  legitimately readable.
+
+  **Withhold only when the endpoint is genuinely unknown**, or when the body
+  will not parse, or parses to something other than a map. Those are the cases
+  where nothing here knows where the prose is, and a guess is the one thing that
+  must not happen. `::withhold` keeps none of it.
+
+  Resolution is `endpoint-disposition`'s, which puts `convert-target` ahead of
+  both segment maps — a message conversion writes into `tasks` while sitting at a
+  `messages` URL, and asking the maps first would call it clear."
   [uri raw]
-  (let [table (or (rules/convert-target uri) (rules/endpoint-table uri))
+  (let [{:keys [table sealed?]} (rules/endpoint-disposition uri)
         parsed (when (and table (string? raw))
                  (try (json/read-str raw :key-fn keyword)
                       (catch Throwable _ nil)))]
-    (if-not (map? parsed)
-      ::withhold
-      (let [columns (readable-prose-in table parsed)]
-        (if (empty? columns)
-          raw
-          (json/write-str (reduce #(assoc %1 %2 prose-removed) parsed columns)))))))
+    (cond
+      (not (map? parsed)) ::withhold
+      (not sealed?) raw
+      :else (let [columns (readable-prose-in table parsed)]
+              (if (empty? columns)
+                raw
+                (json/write-str (reduce #(assoc %1 %2 prose-removed) parsed columns)))))))
 
 (defn- seals-or-cannot-say?
   "Whether this drop's body has to be dealt with at all.

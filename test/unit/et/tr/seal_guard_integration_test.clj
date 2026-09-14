@@ -663,20 +663,52 @@
     (is (not (contains? payload :body)) "no body key at all, not a blank one")
     (is (string? (:body-withheld payload)) "and it says why")))
 
-(deftest an-endpoint-that-resolves-to-no-table-is-withheld-too
-  ;; `messages` is deliberately absent from `api-segment->table` — a message body
-  ;; is never sealed and must stay in the clear — so `endpoint-table` cannot tell
-  ;; *known and clear* from *nobody mapped this*. The two are the same answer
-  ;; here, `nil`, and the safe reading of `nil` is the fail-safe one. It costs a
-  ;; sealing user the bodies of his mail drops in the log; buying those back
-  ;; needs a vocabulary that can say "known, and known to be clear".
+(deftest an-endpoint-the-vocabulary-does-not-know-is-withheld
+  ;; The fallback, now that it applies only to a genuine unknown. `/api/relations`
+  ;; is a real write route that neither segment map classifies — nobody had to
+  ;; classify it, because no handler under it touches a sealed column — so
+  ;; `endpoint-disposition` answers nothing and the body is kept none of.
   (seal-user! true)
   (ensure-recording-off!)
-  (machine-write (machine-token!) :put "/api/messages/999"
-                 {:sender "the poller" :description his-prose})
+  (machine-write (machine-token!) :post "/api/relations"
+                 {:from "task" :description his-prose})
   (let [payload (json/read-str (:payload (the-dropped-row)) :key-fn keyword)]
+    (is (nil? (rules/endpoint-disposition "/api/relations"))
+        "and it really is unknown, rather than known-and-clear")
     (is (not (contains? payload :body)))
     (is (string? (:body-withheld payload)))))
+
+(deftest a-message-drop-keeps-its-body-because-messages-is-known-to-be-clear
+  ;; What the third answer buys back. `messages` is permanently clear — three
+  ;; keyless producers write those bodies and `clear-tables` says so — and the
+  ;; same prose sits in `messages.description` in the clear in the same database,
+  ;; so withholding the log's copy protected nothing and cost the audit trail
+  ;; eighteen of the twenty drops the live database holds.
+  (seal-user! true)
+  (ensure-recording-off!)
+  (let [sent {:sender "the poller" :title "an article" :description his-prose}]
+    (machine-write (machine-token!) :put "/api/messages/999" sent)
+    (let [payload (json/read-str (:payload (the-dropped-row)) :key-fn keyword)]
+      (is (= (json/write-str sent) (:body payload))
+          "verbatim: a clear table's prose is not this feature's business")
+      (is (not (contains? payload :body-redacted)))
+      (is (not (contains? payload :body-withheld)))))
+  (testing "and a motto, for the same reason and a different argument"
+    (machine-write (machine-token!) :post "/api/mottos"
+                   {:title "Memento Mori" :description "Remember death"})
+    (is (some #(str/includes? (:payload %) "Remember death") (dropped-rows)))))
+
+(deftest a-convert-is-still-sealed-though-it-sits-at-a-messages-url
+  ;; The ordering inside `endpoint-disposition`. Ask the segment maps before
+  ;; `convert-target` and this comes back *clear* — a message URL — which is the
+  ;; one wrong answer available, because the row it creates is a task.
+  (seal-user! true)
+  (ensure-recording-off!)
+  (is (= {:table :tasks :sealed? true}
+         (rules/endpoint-disposition "/api/messages/7/convert-to-task")))
+  (machine-write (machine-token!) :post "/api/messages/7/convert-to-task"
+                 {:title "from the inbox" :description his-prose})
+  (is (not (str/includes? (:payload (the-dropped-row)) his-prose))))
 
 (deftest a-dropped-conversion-is-resolved-the-way-the-guard-resolves-it
   ;; A convert writes into `tasks` while sitting at a `messages` URL, so

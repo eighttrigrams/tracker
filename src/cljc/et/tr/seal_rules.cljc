@@ -571,6 +571,74 @@
     (when (and (= "messages" (first segs)) (= 3 (count segs)))
       (get convert-endpoint->table (nth segs 2)))))
 
+(def clear-api-segment->table
+  "The other half of `api-segment->table`, and named so that the omission reads
+  as a decision rather than an oversight — exactly as `clear-tables` is, one
+  layer down.
+
+  **The point of this map is that `nil` used to mean two things.** A segment
+  absent from `api-segment->table` might be one nobody had classified yet, or one
+  whose rows are deliberately in the clear — and `endpoint-table` answered `nil`
+  to both. Anything downstream then had to choose between treating an unknown
+  endpoint as safe (fail open) or treating a known-clear one as unknown (fail
+  safe, and expensive). `recording-mode`'s dropped-write capture paid the second
+  price: it withheld the body of every `PUT /api/messages/:id` a sealing user's
+  mail machine dropped, which is eighteen of the twenty dropped events in the
+  live database and eight bodies that were legitimately readable.
+
+  With both maps there is a third answer, *known, and known to be clear*, and
+  nobody has to guess.
+
+  **`messages`** is the one that matters, and its reasons are `clear-tables`':
+  three producers that hold no key write those bodies, one of only two list
+  searches reads them, and the server parses them to recover titles. They stay
+  clear permanently.
+
+  **`mottos`** is a judgement rather than a mechanism — a motto's body is a
+  second name for the same thing, not a private paragraph behind a public title.
+
+  Both are also deliberately **absent** from `api-segment->table`, and that
+  absence is what keeps their write path unguarded. This map does not change
+  that; it only writes down that the absence was meant. `seal-route-coverage-test`
+  holds the two together: a table named here must be in `clear-tables` and must
+  not be in `sealed-columns`, so a segment *moved* from one map to the other is
+  caught rather than quietly relabelled."
+  {"messages" :messages
+   "mottos" :mottos})
+
+(defn endpoint-disposition
+  "What this endpoint's own rows are, as far as the seal is concerned:
+
+  | | |
+  | --- | --- |
+  | `{:table :tasks :sealed? true}` | a write here can introduce sealed prose |
+  | `{:table :messages :sealed? false}` | known, and known to carry none |
+  | `nil` | **not known at all** |
+
+  The three-way answer `endpoint-table` cannot give, because `endpoint-table`
+  answers one question — *which sealed table is this* — and `nil` is its answer
+  both to `/api/messages/7` and to an endpoint nobody has classified. Those are
+  different facts and a caller that has to act safely needs them apart.
+
+  **`convert-target` first, and that ordering is load-bearing.** A message
+  conversion sits at a `messages` URL and writes into `tasks` or `resources`; ask
+  the segment maps first and `/api/messages/7/convert-to-task` comes back
+  *clear*, which is the one wrong answer available. This is the same chain
+  `envelope/refusal-for` walks, for the same reason.
+
+  The guard itself is left asking `endpoint-table` directly. It only ever needs
+  the sealed half, and `seal-route-coverage-test` pins that the halves agree —
+  whenever this says sealed, the guard's own chain finds the same table."
+  [endpoint]
+  (if-let [t (or (convert-target endpoint) (endpoint-table endpoint))]
+    {:table t :sealed? true}
+    (when (string? endpoint)
+      (let [path (first (str/split endpoint #"\?"))
+            segs (remove str/blank? (str/split path #"/"))
+            segs (if (= "api" (first segs)) (rest segs) segs)]
+        (when-let [t (get clear-api-segment->table (first segs))]
+          {:table t :sealed? false})))))
+
 (defn stored-entries
   "`[[table id column value] …]` — what a client should remember about the prose
   in one response, so that a later write of an unchanged body can echo what the
