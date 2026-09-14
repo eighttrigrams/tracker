@@ -112,9 +112,16 @@
 
 (defn- sealing
   "`et.tr.ui.seal/seal-params`, with this namespace's key and index supplied. The
-  decision itself lives there, where a test can reach it."
+  decision itself lives there, where a test can reach it.
+
+  **`sealing-key` and not `current-key`**, and that asymmetry is the whole of
+  F-1. A key in this browser does not mean the user signed in is entitled to seal
+  with it: the key survives sign-out on purpose, and survives `--disarm`, while
+  the flag changes in the database out of band. `unsealing` above keeps the
+  ungated key, because reading sealed rows is exactly what a disarmed user must
+  go on doing until `--unseal` has run."
   [endpoint params]
-  (seal/seal-params (key-store/current-key) @stored endpoint params))
+  (seal/seal-params (key-store/sealing-key) @stored endpoint params))
 
 (defn fetch-json
   [endpoint headers handler]

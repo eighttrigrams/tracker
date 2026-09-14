@@ -304,7 +304,7 @@
     :on-skip-logins #(users/fetch-available-users *app-state)))
 
 (defn login [username password on-success]
-  (auth/login *app-state username password
+  (auth/login *app-state auth-headers username password
     (fn []
       (fetch-all (:current-user @*app-state))
       (when on-success (on-success)))))

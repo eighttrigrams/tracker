@@ -59,11 +59,80 @@
   ;; handle rather than key material.
   (r/atom {:status :unknown :key nil :fingerprint nil}))
 
+(defonce ^:private seals?
+  ;; Whether the user this browser is signed in as has `seal_prose` set.
+  ;; **Holding a key and being entitled to use it are two different facts**, and
+  ;; the argument for keeping them apart — and for this starting `false` — is in
+  ;; `sealing-key` below, which is where a reader meets the gate.
+  ;;
+  ;; `defonce` rather than `def` for the reason `state` above is: a hot reload
+  ;; in development must not silently disarm a browser mid-session, since
+  ;; nothing would re-ask `/api/auth/me` until the next sign-in.
+  (atom false))
+
+(defn set-seals!
+  "Record whether the current user seals. Called where `/api/auth/me`'s answer
+  lands, and set back to `false` whenever that answer is in flight or gone —
+  a switch, a sign-out, the moment before the first reply. Anything but a
+  literal `true` is a no."
+  [on?]
+  (reset! seals? (true? on?)))
+
+(defn seals-now? [] @seals?)
+
 (defn current-key
-  "The key, or `nil` when there is none — which every function in `et.tr.ui.seal`
-  takes to mean *sealing is off*."
+  "The key, or `nil` when there is none. **The read path's key**, and ungated on
+  purpose.
+
+  A user whose flag is off may still be *reading* rows that are sealed: that is
+  the whole of the mixed-state window during a migration, and of the gap between
+  `--disarm` and `--unseal` when the flag is already 0 and the rows are not yet
+  opened. A browser that stopped opening them would put `enc:v1:…` on screen for
+  prose the user can perfectly well read — the mirror image of the bug the gate
+  exists to close. Use `sealing-key` for a write."
   []
   (:key @state))
+
+(defn sealing-key
+  "The key a **write** may use, or `nil` — which every function in
+  `et.tr.ui.seal` takes to mean *sealing is off*.
+
+  The whole of the gate: **a key whose user is not armed seals nothing.** The key
+  survives sign-out on purpose (see `forget!`) and survives `--disarm` because
+  nothing tells the browser anything, while the flag changes out of band, in the
+  database, by the walker. Three windows open between those two facts and one
+  condition shuts all three, because all three ask *is there a key* where the
+  question is *may this user seal*:
+
+  - **Arming** — a key pasted in before the flag is set.
+  - **Disarming** — `--disarm` sets the flag to 0 and the browser goes on
+    sealing. Every write is then refused with *\"This user does not seal prose,
+    and this write carries an envelope in description\"*, and the ⚙ panel — the
+    only in-app way to reach `forget!` — is gone, because it is gated on the flag
+    that was just turned off. Recovery from the recovery was devtools.
+  - **Sharing** — sign out and back in as somebody else, or use the dev switcher,
+    and the key stays loaded while the new user cannot save a body.
+
+  ## Why the flag starts `false`, which is a decision with a cost
+
+  `core.cljs` loads the key at startup, **before anyone has logged in** and
+  therefore before `/api/auth/me` can have answered. The flag is unknown then and
+  must default to something that is wrong in a window.
+
+  Either default fails **to a refusal and never to corruption**, because the
+  server is the enforcement and it refuses in both directions — prose into a
+  sealed column, an envelope into a clear one. So the tiebreak is not safety; it
+  is which bug to keep. Defaulting to `true` reintroduces the disarming bug above
+  for the length of one request, and that is the bug this exists to close.
+  `false` costs an armed user at most one refused save in the moment after a cold
+  load, before an answer that is already on its way.
+
+  It is also the posture the rest of this feature takes: an unanswered question
+  is not a yes. `et.tr.ui.seal/offers-the-key-box?` says the same thing about the
+  same flag, and for the same reason — which rows are the sealing user's is the
+  one question a client may not guess at."
+  []
+  (when @seals? (:key @state)))
 
 (defn- open-db []
   (js/Promise.

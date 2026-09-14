@@ -1,5 +1,6 @@
 (ns et.tr.ui.state.auth
   (:require [et.tr.ui.api :as api]
+            [et.tr.ui.key-store :as key-store]
             [et.tr.ui.session :as session]
             [et.tr.i18n :as i18n]))
 
@@ -41,11 +42,23 @@
   `et.tr.ui.session/answer-still-applies?`, which is where that decision lives
   and is tested. It is not here because this namespace reaches `ajax.core`
   through `et.tr.ui.api` and so cannot be loaded by the node suite at all, which
-  made the branch untestable by its neighbours rather than by its nature."
+  made the branch untestable by its neighbours rather than by its nature.
+
+  **It is also where `key-store/set-seals!` lands**, which is what makes a key
+  unusable by a user who is not armed. The flag is dropped to `false` *before*
+  the request goes out and set only from the answer, so the window in which
+  this browser does not yet know whether the current user seals is a window in
+  which it does not seal. That is the safe direction: the server refuses prose
+  into a sealed column, so the cost is a refused save, where the other default
+  costs the F-1 bug. Doing it here rather than in each caller is what makes it
+  hold for `switch-user`, for the dev picker, for the token restore, and for
+  whatever asks next."
   [app-state auth-headers]
+  (key-store/set-seals! false)
   (api/fetch-json "/api/auth/me" (auth-headers)
     (fn [user]
       (when (session/answer-still-applies? user (:current-user @app-state))
+        (key-store/set-seals! (:seal_prose user))
         (swap! app-state update :current-user merge user)
         (apply-user-language (:current-user @app-state))
         (save-auth-to-storage (:token @app-state) (:current-user @app-state))))))
@@ -82,7 +95,20 @@
             (fetch-all-fn user)
             (refresh-current-user app-state auth-headers)))))))
 
-(defn login [app-state username password on-success]
+(defn login
+  "Sign in, and then **ask who this is**.
+
+  The login response carries the user row, and it is deliberately not trusted
+  for `seal_prose`: the row holds a raw `0`/`1` and the admin branch answers a
+  synthetic map with no flag at all, where `/api/auth/me` resolves it through
+  `envelope/seals?` — the guard's own predicate, from the effective user id.
+  One source, so the client's gate and the server's refusal cannot drift.
+
+  Without the refresh here the flag would stay `false` for the whole session
+  after a production login, and the armed user could never seal — the mirror
+  image of F-1, made permanent instead of transient. `auth-headers` is taken
+  for that call and for nothing else."
+  [app-state auth-headers username password on-success]
   (api/post-json "/api/auth/login"
     {:username username :password password}
     nil
@@ -96,6 +122,7 @@
                :error nil)
         (save-auth-to-storage token user)
         (apply-user-language user)
+        (refresh-current-user app-state auth-headers)
         (when on-success (on-success))))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Invalid credentials")))))
@@ -106,7 +133,14 @@
   ;; echo bytes remembered from somebody else's rows. The key itself is left
   ;; alone: forgetting it is a separate, deliberate act in the ⚙ panel, because
   ;; signing out is not the same as handing the machine over.
+  ;;
+  ;; **What does not survive is the entitlement to use it.** Leaving the key and
+  ;; dropping the flag is the whole shape of the fix for F-1: the borrowed-machine
+  ;; decision above is about the *key*, and it stays; whether the next person may
+  ;; seal with it is a different question, and the answer while nobody is signed
+  ;; in is no. `refresh-current-user` sets it again from `/api/auth/me`.
   (api/forget-stored!)
+  (key-store/set-seals! false)
   (swap! app-state merge
          initial-collection-state
          {:logged-in? false
