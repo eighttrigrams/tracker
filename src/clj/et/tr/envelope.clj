@@ -48,8 +48,9 @@
 
 (def prefix
   "The `enc:v1:` marker. The server's entire vocabulary for the seal, and it is
-  pinned to `test/fixtures/seal-vectors.edn` by `et.tr.envelope-test` so it
-  cannot drift from the two clients that actually hold keys."
+  pinned to `test/fixtures/seal-vectors.edn` by
+  `et.tr.seal-guard-integration-test/the-server-knows-the-same-prefix-the-clients-do`
+  so it cannot drift from the two clients that actually hold keys."
   rules/envelope-prefix)
 
 (def sealed? rules/sealed?)
