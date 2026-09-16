@@ -4,6 +4,7 @@
             [et.tr.ui.keys :as keys]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.state.issues :as issues-state]
+            [et.tr.ui.components.cm-input :refer [cm-input]]
             [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.components.drag-drop :as drag-drop]
             [et.tr.ui.components.filter-section :as filter-section]
@@ -153,8 +154,9 @@
 (defn- search-add-form []
   (let [input-value (:filter-search @issues-state/*issues-page-state)]
     [:div.combined-search-add-form
-     [:input#issues-filter-search
-      {:type "text"
+     [cm-input
+      {:id "issues-filter-search"
+       :type "text"
        :auto-complete "off"
        :placeholder (t :issues/search-or-add)
        :value input-value

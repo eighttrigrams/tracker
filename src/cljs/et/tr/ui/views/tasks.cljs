@@ -50,8 +50,9 @@
         input-value (:tasks-page/filter-search app-state)
         done-mode? (= (:sort-mode app-state) :done)]
     [:div.combined-search-add-form
-     [:input#tasks-filter-search
-      {:type "text"
+     [cm-input
+      {:id "tasks-filter-search"
+       :type "text"
        :auto-complete "off"
        :placeholder (if done-mode? (t :tasks/search) (t :tasks/search-or-add))
        :value input-value
@@ -468,8 +469,9 @@
 (defn- recurring-search-add-form []
   (let [input-value (:filter-search @recurring-tasks-state/*recurring-tasks-page-state)]
     [:div.combined-search-add-form
-     [:input#tasks-filter-search
-      {:type "text"
+     [cm-input
+      {:id "tasks-filter-search"
+       :type "text"
        :auto-complete "off"
        :placeholder (t :tasks/search-or-add-recurring)
        :value input-value

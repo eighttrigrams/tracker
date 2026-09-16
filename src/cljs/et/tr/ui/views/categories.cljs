@@ -5,6 +5,7 @@
             [et.tr.ui.keys :as keys]
             [et.tr.ui.constants :as constants]
             [et.tr.ui.components.task-item :as task-item]
+            [et.tr.ui.components.cm-input :refer [cm-input]]
             [et.tr.ui.components.item-card :as item-card]
             [et.tr.i18n :refer [t]]))
 
@@ -44,7 +45,7 @@
                      ((add-fn-for ct) v clear-search))))
         input-value (or (current-search-value) "")]
     [:div.combined-search-add-form
-     [:input {;; Named after the Group, not the tab — see
+     [cm-input {;; Named after the Group, not the tab — see
               ;; state.ui/category-tab->prefix, which is what resolves this id
               ;; when Escape hands the cursor back here.
               :id (str (name (or (current-category-type) :people)) "-filter-search")

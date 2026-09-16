@@ -8,7 +8,15 @@ const { When, Then } = createBdd();
 // `.cm-content`, and `input.inline-title-edit` is its mirror. Both are asserted
 // against below: the editor for what the caret did, the mirror for the value
 // every other reader of this field still sees.
-const editor = ".cm-input-host .cm-content";
+//
+// Scoped through the mirror's class rather than taken as "the .cm-input-host on
+// the page", which is what these were and what stopped being unique the moment
+// the page's search-add bar became one of these editors too. Under the custom
+// keymap that bar is always mounted, so an unscoped `.cm-content` matches two
+// elements and an unscoped `.cm-input-host` never reaches count 0. The class on
+// the mirror is what tells this field apart from every other one.
+const host = ".cm-input-host:has(input.inline-title-edit)";
+const editor = `${host} .cm-content`;
 const mirror = "input.inline-title-edit";
 
 When(
@@ -27,7 +35,7 @@ Then("the in-place title editor should be open", async ({ page }) => {
 });
 
 Then("the in-place title editor should be closed", async ({ page }) => {
-  await expect(page.locator(".cm-input-host")).toHaveCount(0);
+  await expect(page.locator(host)).toHaveCount(0);
   await expect(page.locator(mirror)).toHaveCount(0);
 });
 

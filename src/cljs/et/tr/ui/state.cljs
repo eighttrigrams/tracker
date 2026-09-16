@@ -2252,15 +2252,29 @@
   two of them are cleared when the tab changes — so a card left open on Tasks
   would otherwise be the one Escape closed while the Issues page is on screen.
   The exception is `:tasks-page/expanded-task`, which the Issues page genuinely
-  shares: in its focused sub-mode the cards on screen *are* Tasks cards."
+  shares: in its focused sub-mode the cards on screen *are* Tasks cards.
+
+  **A collapse scrolls the page back to the top.** An open card is tall, and
+  reaching the thing on it usually meant scrolling down to it; closing it takes
+  that height out from under the viewport and leaves the eye somewhere in the
+  middle of a list it did not choose, with the cursor — which this gesture has
+  just put in the search box — off screen above. The box the keyboard is now in
+  is at the top, so that is where the page goes. Instant rather than smooth, to
+  match the six `clear-uncollapsed-*-filters` that already do this.
+
+  It composes with the focusing rather than fighting it: every `set-expanded-*`
+  focuses on a later tick and with `:preventScroll true`, precisely so that the
+  focus never moves the page. This scroll is the deliberate move it was leaving
+  room for."
   []
   (let [app @*app-state
         collapse-task! (fn []
                          (when-let [id (:tasks-page/expanded-task app)]
                            (toggle-expanded :tasks-page/expanded-task id)
                            true))
-        collapse! (fn [id f] (when id (f nil) true))]
-    (boolean
+        collapse! (fn [id f] (when id (f nil) true))
+        collapsed?
+        (boolean
      ;; The Categories tabs come first and out of the `case`, because the six of
      ;; them are read off constants/category-tabs rather than written out here.
      ;; A hand-kept copy of that set has already gone stale once in this
@@ -2312,7 +2326,9 @@
                   (doseq [k open] (toggle-expanded k (get app k)))
                   (seq open))
 
-         nil)))))
+         nil)))]
+    (when collapsed? (.scrollTo js/window 0 0))
+    collapsed?))
 
 (defn set-editing [task-id]
   (ui/set-editing *app-state task-id))

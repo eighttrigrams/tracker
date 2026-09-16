@@ -212,22 +212,41 @@
     ;; on the field -- which here is "add this item", "clear the filter", and the
     ;; modal's own save-and-close.
     (ijkl/install view commands #js {:mode (.-INPUT ijkl)})
-    ;; No focus forwarding from the mirror, and that is a correction rather than
-    ;; an omission. Handing focus to the editor the moment the <input> received it
-    ;; looked obviously right -- it is what the library's fromTextarea does -- and
-    ;; it broke filling the field programmatically. Playwright's fill() focuses
-    ;; the element and then inserts text into whatever is focused *now*; with the
-    ;; focus already passed on, the insert landed in the editor at caret 0 and
-    ;; left the old value sitting behind it, so the field came out as
-    ;; "Vim stayedVim stayed...Vim original".
+    ;; Focus forwarding from the mirror, deferred by a tick -- and the tick is the
+    ;; whole of the design, not a shrug.
     ;;
-    ;; Nothing here needs the forwarding: the mirror is pointer-events:none, so a
-    ;; click cannot land on it, and these fields carry no <label for>. The search
-    ;; boxes will need an answer -- state.ui/focus-input! finds them by id and
-    ;; calls .focus() -- and it will have to be one that a fill() survives.
+    ;; Forwarding *synchronously* looked obviously right -- it is what the
+    ;; library's fromTextarea does -- and it broke filling the field
+    ;; programmatically. Playwright's fill() focuses the element and then inserts
+    ;; text into whatever is focused *now*; with the focus already passed on, the
+    ;; insert landed in the editor at caret 0 and left the old value sitting
+    ;; behind it, so the field came out as "Vim stayedVim stayed...Vim original".
     ;;
-    ;; fill() sets .value and fires `input`; without the listener below the editor
+    ;; A fill() is one task: focus, select-all, insert. So a forwarding that waits
+    ;; one macrotask lets the whole of it land on the <input>, where the `input`
+    ;; listener below copies it into the document -- and only then moves the caret
+    ;; across, to a field whose text is already right. The re-check of
+    ;; activeElement is what makes that safe: a fill() that moved on to another
+    ;; element in the meantime does not get dragged back.
+    ;;
+    ;; This is what the search boxes needed. `state.ui/focus-input!` finds them by
+    ;; id and calls .focus(), which before this reached a mirror that is
+    ;; opacity:0 and pointer-events:none -- the cursor would have been put
+    ;; somewhere invisible, and Escape out of a card would have left the keyboard
+    ;; nowhere. The id stays on the <input>, so every caller keeps working
+    ;; unchanged; this is what makes the id mean the field again.
+    ;;
+    (.addEventListener input "focus"
+                       (fn [_]
+                         (js/setTimeout
+                          (fn []
+                            (when (identical? input (.-activeElement js/document))
+                              (focus-at-end! view)))
+                          0)))
+    ;; fill() sets .value and fires `input`; without this listener the editor
     ;; would never hear about it and the document and the field would disagree.
+    ;; It is also what the forwarding above leans on: by the time the deferred
+    ;; focus runs, this has already made the document agree with the field.
     (.addEventListener input "input"
                        (fn [_]
                          (let [v (ijkl/oneLine (or (.-value input) ""))]

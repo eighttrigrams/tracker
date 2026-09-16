@@ -5,6 +5,7 @@
             [et.tr.ui.state.meets :as meets-state]
             [et.tr.ui.state.meeting-series :as meeting-series-state]
             [et.tr.ui.date :as date]
+            [et.tr.ui.components.cm-input :refer [cm-input]]
             [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.category-selector :as category-selector]
@@ -99,8 +100,9 @@
 (defn- search-add-form []
   (let [input-value (:filter-search @meets-state/*meets-page-state)]
     [:div.combined-search-add-form
-     [:input#meets-filter-search
-      {:type "text"
+     [cm-input
+      {:id "meets-filter-search"
+       :type "text"
        :auto-complete "off"
        :placeholder (t :meets/search-or-add)
        :value input-value
@@ -216,8 +218,9 @@
 (defn- series-search-add-form []
   (let [input-value (:filter-search @meeting-series-state/*meeting-series-page-state)]
     [:div.combined-search-add-form
-     [:input#meets-filter-search
-      {:type "text"
+     [cm-input
+      {:id "meets-filter-search"
+       :type "text"
        :auto-complete "off"
        :placeholder (t :meets/search-or-add-series)
        :value input-value

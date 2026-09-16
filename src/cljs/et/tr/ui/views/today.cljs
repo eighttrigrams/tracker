@@ -397,11 +397,34 @@
 ;; nothing to leave. Own class names, so the two can be restyled apart.
 (defn- today-add-button []
   (let [ui-state (r/atom {:mode :closed})
-        close! #(swap! ui-state assoc :mode :closed)
+        ;; `:dismissed?` is what stops the menu springing up the instant the box
+        ;; goes away. Closing swaps the input for the `+`, and the pointer is
+        ;; still where it was — on a control that is now closed — so the
+        ;; mouse-enter below fires on the element appearing underneath it and the
+        ;; menu opens. From the keyboard that reads as Escape not having closed
+        ;; anything: the box goes and a menu takes its place.
+        ;;
+        ;; The flag says *this* visit of the pointer is over, not that hovering
+        ;; is off: leaving re-arms it, so coming back opens the menu as before.
+        ;; It is set by every close the user asked for — Escape and a submitted
+        ;; title both leave the pointer resting on the control — and not by the
+        ;; mouse-leave close, which is the pointer already gone.
+        close! #(swap! ui-state assoc :mode :closed :dismissed? true)
         choose! (fn [kind]
                   (swap! ui-state assoc :mode :input :kind kind :input-value "")
-                  (js/setTimeout #(when-let [el (.querySelector js/document ".today-add-input")]
-                                    (.focus el)) 0))
+                  ;; `r/after-render` and not `setTimeout 0`, which is what was
+                  ;; here and lost a race it only sometimes lost. Reagent renders
+                  ;; on an animation frame, so a zero timeout can run first: the
+                  ;; box is not in the document yet, `querySelector` finds
+                  ;; nothing, and the `when-let` swallows it. The field then
+                  ;; opens with the cursor still on the body — typing goes
+                  ;; nowhere, and Escape, which the box handles itself, never
+                  ;; reaches it, so pressing it looks like the box refusing to
+                  ;; close. Sometimes the frame won and it all worked, which is
+                  ;; the worst version of this bug.
+                  (r/after-render
+                   #(when-let [el (.querySelector js/document ".today-add-input")]
+                      (.focus el))))
         submit! (fn [title]
                   (when (seq (.trim (or title "")))
                     (if (= :meet (:kind @ui-state))
@@ -410,14 +433,18 @@
                     (close!)))]
     (fn []
       (when-not (state/relation-mode-active?)
-        (let [{:keys [mode kind input-value]} @ui-state
+        (let [{:keys [mode kind input-value dismissed?]} @ui-state
               menu-open? (= :menu mode)
               meet? (= :meet kind)]
           [:div.today-add-dropdown
            ;; Leaving closes the menu but never the input: the pointer wandering
-           ;; off is not a reason to throw away half a typed title.
-           {:on-mouse-enter #(when (= :closed mode) (swap! ui-state assoc :mode :menu))
-            :on-mouse-leave #(when menu-open? (close!))}
+           ;; off is not a reason to throw away half a typed title. It also
+           ;; re-arms the hover, and does that unconditionally — the pointer has
+           ;; left, so whatever the last close was, the next arrival is a new one.
+           {:on-mouse-enter #(when (and (= :closed mode) (not dismissed?))
+                               (swap! ui-state assoc :mode :menu))
+            :on-mouse-leave #(do (when menu-open? (swap! ui-state assoc :mode :closed))
+                                 (swap! ui-state assoc :dismissed? false))}
            (if (= :input mode)
              [:div.today-add-form {:class (if meet? "meet" "task")}
               [:input.today-add-input

@@ -8,6 +8,7 @@
             [et.tr.ui.state.journal-entries :as journal-entries-state]
             [et.tr.ui.date :as date]
             [et.tr.ui.modals :as modals]
+            [et.tr.ui.components.cm-input :refer [cm-input]]
             [et.tr.ui.components.item-card :as item-card]
             [et.tr.ui.components.task-item :as task-item]
             [et.tr.ui.components.drag-drop :as drag-drop]
@@ -172,8 +173,9 @@
 (defn- search-add-form []
   (let [input-value (:filter-search @resources-state/*resources-page-state)]
     [:div.combined-search-add-form
-     [:input#resources-filter-search
-      {:type "text"
+     [cm-input
+      {:id "resources-filter-search"
+       :type "text"
        :auto-complete "off"
        :placeholder (t :resources/search-or-add)
        :value input-value
@@ -302,8 +304,9 @@
     (fn []
       (let [input-value (:filter-search @journals-state/*journals-page-state)]
         [:div.combined-search-add-form
-         [:input#resources-filter-search
-          {:type "text"
+         [cm-input
+          {:id "resources-filter-search"
+           :type "text"
            :auto-complete "off"
            :placeholder (t :journals/search-or-add)
            :value input-value
