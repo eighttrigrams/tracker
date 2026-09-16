@@ -69,10 +69,18 @@
         (fn [resp]
           (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add task")))))))
 
-(defn update-task [app-state auth-headers task-id title description tags expected-modified-at on-success on-error]
+(defn update-task
+  "PUT the task's text fields. `extra` is an optional map of further body keys —
+  today :deliverable and :time-estimate, sent by the edit modal and by nobody
+  else. It is merged rather than spread into the signature because the server
+  writes those two only when the key is present, so a caller that has no opinion
+  about them (the inline title edit) must send a body that does not mention
+  them."
+  [app-state auth-headers task-id title description tags expected-modified-at extra on-success on-error]
   (api/put-json (str "/api/tasks/" task-id)
     (cond-> {:title title :description description :tags tags}
-      expected-modified-at (assoc :expected-modified-at expected-modified-at))
+      expected-modified-at (assoc :expected-modified-at expected-modified-at)
+      extra (merge extra))
     (auth-headers)
     (fn [updated-task]
       (let [merge-fn (fn [tasks]

@@ -105,6 +105,8 @@
   :task/title-placeholder "Title"
   :task/description-placeholder "Description (optional)"
   :task/tags-placeholder "Tags (space-separated search terms)"
+  :task/deliverable-placeholder "Deliverable (optional)"
+  :task/time-estimate-placeholder "Estimate in hours, e.g. 1.2"
 
   :category/people "People"
   :category/places "Places"
@@ -541,6 +543,8 @@
   :task/title-placeholder "Titel"
   :task/description-placeholder "Beschreibung (optional)"
   :task/tags-placeholder "Tags (Suchbegriffe mit Leerzeichen getrennt)"
+  :task/deliverable-placeholder "Liefergegenstand (optional)"
+  :task/time-estimate-placeholder "Schätzung in Stunden, z. B. 1.2"
 
   :category/people "Personen"
   :category/places "Orte"
@@ -937,6 +941,8 @@
   :task/title-placeholder "Título"
   :task/description-placeholder "Descrição (opcional)"
   :task/tags-placeholder "Tags (termos de pesquisa separados por espaços)"
+  :task/deliverable-placeholder "Entregável (opcional)"
+  :task/time-estimate-placeholder "Estimativa em horas, ex.: 1.2"
 
   :category/people "Pessoas"
   :category/places "Lugares"

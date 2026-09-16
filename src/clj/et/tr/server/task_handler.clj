@@ -64,19 +64,46 @@
   "PUT /api/tasks/:id — update a task's editable text fields. Body: {:title
   :description :tags}. 400 if title is blank; description and tags default to
   empty strings. Returns the updated row on 200 and logs an :update event
-  diffing :title/:description/:tags."
+  diffing :title/:description/:tags.
+
+  :deliverable and :time-estimate may also be sent, and differ from the three
+  above in when they are written: **only if the body actually carries the key**.
+  The three are safe to write unconditionally because every caller sends all
+  three — the inline title edit reads the row's own description and tags back out
+  and posts them unchanged. It knows nothing about a deliverable, so defaulting
+  an absent :deliverable to \"\" the way :description is defaulted would let a
+  rename from the task list silently erase one. `contains?` is the same test
+  `update-recurring-task-handler` already uses to fold in the schedule. The event
+  diff follows suit and names only the fields the request carried.
+
+  A :time-estimate that will not parse is a 400 — see `common/parse-time-estimate`
+  for what it accepts and why the unit is decimal hours."
   [req]
   (let [user-id (common/get-user-id req)
         task-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [title description tags]} (:body req)]
-    (if (str/blank? title)
+        {:keys [title description tags]} (:body req)
+        deliverable (get-in req [:body :deliverable])
+        has-deliverable? (contains? (:body req) :deliverable)
+        has-estimate? (contains? (:body req) :time-estimate)
+        [estimate-status estimate] (common/parse-time-estimate (get-in req [:body :time-estimate]))]
+    (cond
+      (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
+
+      (and has-estimate? (= :error estimate-status))
+      {:status 400 :body {:success false :error estimate}}
+
+      :else
       (let [expected (get-in req [:body :expected-modified-at])
-            before (events/fetch-fields :tasks task-id [:title :description :tags])
-            task (db.task/update-task (common/ensure-ds) user-id task-id {:title title :description (or description "") :tags (or tags "")} expected)]
+            fields (cond-> {:title title :description (or description "") :tags (or tags "")}
+                     has-deliverable? (assoc :deliverable (or deliverable ""))
+                     has-estimate? (assoc :time_estimate estimate))
+            field-cols (vec (keys fields))
+            before (events/fetch-fields :tasks task-id field-cols)
+            task (db.task/update-task (common/ensure-ds) user-id task-id fields expected)]
         (if task
           (do (events/record-update! req :task task-id before
-                                     (select-keys task [:title :description :tags]))
+                                     (select-keys task field-cols))
               {:status 200 :body task})
           (common/conflict-or-not-found (db.task/get-task (common/ensure-ds) user-id task-id) "Task not found"))))))
 

@@ -1,0 +1,8 @@
+{:up ["ALTER TABLE tasks ADD COLUMN deliverable TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE tasks ADD COLUMN time_estimate REAL"
+      "ALTER TABLE recurring_tasks ADD COLUMN deliverable TEXT NOT NULL DEFAULT ''"
+      "ALTER TABLE recurring_tasks ADD COLUMN time_estimate REAL"]
+ :down ["ALTER TABLE recurring_tasks DROP COLUMN time_estimate"
+        "ALTER TABLE recurring_tasks DROP COLUMN deliverable"
+        "ALTER TABLE tasks DROP COLUMN time_estimate"
+        "ALTER TABLE tasks DROP COLUMN deliverable"]}

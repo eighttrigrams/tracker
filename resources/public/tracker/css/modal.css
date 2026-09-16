@@ -99,6 +99,33 @@
   flex: 1;
   overflow-y: auto;
 }
+/* The estimate reads its own input back as hours and minutes, so the one
+   ambiguous thing about the field — whether 1.2 is an hour and twelve or an
+   hour and twenty — is answered next to the caret rather than in a placeholder
+   that stops being read after the first week. */
+.edit-item-modal .item-edit-form .time-estimate-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.edit-item-modal .item-edit-form .time-estimate-field > input,
+.edit-item-modal .item-edit-form .time-estimate-field > .cm-input-host {
+  flex: 1;
+  min-width: 0;
+}
+.edit-item-modal .item-edit-form .time-estimate-hint {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  white-space: nowrap;
+  min-width: 6em;
+}
+/* Text that is neither blank nor a number. Said here rather than by refusing
+   the keystroke, because the field has to keep showing what was typed — see
+   `input->estimate`. The save is refused by the server either way. */
+.edit-item-modal .item-edit-form .time-estimate-field.invalid > input,
+.edit-item-modal .item-edit-form .time-estimate-field.invalid .cm-editor {
+  border-color: var(--warning, #d08b2c);
+}
 .edit-modal-tabs {
   display: flex;
   gap: 0;

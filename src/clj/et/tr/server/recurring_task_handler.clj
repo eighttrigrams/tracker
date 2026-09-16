@@ -58,8 +58,11 @@
   "PUT /api/recurring-tasks/:id — update title/description/tags on a recurring
   task, and (when the body carries schedule fields) the scheduling rule in the
   same write. Body fields: :title (required, non-blank), :description and :tags
-  (default to empty strings), and optionally :schedule-days, :schedule-time,
-  :schedule-mode, :biweekly-offset and :task-type. Folding the schedule into
+  (default to empty strings), and optionally :deliverable, :time-estimate,
+  :schedule-days, :schedule-time, :schedule-mode, :biweekly-offset and
+  :task-type. :deliverable and :time-estimate are written only when the body
+  carries them, so the recurring list's inline title edit — which sends neither —
+  cannot erase them. Folding the schedule into
   this single optimistic-concurrency-guarded update means one modified_at bump
   and one conflict check per modal save, so a save can never lose the text edit
   to a racing schedule write. Returns 400 for a blank title or an invalid
@@ -68,8 +71,11 @@
   [req]
   (let [user-id (common/get-user-id req)
         rtask-id (Integer/parseInt (get-in req [:params :id]))
-        {:keys [title description tags schedule-days schedule-time schedule-mode biweekly-offset task-type]} (:body req)
-        has-schedule? (contains? (:body req) :schedule-days)]
+        {:keys [title description tags deliverable schedule-days schedule-time schedule-mode biweekly-offset task-type]} (:body req)
+        has-schedule? (contains? (:body req) :schedule-days)
+        has-deliverable? (contains? (:body req) :deliverable)
+        has-estimate? (contains? (:body req) :time-estimate)
+        [estimate-status estimate] (common/parse-time-estimate (get-in req [:body :time-estimate]))]
     (cond
       (str/blank? title)
       {:status 400 :body {:success false :error "Title is required"}}
@@ -77,15 +83,22 @@
       (and has-schedule? (not (valid-schedule-time? schedule-time)))
       {:status 400 :body {:error "Invalid time format"}}
 
+      (and has-estimate? (= :error estimate-status))
+      {:status 400 :body {:error estimate}}
+
       :else
       (let [expected (get-in req [:body :expected-modified-at])
             fields (cond-> {:title title :description (or description "") :tags (or tags "")}
+                     has-deliverable? (assoc :deliverable (or deliverable ""))
+                     has-estimate? (assoc :time_estimate estimate)
                      has-schedule? (assoc :schedule_days (or schedule-days "")
                                           :schedule_time schedule-time
                                           :schedule_mode (or schedule-mode "weekly")
                                           :biweekly_offset (if biweekly-offset 1 0)
                                           :task_type (or task-type "due_date")))
             before-cols (cond-> [:title :description :tags]
+                          has-deliverable? (conj :deliverable)
+                          has-estimate? (conj :time_estimate)
                           has-schedule? (into [:schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type]))
             before (events/fetch-fields :recurring_tasks rtask-id before-cols)
             result (db.recurring-task/update-recurring-task (common/ensure-ds) user-id rtask-id fields expected)]

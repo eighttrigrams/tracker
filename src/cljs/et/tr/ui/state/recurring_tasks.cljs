@@ -45,11 +45,18 @@
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add recurring task")))))
 
-(defn update-recurring-task [app-state auth-headers rtask-id title description tags expected-modified-at schedule on-success on-error]
+(defn update-recurring-task
+  "PUT the recurring task's text fields. `extra` is an optional map of further
+  body keys, merged in whole: the five schedule keys, and :deliverable and
+  :time-estimate. It was named `schedule` while the schedule was all it carried.
+  The server writes each of these only when its key is present, which is what
+  lets the recurring list's inline title edit pass no map at all and touch
+  neither the schedule nor the deliverable."
+  [app-state auth-headers rtask-id title description tags expected-modified-at extra on-success on-error]
   (api/put-json (str "/api/recurring-tasks/" rtask-id)
     (cond-> {:title title :description description :tags tags}
       expected-modified-at (assoc :expected-modified-at expected-modified-at)
-      schedule (merge schedule))
+      extra (merge extra))
     (auth-headers)
     (fn [result]
       (swap! app-state update :recurring-tasks

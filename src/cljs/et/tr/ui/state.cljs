@@ -1009,8 +1009,8 @@
    (update-recurring-task rtask-id title description tags nil nil on-success))
   ([rtask-id title description tags expected-modified-at on-success]
    (update-recurring-task rtask-id title description tags expected-modified-at nil on-success))
-  ([rtask-id title description tags expected-modified-at schedule on-success]
-   (recurring-tasks-state/update-recurring-task *app-state auth-headers rtask-id title description tags expected-modified-at schedule
+  ([rtask-id title description tags expected-modified-at extra on-success]
+   (recurring-tasks-state/update-recurring-task *app-state auth-headers rtask-id title description tags expected-modified-at extra
      (fn []
        (when (= rtask-id (:id (:tasks-page/filter-recurring @*app-state)))
          (swap! *app-state assoc-in [:tasks-page/filter-recurring :title] title))
@@ -1836,7 +1836,9 @@
   ([task-id title description tags on-success]
    (update-task task-id title description tags nil on-success))
   ([task-id title description tags expected-modified-at on-success]
-   (tasks/update-task *app-state auth-headers task-id title description tags expected-modified-at on-success
+   (update-task task-id title description tags expected-modified-at nil on-success))
+  ([task-id title description tags expected-modified-at extra on-success]
+   (tasks/update-task *app-state auth-headers task-id title description tags expected-modified-at extra on-success
                       (edit-conflict-handler :task "Failed to update task"))))
 
 (defn- fetch-tasks-and-maybe-reports []

@@ -188,7 +188,7 @@
   (when (recurring-task-owned-by-user? ds rtask-id user-id)
     (let [conn (db/get-conn ds)
           rtask (jdbc/execute-one! conn
-                  (sql/format {:select [:title :scope :task_type]
+                  (sql/format {:select [:title :scope :task_type :deliverable :time_estimate]
                                :from [:recurring_tasks]
                                :where [:= :id rtask-id]})
                   db/jdbc-opts)]
@@ -197,12 +197,20 @@
           (let [today-type? (= "today" (:task_type rtask))
                 today-str (clock/today-str)
                 is-today? (= date today-str)
+                ;; The deliverable and the estimate ride along with the title and
+                ;; the categories: a recurring task is a template, and what it
+                ;; delivers and how long it takes are properties of the work, not
+                ;; of the occurrence. Copied rather than joined, so editing the
+                ;; template leaves already-created tasks alone — the same way a
+                ;; retitled recurring task does not rename last week's instance.
                 task-values (cond-> {:title (:title rtask)
                                      :sort_order (db/top-of-order tx :tasks-page user-id)
                                      :user_id user-id
                                      :modified_at [:raw "datetime('now')"]
                                      :scope (:scope rtask)
-                                     :recurring_task_id rtask-id}
+                                     :recurring_task_id rtask-id
+                                     :deliverable (or (:deliverable rtask) "")
+                                     :time_estimate (:time_estimate rtask)}
                               (and today-type? is-today?) (assoc :today 1)
                               (and today-type? (not is-today?)) (assoc :lined_up_for date)
                               (not today-type?) (assoc :due_date date :due_time time))

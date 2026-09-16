@@ -173,7 +173,7 @@
 
 (def task-select-columns (into [:id :title :description :tags :created_at :modified_at :due_date :due_time]
                                (concat (map ordering/column [:tasks-page :tasks-day-list :tasks-urgent])
-                                       [:done :done_at :scope :importance :urgency :today :lined_up_for :maybe :recurring_task_id :issue_id :reminder :reminder_date :relation_badge_title])))
+                                       [:done :done_at :scope :importance :urgency :today :lined_up_for :maybe :recurring_task_id :issue_id :reminder :reminder_date :relation_badge_title :deliverable :time_estimate])))
 
 (def resource-select-columns (into [:id :title :link :description :tags :created_at :modified_at]
                                    (cons (ordering/column :resources-page)
@@ -187,7 +187,7 @@
 
 (def meeting-series-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_days :schedule_time :schedule_mode :biweekly_offset :maybe])
 
-(def recurring-task-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type])
+(def recurring-task-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_days :schedule_time :schedule_mode :biweekly_offset :task_type :deliverable :time_estimate])
 
 (def journal-select-columns [:id :title :description :tags :created_at :modified_at :sort_order :scope :schedule_type])
 

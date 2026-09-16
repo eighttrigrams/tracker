@@ -338,11 +338,86 @@
   [:div.preview-description
    {:dangerouslySetInnerHTML (r/unsafe-html (marked (or text "")))}])
 
+;; ---------------------------------------------------------------------------
+;; The time estimate, which is decimal hours and has to say so.
+
+(defn- estimate->input
+  "The stored REAL as the string the field shows. `2.0` prints as \"2\" and not
+  \"2.0\" because ClojureScript numbers are doubles and `str` already drops a
+  trailing zero — which is the wanted spelling anyway, and the reason
+  `edit-modal-dirty?` can compare the two as strings at all."
+  [v]
+  (if (number? v) (str v) ""))
+
+(defn- estimate-number
+  "The field's text as a number, or nil if it is blank or not one.
+
+  Only for deciding what to *show*. What gets sent is the text itself — see
+  `input->estimate`."
+  [s]
+  (let [s (clojure.string/trim (or s ""))]
+    (when-not (clojure.string/blank? s)
+      (when (re-matches #"\d+(\.\d+)?" s)
+        (js/parseFloat s)))))
+
+(defn- input->estimate
+  "What the save puts in the body: the field's text, trimmed, or `nil` when it is
+  blank. Blank means *no estimate*, which is not `0` — that would claim the work
+  takes no time.
+
+  **The string goes over the wire unparsed on purpose.** The obvious alternative
+  is to refuse a bad keystroke and keep the atom always numeric, and that was the
+  first version of this. It desynchronises the field: with the keyboard scheme on
+  the visible text is CodeMirror's document, a refused keystroke leaves the atom
+  unchanged, and an unchanged ratom is exactly the case reagent does not
+  re-render — so the box goes on showing `1.2abc` while the app holds `1.2`, and
+  a save would quietly store a number the user can see is not what they typed. A
+  field that lies is worse than one that rejects late.
+
+  So the text is never second-guessed here, `common/parse-time-estimate` is the
+  only parser, and it already has to exist for the machine users that post JSON
+  straight at the endpoint. One parser, on the side that can refuse the write."
+  [s]
+  (let [s (clojure.string/trim (or s ""))]
+    (when-not (clojure.string/blank? s) s)))
+
+(defn- estimate-hint
+  "\"1.2\" → \"1 h 12 min\", shown beside the field.
+
+  The one genuinely ambiguous thing about this field is whether `1.2` means an
+  hour and twelve minutes or an hour and twenty, and no placeholder wins that
+  argument as cheaply as echoing the answer back while it is being typed. It
+  doubles as the validity cue: text that will not parse gets no hint, and the
+  field is marked besides."
+  [s]
+  (when-let [n (estimate-number s)]
+    (let [total (js/Math.round (* n 60))
+          h (quot total 60)
+          m (rem total 60)]
+      (cond
+        (zero? total) nil
+        (zero? m) (str h " h")
+        (zero? h) (str m " min")
+        :else (str h " h " m " min")))))
+
+(defn- estimate-invalid?
+  "Whether the field holds something that can no longer become a number, so the
+  box can say so before the save does.
+
+  Deliberately laxer than `estimate-number`: `\"1.\"` is half of `\"1.2\"` and
+  gets no hint, but marking it wrong would flash the field amber in the middle of
+  typing every fractional value there is."
+  [s]
+  (let [s (clojure.string/trim (or s ""))]
+    (boolean (and (seq s) (not (re-matches #"\d*\.?\d*" s))))))
+
 (defn- edit-modal-fields [{:keys [type entity]}]
   (let [field-atoms (case type
                       :task {:title (r/atom (:title entity))
                              :description (r/atom (or (:description entity) ""))
                              :tags (r/atom (or (:tags entity) ""))
+                             :deliverable (r/atom (or (:deliverable entity) ""))
+                             :time-estimate (r/atom (estimate->input (:time_estimate entity)))
                              :due-date (r/atom (or (:due_date entity) ""))
                              :due-time (r/atom (or (:due_time entity) ""))
                              :relation-badge-title (r/atom (or (:relation_badge_title entity) ""))}
@@ -358,7 +433,12 @@
                                       :relation-badge-title (r/atom (or (:relation_badge_title entity) ""))}
                       :message {:title (r/atom (:title entity))
                                 :description (r/atom (or (:description entity) ""))}
-                      (:meeting-series :recurring-task) {:title (r/atom (:title entity))
+                      ;; A meeting series shares this branch but has neither
+                      ;; column, so it does not get the atoms — and everything
+                      ;; downstream keys on the atom being there, the way `link`
+                      ;; and `badge-title` already do.
+                      (:meeting-series :recurring-task)
+                                      (cond-> {:title (r/atom (:title entity))
                                        :description (r/atom (or (:description entity) ""))
                                        :tags (r/atom (or (:tags entity) ""))
                                        :schedule-days (r/atom (or (:schedule_days entity) ""))
@@ -367,6 +447,9 @@
                                        :biweekly-offset (r/atom (= 1 (:biweekly_offset entity)))
                                        :maybe (r/atom (or (:maybe entity) "0"))
                                        :task-type (r/atom (or (:task_type entity) "due_date"))}
+                                        (= type :recurring-task)
+                                        (assoc :deliverable (r/atom (or (:deliverable entity) ""))
+                                               :time-estimate (r/atom (estimate->input (:time_estimate entity)))))
                       :journal {:title (r/atom (:title entity))
                                 :description (r/atom (or (:description entity) ""))
                                 :tags (r/atom (or (:tags entity) ""))}
@@ -385,7 +468,7 @@
                        :badge-title (r/atom (or (:badge_title entity) ""))})]
     (assoc field-atoms :type type :entity entity)))
 
-(defn- edit-modal-dirty? [{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]}]
+(defn- edit-modal-dirty? [{:keys [type entity title description tags deliverable time-estimate link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]}]
   (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :issue :journal :journal-entry :message} type))
         title-orig (if is-category (:name entity) (:title entity))
         base-dirty (or (not= @title title-orig)
@@ -394,6 +477,11 @@
     (cond
       base-dirty true
       (and link (not= @link (:link entity))) true
+      (and deliverable (not= @deliverable (or (:deliverable entity) ""))) true
+      ;; Compared as the strings the field shows, not as numbers: `estimate->input`
+      ;; is the only thing that knows how a stored REAL is spelled, and asking it
+      ;; twice is cheaper than teaching this clause to parse.
+      (and time-estimate (not= @time-estimate (estimate->input (:time_estimate entity)))) true
       (and badge-title (not= @badge-title (or (:badge_title entity) ""))) true
       (and relation-badge-title (not= @relation-badge-title (or (:relation_badge_title entity) ""))) true
       (and schedule-days (not= @schedule-days (or (:schedule_days entity) ""))) true
@@ -447,10 +535,15 @@
 
 (defn- edit-modal-save
   ([fields] (edit-modal-save fields nil))
-  ([{:keys [type entity title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]}
+  ([{:keys [type entity title description tags deliverable time-estimate link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]}
     on-refreshed]
    (let [id (:id entity)
          expected (:modified_at entity)
+         ;; Sent only when this entity has the fields at all, so the body stays
+         ;; silent about them otherwise and the server leaves the columns alone.
+         extra (when deliverable
+                 {:deliverable @deliverable
+                  :time-estimate (input->estimate @time-estimate)})
          badge-change? (and relation-badge-title
                             (not= @relation-badge-title (or (:relation_badge_title entity) "")))
          due-date-change? (and due-date (not= @due-date (or (:due_date entity) "")))
@@ -477,7 +570,7 @@
        ;; while the date/time change does not (and the modal stays open on the
        ;; setter's error). This is accepted — the setters run strictly after the
        ;; content commit to preserve the due-date cascade without a self-conflict.
-       :task (state/update-task id @title @description @tags expected
+       :task (state/update-task id @title @description @tags expected extra
                (fn []
                  (when due-date-change?
                    (state/set-task-due-date id (when (seq @due-date) @due-date) written! write-failed!))
@@ -496,8 +589,9 @@
                           :schedule-mode @schedule-mode :biweekly-offset @biweekly-offset :maybe @maybe}
                          saved!)
        :recurring-task (state/update-recurring-task id @title @description @tags expected
-                         {:schedule-days @schedule-days :schedule-time @schedule-time
-                          :schedule-mode @schedule-mode :biweekly-offset @biweekly-offset :task-type @task-type}
+                         (merge {:schedule-days @schedule-days :schedule-time @schedule-time
+                                 :schedule-mode @schedule-mode :biweekly-offset @biweekly-offset :task-type @task-type}
+                                extra)
                          saved!)
        :journal (state/update-journal id @title @description @tags expected saved!)
        :journal-entry (state/update-journal-entry id @title @description @tags expected saved!)
@@ -921,7 +1015,7 @@
             (reset! fields-state (edit-modal-fields {:type type :entity entity}))
             (reset! active-tab (or tab :edit))
             (reset! confirm-discard? false))
-          (when-let [{:keys [title description tags link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]} @fields-state]
+          (when-let [{:keys [title description tags deliverable time-estimate link badge-title relation-badge-title schedule-days schedule-time schedule-mode biweekly-offset maybe task-type due-date due-time start-date start-time]} @fields-state]
             (let [is-category (not (#{:task :meet :meeting-series :recurring-task :resource :issue :journal :journal-entry :message} type))
                   preview-tab-key (case type
                                     (:task :recurring-task) :modal/tab-task
@@ -1053,6 +1147,23 @@
                                    :value @tags
                                    :on-change #(reset! tags (-> % .-target .-value))
                                    :placeholder (t :task/tags-placeholder)}])
+                      (when deliverable
+                        [cm-input {:type "text"
+                                   :auto-complete "off"
+                                   :value @deliverable
+                                   :on-change #(reset! deliverable (-> % .-target .-value))
+                                   :placeholder (t :task/deliverable-placeholder)}])
+                      (when time-estimate
+                        [:div.time-estimate-field
+                         {:class (when (estimate-invalid? @time-estimate) "invalid")}
+                         [cm-input {:type "text"
+                                    :auto-complete "off"
+                                    :input-mode "decimal"
+                                    :value @time-estimate
+                                    :on-change #(reset! time-estimate (-> % .-target .-value))
+                                    :placeholder (t :task/time-estimate-placeholder)}]
+                         [:span.time-estimate-hint
+                          (or (estimate-hint @time-estimate) "")]])
                       (if (state/vim-keys?)
                         [cm-textarea {:value description
                                       :on-change #(reset! description %)

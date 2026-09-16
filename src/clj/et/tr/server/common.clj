@@ -188,6 +188,49 @@
       (empty? date-str)
       (re-matches #"^\d{4}-\d{2}-\d{2}$" date-str)))
 
+(def time-estimate-max-hours
+  "A year of eight-hour days. Not a product rule — a guard against a typo landing
+  a number that would make every future sum meaningless. An estimate that really
+  is larger than this is a project, and tracker has issues for those."
+  2920.0)
+
+(defn parse-time-estimate
+  "A `:time-estimate` from a request body into the REAL the column holds, as
+  `[:ok value]` or `[:error msg]`.
+
+  **The unit is decimal hours, not hours-and-minutes.** `1.2` is one hour and
+  twelve minutes because 0.2 of an hour is twelve minutes — the same arithmetic a
+  timesheet does, and the reason no parsing of a `h.mm` form is attempted here.
+  Reading `1.2` as one hour twenty would make `1.60` an hour and sixty minutes,
+  which is two different numbers for one duration, and any later sum would have
+  to know which convention each row was typed under.
+
+  Blank and nil both mean *no estimate*, which is `nil` and not `0` — a task
+  estimated at zero hours and a task nobody has estimated are different claims,
+  and only the column being nullable can keep them apart.
+
+  Strings are accepted because a form posts what the user typed, and the JSON a
+  machine user sends has a real number in it; both reach here."
+  [v]
+  (cond
+    (or (nil? v) (and (string? v) (str/blank? v))) [:ok nil]
+
+    (number? v)
+    (let [d (double v)]
+      (cond
+        (or (Double/isNaN d) (Double/isInfinite d)) [:error "Invalid time estimate"]
+        (neg? d) [:error "Time estimate cannot be negative"]
+        (> d time-estimate-max-hours) [:error "Time estimate is too large"]
+        :else [:ok d]))
+
+    (string? v)
+    (let [s (str/trim v)]
+      (if (re-matches #"\d+(\.\d+)?" s)
+        (recur (Double/parseDouble s))
+        [:error "Invalid time estimate"]))
+
+    :else [:error "Invalid time estimate"]))
+
 (defn valid-url? [link]
   (some? (re-matches #"https?://\S+" link)))
 
