@@ -433,7 +433,10 @@
                     (close!)))]
     (fn []
       (when-not (state/relation-mode-active?)
-        (let [{:keys [mode kind input-value dismissed?]} @ui-state
+        ;; `mode` stays destructured here because what it decides below is what
+        ;; to *draw*, which is a render-time question. The handlers above ask the
+        ;; atom instead, because what they decide is what to do next.
+        (let [{:keys [mode kind input-value]} @ui-state
               menu-open? (= :menu mode)
               meet? (= :meet kind)]
           [:div.today-add-dropdown
@@ -441,10 +444,21 @@
            ;; off is not a reason to throw away half a typed title. It also
            ;; re-arms the hover, and does that unconditionally — the pointer has
            ;; left, so whatever the last close was, the next arrival is a new one.
-           {:on-mouse-enter #(when (and (= :closed mode) (not dismissed?))
-                               (swap! ui-state assoc :mode :menu))
-            :on-mouse-leave #(do (when menu-open? (swap! ui-state assoc :mode :closed))
-                                 (swap! ui-state assoc :dismissed? false))}
+           ;;
+           ;; Both read `ui-state` inside the handler rather than closing over
+           ;; the `mode` destructured above, which is a render-time value and so
+           ;; one frame old. That is not theoretical here: the mouse-enter fires
+           ;; *because* closing swapped the box for the `+` under a resting
+           ;; pointer, so it is the event most likely to arrive on the render
+           ;; that has not happened yet — and it is the one thing `:dismissed?`
+           ;; exists to answer.
+           {:on-mouse-enter #(let [{:keys [mode dismissed?]} @ui-state]
+                               (when (and (= :closed mode) (not dismissed?))
+                                 (swap! ui-state assoc :mode :menu)))
+            :on-mouse-leave #(swap! ui-state
+                                    (fn [s]
+                                      (cond-> (assoc s :dismissed? false)
+                                        (= :menu (:mode s)) (assoc :mode :closed))))}
            (if (= :input mode)
              [:div.today-add-form {:class (if meet? "meet" "task")}
               [:input.today-add-input
