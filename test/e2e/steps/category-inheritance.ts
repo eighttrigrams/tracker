@@ -30,6 +30,9 @@ const listUrl: Record<string, string> = {
   "recurring-tasks": "/api/recurring-tasks",
   resources: "/api/resources",
   journals: "/api/journals",
+  // Unfiltered on purpose: the read-back must see the message whatever the
+  // sidebar is still holding, and this list now honours those six params.
+  messages: "/api/messages?view=inbox",
 };
 
 // Which input the title goes into, per add path. Every one of these forms adds
@@ -45,6 +48,10 @@ const searchInput: Record<string, string> = {
   // Journals mode is the Resources page, so it is the resources input — the id
   // is shared and the two forms are never mounted together.
   journals: "#resources-filter-search",
+  // The Inbox's box is add-only rather than combined, so it is `.mail-add-form`
+  // and not `.combined-search-add-form`; the id follows the same
+  // <page-prefix>-filter-search convention as the rest.
+  messages: "#mail-filter-search",
 };
 
 // Counted from the moment an add step starts, so "six Groups selected sends six
@@ -155,7 +162,15 @@ When(
 When("I add {string} on the {string} page", async ({ page }, title: string, collection: string) => {
   countCategorizePosts(page);
   await setFieldValue(page.locator(searchInput[collection]), title);
-  await page.locator(".combined-search-add-form button").first().click();
+  // Two form classes, not one: the Inbox's add box is add-only and carries
+  // `.mail-add-form`, while the eight combined search-add bars carry
+  // `.combined-search-add-form`. Both are a field and an Add button, which is
+  // all this step needs, so they are named together rather than branched on the
+  // collection — a tenth form of either shape needs nothing here.
+  await page
+    .locator(".combined-search-add-form button, .mail-add-form button")
+    .first()
+    .click();
   // The Journals form asks for a schedule type before it creates anything. Keyed
   // off the modal being on screen rather than off a list of collections that open
   // one, so a second form that asks something needs no entry here — and waited

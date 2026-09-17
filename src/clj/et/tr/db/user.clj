@@ -80,6 +80,18 @@
                          :where [:in :task_id task-ids]})))
         (db.working-on/clear-for-user! tx user-id)
         (jdbc/execute-one! tx (sql/format {:delete-from :tasks :where [:= :user_id user-id]}))
+        ;; The same two steps the tasks above take, for the same reason: the
+        ;; declared cascade is inert while `PRAGMA foreign_keys` is off, so the
+        ;; join rows have to be named.
+        (let [message-ids (mapv :id (jdbc/execute! tx
+                                      (sql/format {:select [:id]
+                                                   :from [:messages]
+                                                   :where [:= :user_id user-id]})
+                                      db/jdbc-opts))]
+          (when (seq message-ids)
+            (jdbc/execute-one! tx
+              (sql/format {:delete-from :message_categories
+                           :where [:in :message_id message-ids]}))))
         (jdbc/execute-one! tx (sql/format {:delete-from :messages :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :categories :where [:= :user_id user-id]}))
         (jdbc/execute-one! tx (sql/format {:delete-from :mottos :where [:= :user_id user-id]}))

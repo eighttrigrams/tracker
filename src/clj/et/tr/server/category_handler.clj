@@ -309,7 +309,7 @@
 
   The item keeps its id and therefore its name, description, tags, badge title,
   scope and every association it had with tasks, issues, resources, meets,
-  meeting series, recurring tasks, journals and journal entries; the
+  meeting series, recurring tasks, journals, journal entries and messages; the
   category_type mirrored in those join tables and in the user's category rules
   is updated in the same transaction. Its sort_order becomes the last position
   in the destination group, since its old value was a position in a list it has

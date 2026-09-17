@@ -67,7 +67,7 @@
   Since 073-unify-category-tables they all live in one `categories` table and
   a group is just a value of its `category_type` column, so adding a group is
   adding an entry here rather than adding a table. `:type` is that stored
-  value (and the value mirrored in the eight <entity>_categories join tables);
+  value (and the value mirrored in the nine <entity>_categories join tables);
   `:key` is the plural keyword the HTTP API, the ordering contexts and the
   app-state use for the same group.
 
@@ -127,7 +127,20 @@
                   "journal, no title of its own — and that copies the journal's own Categories "
                   "into the entry inside the same transaction. Its filing comes from its "
                   "parent, which is a stronger claim than the sidebar's, and giving it the "
-                  "sidebar's as well would file it under two answers at once.")}])
+                  "sidebar's as well would file it under two answers at once.")}
+   ;; The ninth, and the one this list was written to make possible: messages
+   ;; were the one Item kind that carried no Categories at all, on the reading
+   ;; that the Inbox is a queue and the thing you file is whatever a message is
+   ;; converted into. The Inbox growing the shared sidebar is what ended that —
+   ;; a selection visible over a card that could not take one.
+   ;;
+   ;; It inherits its add filters for the Journal's reason, read the other way
+   ;; round: the Inbox list is now narrowed by those same six filters, so a
+   ;; message added under one and not carrying it would vanish out of the list it
+   ;; was just added to. Most messages arrive from the three producers that hold
+   ;; no key and see no sidebar; this is about the one box a person types into.
+   {:kind :message :segment "messages" :join-table :message_categories
+    :inherits-add-filters? true}])
 
 (def categorizable-join-tables (mapv :join-table categorizable-entities))
 

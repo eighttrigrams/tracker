@@ -20,7 +20,12 @@
   view (default \"inbox\"), sort (default \"recent\"), sender, context, strict
   (\"true\" enables strict context match), excludedSenders (CSV), importance,
   urgency, q (search term), limit (int — caps the row count; machine users
-  default to 10 when omitted). Requires Mail access; returns 403 otherwise."
+  default to 10 when omitted). Requires Mail access; returns 403 otherwise.
+
+  Also the six Category Group params and their excluded- counterparts, parsed by
+  the same two helpers every other list handler uses. The Inbox's sidebar used to
+  hold a selection it could not act on, because messages carried no Categories;
+  now that they do, it narrows this list the way it narrows every other."
   [req]
   (if (common/has-mail? req)
     (let [user-id (common/get-user-id req)
@@ -32,7 +37,9 @@
           excluded-senders-param (get-in req [:params "excludedSenders"])
           excluded-senders (when (and excluded-senders-param (not (str/blank? excluded-senders-param)))
                              (set (str/split excluded-senders-param #",")))
-          limit (common/parse-int-opt (get-in req [:params "limit"]))]
+          limit (common/parse-int-opt (get-in req [:params "limit"]))
+          categories (common/parse-category-params (:params req))
+          excluded-categories (common/parse-excluded-categories (:params req))]
       {:status 200 :body (db.message/list-messages (common/ensure-ds) user-id {:view view
                                                                                 :sort-mode sort-mode
                                                                                 :sender-filter sender
@@ -42,6 +49,8 @@
                                                                                 :importance (get-in req [:params "importance"])
                                                                                 :urgency (get-in req [:params "urgency"])
                                                                                 :search-term (get-in req [:params "q"])
+                                                                                :categories categories
+                                                                                :excluded-categories excluded-categories
                                                                                 :limit limit})})
     {:status 403 :body {:error "Mail access required"}}))
 
@@ -398,3 +407,24 @@
       {:status 200 :body result}
       {:status 404 :body {:error "Message not found"}})))
 
+
+;; The Inbox's Categories. Both are the shared factories, so the only thing said
+;; here is which db fn and which entity name goes in the audit log; `:message` is
+;; what `events` already calls this kind everywhere else.
+;;
+;; No `with-mail-message-context`, and that is the one difference from every
+;; other handler in this namespace. The factories build the whole handler,
+;; including reading the id and the body, so there is nothing to wrap — and the
+;; Mail gate is not lost: a message a caller without Mail cannot list, get or
+;; convert is one whose id they have no way to come by, and `categorize-message`
+;; refuses an id the user does not own regardless.
+(def categorize-message-handler
+  "POST /api/messages/:id/categorize — link a message to a Category of one Group.
+  Body: {:category-type :category-id}. 400 on a missing type or a non-positive
+  id; 200 with the Categories the rule closure actually applied."
+  (common/make-categorize-handler db.message/categorize-message :message))
+
+(def uncategorize-message-handler
+  "DELETE /api/messages/:id/categorize — unlink one Category from a message.
+  Body: {:category-type :category-id}."
+  (common/make-uncategorize-handler db.message/uncategorize-message :message))

@@ -10,6 +10,7 @@
             [et.tr.ui.components.filter-section :as filter-section]
             [et.tr.ui.components.task-item :refer [clampable-description]]
             [et.tr.ui.components.item-card :as item-card]
+            [et.tr.ui.components.category-selector :as category-selector]
             [et.tr.ui.date :as date]))
 
 (defn- first-url [& texts]
@@ -153,6 +154,29 @@
                     (state/set-expanded-message nil))
                   (js/setTimeout #(state/set-message-done (:id message) true) 1000))}]])
 
+(defn- message-category-selector
+  "The Inbox's copy of the picker every other card carries. It lives here rather
+  than in `task-item` with most of the others for the reason the Resources page's
+  does: the file that owns the card is the one that owns its picker, and
+  `task-item` reaching into the Inbox would be the wrong direction."
+  [message category-type entities label]
+  (let [current-categories (get message (constants/category-type->key category-type) [])]
+    [category-selector/category-selector
+     {:entity message
+      :entity-id-key :id
+      :category-type category-type
+      :entities entities
+      :label label
+      :current-categories current-categories
+      :on-categorize #(state/categorize-message (:id message) category-type %)
+      :on-uncategorize #(state/uncategorize-message (:id message) category-type %)
+      :on-close-focus-fn nil
+      :open-selector-state (:category-selector/open @state/*app-state)
+      :search-state (:category-selector/search @state/*app-state)
+      :open-selector-fn state/open-category-selector
+      :close-selector-fn state/close-category-selector
+      :set-search-fn state/set-category-selector-search}]))
+
 (defn- mail-message-item [_message _expanded-id _view]
   (let [archiving? (r/atom false)]
     (fn [message expanded-id view]
@@ -182,6 +206,9 @@
           :header-extra [:span.item-date {:data-tooltip (some-> created_at (.substring 0 10) date/get-day-name)}
                          (format-message-datetime created_at)]
           :expanded-prefix [mail-expanded-prefix message]
+          ;; No :relations-prefix — a message carries no relations, and passing
+          ;; one would render an empty badge row on every card.
+          :categories {:selector-fn message-category-selector}
           :footer (mail-footer message)}]))))
 
 (defn- mail-sender-filter-badge []
@@ -320,11 +347,15 @@
   "The Inbox's copy of the sidebar every other list page shows — same Groups,
   same shared selection, same Option+1..6 collapse, same parked bundle.
 
-  What it does *not* do is narrow the message list: `messages` is the one entity
-  with no categories to filter on. The box is here because the selection it
-  holds is the app's, not the page's — set it on Tasks and it is still set when
-  you come to read the Inbox, and until now that was a selection you could
-  neither see nor let go of from here."
+  It narrows the message list, which it did not when it arrived: `messages` was
+  then the one entity with no categories to filter on, and the box was here only
+  because the selection it holds is the app's rather than the page's — set it on
+  Tasks and it is still set when you come to read the Inbox, and before that it
+  was a selection you could neither see nor let go of from here.
+
+  Showing a selection over cards that could not take one is what ended that
+  reading. Messages carry Categories now, so the box does the same job here as
+  everywhere else and `state.mail/fetch-messages` sends the same six params."
   []
   (let [app-state @state/*app-state
         collapsed-filters (:mail-page/collapsed-filters app-state)]

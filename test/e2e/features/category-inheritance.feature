@@ -87,6 +87,22 @@ Feature: A new Item inherits the Category filters it was added under
     Then the "journals" item "Inherit all on journals" carries a category from every Group
     And one categorize request was sent per Group
 
+  # The ninth kind, and the one that had no Categories at all until the Inbox
+  # grew the sidebar: a message. Its add box is add-only rather than a combined
+  # search-add bar, which is the only thing that makes it different here. The
+  # reason it inherits is the Journal's, read the other way round — this list is
+  # narrowed by the same six filters now, so a note that did not carry them would
+  # drop out of the Inbox it was just typed into.
+  Scenario: A message added under a filter in every Group carries a category from every Group
+    Given I am on the app
+    And a category exists in every Group
+    And I reload the page
+    When I click the "Inbox" tab
+    And I filter by the seeded category in every Group
+    And I add "Inherit all on messages" on the "messages" page
+    Then the "messages" item "Inherit all on messages" carries a category from every Group
+    And one categorize request was sent per Group
+
   # The tenth add path, and the newest: the Today page's plus, which creates a
   # Meet dated to the day it is showing. It posts no /api/meets of its own —
   # it goes through state/add-meet like the Meets page's form does, and this is

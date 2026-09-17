@@ -4,6 +4,7 @@
             [taoensso.telemere :as tel]
             [et.tr.db :as db]
             [et.tr.db.category-rule :as db.category-rule]
+            [et.tr.db.message :as db.message]
             [et.tr.db.category-exclusion :as db.category-exclusion]
             [et.tr.db.relation :as relation]))
 
@@ -172,11 +173,17 @@
                            :set {:description description :modified_at [:raw "datetime('now')"]}
                            :where [:and [:= :id (:id resource)] (db/user-id-where-clause user-id)]})
               db/jdbc-opts))
+          ;; The message's Categories become the resource's — see the same two
+          ;; lines in convert-message-to-task. A filing done in the Inbox is the
+          ;; owner's answer about what the thing is, and triage is when that
+          ;; answer stops being available to ask for again.
+          (db.message/move-category-links! tx :resource_categories :resource_id (:id resource) message-id)
           (jdbc/execute-one! tx
             (sql/format {:delete-from :messages
                          :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]}))
           (tel/log! {:level :info :data {:message-id message-id :resource-id (:id resource) :user-id user-id}} "Message converted to resource")
-          (merge resource db/empty-category-groups {:description description}))))))
+          (merge (or (get-resource tx user-id (:id resource)) resource)
+                 {:description description}))))))
 
 (defn delete-resource [ds user-id resource-id]
   (when (resource-owned-by-user? ds resource-id user-id)

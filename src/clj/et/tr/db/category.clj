@@ -154,10 +154,10 @@
    (update-category ds user-id id name description tags badge-title "asset" expected-modified-at)))
 
 (def join-tables
-  "The eight <entity>_categories tables, with the column naming their entity and
+  "The nine <entity>_categories tables, with the column naming their entity and
   the entity table that column points into. Every one of them mirrors
   categories.category_type, so anything that changes or removes a category has
-  to visit all eight."
+  to visit all nine."
   [[:task_categories :task_id :tasks]
    [:issue_categories :issue_id :issues]
    [:resource_categories :resource_id :resources]
@@ -165,24 +165,32 @@
    [:meeting_series_categories :meeting_series_id :meeting_series]
    [:recurring_task_categories :recurring_task_id :recurring_tasks]
    [:journal_categories :journal_id :journals]
-   [:journal_entry_categories :journal_entry_id :journal_entries]])
+   [:journal_entry_categories :journal_entry_id :journal_entries]
+   [:message_categories :message_id :messages]])
 
 (defn delete-category [ds user-id category-id category-type]
   (db/validate-category-type! category-type)
   (let [conn (db/get-conn ds)
         category-where [:and [:= :category_type category-type] [:= :category_id category-id]]]
     (jdbc/with-transaction [tx conn]
-      ;; NOTE: three of the eight join tables, not all eight -- unchanged from
-      ;; before the unification. Deleting a category therefore still leaves
-      ;; rows behind in issue_categories, meeting_series_categories,
-      ;; recurring_task_categories, journal_categories and
-      ;; journal_entry_categories. That is a pre-existing gap and widening it
-      ;; here would change what a delete does to the owner's data, so it is
-      ;; reported rather than quietly repaired.
+      ;; NOTE: four of the nine join tables, not all nine -- substantially
+      ;; unchanged from before the unification. Deleting a category therefore
+      ;; still leaves rows behind in issue_categories,
+      ;; meeting_series_categories, recurring_task_categories,
+      ;; journal_categories and journal_entry_categories. That is a pre-existing
+      ;; gap and widening it here would change what a delete does to the owner's
+      ;; data, so it is reported rather than quietly repaired.
+      ;;
+      ;; message_categories is the fourth, and is here because it is *new*: the
+      ;; argument for leaving the five alone is that repairing them would change
+      ;; what delete does to data that already exists, and a table shipped empty
+      ;; has none. Starting it correct costs nobody a surprise, and joining the
+      ;; gap deliberately would be the odd choice.
       (doseq [[join-table entity-col entity-table]
               [[:task_categories :task_id :tasks]
                [:resource_categories :resource_id :resources]
-               [:meet_categories :meet_id :meets]]]
+               [:meet_categories :meet_id :meets]
+               [:message_categories :message_id :messages]]]
         (jdbc/execute-one! tx
           (sql/format {:delete-from join-table
                        :where (conj category-where
@@ -240,7 +248,7 @@
   name, description, tags, badge title, scope and every association hanging off
   that id. Nothing is copied and nothing is recreated.
 
-  The eight <entity>_categories tables carry category_type as a denormalised
+  The nine <entity>_categories tables carry category_type as a denormalised
   mirror of the same value, so each of them is updated for this category_id in
   the SAME transaction. Category rules key on (type, id) too and are moved with
   it. A mirror left disagreeing would put the item under its old group in some

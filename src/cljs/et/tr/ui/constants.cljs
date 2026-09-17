@@ -110,10 +110,11 @@
   sidebar is there.
 
   Mail was the one list page without it and is in the set since the Inbox grew
-  one. Its selection does not narrow the message list — `messages` is the one
-  entity with no categories — but the box is the shared selection, and
-  Option+Escape parking it from the Inbox is the same gesture it is everywhere
-  else.
+  one. Its selection narrows the message list like every other page's — it did
+  not at first, `messages` being then the one entity with no categories, and the
+  box was there for the shared selection alone: Option+Escape parking it from the
+  Inbox is the same gesture it is everywhere else. A selection shown over cards
+  that could not take one is what settled that; messages carry Categories now.
 
   Written out rather than derived: there is no registry of which pages have a
   sidebar to derive it from, and inventing one to hold seven keywords would be

@@ -72,8 +72,17 @@
 ;; ---------------------------------------------------------------------------
 ;; 2. Every kind accepts every Group
 
-(defn- create-item! [segment title]
-  (:body (POST-json (str "/api/" segment) {:title title})))
+(defn- create-item!
+  "One Item of `segment`, by the same POST for every kind.
+
+  `:sender` is in the body for the one kind that requires it and is ignored by
+  the eight that do not — every add handler destructures the fields it wants and
+  drops the rest. Sending it unconditionally keeps this loop from growing a
+  `case` on the kind, which is the hand-enumeration the whole namespace exists to
+  avoid: a tenth kind with its own required field can be met by widening this map
+  rather than by branching."
+  [segment title]
+  (:body (POST-json (str "/api/" segment) {:title title :sender "Coverage"})))
 
 (deftest every-kind-carries-a-category-from-every-group
   (testing "each categorizable kind accepts one Category per Group and reads it back under that Group's key"

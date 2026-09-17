@@ -318,6 +318,8 @@
       (PUT "/:id/scope" [] message-handler/set-message-scope-handler)
       (PUT "/:id/importance" [] message-handler/set-message-importance-handler)
       (PUT "/:id/urgency" [] message-handler/set-message-urgency-handler)
+      (POST "/:id/categorize" [] message-handler/categorize-message-handler)
+      (DELETE "/:id/categorize" [] message-handler/uncategorize-message-handler)
       (POST "/:id/convert-to-resource" [] message-handler/convert-message-to-resource-handler)
       (POST "/:id/convert-to-task" [] message-handler/convert-message-to-task-handler)
       (PUT "/:id" [] message-handler/update-message-handler)

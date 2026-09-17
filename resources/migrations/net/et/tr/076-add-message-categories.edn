@@ -1,0 +1,35 @@
+;; The ninth <entity>_categories table.
+;;
+;; `messages` was the one entity with no categories, which was a real design
+;; position and not an oversight: the Inbox is a triage queue, and the thing you
+;; categorise was the task or resource a message got converted into. The Inbox
+;; growing the shared Category sidebar is what made that position untenable to
+;; look at — the box was right there, showing a selection, and the card under it
+;; had no way to take one.
+;;
+;; Shaped exactly like `issue_categories`, cascade included — and the cascade is
+;; declared for the shape rather than for the effect. **SQLite enforces foreign
+;; keys only under `PRAGMA foreign_keys = ON`, which this app never sets**, so
+;; every `ON DELETE CASCADE` in this schema is decoration and the eight tables
+;; this one copies all leave rows behind today. Written the same way anyway,
+;; because a table that disagreed with its siblings would read as a decision, and
+;; because the day the pragma goes on this one should already be right.
+;;
+;; What actually removes these rows is named code: `db.message/drop-category-links!`
+;; and `move-category-links!`, called from the delete and from both conversions.
+;; That is not belt-and-braces here the way it would be elsewhere — messages are
+;; the one entity deleted rather than archived, and the Inbox is a queue whose
+;; purpose is to empty, so orphans would arrive continuously rather than rarely.
+;;
+;; `category_type` is the same denormalised mirror of `categories.category_type`
+;; that migration 073 describes, and this table is now one of the ones the
+;; group-move has to keep in step — see `db.category/join-tables`, which is the
+;; registry that says so.
+{:up ["CREATE TABLE message_categories (
+         message_id INTEGER NOT NULL,
+         category_type TEXT NOT NULL,
+         category_id INTEGER NOT NULL,
+         PRIMARY KEY (message_id, category_type, category_id),
+         FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+       )"]
+ :down ["DROP TABLE message_categories"]}

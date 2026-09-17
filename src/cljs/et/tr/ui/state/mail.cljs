@@ -14,6 +14,8 @@
   be loaded by the node suite at all."
   (:require [et.tr.ui.api :as api]
             [et.tr.ui.seal :as seal]
+            [et.tr.ui.state.category-filters :as category-filters]
+            [et.tr.ui.state.exclusions :as exclusions]
             [clojure.string :as str]
             [reagent.core :as r]))
 
@@ -49,6 +51,11 @@
         search-term (:search-term state)
         context (name (:work-private-mode @app-state))
         strict (:strict-mode @app-state)
+        ;; The sidebar's selection, read the same way every other list reads it.
+        ;; `query-params` rather than `query-string` because this builder joins
+        ;; with a leading & and the other one trails it.
+        category-params (category-filters/query-params app-state (category-filters/fetch-opts app-state))
+        excluded-params (exclusions/query-params app-state)
         url (cond-> (str "/api/messages?view=" view "&sort=" sort-mode)
               sender-filter (str "&sender=" (js/encodeURIComponent sender-filter))
               (seq excluded-senders) (str "&excludedSenders=" (js/encodeURIComponent (str/join "," excluded-senders)))
@@ -56,7 +63,9 @@
               urgency (str "&urgency=" (name urgency))
               (and (= view "saved") (seq search-term)) (str "&q=" (js/encodeURIComponent search-term))
               context (str "&context=" (js/encodeURIComponent context))
-              strict (str "&strict=true"))]
+              strict (str "&strict=true")
+              (seq category-params) (str "&" (str/join "&" category-params))
+              (seq excluded-params) (str "&" (str/join "&" excluded-params)))]
     (api/fetch-json-with-error url (auth-headers)
       (fn [messages]
         (when (= request-id (:fetch-request-id @*mail-page-state))
@@ -224,7 +233,7 @@
   read through — the same thing `add-task` does with it, and for the same
   reason: with the lens at ★, a note created `normal` is filtered out of the
   list the moment it is written, and reads as an add that did nothing."
-  [app-state auth-headers current-scope-fn current-importance-fn title on-success]
+  [app-state auth-headers current-scope-fn current-importance-fn title categories on-success]
   (let [scope (current-scope-fn)]
     (api/post-json "/api/messages"
       (cond-> {:sender DEFAULT-SENDER
@@ -233,11 +242,32 @@
                :importance (current-importance-fn)}
         (#{"private" "work"} scope) (assoc :scope scope))
       (auth-headers)
-    (fn [_]
+    (fn [message]
+      ;; The same reason the importance lens is carried above, now that the
+      ;; sidebar narrows this list too: a note written under a Workstream filter
+      ;; and not carrying it drops straight back out of the list it was typed
+      ;; into, and reads as an add that did nothing.
+      (category-filters/apply-filter-categories! auth-headers "messages" (:id message) categories)
       (fetch-messages app-state auth-headers)
       (when on-success (on-success)))
     (fn [resp]
       (swap! app-state assoc :error (get-in resp [:response :error] "Failed to add message"))))))
+
+(defn categorize-message [app-state auth-headers fetch-messages-fn message-id category-type category-id]
+  (api/post-json (str "/api/messages/" message-id "/categorize")
+    {:category-type category-type :category-id category-id}
+    (auth-headers)
+    (fn [_] (fetch-messages-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to categorize message")))))
+
+(defn uncategorize-message [app-state auth-headers fetch-messages-fn message-id category-type category-id]
+  (api/delete-json (str "/api/messages/" message-id "/categorize")
+    {:category-type category-type :category-id category-id}
+    (auth-headers)
+    (fn [_] (fetch-messages-fn))
+    (fn [resp]
+      (swap! app-state assoc :error (get-in resp [:response :error] "Failed to uncategorize message")))))
 
 (defn set-message-dropdown-open [message-id]
   (swap! *mail-page-state assoc :message-dropdown-open message-id))

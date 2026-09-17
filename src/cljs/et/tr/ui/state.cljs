@@ -272,6 +272,11 @@
 (declare fetch-users)
 (declare fetch-all-categories)
 (declare fetch-working-on)
+;; The sidebar's selection, wanted by `add-message` well above where the filter
+;; helpers are defined. Every other add path that carries the selection sits
+;; below them and needs no declaration; the Inbox's sits up here with the rest
+;; of the mail wrappers.
+(declare active-filter-categories)
 
 (defn- fetch-all [user]
   (if (:is_admin user)
@@ -400,7 +405,14 @@
                         (edit-conflict-handler :message "Failed to update message"))))
 
 (defn add-message [title on-success]
-  (mail/add-message *app-state auth-headers current-scope current-importance title on-success))
+  (mail/add-message *app-state auth-headers current-scope current-importance title
+                    (active-filter-categories) on-success))
+
+(defn categorize-message [message-id category-type category-id]
+  (mail/categorize-message *app-state auth-headers fetch-messages message-id category-type category-id))
+
+(defn uncategorize-message [message-id category-type category-id]
+  (mail/uncategorize-message *app-state auth-headers fetch-messages message-id category-type category-id))
 
 (defn set-message-dropdown-open [message-id]
   (mail/set-message-dropdown-open message-id))

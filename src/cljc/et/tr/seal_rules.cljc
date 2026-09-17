@@ -187,7 +187,7 @@
     :youtube_channels :podcast_feeds :atom_feeds :issue_categories
     :task_categories :meet_categories :journal_categories :resource_categories
     :meeting_series_categories :recurring_task_categories
-    :journal_entry_categories})
+    :journal_entry_categories :message_categories})
 
 (defn sealed-in
   "Which of `table`'s sealed columns this row actually holds in ciphertext. The

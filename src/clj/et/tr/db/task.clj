@@ -9,6 +9,7 @@
             [et.tr.db.day-list :as db.day-list]
             [et.tr.db.recurring-task :as db.recurring-task]
             [et.tr.db.category-rule :as db.category-rule]
+            [et.tr.db.message :as db.message]
             [et.tr.db.category-exclusion :as db.category-exclusion]
             [et.tr.db.relation :as relation]
             [et.tr.db.working-on :as db.working-on]))
@@ -569,6 +570,11 @@
                             :set {:description description :modified_at (clock/sql-now)}
                             :where [:and [:= :id (:id task)] (db/user-id-where-clause user-id)]})
                db/jdbc-opts))
+           ;; Before the message goes: its Categories become the task's. Filing
+           ;; something in the Inbox is how the owner says what it is about, and
+           ;; triage is exactly when that answer stops being available to ask
+           ;; again.
+           (db.message/move-category-links! tx :task_categories :task_id (:id task) message-id)
            (jdbc/execute-one! tx
              (sql/format {:delete-from :messages
                           :where [:and [:= :id message-id] (db/user-id-where-clause user-id)]}))
@@ -576,4 +582,8 @@
            ;; Urgent Matters and needs the position that goes with it.
            (place-in-urgent-list! tx user-id (:id task) (:urgency task))
            (tel/log! {:level :info :data {:message-id message-id :task-id (:id task) :user-id user-id}} "Message converted to task")
-           (merge task db/empty-category-groups {:description description})))))))
+           ;; Read back rather than merged empty: the task may now carry the
+           ;; message's Groups, and claiming it carries none would be a response
+           ;; that disagrees with the row it just wrote.
+           (merge (or (get-task tx user-id (:id task)) task)
+                  {:description description})))))))
